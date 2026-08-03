@@ -12,6 +12,7 @@
 // Exits non-zero on the first failed assertion group.
 
 import { spawn } from "node:child_process";
+import http from "node:http";
 import { fileURLToPath } from "node:url";
 
 const ROOT = fileURLToPath(new URL("../..", import.meta.url));
@@ -94,6 +95,86 @@ async function shutdown(servers) {
       });
     }),
   );
+}
+
+// Opens an SSE stream and collects parsed events until `until` returns
+// truthy (the client then closes the connection) or the server closes the
+// stream, whichever comes first.
+function collectSSE(baseUrl, path, until, { timeoutMs = 15000 } = {}) {
+  return new Promise((resolve, reject) => {
+    const events = [];
+    let buffer = "";
+    let req;
+    const timer = setTimeout(() => {
+      req.destroy();
+      reject(
+        new Error(
+          `timed out after ${timeoutMs}ms; got: ${events.map((e) => e.type ?? e.payload?.type).join(", ")}`,
+        ),
+      );
+    }, timeoutMs);
+    const settle = (fn, value) => {
+      clearTimeout(timer);
+      fn(value);
+    };
+    req = http.get(`${baseUrl}${path}`, (res) => {
+      if (res.statusCode !== 200) {
+        settle(reject, new Error(`SSE status ${res.statusCode}`));
+        req.destroy();
+        return;
+      }
+      res.setEncoding("utf8");
+      res.on("data", (chunk) => {
+        buffer += chunk;
+        let idx;
+        while ((idx = buffer.indexOf("\n\n")) !== -1) {
+          const frame = buffer.slice(0, idx);
+          buffer = buffer.slice(idx + 2);
+          for (const line of frame.split("\n")) {
+            if (!line.startsWith("data:")) continue;
+            try {
+              events.push(JSON.parse(line.slice(5).trim()));
+            } catch {
+              // Malformed frame; skip.
+            }
+          }
+          if (until(events)) {
+            settle(resolve, events);
+            req.destroy();
+            return;
+          }
+        }
+      });
+      res.on("end", () => settle(resolve, events));
+      res.on("error", (err) => settle(reject, err));
+    });
+    req.on("error", (err) => settle(reject, err));
+  });
+}
+
+const SESSION_ID = "ses_abc123";
+
+function typesOf(events) {
+  return events.map((e) => e.type ?? e.payload?.type);
+}
+
+// Collects an SSE scenario until `session.idle` arrives and asserts the
+// given type sequence appears in order, with server.connected first and
+// session.idle last. Returns the collected events.
+async function expectScenarioSequence(baseUrl, scenario, middleTypes) {
+  const events = await collectSSE(baseUrl, `/event?scenario=${scenario}`, (evts) =>
+    evts.some((e) => e.type === "session.idle"),
+  );
+  const types = typesOf(events);
+  const order = ["server.connected", "session.created", ...middleTypes];
+  let prev = -1;
+  for (const type of order) {
+    const idx = types.indexOf(type);
+    expect(idx > prev, `expected "${type}" in sequence; got ${types.join(", ")}`);
+    prev = idx;
+  }
+  expect(types[types.length - 1] === "session.idle", `session.idle must be last; got ${types.join(", ")}`);
+  return events;
 }
 
 const servers = [];
@@ -192,6 +273,71 @@ try {
         headers: { Origin: "tauri://localhost" },
       });
       expect(headers.get("access-control-allow-origin") === null, "ACAO header must be absent");
+    });
+
+    await test("sse: happy-chat streams server.connected first and replays the scenario", async () => {
+      const events = await expectScenarioSequence(baseUrl, "happy-chat", [
+        "session.status",
+        "message.part.updated",
+        "message.part.delta",
+      ]);
+      expect(events[0].properties.reconnected === false, "server.connected must carry reconnected:false");
+      for (const e of events) {
+        if (e.properties?.sessionID !== undefined) {
+          expect(e.properties.sessionID === SESSION_ID, `coherent sessionID; got ${JSON.stringify(e.properties.sessionID)}`);
+        }
+      }
+      const toolUpdates = events.filter((e) => e.type === "message.part.updated" && e.properties?.part?.type === "tool");
+      expect(toolUpdates.length >= 2, "tool part must be updated for call + result");
+      expect(toolUpdates[0].properties.part.state.status === "running", "first tool part state must be running");
+      expect(toolUpdates[1].properties.part.state.status === "completed", "second tool part state must be completed");
+    });
+
+    await test("sse: permission-flow asks then replies", async () => {
+      const events = await expectScenarioSequence(baseUrl, "permission-flow", ["permission.asked", "permission.replied"]);
+      const asked = events.find((e) => e.type === "permission.asked");
+      const replied = events.find((e) => e.type === "permission.replied");
+      expect(asked.properties.id === "per_req_001", `permission id ${JSON.stringify(asked.properties.id)}`);
+      expect(asked.properties.sessionID === SESSION_ID, "asked must target the scenario session");
+      expect(replied.properties.requestID === "per_req_001", "replied must reference the asked request");
+      expect(replied.properties.reply === "once", `reply ${JSON.stringify(replied.properties.reply)}`);
+    });
+
+    await test("sse: question-flow asks then replies", async () => {
+      const events = await expectScenarioSequence(baseUrl, "question-flow", ["question.asked", "question.replied"]);
+      const asked = events.find((e) => e.type === "question.asked");
+      const replied = events.find((e) => e.type === "question.replied");
+      expect(Array.isArray(asked.properties.questions) && asked.properties.questions.length > 0, "asked must carry questions");
+      expect(asked.properties.questions[0].header === "Refactor approach", "first question must have a header");
+      expect(replied.properties.requestID === "que_req_001", "replied must reference the asked request");
+      expect(JSON.stringify(replied.properties.answers) === JSON.stringify(["Incremental"]), "answers must match the reply");
+    });
+
+    await test("sse: sse-drop ends the stream without a terminal event", async () => {
+      const events = await collectSSE(baseUrl, "/event?scenario=sse-drop", () => false, { timeoutMs: 8000 });
+      const types = typesOf(events);
+      expect(types[0] === "server.connected", `first event ${types[0]}`);
+      expect(types.length >= 3, `expected a few events before the drop; got ${types.join(", ")}`);
+      expect(!types.includes("session.idle"), "sse-drop must not emit session.idle");
+    });
+
+    await test("sse: __drop=true ends happy-chat early without session.idle", async () => {
+      const events = await collectSSE(baseUrl, "/event?scenario=happy-chat&__drop=true", () => false, { timeoutMs: 8000 });
+      const types = typesOf(events);
+      expect(types[0] === "server.connected", `first event ${types[0]}`);
+      expect(types.includes("session.created"), "must still replay the first scenario event");
+      expect(!types.includes("session.idle"), "__drop must cut the stream before the terminal event");
+    });
+
+    await test("sse: /global/event streams GlobalEvent envelopes", async () => {
+      const events = await collectSSE(baseUrl, "/global/event", (evts) =>
+        evts.some((e) => e.payload?.type === "catalog.updated"),
+      );
+      const types = typesOf(events);
+      expect(types[0] === "server.connected", `first event ${types[0]}`);
+      expect(types[1] === "project.updated", `second event ${types[1]}`);
+      expect(events[1].directory === "/mock/projects/opencode-demo", "global envelope must carry the directory");
+      expect(events[1].payload?.properties?.id === "project-mock-1", "payload properties must carry the project id");
     });
   }
 

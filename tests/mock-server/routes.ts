@@ -1,5 +1,6 @@
 import type { Express, Request, Response } from "express";
 import type { Fixtures } from "./fixtures.js";
+import { handleSSE } from "./sse.js";
 
 // Declarative route table, grouped by the priority sections of
 // docs/api-coverage.md. Each entry maps an OpenAPI endpoint to a fixture
@@ -34,6 +35,12 @@ const P0_CORE_LOOP: Route[] = [
 // P1–P4 endpoints are intentionally not registered yet; they return 501.
 const ROUTES: Route[] = [...P0_CORE_LOOP];
 
+// SSE endpoints stream events; they are not part of the fixture table.
+function registerSSE(app: Express): void {
+  app.get("/event", (req, res) => handleSSE(req, res, { global: false }));
+  app.get("/global/event", (req, res) => handleSSE(req, res, { global: true }));
+}
+
 export function registerRoutes(app: Express, fixtures: Fixtures): void {
   for (const route of ROUTES) {
     const handler = (_req: Request, res: Response): void => {
@@ -41,4 +48,5 @@ export function registerRoutes(app: Express, fixtures: Fixtures): void {
     };
     app[route.method](route.path, handler);
   }
+  registerSSE(app);
 }
