@@ -227,7 +227,7 @@ function TokenDemo() {
             class="relative overflow-hidden rounded-r-xl p-10"
             style={{
               background:
-                "linear-gradient(135deg, var(--accent), #34d399 60%, var(--warning))",
+                "linear-gradient(135deg, var(--accent), var(--success) 60%, var(--warning))",
             }}
           >
             <div class="glass max-w-md p-6">

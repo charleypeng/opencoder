@@ -36,7 +36,6 @@
   :root {
     color-scheme: dark;
     font-family: var(--font-ui);
-    font-size: var(--text-md);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

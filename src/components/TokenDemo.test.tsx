@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import TokenDemo from "./TokenDemo";
 
