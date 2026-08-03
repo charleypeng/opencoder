@@ -1,57 +1,106 @@
-# OpenCode Client App
+# opencode-client
 
 A cross-platform desktop & mobile client for [OpenCode](https://opencode.ai), built with Tauri 2 and SolidJS.
 
-> Status: **Planning** — design docs and implementation plan in `docs/`, code to be scaffolded.
+> Status: **Planning** — milestone M0 (engineering foundation) done, M1+ in progress. See [docs/PLAN.md](docs/PLAN.md).
 
-## Vision
+![Build status](https://img.shields.io/github/actions/workflow/status/charleypeng/opencoder/ci.yml?branch=main&label=CI)
+[简体中文](./README-zh.md)
+
+## Features
 
 - **One codebase, five platforms**: macOS / Windows / Linux / iOS / Android
 - **Dual-form UI**: a desktop shell (mouse + shortcuts) and a mobile shell (touch-first), sharing one component library
 - **Multi-server management**: connect to multiple `opencode serve` instances with health checks, mDNS auto-discovery, and a server home page
-- **Full API coverage**: stage-by-stage implementation of the entire OpenAPI spec (162 endpoints / 472 schemas, see `docs/api-coverage.md`)
+- **Full API coverage**: stage-by-stage implementation of the entire OpenAPI spec (162 endpoints / 472 schemas, see [docs/api-coverage.md](docs/api-coverage.md))
 - **Vibe coding**: a desktop mascot companion that reacts to coding events
 - **i18n first**: English + Simplified Chinese from day one
 
 ## Tech Stack
 
-| Layer         | Choice                                                   |
-| ------------- | -------------------------------------------------------- |
-| App framework | Tauri 2.x (Rust)                                         |
-| Frontend      | SolidJS + TypeScript                                     |
-| Build         | Vite 6 + `@solidjs/router`                               |
-| Styling       | Tailwind CSS v4 + CSS variable design tokens             |
-| API types     | `openapi-typescript` generated from the OpenAPI 3.1 spec |
-| Transport     | Rust `reqwest` (REST + SSE + WebSocket)                  |
-| Terminal      | xterm.js over a Rust WebSocket/PTY channel               |
-| i18n          | i18next + `solid-i18next`                                |
-| Quality       | ESLint + Prettier + clippy/fmt + husky/lint-staged       |
+| Layer         | Choice                                                                   |
+| ------------- | ------------------------------------------------------------------------ |
+| App framework | Tauri 2.x (Rust)                                                         |
+| Frontend      | SolidJS + TypeScript                                                     |
+| Build         | Vite 6 + `@solidjs/router`                                               |
+| Styling       | Tailwind CSS v4 + CSS variable design tokens                             |
+| Components    | Kobalte (accessible headless components)                                 |
+| API types     | `openapi-typescript` generated from the OpenAPI 3.1 spec                 |
+| Transport     | Rust `reqwest` (REST + SSE + WebSocket), WebView never connects directly |
+| Terminal      | xterm.js over a Rust WebSocket/PTY channel                               |
+| State         | Solid stores, sliced per server                                          |
+| i18n          | i18next + `solid-i18next`                                                |
+| Mascot        | Rive animations in a separate transparent window (desktop)               |
+| Quality       | ESLint + Prettier + clippy/fmt + husky/lint-staged                       |
 
-## Repository Layout
+## Architecture
 
 ```
-opencode-client/
-├── docs/               # Planning docs (plan, architecture, UI design, API coverage, tasks)
-├── src/                # SolidJS frontend
-├── src-tauri/          # Rust core (transport, connections, discovery, pet)
-└── opencode.json       # opencode workspace config
+┌───────────────────────────────────────────────────────────┐
+│                  SolidJS Frontend (one codebase)          │
+│  Desktop Shell · Mobile Shell · Shared Features           │
+│  Stores (per server) ← Services (API abstraction)         │
+│               ApiClient / SSE facade (TS)                 │
+└───────────────────────────┬───────────────────────────────┘
+                    Tauri IPC (invoke / Channel)
+┌───────────────────────────▼───────────────────────────────┐
+│                     Rust Core (src-tauri)                 │
+│   transport: http (REST) · sse · ws (PTY)                 │
+│   connections · health monitor · mDNS discovery           │
+│   pet window · glass plugin (iOS/macOS)                   │
+└───────────────────────────┬───────────────────────────────┘
+                 HTTP / SSE / WebSocket (reqwest)
+      opencode serve (local)    (LAN / mDNS)    (remote)
 ```
 
-See `docs/architecture.md` for the full structure and `docs/PLAN.md` for the implementation plan.
+All network traffic to OpenCode servers flows through the Rust transport layer (ADR-002), which avoids WebView CORS restrictions and iOS ATS blocks, and keeps SSE/WebSocket connections alive independently of the WebView lifecycle. See [docs/architecture.md](docs/architecture.md) for details.
 
-## API Contract & Type Generation
+## Getting Started
 
-The frontend uses TypeScript types generated from the OpenCode OpenAPI contract:
+Prerequisites: Node.js >= 20, pnpm, and a Rust toolchain (for desktop builds).
 
-- Source of truth: `docs/openapi_v1.18.11.json` (OpenAPI 3.1)
-- Generated types: `src/services/api/schema.d.ts` (via `openapi-typescript`, script: `scripts/gen-api.mjs`)
+```bash
+pnpm install        # install dependencies
+pnpm tauri dev      # run the desktop app in dev mode
+```
 
-**Contract upgrade flow** (when the OpenCode API changes):
+Useful scripts:
 
-1. Replace `docs/openapi_v1.18.11.json` with the new spec (keep the versioned filename, update `scripts/gen-api.mjs` if the name changes).
-2. Run `pnpm gen:api` to regenerate `src/services/api/schema.d.ts`.
-3. Run `pnpm gen:api:check` to confirm the committed types match the contract (drift detection, exits non-zero on mismatch).
-4. Run `npx tsc -b` to ensure the generated types compile, then commit both files together.
+| Command              | Purpose                                                                                   |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| `pnpm verify`        | Quality gate: lint + format + typecheck + tests + codegen drift (must pass before commit) |
+| `pnpm test`          | Unit tests (vitest)                                                                       |
+| `pnpm mock:start`    | Start the Mock OpenCode Server (Node, REST + SSE + scenarios)                             |
+| `pnpm mock:test`     | Mock server self-test                                                                     |
+| `pnpm gen:api`       | Regenerate API types from the OpenAPI contract                                            |
+| `pnpm gen:api:check` | Drift-check committed types against the contract (used in CI)                             |
+
+### API Contract & Type Generation
+
+- Source of truth: `docs/openapi_v1.18.11.json` (OpenAPI 3.1, version-locked)
+- Generated types: `src/services/api/schema.d.ts` (via `openapi-typescript`, script `scripts/gen-api.mjs`)
+
+Contract upgrade flow: replace the versioned spec file → `pnpm gen:api` → `pnpm gen:api:check` → `pnpm exec tsc -b` → commit both files.
+
+## Documentation
+
+| Doc                                              | Contents                                                    |
+| ------------------------------------------------ | ----------------------------------------------------------- |
+| [docs/PLAN.md](docs/PLAN.md)                     | Overall plan, milestones, decision points                   |
+| [docs/architecture.md](docs/architecture.md)     | Technical architecture, directory layout, data flows        |
+| [docs/api-coverage.md](docs/api-coverage.md)     | 162 endpoints → feature domain → priority/milestone mapping |
+| [docs/ui-design.md](docs/ui-design.md)           | Design system, desktop/mobile shells, Liquid Glass, mascot  |
+| [docs/testing.md](docs/testing.md)               | Layered test strategy, Mock Server, CI                      |
+| [docs/AGENT_PLAYBOOK.md](docs/AGENT_PLAYBOOK.md) | Agent execution manual (task card format, commit rules)     |
+| [docs/tasks/M0.md … M10.md](docs/tasks/M0.md)    | Executable task cards (83 total)                            |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, branch and commit conventions, and testing discipline.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for release history.
 
 ## License
 
