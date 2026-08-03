@@ -1,0 +1,15 @@
+node_modules
+dist
+opencode.json
+src-tauri/target
+docs
+tests/fixtures
+src/services/api/schema.d.ts
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
+vitest.config.js
+vitest.config.d.ts

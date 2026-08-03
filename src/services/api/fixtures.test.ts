@@ -26,7 +26,14 @@ import healthJson from "../../../tests/fixtures/health.json";
 import projectListJson from "../../../tests/fixtures/project.list.json";
 import projectCurrentJson from "../../../tests/fixtures/project.current.json";
 
-const fixturesDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "tests", "fixtures");
+const fixturesDir = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "..",
+  "tests",
+  "fixtures",
+);
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
@@ -56,7 +63,9 @@ type WidenLiterals<T> = T extends string
 type ToolStateRecorded =
   | (Omit<components["schemas"]["ToolStatePending"], "input"> & { input: Record<string, unknown> })
   | (Omit<components["schemas"]["ToolStateRunning"], "input"> & { input: Record<string, unknown> })
-  | (Omit<components["schemas"]["ToolStateCompleted"], "input"> & { input: Record<string, unknown> })
+  | (Omit<components["schemas"]["ToolStateCompleted"], "input"> & {
+      input: Record<string, unknown>;
+    })
   | (Omit<components["schemas"]["ToolStateError"], "input"> & { input: Record<string, unknown> });
 
 type RecordedPart =
@@ -68,11 +77,20 @@ type RecordedPart =
 // tests below so `noUnusedLocals` stays happy.
 const sessionList = sessionListJson satisfies WidenLiterals<Session[]>;
 const sessionDetail = sessionDetailJson satisfies WidenLiterals<Session>;
-const sessionMessages = sessionMessagesJson satisfies WidenLiterals<{ info: Message; parts: RecordedPart[] }[]>;
-const sessionMessage = sessionMessageJson satisfies WidenLiterals<{ info: Message; parts: RecordedPart[] }>;
+const sessionMessages = sessionMessagesJson satisfies WidenLiterals<
+  { info: Message; parts: RecordedPart[] }[]
+>;
+const sessionMessage = sessionMessageJson satisfies WidenLiterals<{
+  info: Message;
+  parts: RecordedPart[];
+}>;
 const allParts = allPartsJson satisfies WidenLiterals<{ info: Message; parts: RecordedPart[] }>;
-const permissionList = permissionJson satisfies WidenLiterals<components["schemas"]["PermissionRequest"][]>;
-const questionList = questionJson satisfies WidenLiterals<components["schemas"]["QuestionRequest"][]>;
+const permissionList = permissionJson satisfies WidenLiterals<
+  components["schemas"]["PermissionRequest"][]
+>;
+const questionList = questionJson satisfies WidenLiterals<
+  components["schemas"]["QuestionRequest"][]
+>;
 const fileTree = fileTreeJson satisfies WidenLiterals<components["schemas"]["FileNode"][]>;
 const diffList = diffJson satisfies WidenLiterals<components["schemas"]["SnapshotFileDiff"][]>;
 const todoList = todoJson satisfies WidenLiterals<components["schemas"]["Todo"][]>;
@@ -98,10 +116,16 @@ const ALL_PART_TYPES = [
 
 describe("recorded fixtures (tests/fixtures)", () => {
   it("index.json maps every key to an existing file", () => {
-    const index = JSON.parse(readFileSync(join(fixturesDir, "index.json"), "utf8")) as Record<string, string>;
+    const index = JSON.parse(readFileSync(join(fixturesDir, "index.json"), "utf8")) as Record<
+      string,
+      string
+    >;
     expect(Object.keys(index).length).toBeGreaterThan(0);
     for (const [key, file] of Object.entries(index)) {
-      expect(existsSync(join(fixturesDir, file)), `index key "${key}" -> missing file "${file}"`).toBe(true);
+      expect(
+        existsSync(join(fixturesDir, file)),
+        `index key "${key}" -> missing file "${file}"`,
+      ).toBe(true);
     }
   });
 
@@ -184,7 +208,14 @@ describe("recorded fixtures (tests/fixtures)", () => {
   });
 
   it("fixtures contain no personal paths (redaction)", () => {
-    const serialized = JSON.stringify([sessionList, sessionDetail, sessionMessages, fileTree, diffList, ptyList]);
+    const serialized = JSON.stringify([
+      sessionList,
+      sessionDetail,
+      sessionMessages,
+      fileTree,
+      diffList,
+      ptyList,
+    ]);
     expect(serialized).not.toContain(os.homedir());
     expect(serialized).not.toMatch(/\/Users\/[^/]+/);
   });

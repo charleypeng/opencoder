@@ -57,6 +57,7 @@ function parseArgs(argv: string[]): CliOptions {
           ].join("\n"),
         );
         process.exit(0);
+        break;
       default:
         throw new Error(`unknown argument: "${arg}" (see --help)`);
     }
@@ -77,6 +78,8 @@ const app = buildApp({ cors: options.cors, authPassword: options.authPassword })
 
 app.listen(options.port, () => {
   console.log(`[mock] OpenCode mock server listening on http://localhost:${options.port}`);
-  console.log(`[mock] cors=${options.cors} auth=${options.authPassword !== undefined ? "on" : "off"}`);
+  console.log(
+    `[mock] cors=${options.cors} auth=${options.authPassword !== undefined ? "on" : "off"}`,
+  );
   console.log(`[mock] fixtures root=${fixturesRoot()}`);
 });

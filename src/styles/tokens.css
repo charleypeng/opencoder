@@ -44,10 +44,11 @@
   --density: 1;
 
   /* fonts: system stack for UI, mono for code */
-  --font-ui: system-ui, -apple-system, "SF Pro Text", "Segoe UI Variable",
-    "Segoe UI", Inter, Roboto, "Helvetica Neue", Arial, sans-serif;
-  --font-code: "JetBrains Mono", "SF Mono", SFMono-Regular, ui-monospace, Menlo,
-    Consolas, monospace;
+  --font-ui:
+    system-ui, -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-code:
+    "JetBrains Mono", "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace;
 }
 
 [data-theme="light"] {

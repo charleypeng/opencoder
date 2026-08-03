@@ -2,18 +2,13 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-const tokensCss = readFileSync(
-  join(process.cwd(), "src/styles/tokens.css"),
-  "utf8",
-);
+const tokensCss = readFileSync(join(process.cwd(), "src/styles/tokens.css"), "utf8");
 
 function tokensFor(selector: string): string[] {
   const start = tokensCss.indexOf(`${selector} {`);
   if (start === -1) return [];
   const block = tokensCss.slice(start, tokensCss.indexOf("}", start));
-  return [...block.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map(
-    (m) => `${m[1]}: ${m[2].trim()}`,
-  );
+  return [...block.matchAll(/(--[\w-]+):\s*([^;]+);/g)].map((m) => `${m[1]}: ${m[2].trim()}`);
 }
 
 describe("design tokens (L2 snapshot)", () => {
@@ -60,9 +55,7 @@ describe("design tokens (L2 snapshot)", () => {
   });
 
   it("overrides theme-dependent tokens in the light theme", () => {
-    const lightNames = new Set(
-      tokensFor('[data-theme="light"]').map((line) => line.split(":")[0]),
-    );
+    const lightNames = new Set(tokensFor('[data-theme="light"]').map((line) => line.split(":")[0]));
     const themeDependent = [
       "--bg-base",
       "--bg-elevated",
@@ -85,9 +78,7 @@ describe("design tokens (L2 snapshot)", () => {
   });
 
   it("does not duplicate theme-independent tokens in the light theme", () => {
-    const lightNames = new Set(
-      tokensFor('[data-theme="light"]').map((line) => line.split(":")[0]),
-    );
+    const lightNames = new Set(tokensFor('[data-theme="light"]').map((line) => line.split(":")[0]));
     const themeIndependent = [
       "--text-xs",
       "--text-sm",

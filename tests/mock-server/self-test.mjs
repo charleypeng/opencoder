@@ -174,7 +174,10 @@ async function expectScenarioSequence(baseUrl, scenario, middleTypes) {
     expect(idx > prev, `expected "${type}" in sequence; got ${types.join(", ")}`);
     prev = idx;
   }
-  expect(types[types.length - 1] === "session.idle", `session.idle must be last; got ${types.join(", ")}`);
+  expect(
+    types[types.length - 1] === "session.idle",
+    `session.idle must be last; got ${types.join(", ")}`,
+  );
   return events;
 }
 
@@ -282,40 +285,83 @@ try {
         "message.part.updated",
         "message.part.delta",
       ]);
-      expect(events[0].properties.reconnected === false, "server.connected must carry reconnected:false");
+      expect(
+        events[0].properties.reconnected === false,
+        "server.connected must carry reconnected:false",
+      );
       for (const e of events) {
         if (e.properties?.sessionID !== undefined) {
-          expect(e.properties.sessionID === SESSION_ID, `coherent sessionID; got ${JSON.stringify(e.properties.sessionID)}`);
+          expect(
+            e.properties.sessionID === SESSION_ID,
+            `coherent sessionID; got ${JSON.stringify(e.properties.sessionID)}`,
+          );
         }
       }
-      const toolUpdates = events.filter((e) => e.type === "message.part.updated" && e.properties?.part?.type === "tool");
+      const toolUpdates = events.filter(
+        (e) => e.type === "message.part.updated" && e.properties?.part?.type === "tool",
+      );
       expect(toolUpdates.length >= 2, "tool part must be updated for call + result");
-      expect(toolUpdates[0].properties.part.state.status === "running", "first tool part state must be running");
-      expect(toolUpdates[1].properties.part.state.status === "completed", "second tool part state must be completed");
+      expect(
+        toolUpdates[0].properties.part.state.status === "running",
+        "first tool part state must be running",
+      );
+      expect(
+        toolUpdates[1].properties.part.state.status === "completed",
+        "second tool part state must be completed",
+      );
     });
 
     await test("sse: permission-flow asks then replies", async () => {
-      const events = await expectScenarioSequence(baseUrl, "permission-flow", ["permission.asked", "permission.replied"]);
+      const events = await expectScenarioSequence(baseUrl, "permission-flow", [
+        "permission.asked",
+        "permission.replied",
+      ]);
       const asked = events.find((e) => e.type === "permission.asked");
       const replied = events.find((e) => e.type === "permission.replied");
-      expect(asked.properties.id === "per_req_001", `permission id ${JSON.stringify(asked.properties.id)}`);
+      expect(
+        asked.properties.id === "per_req_001",
+        `permission id ${JSON.stringify(asked.properties.id)}`,
+      );
       expect(asked.properties.sessionID === SESSION_ID, "asked must target the scenario session");
-      expect(replied.properties.requestID === "per_req_001", "replied must reference the asked request");
-      expect(replied.properties.reply === "once", `reply ${JSON.stringify(replied.properties.reply)}`);
+      expect(
+        replied.properties.requestID === "per_req_001",
+        "replied must reference the asked request",
+      );
+      expect(
+        replied.properties.reply === "once",
+        `reply ${JSON.stringify(replied.properties.reply)}`,
+      );
     });
 
     await test("sse: question-flow asks then replies", async () => {
-      const events = await expectScenarioSequence(baseUrl, "question-flow", ["question.asked", "question.replied"]);
+      const events = await expectScenarioSequence(baseUrl, "question-flow", [
+        "question.asked",
+        "question.replied",
+      ]);
       const asked = events.find((e) => e.type === "question.asked");
       const replied = events.find((e) => e.type === "question.replied");
-      expect(Array.isArray(asked.properties.questions) && asked.properties.questions.length > 0, "asked must carry questions");
-      expect(asked.properties.questions[0].header === "Refactor approach", "first question must have a header");
-      expect(replied.properties.requestID === "que_req_001", "replied must reference the asked request");
-      expect(JSON.stringify(replied.properties.answers) === JSON.stringify(["Incremental"]), "answers must match the reply");
+      expect(
+        Array.isArray(asked.properties.questions) && asked.properties.questions.length > 0,
+        "asked must carry questions",
+      );
+      expect(
+        asked.properties.questions[0].header === "Refactor approach",
+        "first question must have a header",
+      );
+      expect(
+        replied.properties.requestID === "que_req_001",
+        "replied must reference the asked request",
+      );
+      expect(
+        JSON.stringify(replied.properties.answers) === JSON.stringify(["Incremental"]),
+        "answers must match the reply",
+      );
     });
 
     await test("sse: sse-drop ends the stream without a terminal event", async () => {
-      const events = await collectSSE(baseUrl, "/event?scenario=sse-drop", () => false, { timeoutMs: 8000 });
+      const events = await collectSSE(baseUrl, "/event?scenario=sse-drop", () => false, {
+        timeoutMs: 8000,
+      });
       const types = typesOf(events);
       expect(types[0] === "server.connected", `first event ${types[0]}`);
       expect(types.length >= 3, `expected a few events before the drop; got ${types.join(", ")}`);
@@ -323,11 +369,19 @@ try {
     });
 
     await test("sse: __drop=true ends happy-chat early without session.idle", async () => {
-      const events = await collectSSE(baseUrl, "/event?scenario=happy-chat&__drop=true", () => false, { timeoutMs: 8000 });
+      const events = await collectSSE(
+        baseUrl,
+        "/event?scenario=happy-chat&__drop=true",
+        () => false,
+        { timeoutMs: 8000 },
+      );
       const types = typesOf(events);
       expect(types[0] === "server.connected", `first event ${types[0]}`);
       expect(types.includes("session.created"), "must still replay the first scenario event");
-      expect(!types.includes("session.idle"), "__drop must cut the stream before the terminal event");
+      expect(
+        !types.includes("session.idle"),
+        "__drop must cut the stream before the terminal event",
+      );
     });
 
     await test("sse: /global/event streams GlobalEvent envelopes", async () => {
@@ -337,28 +391,39 @@ try {
       const types = typesOf(events);
       expect(types[0] === "server.connected", `first event ${types[0]}`);
       expect(types[1] === "project.updated", `second event ${types[1]}`);
-      expect(events[1].directory === "/mock/projects/opencode-demo", "global envelope must carry the directory");
-      expect(events[1].payload?.properties?.id === "project-mock-1", "payload properties must carry the project id");
+      expect(
+        events[1].directory === "/mock/projects/opencode-demo",
+        "global envelope must carry the directory",
+      );
+      expect(
+        events[1].payload?.properties?.id === "project-mock-1",
+        "payload properties must carry the project id",
+      );
     });
   }
 
-    await test("fixture mode: MOCK_FIXTURES_DIR serves the recorded fixtures (tests/fixtures)", async () => {
-      const port = randomPort();
-      const server = startServer(["--port", String(port)], { env: { MOCK_FIXTURES_DIR: "tests/fixtures" } });
-      servers.push(server);
-      const fixtureUrl = `http://localhost:${port}`;
-      await waitForReady(fixtureUrl, server);
-
-      const { status, body } = await request(fixtureUrl, "/session");
-      expect(status === 200, `status ${status}`);
-      expect(body[0]?.id === "ses_abc123", `first session id ${JSON.stringify(body[0]?.id)} (expected ses_abc123 from tests/fixtures)`);
-
-      const detail = await request(fixtureUrl, "/session/ses_abc123");
-      expect(detail.status === 200, `detail status ${detail.status}`);
-      expect(detail.body?.id === "ses_abc123", `detail id ${JSON.stringify(detail.body?.id)}`);
+  await test("fixture mode: MOCK_FIXTURES_DIR serves the recorded fixtures (tests/fixtures)", async () => {
+    const port = randomPort();
+    const server = startServer(["--port", String(port)], {
+      env: { MOCK_FIXTURES_DIR: "tests/fixtures" },
     });
+    servers.push(server);
+    const fixtureUrl = `http://localhost:${port}`;
+    await waitForReady(fixtureUrl, server);
 
-    // ---- Server with auth + cors ----
+    const { status, body } = await request(fixtureUrl, "/session");
+    expect(status === 200, `status ${status}`);
+    expect(
+      body[0]?.id === "ses_abc123",
+      `first session id ${JSON.stringify(body[0]?.id)} (expected ses_abc123 from tests/fixtures)`,
+    );
+
+    const detail = await request(fixtureUrl, "/session/ses_abc123");
+    expect(detail.status === 200, `detail status ${detail.status}`);
+    expect(detail.body?.id === "ses_abc123", `detail id ${JSON.stringify(detail.body?.id)}`);
+  });
+
+  // ---- Server with auth + cors ----
   {
     const port = randomPort();
     const server = startServer(["--port", String(port), "--cors", "--auth-password", "secret"]);
@@ -366,14 +431,16 @@ try {
     const authUrl = `http://localhost:${port}`;
     await waitForReady(authUrl, server);
 
-    const basic = (password) =>
-      `Basic ${Buffer.from(`user:${password}`).toString("base64")}`;
+    const basic = (password) => `Basic ${Buffer.from(`user:${password}`).toString("base64")}`;
 
     await test("auth: 401 without credentials", async () => {
       const { status, body, headers } = await request(authUrl, "/session");
       expect(status === 401, `status ${status}`);
       expect(body.error === "unauthorized", `error ${JSON.stringify(body.error)}`);
-      expect((headers.get("www-authenticate") ?? "").startsWith("Basic"), "WWW-Authenticate must challenge Basic");
+      expect(
+        (headers.get("www-authenticate") ?? "").startsWith("Basic"),
+        "WWW-Authenticate must challenge Basic",
+      );
     });
 
     await test("auth: 401 with wrong password", async () => {
@@ -395,7 +462,10 @@ try {
       const { headers } = await request(authUrl, "/session", {
         headers: { Authorization: basic("secret"), Origin: "tauri://localhost" },
       });
-      expect(headers.get("access-control-allow-origin") === "tauri://localhost", "ACAO must reflect the origin");
+      expect(
+        headers.get("access-control-allow-origin") === "tauri://localhost",
+        "ACAO must reflect the origin",
+      );
     });
 
     await test("cors: disallowed origin gets no header", async () => {
@@ -411,7 +481,10 @@ try {
         headers: { Origin: "http://localhost:1420", "Access-Control-Request-Method": "GET" },
       });
       expect(res.status === 204, `status ${res.status}`);
-      expect(res.headers.get("access-control-allow-origin") === "http://localhost:1420", "ACAO must reflect the origin");
+      expect(
+        res.headers.get("access-control-allow-origin") === "http://localhost:1420",
+        "ACAO must reflect the origin",
+      );
     });
   }
 } catch (err) {

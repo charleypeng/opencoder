@@ -31,7 +31,11 @@ const HOST_NAME = os.hostname();
 const TARGETS = [
   { keys: ["health"], file: "health.json", url: (base) => `${base}/global/health` },
   { keys: ["project.list"], file: "project.list.json", url: (base) => `${base}/project` },
-  { keys: ["project.current"], file: "project.current.json", url: (base) => `${base}/project/current` },
+  {
+    keys: ["project.current"],
+    file: "project.current.json",
+    url: (base) => `${base}/project/current`,
+  },
   { keys: ["session.list"], file: "session.list.json", url: (base) => `${base}/session` },
   {
     keys: ["session.detail"],
@@ -57,7 +61,11 @@ const TARGETS = [
     dependsOn: "sessionID",
     url: (base, ctx) => `${base}/session/${ctx.sessionID}/todo`,
   },
-  { keys: ["permission.asked"], file: "permission.asked.json", url: (base) => `${base}/permission` },
+  {
+    keys: ["permission.asked"],
+    file: "permission.asked.json",
+    url: (base) => `${base}/permission`,
+  },
   { keys: ["question.asked"], file: "question.asked.json", url: (base) => `${base}/question` },
   {
     keys: ["file.tree"],
@@ -150,9 +158,7 @@ const outDir = resolve(out);
 await mkdir(outDir, { recursive: true });
 
 const indexFile = join(outDir, "index.json");
-const index = existsSync(indexFile)
-  ? JSON.parse(await readFile(indexFile, "utf8"))
-  : {};
+const index = existsSync(indexFile) ? JSON.parse(await readFile(indexFile, "utf8")) : {};
 
 const recorded = {};
 const skipped = [];
@@ -176,11 +182,15 @@ for (const target of TARGETS) {
 
 await writeFile(indexFile, `${JSON.stringify(index, null, 2)}\n`);
 
-console.log(`\n[fixtures:record] recorded ${Object.keys(recorded).length}/${TARGETS.length} targets into ${outDir}`);
+console.log(
+  `\n[fixtures:record] recorded ${Object.keys(recorded).length}/${TARGETS.length} targets into ${outDir}`,
+);
 if (skipped.length > 0) {
   console.warn(`[fixtures:record] skipped: ${skipped.join("; ")}`);
 }
 if (Object.keys(recorded).length === 0) {
-  console.error("[fixtures:record] nothing recorded; check the baseURL and that `opencode serve` is running");
+  console.error(
+    "[fixtures:record] nothing recorded; check the baseURL and that `opencode serve` is running",
+  );
   process.exitCode = 1;
 }

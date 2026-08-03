@@ -1,0 +1,65 @@
+# Desktop build — Tauri bundling (SKELETON, TASK-M0-07)
+#
+# Placeholder workflow for desktop installers. Triggered manually or on
+# version tags (`v*`). M10 owns the full pipeline: per-platform artifact
+# targets (macOS arm64+x64/universal, Windows x64 msi/nsis, Linux deb/AppImage),
+# code signing, notarization, artifact upload and release notes.
+#
+# Current scope: a minimal `pnpm tauri build` on each platform to verify the
+# release build chain stays green between M0 and M10.
+
+name: Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: desktop-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Tauri build (${{ matrix.platform }})
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [macos-latest, windows-latest, ubuntu-22.04]
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # Linux system dependencies required by Tauri bundling (deb/AppImage)
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Build desktop app
+        run: pnpm tauri build

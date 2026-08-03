@@ -15,17 +15,17 @@ A cross-platform desktop & mobile client for [OpenCode](https://opencode.ai), bu
 
 ## Tech Stack
 
-| Layer | Choice |
-|---|---|
-| App framework | Tauri 2.x (Rust) |
-| Frontend | SolidJS + TypeScript |
-| Build | Vite 6 + `@solidjs/router` |
-| Styling | Tailwind CSS v4 + CSS variable design tokens |
-| API types | `openapi-typescript` generated from the OpenAPI 3.1 spec |
-| Transport | Rust `reqwest` (REST + SSE + WebSocket) |
-| Terminal | xterm.js over a Rust WebSocket/PTY channel |
-| i18n | i18next + `solid-i18next` |
-| Quality | ESLint + Prettier + clippy/fmt + husky/lint-staged |
+| Layer         | Choice                                                   |
+| ------------- | -------------------------------------------------------- |
+| App framework | Tauri 2.x (Rust)                                         |
+| Frontend      | SolidJS + TypeScript                                     |
+| Build         | Vite 6 + `@solidjs/router`                               |
+| Styling       | Tailwind CSS v4 + CSS variable design tokens             |
+| API types     | `openapi-typescript` generated from the OpenAPI 3.1 spec |
+| Transport     | Rust `reqwest` (REST + SSE + WebSocket)                  |
+| Terminal      | xterm.js over a Rust WebSocket/PTY channel               |
+| i18n          | i18next + `solid-i18next`                                |
+| Quality       | ESLint + Prettier + clippy/fmt + husky/lint-staged       |
 
 ## Repository Layout
 

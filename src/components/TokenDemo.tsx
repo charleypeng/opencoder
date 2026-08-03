@@ -57,13 +57,7 @@ function TokenDemo() {
   function refreshResolved() {
     const style = getComputedStyle(document.documentElement);
     const next: Record<string, string> = {};
-    for (const t of [
-      ...colorTokens,
-      ...glassTokens,
-      ...typeScale,
-      ...radii,
-      ...motionTokens,
-    ]) {
+    for (const t of [...colorTokens, ...glassTokens, ...typeScale, ...radii, ...motionTokens]) {
       next[t.var] = style.getPropertyValue(t.var).trim();
     }
     next["--density"] = style.getPropertyValue("--density").trim();
@@ -135,16 +129,11 @@ function TokenDemo() {
           <div class="divide-y divide-bg-sunken rounded-r-md border border-bg-sunken bg-bg-elevated">
             <For each={typeScale}>
               {(t) => (
-                <div
-                  class="flex items-baseline justify-between px-4 py-3"
-                  data-token={t.var}
-                >
+                <div class="flex items-baseline justify-between px-4 py-3" data-token={t.var}>
                   <span class="font-code text-xs text-fg-faint">
                     {t.name} · {resolved()[t.var] || `var(${t.var})`}
                   </span>
-                  <span style={{ "font-size": `var(${t.var})` }}>
-                    The quick brown fox jumps
-                  </span>
+                  <span style={{ "font-size": `var(${t.var})` }}>The quick brown fox jumps</span>
                 </div>
               )}
             </For>
@@ -182,9 +171,7 @@ function TokenDemo() {
                   </li>
                 )}
               </For>
-              <li data-token="--density">
-                density: {resolved()["--density"] || "var(--density)"}
-              </li>
+              <li data-token="--density">density: {resolved()["--density"] || "var(--density)"}</li>
             </ul>
             <div class="flex items-center gap-6">
               <div class="flex h-10 w-32 items-center justify-center rounded-r-md bg-accent text-xs transition-transform duration-(--dur-med) ease-(--ease-spring) hover:scale-110">
@@ -197,23 +184,13 @@ function TokenDemo() {
 
         <section>
           <h2 class="mb-4 text-lg font-semibold">Density</h2>
-          <div
-            class="rounded-r-md border border-bg-sunken bg-bg-elevated"
-            data-token="--density"
-          >
-            <div
-              class="flex flex-wrap gap-2"
-              style={{ padding: "calc(var(--density) * 0.75rem)" }}
-            >
-              <span class="rounded-full bg-accent-soft px-3 py-1 text-xs text-accent">
-                Server
-              </span>
+          <div class="rounded-r-md border border-bg-sunken bg-bg-elevated" data-token="--density">
+            <div class="flex flex-wrap gap-2" style={{ padding: "calc(var(--density) * 0.75rem)" }}>
+              <span class="rounded-full bg-accent-soft px-3 py-1 text-xs text-accent">Server</span>
               <span class="rounded-full bg-accent-soft px-3 py-1 text-xs text-accent">
                 Sessions
               </span>
-              <span class="rounded-full bg-accent-soft px-3 py-1 text-xs text-accent">
-                Files
-              </span>
+              <span class="rounded-full bg-accent-soft px-3 py-1 text-xs text-accent">Files</span>
             </div>
             <p class="px-4 pb-3 font-code text-xs text-fg-faint">
               density: {resolved()["--density"] || "1"} · compact 0.92 · comfortable 1.06
@@ -256,7 +233,7 @@ function TokenDemo() {
               UI stack — The quick brown fox jumps over the lazy dog
             </p>
             <p data-token="--font-code" class="font-code text-sm">
-              Code stack — const tokens = { "{}" }; // JetBrains Mono / SF Mono
+              Code stack — const tokens = {"{}"}; // JetBrains Mono / SF Mono
             </p>
           </div>
         </section>

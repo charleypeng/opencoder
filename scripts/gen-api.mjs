@@ -25,9 +25,13 @@ const check = process.argv.includes("--check");
 // the platform-dependent node_modules/.bin shim, which breaks on Windows
 // (.cmd wrapper).
 const cli = join(root, "node_modules", "openapi-typescript", "bin", "cli.js");
-const result = spawnSync(process.execPath, [cli, input, "-o", output, ...(check ? ["--check"] : [])], {
-  stdio: "inherit",
-});
+const result = spawnSync(
+  process.execPath,
+  [cli, input, "-o", output, ...(check ? ["--check"] : [])],
+  {
+    stdio: "inherit",
+  },
+);
 
 if (result.error) {
   console.error(`gen-api: failed to run openapi-typescript: ${result.error.message}`);

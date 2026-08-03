@@ -80,7 +80,14 @@ function toolPart(status: "running" | "completed"): Record<string, unknown> {
     state:
       status === "running"
         ? { status, input: { command: "ls" }, time: { start: NOW } }
-        : { status, input: { command: "ls" }, output: "src/\ndocs/\n", title: "bash", metadata: {}, time: { start: NOW, end: NOW } },
+        : {
+            status,
+            input: { command: "ls" },
+            output: "src/\ndocs/\n",
+            title: "bash",
+            metadata: {},
+            time: { start: NOW, end: NOW },
+          },
   };
 }
 
@@ -94,21 +101,69 @@ export const scenarios: ScenarioMap = {
   // deltas -> tool call -> tool result -> session idle.
   "happy-chat": [
     { at: 0, event: event("session.created", { sessionID: SESSION_ID, info: SESSION_INFO }) },
-    { at: 150, event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }) },
+    {
+      at: 150,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }),
+    },
     { at: 300, event: event("message.updated", { sessionID: SESSION_ID, info: USER_MESSAGE }) },
-    { at: 500, event: event("message.part.updated", { sessionID: SESSION_ID, part: textPart("Hello! I can help with that."), time: NOW }) },
-    { at: 800, event: event("message.part.delta", { sessionID: SESSION_ID, messageID: MSG_ASSISTANT, partID: PART_TEXT, field: "text", delta: " Let me look at the repo structure first." }) },
-    { at: 1200, event: event("message.part.updated", { sessionID: SESSION_ID, part: toolPart("running"), time: NOW }) },
-    { at: 1800, event: event("message.part.updated", { sessionID: SESSION_ID, part: toolPart("completed"), time: NOW }) },
-    { at: 2200, event: event("message.part.delta", { sessionID: SESSION_ID, messageID: MSG_ASSISTANT, partID: PART_TEXT, field: "text", delta: " Found 3 files. I will summarize them for you." }) },
-    { at: 2600, event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }) },
+    {
+      at: 500,
+      event: event("message.part.updated", {
+        sessionID: SESSION_ID,
+        part: textPart("Hello! I can help with that."),
+        time: NOW,
+      }),
+    },
+    {
+      at: 800,
+      event: event("message.part.delta", {
+        sessionID: SESSION_ID,
+        messageID: MSG_ASSISTANT,
+        partID: PART_TEXT,
+        field: "text",
+        delta: " Let me look at the repo structure first.",
+      }),
+    },
+    {
+      at: 1200,
+      event: event("message.part.updated", {
+        sessionID: SESSION_ID,
+        part: toolPart("running"),
+        time: NOW,
+      }),
+    },
+    {
+      at: 1800,
+      event: event("message.part.updated", {
+        sessionID: SESSION_ID,
+        part: toolPart("completed"),
+        time: NOW,
+      }),
+    },
+    {
+      at: 2200,
+      event: event("message.part.delta", {
+        sessionID: SESSION_ID,
+        messageID: MSG_ASSISTANT,
+        partID: PART_TEXT,
+        field: "text",
+        delta: " Found 3 files. I will summarize them for you.",
+      }),
+    },
+    {
+      at: 2600,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }),
+    },
     { at: 2800, event: event("session.idle", { sessionID: SESSION_ID }) },
   ],
 
   // Permission round-trip: busy -> permission.asked -> permission.replied -> idle.
   "permission-flow": [
     { at: 0, event: event("session.created", { sessionID: SESSION_ID, info: SESSION_INFO }) },
-    { at: 150, event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }) },
+    {
+      at: 150,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }),
+    },
     {
       at: 400,
       event: event("permission.asked", {
@@ -121,15 +176,28 @@ export const scenarios: ScenarioMap = {
         tool: { messageID: MSG_ASSISTANT, callID: CALL_ID },
       }),
     },
-    { at: 900, event: event("permission.replied", { sessionID: SESSION_ID, requestID: PERMISSION_ID, reply: "once" }) },
-    { at: 1200, event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }) },
+    {
+      at: 900,
+      event: event("permission.replied", {
+        sessionID: SESSION_ID,
+        requestID: PERMISSION_ID,
+        reply: "once",
+      }),
+    },
+    {
+      at: 1200,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }),
+    },
     { at: 1400, event: event("session.idle", { sessionID: SESSION_ID }) },
   ],
 
   // Question round-trip: busy -> question.asked -> question.replied -> idle.
   "question-flow": [
     { at: 0, event: event("session.created", { sessionID: SESSION_ID, info: SESSION_INFO }) },
-    { at: 150, event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }) },
+    {
+      at: 150,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }),
+    },
     {
       at: 400,
       event: event("question.asked", {
@@ -149,8 +217,18 @@ export const scenarios: ScenarioMap = {
         ],
       }),
     },
-    { at: 1000, event: event("question.replied", { sessionID: SESSION_ID, requestID: QUESTION_ID, answers: ["Incremental"] }) },
-    { at: 1300, event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }) },
+    {
+      at: 1000,
+      event: event("question.replied", {
+        sessionID: SESSION_ID,
+        requestID: QUESTION_ID,
+        answers: ["Incremental"],
+      }),
+    },
+    {
+      at: 1300,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "idle" } }),
+    },
     { at: 1500, event: event("session.idle", { sessionID: SESSION_ID }) },
   ],
 
@@ -158,8 +236,18 @@ export const scenarios: ScenarioMap = {
   // terminal event) so clients can exercise reconnect handling.
   "sse-drop": [
     { at: 0, event: event("session.created", { sessionID: SESSION_ID, info: SESSION_INFO }) },
-    { at: 150, event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }) },
-    { at: 400, event: event("message.part.updated", { sessionID: SESSION_ID, part: textPart("Working on it"), time: NOW }) },
+    {
+      at: 150,
+      event: event("session.status", { sessionID: SESSION_ID, status: { type: "busy" } }),
+    },
+    {
+      at: 400,
+      event: event("message.part.updated", {
+        sessionID: SESSION_ID,
+        part: textPart("Working on it"),
+        time: NOW,
+      }),
+    },
     { at: 700, drop: true },
   ],
 

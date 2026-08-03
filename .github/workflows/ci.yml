@@ -1,0 +1,76 @@
+# CI — L0 + L1 + L2 + L3 quality gates (docs/testing.md §4)
+# Runs on every push to main and every pull request.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: L0-L3 quality gates
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      # L0 — TypeScript static checks
+      - name: L0 eslint
+        run: pnpm exec eslint . --max-warnings 0
+
+      - name: L0 prettier
+        run: pnpm exec prettier --check .
+
+      - name: L0 tsc
+        run: pnpm exec tsc -b
+
+      # L0 — Rust static checks
+      - name: L0 cargo fmt
+        working-directory: src-tauri
+        run: cargo fmt --check
+
+      - name: L0 cargo clippy
+        working-directory: src-tauri
+        run: cargo clippy --all-targets -- -D warnings
+
+      # L1 — unit tests (vitest)
+      - name: L1 vitest
+        run: pnpm test
+
+      # L3 — contract tests against the Mock OpenCode Server
+      - name: L3 mock server self-test
+        run: pnpm mock:test
+
+      # Contract drift detection: schema.d.ts vs docs/openapi_v1.18.11.json
+      - name: gen:api drift check
+        run: pnpm gen:api:check
