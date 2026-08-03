@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+/*
+ * Bridge design tokens (tokens.css) into Tailwind v4 utilities.
+ * `inline` emits var() references so utilities stay live on theme switch,
+ * e.g. bg-bg-base, text-fg-secondary, rounded-r-lg, text-text-sm, font-code.
+ */
+@theme inline {
+  --color-bg-base: var(--bg-base);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-bg-sunken: var(--bg-sunken);
+  --color-fg-primary: var(--fg-primary);
+  --color-fg-secondary: var(--fg-secondary);
+  --color-fg-faint: var(--fg-faint);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+
+  --radius-sm: var(--r-sm);
+  --radius-md: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --radius-xl: var(--r-xl);
+
+  --text-xs: var(--text-xs);
+  --text-sm: var(--text-sm);
+  --text-md: var(--text-md);
+  --text-lg: var(--text-lg);
+
+  --font-ui: var(--font-ui);
+  --font-code: var(--font-code);
+}
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    font-family: var(--font-ui);
+    font-size: var(--text-md);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  [data-theme="light"] {
+    color-scheme: light;
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--bg-base);
+    color: var(--fg-primary);
+  }
+
+  code,
+  pre,
+  kbd,
+  samp {
+    font-family: var(--font-code);
+  }
+}
