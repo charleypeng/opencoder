@@ -4,8 +4,8 @@ import { fileURLToPath } from "node:url";
 
 // Fixture loader.
 //
-// Reads tests/mock-server/fixtures/index.json, loads every referenced JSON
-// file once into a cache, and resolves fixtures by key at request time.
+// Reads tests/mock-server/fixtures/index.json and loads every referenced JSON
+// file once into a cache, served to routes by key.
 // Hand-written skeletons today; recorded fixtures from a real server arrive
 // with TASK-M0-06, which can extend the same index.
 
@@ -32,13 +32,4 @@ export function loadFixtures(): Fixtures {
 
   cache = loaded;
   return cache;
-}
-
-// Resolves a fixture by key; throws when the key is not registered.
-export function getFixture(key: string): unknown {
-  const fixtures = loadFixtures();
-  if (!(key in fixtures)) {
-    throw new Error(`unknown fixture key: "${key}"`);
-  }
-  return fixtures[key];
 }

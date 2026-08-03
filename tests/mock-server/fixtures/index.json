@@ -1,6 +1,7 @@
 {
   "health": "health.json",
   "project.list": "project.json",
+  "project.current": "project.current.json",
   "session.list": "session.list.json",
   "session.detail": "session.detail.json",
   "session.messages": "session.messages.json",

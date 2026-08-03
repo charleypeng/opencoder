@@ -23,7 +23,7 @@ export interface Route {
 const P0_CORE_LOOP: Route[] = [
   { method: "get", path: "/global/health", operation: "global.health", fixture: "health" },
   { method: "get", path: "/project", operation: "project.list", fixture: "project.list" },
-  { method: "get", path: "/project/current", operation: "project.current", fixture: "project.list" },
+  { method: "get", path: "/project/current", operation: "project.current", fixture: "project.current" },
   { method: "get", path: "/session", operation: "session.list", fixture: "session.list" },
   { method: "get", path: "/session/:sessionID", operation: "session.get", fixture: "session.detail" },
   { method: "get", path: "/session/:sessionID/message", operation: "session.messages", fixture: "session.messages" },
