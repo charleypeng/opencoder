@@ -1,0 +1,27 @@
+{
+  "id": "sess_01",
+  "slug": "explain-codebase",
+  "projectID": "project-mock-1",
+  "directory": "/mock/projects/opencode-demo",
+  "title": "Explain the codebase",
+  "agent": "build",
+  "model": {
+    "id": "gpt-5",
+    "providerID": "openai"
+  },
+  "version": "1.18.11",
+  "cost": 0.42,
+  "tokens": {
+    "input": 1234,
+    "output": 567,
+    "reasoning": 89,
+    "cache": {
+      "read": 100,
+      "write": 50
+    }
+  },
+  "time": {
+    "created": 1750000000000,
+    "updated": 1750000100000
+  }
+}

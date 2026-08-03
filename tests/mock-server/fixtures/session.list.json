@@ -1,0 +1,33 @@
+[
+  {
+    "id": "sess_01",
+    "slug": "explain-codebase",
+    "projectID": "project-mock-1",
+    "directory": "/mock/projects/opencode-demo",
+    "title": "Explain the codebase",
+    "agent": "build",
+    "model": {
+      "id": "gpt-5",
+      "providerID": "openai"
+    },
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000100000
+    }
+  },
+  {
+    "id": "sess_02",
+    "slug": "fix-login-bug",
+    "projectID": "project-mock-1",
+    "directory": "/mock/projects/opencode-demo",
+    "parentID": "sess_01",
+    "title": "Fix the login bug",
+    "agent": "build",
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000200000
+    }
+  }
+]

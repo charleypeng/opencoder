@@ -1,0 +1,17 @@
+[
+  {
+    "content": "Sketch the client architecture",
+    "status": "completed",
+    "priority": "high"
+  },
+  {
+    "content": "Implement the session list view",
+    "status": "in_progress",
+    "priority": "high"
+  },
+  {
+    "content": "Add the message composer",
+    "status": "pending",
+    "priority": "medium"
+  }
+]

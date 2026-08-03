@@ -1,0 +1,13 @@
+[
+  {
+    "id": "project-mock-1",
+    "worktree": "/mock/projects/opencode-demo",
+    "vcs": "git",
+    "name": "opencode-demo",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000000000
+    },
+    "sandboxes": []
+  }
+]

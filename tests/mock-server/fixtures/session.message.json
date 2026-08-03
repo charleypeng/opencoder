@@ -1,0 +1,44 @@
+{
+  "info": {
+    "id": "msg_02",
+    "sessionID": "sess_01",
+    "role": "assistant",
+    "time": {
+      "created": 1750000010000,
+      "completed": 1750000020000
+    },
+    "parentID": "msg_01",
+    "modelID": "gpt-5",
+    "providerID": "openai",
+    "mode": "primary",
+    "agent": "build",
+    "path": {
+      "cwd": "/mock/projects/opencode-demo",
+      "root": "/mock/projects/opencode-demo"
+    },
+    "cost": 0.42,
+    "tokens": {
+      "input": 1234,
+      "output": 567,
+      "reasoning": 89,
+      "cache": {
+        "read": 100,
+        "write": 50
+      }
+    },
+    "finish": "completed"
+  },
+  "parts": [
+    {
+      "id": "part_02",
+      "sessionID": "sess_01",
+      "messageID": "msg_02",
+      "type": "text",
+      "text": "This is a Tauri 2 + SolidJS client for OpenCode.",
+      "time": {
+        "start": 1750000010000,
+        "end": 1750000020000
+      }
+    }
+  ]
+}
