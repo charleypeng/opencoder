@@ -21,10 +21,17 @@ const input = join(root, "docs", "openapi_v1.18.11.json");
 const output = join(root, "src", "services", "api", "schema.d.ts");
 const check = process.argv.includes("--check");
 
-const result = spawnSync(
-  join(root, "node_modules", ".bin", "openapi-typescript"),
-  [input, "-o", output, ...(check ? ["--check"] : [])],
-  { stdio: "inherit" },
-);
+// Invoke the CLI through the Node executable and its JS entry point instead of
+// the platform-dependent node_modules/.bin shim, which breaks on Windows
+// (.cmd wrapper).
+const cli = join(root, "node_modules", "openapi-typescript", "bin", "cli.js");
+const result = spawnSync(process.execPath, [cli, input, "-o", output, ...(check ? ["--check"] : [])], {
+  stdio: "inherit",
+});
+
+if (result.error) {
+  console.error(`gen-api: failed to run openapi-typescript: ${result.error.message}`);
+  process.exit(1);
+}
 
 process.exit(result.status ?? 1);

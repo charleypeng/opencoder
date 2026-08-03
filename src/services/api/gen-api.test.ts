@@ -7,10 +7,10 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 describe("OpenAPI type generation (L0)", () => {
   it("schema.d.ts is in sync with the OpenAPI contract", () => {
-    const result = spawnSync("node", [join("scripts", "gen-api.mjs"), "--check"], {
+    const result = spawnSync(process.execPath, [join("scripts", "gen-api.mjs"), "--check"], {
       cwd: root,
       encoding: "utf8",
     });
-    expect(result.status).toBe(0);
+    expect(result.status, result.stderr ?? "").toBe(0);
   }, 60_000);
 });
