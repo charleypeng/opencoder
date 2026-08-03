@@ -39,6 +39,20 @@ opencode-client/
 
 See `docs/architecture.md` for the full structure and `docs/PLAN.md` for the implementation plan.
 
+## API Contract & Type Generation
+
+The frontend uses TypeScript types generated from the OpenCode OpenAPI contract:
+
+- Source of truth: `docs/openapi_v1.18.11.json` (OpenAPI 3.1)
+- Generated types: `src/services/api/schema.d.ts` (via `openapi-typescript`, script: `scripts/gen-api.mjs`)
+
+**Contract upgrade flow** (when the OpenCode API changes):
+
+1. Replace `docs/openapi_v1.18.11.json` with the new spec (keep the versioned filename, update `scripts/gen-api.mjs` if the name changes).
+2. Run `pnpm gen:api` to regenerate `src/services/api/schema.d.ts`.
+3. Run `pnpm gen:api:check` to confirm the committed types match the contract (drift detection, exits non-zero on mismatch).
+4. Run `npx tsc -b` to ensure the generated types compile, then commit both files together.
+
 ## License
 
 [MIT](LICENSE)
