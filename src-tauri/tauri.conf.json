@@ -14,8 +14,7 @@
       {
         "title": "opencode-client",
         "width": 800,
-        "height": 600,
-        "devtools": true
+        "height": 600
       }
     ],
     "security": {
