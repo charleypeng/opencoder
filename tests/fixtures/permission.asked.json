@@ -1,0 +1,17 @@
+[
+  {
+    "id": "per_abc123",
+    "sessionID": "ses_abc123",
+    "permission": "bash",
+    "patterns": [
+      "pnpm test",
+      "git status"
+    ],
+    "metadata": {},
+    "always": [],
+    "tool": {
+      "messageID": "msg_m2",
+      "callID": "call_c1"
+    }
+  }
+]

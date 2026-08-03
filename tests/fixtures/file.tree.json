@@ -1,0 +1,37 @@
+[
+  {
+    "name": "src",
+    "path": "src",
+    "absolute": "/home/user/project/src",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "auth",
+    "path": "src/auth",
+    "absolute": "/home/user/project/src/auth",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "login.ts",
+    "path": "src/auth/login.ts",
+    "absolute": "/home/user/project/src/auth/login.ts",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "session.ts",
+    "path": "src/auth/session.ts",
+    "absolute": "/home/user/project/src/auth/session.ts",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "node_modules",
+    "path": "node_modules",
+    "absolute": "/home/user/project/node_modules",
+    "type": "directory",
+    "ignored": true
+  }
+]

@@ -1,0 +1,52 @@
+[
+  {
+    "id": "ses_abc123",
+    "slug": "add-login-flow",
+    "projectID": "prj_001",
+    "directory": "/home/user/project",
+    "title": "Add a login flow to the client",
+    "agent": "build",
+    "model": {
+      "id": "gpt-5",
+      "providerID": "openai"
+    },
+    "summary": {
+      "additions": 34,
+      "deletions": 12,
+      "files": 4,
+      "diffs": [
+        {
+          "file": "src/auth/login.ts",
+          "additions": 21,
+          "deletions": 5,
+          "status": "modified"
+        },
+        {
+          "file": "src/auth/session.ts",
+          "additions": 13,
+          "deletions": 7,
+          "status": "modified"
+        }
+      ]
+    },
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000048000
+    }
+  },
+  {
+    "id": "ses_abc124",
+    "slug": "fix-search-order",
+    "projectID": "prj_001",
+    "directory": "/home/user/project",
+    "parentID": "ses_abc123",
+    "title": "Fix result ordering in the file search",
+    "agent": "build",
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000060000
+    }
+  }
+]

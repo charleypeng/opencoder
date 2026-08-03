@@ -1,0 +1,11 @@
+{
+  "id": "prj_001",
+  "worktree": "/home/user/project",
+  "vcs": "git",
+  "name": "project",
+  "time": {
+    "created": 1750000000000,
+    "updated": 1750000000000
+  },
+  "sandboxes": []
+}

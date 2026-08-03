@@ -1,0 +1,17 @@
+{
+  "health": "health.json",
+  "project.list": "project.list.json",
+  "project.current": "project.current.json",
+  "session.list": "session.list.json",
+  "session.detail": "session.detail.json",
+  "session.messages": "session.messages.json",
+  "session.message": "session.message.json",
+  "session.todo": "todo.list.json",
+  "message.stream.all-parts": "message.stream.all-parts.json",
+  "permission.asked": "permission.asked.json",
+  "question.asked": "question.asked.json",
+  "file.tree": "file.tree.json",
+  "diff.session": "diff.session.json",
+  "todo.list": "todo.list.json",
+  "pty.list": "pty.list.json"
+}

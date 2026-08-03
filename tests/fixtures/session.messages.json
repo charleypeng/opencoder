@@ -1,0 +1,187 @@
+[
+  {
+    "info": {
+      "id": "msg_m1",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000000000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_p1",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m1",
+        "type": "text",
+        "text": "Add a login flow with password-based auth."
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_m2",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000010000,
+        "completed": 1750000025000
+      },
+      "parentID": "msg_m1",
+      "modelID": "gpt-5",
+      "providerID": "openai",
+      "mode": "primary",
+      "agent": "build",
+      "path": {
+        "cwd": "/home/user/project",
+        "root": "/home/user/project"
+      },
+      "cost": 0.42,
+      "tokens": {
+        "input": 1234,
+        "output": 567,
+        "reasoning": 89,
+        "cache": {
+          "read": 100,
+          "write": 50
+        }
+      },
+      "finish": "completed"
+    },
+    "parts": [
+      {
+        "id": "prt_p2",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m2",
+        "type": "reasoning",
+        "text": "The client needs a login form, a session store, and an auth API call.",
+        "time": {
+          "start": 1750000010000,
+          "end": 1750000014000
+        }
+      },
+      {
+        "id": "prt_p3",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m2",
+        "type": "text",
+        "text": "Let me check the existing project structure first.",
+        "time": {
+          "start": 1750000014000,
+          "end": 1750000025000
+        }
+      },
+      {
+        "id": "prt_p4",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m2",
+        "type": "tool",
+        "callID": "call_c1",
+        "tool": "bash",
+        "state": {
+          "status": "running",
+          "input": {
+            "command": "ls src"
+          },
+          "time": {
+            "start": 1750000014000
+          }
+        }
+      },
+      {
+        "id": "prt_p5",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m2",
+        "type": "tool",
+        "callID": "call_c1",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "ls src"
+          },
+          "output": "auth/\ncomponents/\nservices/\n",
+          "title": "bash",
+          "metadata": {},
+          "time": {
+            "start": 1750000014000,
+            "end": 1750000017000
+          }
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_m3",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000030000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_p6",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m3",
+        "type": "text",
+        "text": "Also add a logout button to the sidebar."
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_m4",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000040000,
+        "completed": 1750000048000
+      },
+      "parentID": "msg_m3",
+      "modelID": "gpt-5",
+      "providerID": "openai",
+      "mode": "primary",
+      "agent": "build",
+      "path": {
+        "cwd": "/home/user/project",
+        "root": "/home/user/project"
+      },
+      "cost": 0.18,
+      "tokens": {
+        "input": 620,
+        "output": 210,
+        "reasoning": 30,
+        "cache": {
+          "read": 80,
+          "write": 20
+        }
+      },
+      "finish": "completed"
+    },
+    "parts": [
+      {
+        "id": "prt_p7",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_m4",
+        "type": "text",
+        "text": "Done. The sidebar now shows a logout button in the account section.",
+        "time": {
+          "start": 1750000040000,
+          "end": 1750000048000
+        }
+      }
+    ]
+  }
+]

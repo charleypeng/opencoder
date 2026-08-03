@@ -1,0 +1,27 @@
+{
+  "id": "ses_abc123",
+  "slug": "add-login-flow",
+  "projectID": "prj_001",
+  "directory": "/home/user/project",
+  "title": "Add a login flow to the client",
+  "agent": "build",
+  "model": {
+    "id": "gpt-5",
+    "providerID": "openai"
+  },
+  "version": "1.18.11",
+  "cost": 0.42,
+  "tokens": {
+    "input": 1234,
+    "output": 567,
+    "reasoning": 89,
+    "cache": {
+      "read": 100,
+      "write": 50
+    }
+  },
+  "time": {
+    "created": 1750000000000,
+    "updated": 1750000048000
+  }
+}

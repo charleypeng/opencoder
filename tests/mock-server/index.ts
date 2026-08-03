@@ -1,4 +1,5 @@
 import { buildApp } from "./app.js";
+import { fixturesRoot } from "./fixtures.js";
 
 // CLI entry point for the mock OpenCode server.
 //
@@ -10,6 +11,9 @@ import { buildApp } from "./app.js";
 //   --auth               require Basic Auth; password from the
 //                        OPENCODE_SERVER_PASSWORD env var or --auth-password
 //   --auth-password <pw> Basic Auth password (overrides the env var)
+//
+// Fixtures come from tests/mock-server/fixtures by default; set
+// MOCK_FIXTURES_DIR to an alternate fixture root (e.g. tests/fixtures).
 
 interface CliOptions {
   port: number;
@@ -74,4 +78,5 @@ const app = buildApp({ cors: options.cors, authPassword: options.authPassword })
 app.listen(options.port, () => {
   console.log(`[mock] OpenCode mock server listening on http://localhost:${options.port}`);
   console.log(`[mock] cors=${options.cors} auth=${options.authPassword !== undefined ? "on" : "off"}`);
+  console.log(`[mock] fixtures root=${fixturesRoot()}`);
 });

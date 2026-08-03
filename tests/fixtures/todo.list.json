@@ -1,0 +1,17 @@
+[
+  {
+    "content": "Add the auth service and login form",
+    "status": "completed",
+    "priority": "high"
+  },
+  {
+    "content": "Wire the session store into the app shell",
+    "status": "in_progress",
+    "priority": "high"
+  },
+  {
+    "content": "Add the logout button to the sidebar",
+    "status": "pending",
+    "priority": "medium"
+  }
+]

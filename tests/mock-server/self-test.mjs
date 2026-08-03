@@ -41,10 +41,11 @@ function randomPort() {
   return 20000 + Math.floor(Math.random() * 40000);
 }
 
-function startServer(args) {
+function startServer(args, options = {}) {
   const child = spawn("pnpm", ["exec", "tsx", "tests/mock-server/index.ts", ...args], {
     cwd: ROOT,
     stdio: ["ignore", "pipe", "pipe"],
+    env: options.env ? { ...process.env, ...options.env } : undefined,
   });
   let output = "";
   child.stdout.on("data", (chunk) => (output += chunk));
@@ -341,7 +342,23 @@ try {
     });
   }
 
-  // ---- Server with auth + cors ----
+    await test("fixture mode: MOCK_FIXTURES_DIR serves the recorded fixtures (tests/fixtures)", async () => {
+      const port = randomPort();
+      const server = startServer(["--port", String(port)], { env: { MOCK_FIXTURES_DIR: "tests/fixtures" } });
+      servers.push(server);
+      const fixtureUrl = `http://localhost:${port}`;
+      await waitForReady(fixtureUrl, server);
+
+      const { status, body } = await request(fixtureUrl, "/session");
+      expect(status === 200, `status ${status}`);
+      expect(body[0]?.id === "ses_abc123", `first session id ${JSON.stringify(body[0]?.id)} (expected ses_abc123 from tests/fixtures)`);
+
+      const detail = await request(fixtureUrl, "/session/ses_abc123");
+      expect(detail.status === 200, `detail status ${detail.status}`);
+      expect(detail.body?.id === "ses_abc123", `detail id ${JSON.stringify(detail.body?.id)}`);
+    });
+
+    // ---- Server with auth + cors ----
   {
     const port = randomPort();
     const server = startServer(["--port", String(port), "--cors", "--auth-password", "secret"]);

@@ -1,0 +1,28 @@
+[
+  {
+    "id": "que_abc123",
+    "sessionID": "ses_abc123",
+    "questions": [
+      {
+        "question": "Which approach should I take for the refactor?",
+        "header": "Refactor approach",
+        "options": [
+          {
+            "label": "Incremental",
+            "description": "Small steps, keep tests green"
+          },
+          {
+            "label": "Big bang",
+            "description": "Rewrite the module in one pass"
+          }
+        ],
+        "multiple": false,
+        "custom": true
+      }
+    ],
+    "tool": {
+      "messageID": "msg_m2",
+      "callID": "call_c2"
+    }
+  }
+]
