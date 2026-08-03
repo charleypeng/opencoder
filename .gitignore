@@ -1,0 +1,29 @@
+# macOS
+.DS_Store
+
+# Node.js
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.idea/
+*.suo
+*.user
+
+# OS
+Thumbs.db
