@@ -104,4 +104,16 @@ describe("SettingsPage", () => {
     expect(screen.getByTestId("desktop-shortcut-input")).toBeInTheDocument();
     expect(screen.queryByTestId("shortcuts-section")).not.toBeInTheDocument();
   });
+
+  it("switches to the Notifications section", () => {
+    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+
+    const notificationsNav = screen.getByTestId("settings-section-notifications");
+    expect(notificationsNav).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(notificationsNav);
+    expect(notificationsNav).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("notifications-section")).toBeInTheDocument();
+    expect(screen.getByTestId("notifications-master")).toBeInTheDocument();
+    expect(screen.queryByTestId("desktop-section")).not.toBeInTheDocument();
+  });
 });

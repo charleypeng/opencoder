@@ -104,6 +104,8 @@ import CommandPalette from "./CommandPalette";
 import { subscribeToGlobalSummon, subscribeToTrayNewSession } from "../../services/tray.js";
 import { startTrayBadgeSync } from "../../services/trayBadge.js";
 import { applyDesktopPrefs } from "../../features/settings/desktopPrefs.js";
+import { startNotifications } from "../../services/notificationEvents.js";
+import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -554,6 +556,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     void rebuild(serverId, directory, version);
   });
 
+  // System notifications (TASK-M8-06): one watcher for the active server,
+  // torn down and re-created on server switches (like the SSE stream) so
+  // events can never notify for a stale context. The watcher itself
+  // applies the prefs + window-focus gate; the facade no-ops outside
+  // Tauri. The memo compares by value, so the onMount `setActiveServer`
+  // (registry null -> id, same fallback result) never double-mounts.
+  const notificationServerId = createMemo(() => activeServerId());
+  createEffect(() => {
+    const serverId = notificationServerId();
+    const disposeNotifications = startNotifications(serverId);
+    onCleanup(disposeNotifications);
+  });
+
   onCleanup(() => {
     rebuildVersion += 1;
     const current = sse;
@@ -576,6 +591,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     const stopGlobalSummon = subscribeToGlobalSummon(() => {
       // The window is shown and focused Rust-side; nothing to do here.
     });
+    // Notification clicks (TASK-M8-06): the plugin delivers click events
+    // only on iOS/Android — on desktop the notification is fire-and-forget
+    // (documented limitation). Focusing the window is all a click needs:
+    // the permission/question sheets are global and auto-show from their
+    // stores once the window is frontmost.
+    const stopNotificationClick = subscribeToNotificationClick(() => void focusWindow());
     const disposeBadgeSync = startTrayBadgeSync();
     void applyDesktopPrefs().catch(() => {
       // IPC rejection at mount: swallow so it never surfaces as an
@@ -587,6 +608,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       stopChanged();
       stopTrayNewSession();
       stopGlobalSummon();
+      stopNotificationClick();
       disposeBadgeSync();
       setActiveServer(null);
     });

@@ -10,6 +10,7 @@ import type { Component } from "solid-js";
 import ProviderKeys from "./providers/ProviderKeys.js";
 import ShortcutsSection from "./ShortcutsSection.js";
 import DesktopSection from "./DesktopSection.js";
+import NotificationsSection from "./NotificationsSection.js";
 
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
@@ -18,7 +19,7 @@ export interface SettingsPageProps {
   onBack: () => void;
 }
 
-type SettingsSection = "providers" | "shortcuts" | "desktop";
+type SettingsSection = "providers" | "shortcuts" | "desktop" | "notifications";
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
   const [section, setSection] = createSignal<SettingsSection>("providers");
@@ -84,6 +85,20 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           >
             Desktop
           </button>
+          <button
+            type="button"
+            data-testid="settings-section-notifications"
+            data-active={section() === "notifications" ? "true" : "false"}
+            aria-selected={section() === "notifications" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "notifications"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("notifications")}
+          >
+            Notifications
+          </button>
           <span
             data-testid="settings-section-more"
             class="rounded-md px-3 py-1.5 text-xs text-fg-faint"
@@ -94,7 +109,14 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         <Show
           when={section() === "providers"}
           fallback={
-            <Show when={section() === "shortcuts"} fallback={<DesktopSection />}>
+            <Show
+              when={section() === "shortcuts"}
+              fallback={
+                <Show when={section() === "desktop"} fallback={<NotificationsSection />}>
+                  <DesktopSection />
+                </Show>
+              }
+            >
               <ShortcutsSection />
             </Show>
           }

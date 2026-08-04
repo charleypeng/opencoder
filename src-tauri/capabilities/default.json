@@ -9,9 +9,11 @@
     "core:window:allow-minimize",
     "core:window:allow-toggle-maximize",
     "core:window:allow-close",
+    "core:window:allow-set-focus",
     "opener:default",
     "haptics:allow-impact-feedback",
     "haptics:allow-notification-feedback",
+    "notification:default",
     "barcode-scanner:default"
   ]
 }

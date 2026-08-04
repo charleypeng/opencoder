@@ -44,24 +44,41 @@ import type { PermissionRequest } from "../../services/permission";
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
 
-const { invokeMock, listenMock, sseSubscribeMock, qrToDataURLMock, openUrlMock } = vi.hoisted(
-  () => {
-    const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
-    return {
-      invokeMock: vi.fn(),
-      listenMock,
-      sseSubscribeMock: vi.fn(),
-      qrToDataURLMock: vi.fn(),
-      openUrlMock: vi.fn(),
-    };
-  },
-);
+const {
+  invokeMock,
+  listenMock,
+  sseSubscribeMock,
+  qrToDataURLMock,
+  openUrlMock,
+  startNotificationsMock,
+  subscribeToNotificationClickMock,
+  focusWindowMock,
+} = vi.hoisted(() => {
+  const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
+  return {
+    invokeMock: vi.fn(),
+    listenMock,
+    sseSubscribeMock: vi.fn(),
+    qrToDataURLMock: vi.fn(),
+    openUrlMock: vi.fn(),
+    startNotificationsMock: vi.fn(() => vi.fn()),
+    subscribeToNotificationClickMock: vi.fn<(cb: () => void) => () => void>(() => vi.fn()),
+    focusWindowMock: vi.fn(async () => {}),
+  };
+});
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 vi.mock("../../services/sse.js", () => ({ sseSubscribe: sseSubscribeMock }));
 vi.mock("qrcode", () => ({ default: { toDataURL: qrToDataURLMock } }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
+vi.mock("../../services/notificationEvents.js", () => ({
+  startNotifications: startNotificationsMock,
+}));
+vi.mock("../../services/notifications.js", () => ({
+  subscribeToNotificationClick: subscribeToNotificationClickMock,
+  focusWindow: focusWindowMock,
+}));
 // The Files viewer highlights through Shiki; a stub keeps the shell tests
 // free of language-pack loading (the viewer tests cover the real contract).
 vi.mock("../../features/messages/markdown/highlighter.js", () => ({
@@ -475,6 +492,9 @@ beforeEach(() => {
   listenMock.mockClear();
   qrToDataURLMock.mockClear().mockResolvedValue("data:image/png;base64,QRDATA");
   openUrlMock.mockClear().mockResolvedValue(undefined);
+  startNotificationsMock.mockClear();
+  subscribeToNotificationClickMock.mockClear();
+  focusWindowMock.mockClear();
   setActiveServer(null);
   unsubscribes = [];
   sseSubscribeMock.mockClear();
@@ -1955,5 +1975,41 @@ describe("DesktopShell tray & global summon (TASK-M8-05)", () => {
       }),
     );
     localStorage.removeItem("oc-desktop");
+  });
+});
+
+describe("DesktopShell system notifications (TASK-M8-06)", () => {
+  it("mounts the notification watcher for the active server", async () => {
+    const alpha = server({ id: "srv-m8n1", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(startNotificationsMock).toHaveBeenCalledWith("srv-m8n1"));
+    expect(startNotificationsMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebuilds the notification watcher when the active server switches", async () => {
+    const alpha = server({ id: "srv-m8n2", name: "Alpha" });
+    const beta = server({ id: "srv-m8n3", name: "Beta" });
+    invokeMock.mockResolvedValueOnce([alpha, beta]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(startNotificationsMock).toHaveBeenCalledWith("srv-m8n2"));
+    const firstDispose = startNotificationsMock.mock.results[0]?.value as ReturnType<
+      typeof startNotificationsMock
+    >;
+    fireEvent.click(await screen.findByTestId("rail-item-srv-m8n3"));
+    await waitFor(() => expect(startNotificationsMock).toHaveBeenCalledWith("srv-m8n3"));
+    // The stale server's watcher was torn down before the new one started.
+    expect(firstDispose).toHaveBeenCalled();
+  });
+
+  it("subscribes to notification clicks and focuses the window", async () => {
+    const alpha = server({ id: "srv-m8n4", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(subscribeToNotificationClickMock).toHaveBeenCalledTimes(1));
+    const onClick = subscribeToNotificationClickMock.mock.calls[0]?.[0];
+    expect(onClick).toBeTypeOf("function");
+    onClick();
+    await waitFor(() => expect(focusWindowMock).toHaveBeenCalledTimes(1));
   });
 });
