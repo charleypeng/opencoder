@@ -11,10 +11,12 @@
 // TASK-M2-05), keeping a placeholder only while no session is open. A
 // Main-area tab bar (TASK-M4-03) switches between Chat and Files: the
 // Files tab mounts the tabbed file viewer, and clicking a file in the
-// sidebar tree opens its tab and switches Main to Files. This shell owns
-// the per-directory SSE subscription and rebuilds it whenever the active
-// server or the active directory changes, re-syncing the stores so
-// sessions and messages never mix across contexts.
+// sidebar tree opens its tab and switches Main to Files. ⌘/Ctrl+P opens
+// the QuickOpen file search dialog (TASK-M4-04; the shortcut moves to the
+// M8 command-palette registry) whose picks jump Main to Files the same
+// way. This shell owns the per-directory SSE subscription and rebuilds
+// it whenever the active server or the active directory changes,
+// re-syncing the stores so sessions and messages never mix across contexts.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -39,6 +41,7 @@ import TodoPanel from "../../features/sessions/TodoPanel";
 import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
+import QuickOpen from "../../features/files/QuickOpen";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -83,6 +86,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Main pane view switch (TASK-M4-03): Chat transcript or the Files
   // viewer; opening a file from the sidebar tree jumps Main to Files.
   const [mainView, setMainView] = createSignal<"chat" | "files">("chat");
+  // Quick open dialog (TASK-M4-04): toggled by the provisional ⌘/Ctrl+P
+  // hook below; M8 moves the shortcut into the command-palette registry.
+  const [quickOpen, setQuickOpen] = createSignal(false);
 
   createEffect(() => {
     if (!todosOpen()) return;
@@ -103,6 +109,22 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   function onKeyDown(event: KeyboardEvent) {
     if (!(event.metaKey || event.ctrlKey)) return;
+    if (event.key.toLowerCase() === "p") {
+      // Provisional ⌘/Ctrl+P hook for QuickOpen (TASK-M4-04); M8 moves it
+      // into the command-palette registry. Typing in a text control keeps
+      // the default behavior (the dialog's own input is guarded the same
+      // way, so ⌘P inside the open dialog is a no-op).
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setQuickOpen(true);
+      return;
+    }
     if (!/^[1-9]$/.test(event.key)) return;
     const target = servers()[Number(event.key) - 1];
     if (!target) return;
@@ -411,6 +433,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           <TodoPanel serverId={activeServerId()} sessionId={activeSessionId() as string} />
         </aside>
       </Show>
+
+      {/* Quick open (TASK-M4-04): ⌘/Ctrl+P opens the file search dialog; a
+          picked file jumps Main to Files like a sidebar tree click. */}
+      <QuickOpen
+        serverId={activeServerId()}
+        open={quickOpen()}
+        onClose={() => setQuickOpen(false)}
+        onOpenFile={() => setMainView("files")}
+      />
     </div>
   );
 };

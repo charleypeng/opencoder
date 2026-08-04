@@ -8,7 +8,9 @@
 // mounts the session list below the switcher; selecting a row opens the
 // session's message list in the main pane (TASK-M2-06). TASK-M2-05 drives
 // the "New session" button so the created session is entered in the store
-// and opened in the message list.
+// and opened in the message list. TASK-M4-04: the provisional ⌘/Ctrl+P
+// hook opens the Quick open dialog (guarded while typing in text controls)
+// and a picked file jumps Main to Files.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -28,6 +30,7 @@ import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
+import { readRecentFiles } from "../../features/files/recentFiles";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
@@ -220,6 +223,12 @@ afterEach(() => {
   resetProjects("srv-rail-a");
   resetProjects("srv-rail-b");
   resetViewer("srv-m4view");
+  resetSessions("srv-m4quick");
+  resetProjects("srv-m4quick");
+  resetViewer("srv-m4quick");
+  resetMessages("srv-m4quick");
+  resetTodos("srv-m4quick");
+  localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
 describe("DesktopShell workspace", () => {
@@ -642,5 +651,65 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     // A second click re-activates the existing tab without a duplicate.
     fireEvent.click(screen.getByTestId("file-row-README.md"));
     expect(viewer["srv-m4view"]?.tabs).toHaveLength(1);
+  });
+});
+
+describe("DesktopShell quick open (TASK-M4-04)", () => {
+  it("⌘P opens the dialog and picking a recent file jumps Main to Files", async () => {
+    const alpha = server({ id: "srv-m4quick", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    localStorage.setItem("oc-recent-files:srv-m4quick", JSON.stringify(["README.md"]));
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // ⌘P opens the search dialog with the input focused.
+    fireEvent.keyDown(window, { key: "p", metaKey: true });
+    expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("quick-open-input")).toHaveFocus();
+    // The empty-query view lists the seeded recent file.
+    expect(screen.getByTestId("quick-open-item-README.md")).toBeInTheDocument();
+
+    // Picking it opens the viewer tab and switches Main to Files, like a
+    // sidebar tree click; the content fetch lands through the stub.
+    fireEvent.click(screen.getByTestId("quick-open-item-README.md"));
+    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
+    );
+    expect(viewer["srv-m4quick"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
+    expect(readRecentFiles("srv-m4quick")).toEqual(["README.md"]);
+  });
+
+  it("Ctrl+P works too and Esc closes the dialog", async () => {
+    const alpha = server({ id: "srv-m4quick", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: "p", ctrlKey: true });
+    expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByTestId("quick-open-input"), { key: "Escape" });
+    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
+  });
+
+  it("ignores ⌘P while typing in a text control", async () => {
+    const alpha = server({ id: "srv-m4quick", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m4quick", [session("sess_qp_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_qp_01"));
+
+    // A shortcut fired while the composer input is focused must not open
+    // the dialog (browsers reserve ⌘P for print there).
+    fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "p", metaKey: true });
+    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
+
+    // The same shortcut on the window (no text target) opens the dialog.
+    fireEvent.keyDown(window, { key: "p", metaKey: true });
+    expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
   });
 });
