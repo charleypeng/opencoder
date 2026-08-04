@@ -26,6 +26,17 @@
 // terminal view (a terminal icon in the Chat|Files tab bar or the
 // provisional ⌘/Ctrl+J hook opens it; its own Back header returns to
 // chat, like the settings view).
+// TASK-M8-01: every key-driven action below lives in the shortcut
+// registry (features/settings/shortcuts.ts + useShortcuts), which owns
+// the full ui-design §3.3 default table and the user customizations. This
+// shell registers the actions whose features exist here (quick open,
+// full-text search, session diff, terminal, new session, server digits,
+// session stepping, sidebar toggle, settings); ⌘K (command palette) is
+// wired by M8-02, and the input locals (⌘Enter send, Tab agent cycle, ↑
+// last prompt, Esc interrupt/close) stay inside PromptBox and the sheets
+// — the registry lists them but the shell intentionally does not register
+// them. The active-scope signal follows the focused main area (chat /
+// list / global) for the registry's scope gating.
 // This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
@@ -43,10 +54,13 @@ import { createProjectService } from "../../services/project";
 import { createSessionService, type Session } from "../../services/session";
 import { createVcsService } from "../../services/vcs";
 import {
+  createSession,
   forkSession,
   revertSession,
   unrevertSession,
 } from "../../features/sessions/sessionActions.js";
+import { useShortcuts } from "../../features/settings/useShortcuts.js";
+import type { Scope } from "../../features/settings/shortcuts.js";
 import RevertMessageDialog from "../../features/messages/RevertMessageDialog";
 import ShareSessionDialog from "../../features/sessions/ShareSessionDialog";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
@@ -207,9 +221,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // search panel. Both stay mounted (hidden via CSS) so search results
   // survive the round trip when a hit switches back to the viewer.
   const [filesMode, setFilesMode] = createSignal<"viewer" | "search">("viewer");
-  // Quick open dialog (TASK-M4-04): toggled by the provisional ⌘/Ctrl+P
-  // hook below; M8 moves the shortcut into the command-palette registry.
+  // Quick open dialog (TASK-M4-04): toggled by the ⌘/Ctrl+P registry
+  // action (TASK-M8-01), wired by useShortcuts below.
   const [quickOpen, setQuickOpen] = createSignal(false);
+  // Sidebar visibility (TASK-M8-01): ⌘/Ctrl+B collapses and restores the
+  // sidebar aside; the rail stays put as the toggle affordance.
+  const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
+  // Shortcut dispatch scope (TASK-M8-01): follows the focused main area
+  // (chat input / session list), "global" otherwise; gates the registry's
+  // chat/list-scoped shortcuts.
+  const [activeScope, setActiveScope] = createSignal<Scope>("global");
   // Message-fork errors (TASK-M6-03): the inline banner above the chat.
   const [forkError, setForkError] = createSignal<ApiError | null>(null);
   // Revert flow (TASK-M6-04): the message awaiting confirmation, and the
@@ -227,6 +248,30 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   function openDiff(messageId?: string) {
     setDiffMessageId(messageId);
     setMainView("diff");
+  }
+
+  /** Creates a session (⌘/Ctrl+N registry action); the new session opens
+   *  in the store, a failure surfaces in the inline banner above the chat. */
+  async function handleNewSession() {
+    setForkError(null);
+    try {
+      await createSession(activeServerId(), createSessionService(getApiClient()));
+    } catch (err) {
+      setForkError(ApiError.fromUnknown(err));
+    }
+  }
+
+  /** Steps the active session by `delta` through the store's render order
+   *  (⌘/Ctrl+[ / ] registry actions), wrapping at both ends. */
+  function stepSession(delta: number) {
+    const st = getServerSessionState(activeServerId());
+    if (st.order.length === 0) return;
+    const current = st.activeSessionId;
+    const index = current === null ? -1 : st.order.indexOf(current);
+    // A stale active id (dropped session) restarts from the first row.
+    const start = index < 0 ? 0 : index;
+    const next = (start + delta + st.order.length) % st.order.length;
+    setActiveSession(activeServerId(), st.order[next]);
   }
 
   /** Forks the session (optionally from a message point); the child opens
@@ -312,89 +357,48 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     }
   }
 
-  function onKeyDown(event: KeyboardEvent) {
-    if (!(event.metaKey || event.ctrlKey)) return;
-    if (event.key.toLowerCase() === "p") {
-      // Provisional ⌘/Ctrl+P hook for QuickOpen (TASK-M4-04); M8 moves it
-      // into the command-palette registry. Typing in a text control keeps
-      // the default behavior (the dialog's own input is guarded the same
-      // way, so ⌘P inside the open dialog is a no-op).
-      const target = event.target as HTMLElement | null;
-      if (
-        target !== null &&
-        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setQuickOpen(true);
-      return;
-    }
-    if (event.key.toLowerCase() === "f" && event.shiftKey) {
-      // Provisional ⌘/Ctrl+⇧F hook for the full-text search panel
-      // (TASK-M4-05); M8 moves it into the command-palette registry.
-      // Guarded like ⌘P while typing in text controls.
-      const target = event.target as HTMLElement | null;
-      if (
-        target !== null &&
-        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setMainView("files");
-      // Repeated presses cycle between the search panel and the viewer.
-      setFilesMode((mode) => (mode === "search" ? "viewer" : "search"));
-      return;
-    }
-    if (event.key.toLowerCase() === "d") {
-      // Provisional ⌘/Ctrl+D hook for the session diff view (TASK-M4-07);
-      // M8 moves it into the command-palette registry. Guarded like ⌘P
-      // while typing in text controls. From the diff view it cycles: a
-      // filtered diff clears the filter, an unfiltered one goes back to
-      // the chat view.
-      const target = event.target as HTMLElement | null;
-      if (
-        target !== null &&
-        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
-      ) {
-        return;
-      }
-      event.preventDefault();
-      if (mainView() === "diff") {
-        if (diffMessageId() !== undefined) {
-          setDiffMessageId(undefined);
-        } else {
-          setMainView("chat");
+  // Shortcut registry wiring (TASK-M8-01): the actions for every feature
+  // this shell owns, dispatched by useShortcuts through the registry. The
+  // previous provisional ⌘P/⌘⇧F/⌘D/⌘J hooks and the ⌘1..9 digit switch
+  // moved here verbatim (the input guard and the digit range live in the
+  // registry now); ⌘K (command palette) lands with M8-02 and the input
+  // locals (⌘Enter, Tab, ↑, Esc) stay inside PromptBox / the sheets.
+  useShortcuts({
+    activeScope,
+    actions: {
+      newSession: () => void handleNewSession(),
+      quickOpen: () => setQuickOpen(true),
+      fullTextSearch: () => {
+        setMainView("files");
+        // Repeated presses cycle between the search panel and the viewer.
+        setFilesMode((mode) => (mode === "search" ? "viewer" : "search"));
+      },
+      sessionDiff: () => {
+        if (mainView() === "diff") {
+          // From the diff view it cycles: a filtered diff clears the
+          // filter, an unfiltered one goes back to the chat view.
+          if (diffMessageId() !== undefined) {
+            setDiffMessageId(undefined);
+          } else {
+            setMainView("chat");
+          }
+          return;
         }
-        return;
-      }
-      if (!activeSessionId()) return;
-      openDiff();
-      return;
-    }
-    if (event.key.toLowerCase() === "j") {
-      // Provisional ⌘/Ctrl+J hook for the terminal panel (TASK-M6-02);
-      // M8 moves it into the command-palette registry. Guarded like ⌘P
-      // while typing in text controls; a second press toggles back to
-      // the chat view.
-      const target = event.target as HTMLElement | null;
-      if (
-        target !== null &&
-        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
-      ) {
-        return;
-      }
-      event.preventDefault();
-      setMainView((view) => (view === "terminal" ? "chat" : "terminal"));
-      return;
-    }
-    if (!/^[1-9]$/.test(event.key)) return;
-    const target = servers()[Number(event.key) - 1];
-    if (!target) return;
-    event.preventDefault();
-    setActiveServer(target.id);
-  }
+        if (!activeSessionId()) return;
+        openDiff();
+      },
+      toggleTerminal: () => setMainView((view) => (view === "terminal" ? "chat" : "terminal")),
+      switchServer: (event) => {
+        const target = servers()[Number(event.key) - 1];
+        if (!target) return;
+        setActiveServer(target.id);
+      },
+      prevSession: () => stepSession(-1),
+      nextSession: () => stepSession(1),
+      toggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
+      openSettings: () => setMainView("settings"),
+    },
+  });
 
   // SSE wiring (TASK-M2-03): one subscription per (server, directory)
   // context. The effect re-runs when the active server or its active
@@ -468,12 +472,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   onMount(() => {
     setActiveServer(props.server.id);
-    window.addEventListener("keydown", onKeyDown);
     void refresh();
     const stopHealth = subscribeToServerHealth();
     const stopChanged = subscribeToServersChanged((entries) => setServers(entries));
     onCleanup(() => {
-      window.removeEventListener("keydown", onKeyDown);
       stopHealth();
       stopChanged();
       setActiveServer(null);
@@ -487,6 +489,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     <div
       class="flex h-screen min-h-0 flex-col bg-bg-base text-fg-primary"
       data-testid="desktop-shell"
+      data-active-scope={activeScope()}
     >
       <div class="flex min-h-0 flex-1">
         <nav
@@ -537,7 +540,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           </button>
         </nav>
 
-        <aside class="flex w-64 shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated">
+        <aside
+          data-testid="sidebar"
+          data-collapsed={sidebarCollapsed() ? "true" : "false"}
+          class={`w-64 shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated ${
+            sidebarCollapsed() ? "hidden" : "flex"
+          }`}
+        >
           <header class="flex items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
             <h1 data-testid="sidebar-server-name" class="truncate text-sm font-semibold">
               {activeServer().name}
@@ -598,7 +607,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               />
             }
           >
-            <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+            {/* The session-list focus wrapper drives the registry's "list"
+              scope (TASK-M8-01): keyboard focus on a row scopes list-only
+              shortcuts; leaving the list restores the global scope. */}
+            <div
+              onFocusIn={() => setActiveScope("list")}
+              onFocusOut={(event) => {
+                if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                  setActiveScope("global");
+                }
+              }}
+            >
+              <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+            </div>
           </Show>
         </aside>
 
@@ -856,10 +877,24 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     <div class="px-4 pb-2">
                       <ErrorBanner error={revertError()} onDismiss={() => setRevertError(null)} />
                     </div>
-                    <PromptBox
-                      serverId={activeServerId()}
-                      sessionId={activeSessionId() as string}
-                    />
+                    {/* The composer focus wrapper drives the registry's
+                      "chat" scope (TASK-M8-01): while the input (or one of
+                      its toolbar controls) is focused, chat-scoped
+                      shortcuts dispatch; leaving the composer restores the
+                      global scope. */}
+                    <div
+                      onFocusIn={() => setActiveScope("chat")}
+                      onFocusOut={(event) => {
+                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+                          setActiveScope("global");
+                        }
+                      }}
+                    >
+                      <PromptBox
+                        serverId={activeServerId()}
+                        sessionId={activeSessionId() as string}
+                      />
+                    </div>
                   </Show>
                 </Show>
               </>

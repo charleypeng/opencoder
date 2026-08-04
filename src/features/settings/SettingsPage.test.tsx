@@ -70,4 +70,25 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByTestId("settings-back"));
     expect(onBack).toHaveBeenCalledTimes(1);
   });
+
+  it("switches to the Shortcuts section and back to Providers", async () => {
+    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    await screen.findByTestId("provider-key-row-openai");
+
+    const shortcutsNav = screen.getByTestId("settings-section-shortcuts");
+    expect(shortcutsNav).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(shortcutsNav);
+    expect(shortcutsNav).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("shortcuts-section")).toBeInTheDocument();
+    expect(screen.getByTestId("shortcut-row-quickOpen")).toBeInTheDocument();
+    expect(screen.queryByTestId("provider-key-row-openai")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-section-providers"));
+    expect(screen.getByTestId("settings-section-providers")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await screen.findByTestId("provider-key-row-openai");
+    expect(screen.queryByTestId("shortcuts-section")).not.toBeInTheDocument();
+  });
 });

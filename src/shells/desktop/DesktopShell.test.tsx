@@ -36,6 +36,8 @@ import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
 import { readRecentFiles } from "../../features/files/recentFiles";
 import { clearToasts, createToast } from "../../stores/toasts";
+import { combo } from "../../features/settings/shortcuts";
+import { resetAllShortcuts, saveShortcutCombo } from "../../features/settings/shortcutStore";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
@@ -517,6 +519,12 @@ afterEach(() => {
   resetPtys("srv-m6term");
   resetSessions("srv-m6tree");
   resetSessions("srv-m6tree2");
+  resetSessions("srv-m8new");
+  resetSessions("srv-m8step");
+  resetSessions("srv-m8scope");
+  resetMessages("srv-m8scope");
+  resetTodos("srv-m8scope");
+  resetAllShortcuts();
   localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
@@ -1612,5 +1620,119 @@ describe("DesktopShell session share (TASK-M6-05)", () => {
         "https://share.opencode.dev/s/sess_share_01",
       ),
     );
+  });
+});
+
+describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
+  it("⌘N creates a new session through the registry action", async () => {
+    const alpha = server({ id: "srv-m8new", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sessions["srv-m8new"]?.order).toEqual(["sess_demo_01"]));
+
+    fireEvent.keyDown(window, { key: "n", metaKey: true });
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-m8new").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(sessions["srv-m8new"]?.order).toContain("sess_new_01");
+    expect(screen.getByTestId("message-list")).toBeInTheDocument();
+  });
+
+  it("⌘B collapses and restores the sidebar", async () => {
+    const alpha = server({ id: "srv-m8side", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "false");
+    fireEvent.keyDown(window, { key: "b", metaKey: true });
+    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "true");
+    expect(screen.getByTestId("sidebar")).toHaveClass("hidden");
+
+    // A second press (Ctrl on a non-mac test host) restores the sidebar.
+    fireEvent.keyDown(window, { key: "B", ctrlKey: true });
+    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "false");
+    expect(screen.getByTestId("sidebar")).not.toHaveClass("hidden");
+  });
+
+  it("⌘[ and ⌘] step through the session order with wrap-around", async () => {
+    const alpha = server({ id: "srv-m8step", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m8step", [
+      session("sess_m8_a", DEMO_DIR),
+      session("sess_m8_b", DEMO_DIR),
+      session("sess_m8_c", DEMO_DIR),
+    ]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_m8_a"));
+    expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_a");
+
+    fireEvent.keyDown(window, { key: "]", metaKey: true });
+    expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_b");
+    fireEvent.keyDown(window, { key: "[", metaKey: true });
+    expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_a");
+    // Wrap forward past the last session back to the first.
+    fireEvent.keyDown(window, { key: "]", metaKey: true });
+    fireEvent.keyDown(window, { key: "]", metaKey: true });
+    fireEvent.keyDown(window, { key: "]", metaKey: true });
+    expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_a");
+  });
+
+  it("⌘, opens the settings view and Esc stays context-local", async () => {
+    const alpha = server({ id: "srv-m8settings", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: ",", metaKey: true });
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-section-shortcuts")).toBeInTheDocument();
+
+    // Esc is not registered globally (the todo drawer and sheets own it).
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+
+  it("a customized combo replaces the default dispatch", async () => {
+    const alpha = server({ id: "srv-m8custom", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    saveShortcutCombo("quickOpen", combo("e"));
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: "p", metaKey: true });
+    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "e", metaKey: true });
+    expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
+  });
+
+  it("the active scope follows the focused main area", async () => {
+    const alpha = server({ id: "srv-m8scope", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m8scope", [session("sess_m8_scope", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_m8_scope"));
+
+    expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "global");
+    fireEvent.focusIn(screen.getByTestId("prompt-input"));
+    expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "chat");
+    fireEvent.focusOut(screen.getByTestId("prompt-input"));
+    expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "global");
+    fireEvent.focusIn(screen.getByTestId("session-item-sess_m8_scope"));
+    expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "list");
+  });
+
+  it("⌘K is not wired yet (the command palette lands with TASK-M8-02)", async () => {
+    const alpha = server({ id: "srv-m8palette", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
   });
 });

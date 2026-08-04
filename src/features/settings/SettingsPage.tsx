@@ -1,11 +1,14 @@
 // Settings page (TASK-M5-06): the minimal settings skeleton hosting the
-// provider API-key section (ProviderKeys). The section nav is a
-// placeholder — M9-04 owns the full settings center and will expand the
-// sections. DesktopShell mounts this view through its gear button; the
-// header's Back returns to the previous main view.
+// provider API-key section (ProviderKeys) and, since TASK-M8-01, the
+// shortcuts customization section. The section nav is a placeholder —
+// M9-04 owns the full settings center and will expand the sections.
+// DesktopShell mounts this view through its gear button; the header's Back
+// returns to the previous main view.
 
+import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ProviderKeys from "./providers/ProviderKeys.js";
+import ShortcutsSection from "./ShortcutsSection.js";
 
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
@@ -14,7 +17,11 @@ export interface SettingsPageProps {
   onBack: () => void;
 }
 
+type SettingsSection = "providers" | "shortcuts";
+
 const SettingsPage: Component<SettingsPageProps> = (props) => {
+  const [section, setSection] = createSignal<SettingsSection>("providers");
+
   return (
     <div data-testid="settings-page" class="flex h-full min-h-0 flex-col">
       <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
@@ -34,13 +41,34 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           class="flex w-40 shrink-0 flex-col gap-1 border-r border-bg-sunken p-2"
           aria-label="Settings sections"
         >
-          <span
+          <button
+            type="button"
             data-testid="settings-section-providers"
-            data-active="true"
-            class="rounded-md bg-accent-soft px-3 py-1.5 text-xs text-fg-primary"
+            data-active={section() === "providers" ? "true" : "false"}
+            aria-selected={section() === "providers" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "providers"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("providers")}
           >
             Providers
-          </span>
+          </button>
+          <button
+            type="button"
+            data-testid="settings-section-shortcuts"
+            data-active={section() === "shortcuts" ? "true" : "false"}
+            aria-selected={section() === "shortcuts" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "shortcuts"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("shortcuts")}
+          >
+            Shortcuts
+          </button>
           <span
             data-testid="settings-section-more"
             class="rounded-md px-3 py-1.5 text-xs text-fg-faint"
@@ -48,7 +76,9 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
             More sections — M9-04
           </span>
         </nav>
-        <ProviderKeys serverId={props.serverId} />
+        <Show when={section() === "providers"} fallback={<ShortcutsSection />}>
+          <ProviderKeys serverId={props.serverId} />
+        </Show>
       </div>
     </div>
   );
