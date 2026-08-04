@@ -1,8 +1,10 @@
 // File viewer with editor-style tabs (TASK-M4-03): renders the open file
 // tabs of the per-server viewer store with an active-tab content area.
 // The active tab's content is fetched from GET /file/content once and
-// cached per (server, path) in a module-level map, so re-activating a tab
-// (or switching Main views, which unmounts the viewer) never refetches.
+// cached per (server, directory, path) in a module-level map, so
+// re-activating a tab (or switching Main views, which unmounts the
+// viewer) never refetches. The directory scopes the cache to the project
+// context the payload was fetched from.
 // Content branches: Shiki-highlighted read-only text (language derived
 // from the extension, plain escaped fallback on failure), images (base64
 // data URL from mimeType + encoding or a pass-through `data:` content),
@@ -19,6 +21,7 @@ import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createFileService, type FileContent } from "../../services/file.js";
 import { closeTab, setActive, viewer } from "../../stores/viewer.js";
+import { getActiveDirectory } from "../../stores/project.js";
 import { highlightCode } from "../messages/markdown/highlighter.js";
 import { escapeHtml } from "../messages/markdown/markdown.js";
 
@@ -29,12 +32,13 @@ export interface FileViewerProps {
   fullscreen?: boolean;
 }
 
-/** (server, path) -> fetched content; module-level so re-mounting the
- *  viewer (Main view switches) keeps tabs' content without refetching. */
+/** (server, directory, path) -> fetched content; module-level so
+ *  re-mounting the viewer (Main view switches) keeps tabs' content
+ *  without refetching. Entries are evicted when their tab closes. */
 const contentCache = new Map<string, FileContent>();
 
-function cacheKey(serverId: string, path: string): string {
-  return `${serverId}\u0000${path}`;
+function cacheKey(serverId: string, directory: string | undefined, path: string): string {
+  return `${serverId}\u0000${directory ?? ""}\u0000${path}`;
 }
 
 function basename(path: string): string {
@@ -120,9 +124,12 @@ function rowKindOf(line: string): DiffRow["kind"] {
 }
 
 function diffRowsOf(content: FileContent): DiffRow[] {
-  // Structured patch: rebuild the unified headers from the hunk counts.
+  // Structured patch: rebuild the unified headers from the file names and
+  // the hunk counts.
   if (content.patch !== undefined && Array.isArray(content.patch.hunks)) {
     const rows: DiffRow[] = [];
+    rows.push({ kind: "meta", text: `--- ${content.patch.oldFileName}` });
+    rows.push({ kind: "meta", text: `+++ ${content.patch.newFileName}` });
     for (const hunk of content.patch.hunks) {
       rows.push({
         kind: "hunk",
@@ -246,13 +253,21 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   // in-flight result for an older one.
   let fetchSeq = 0;
 
-  async function loadContent(serverId: string, path: string, seq: number): Promise<void> {
+  async function loadContent(
+    serverId: string,
+    directory: string | undefined,
+    path: string,
+    seq: number,
+  ): Promise<void> {
     try {
       const content = await createFileService(getApiClient()).content(path);
       if (seq !== fetchSeq) return;
       // Only successful payloads enter the cache; a missing body keeps the
-      // tab fetchable on its next activation.
-      if (content !== undefined) contentCache.set(cacheKey(serverId, path), content);
+      // tab fetchable on its next activation. A closed tab's in-flight
+      // fetch never (re-)adds an entry — closing evicts the content.
+      if (content !== undefined && viewer[serverId]?.tabs.some((tab) => tab.path === path)) {
+        contentCache.set(cacheKey(serverId, directory, path), content);
+      }
       setLoadError(null);
       setLoadingPath(null);
     } catch (err) {
@@ -263,15 +278,17 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   }
 
   // Fetch on activation (and on server switch); cached tabs render
-  // immediately without a request.
+  // immediately without a request. The directory is captured up front so
+  // a payload is always cached under the context it was fetched from.
   createEffect(() => {
     const serverId = props.serverId;
+    const directory = getActiveDirectory();
     const path = activePath();
     if (path === null) return;
-    if (contentCache.has(cacheKey(serverId, path))) return;
+    if (contentCache.has(cacheKey(serverId, directory, path))) return;
     const seq = ++fetchSeq;
     setLoadingPath(path);
-    void loadContent(serverId, path, seq);
+    void loadContent(serverId, directory, path, seq);
   });
 
   // Reactive view state for the active tab. The content cache is a plain
@@ -281,7 +298,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   const viewState = createMemo(() => {
     const path = activePath();
     if (path === null) return null;
-    const cachedContent = contentCache.get(cacheKey(props.serverId, path));
+    const cachedContent = contentCache.get(cacheKey(props.serverId, getActiveDirectory(), path));
     if (cachedContent !== undefined) return { kind: "ready" as const, content: cachedContent };
     const err = loadError();
     if (err !== null && err.path === path) return { kind: "error" as const, error: err.error };
@@ -300,12 +317,20 @@ const FileViewer: Component<FileViewerProps> = (props) => {
 
   function retry(): void {
     const serverId = props.serverId;
+    const directory = getActiveDirectory();
     const path = activePath();
     if (path === null) return;
     const seq = ++fetchSeq;
     setLoadError(null);
     setLoadingPath(path);
-    void loadContent(serverId, path, seq);
+    void loadContent(serverId, directory, path, seq);
+  }
+
+  // Evicts the tab's cached content together with the tab itself, keeping
+  // the module cache from growing with closed files.
+  function handleCloseTab(serverId: string, path: string): void {
+    contentCache.delete(cacheKey(serverId, getActiveDirectory(), path));
+    closeTab(serverId, path);
   }
 
   return (
@@ -354,7 +379,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
                     data-testid={`viewer-tab-close-${tab.path}`}
                     aria-label={`Close ${tab.name}`}
                     class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
-                    onClick={() => closeTab(props.serverId, tab.path)}
+                    onClick={() => handleCloseTab(props.serverId, tab.path)}
                   >
                     ×
                   </button>

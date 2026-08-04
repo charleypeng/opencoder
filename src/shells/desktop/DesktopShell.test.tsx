@@ -24,7 +24,7 @@ import {
 } from "../../stores/session";
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
 import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
-import { resetServer as resetViewer, viewer } from "../../stores/viewer";
+import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -590,6 +590,33 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     fireEvent.click(screen.getByTestId("main-tab-chat"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+  });
+
+  it("switching projects clears the viewer tabs and active path (TASK-M4-03)", async () => {
+    const alpha = server({ id: "srv-m4view", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // Seed viewer state the way an open file would (store-level; the shell
+    // drops it when the context rebuilds).
+    openTab("srv-m4view", "README.md");
+    expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
+    expect(viewer["srv-m4view"]?.activePath).toBe("README.md");
+
+    fireEvent.pointerDown(screen.getByTestId("project-switcher-trigger"), {
+      pointerType: "mouse",
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
+      pointerType: "mouse",
+    });
+
+    // The context rebuild cleared the previous directory's tabs.
+    await waitFor(() => expect(getServerProjectState("srv-m4view").current).toBe(LABS_DIR));
+    expect(viewer["srv-m4view"]).toBeUndefined();
   });
 
   it("a sidebar tree click opens the file tab in the Main Files view and switches to it", async () => {

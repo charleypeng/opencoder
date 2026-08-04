@@ -14,6 +14,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { ApiClient, type Transport } from "../../services/client";
 import { resetServer, openTab, setActive } from "../../stores/viewer";
+import { setCurrent, resetServer as resetProjects } from "../../stores/project";
+import { setActiveServer } from "../../stores/registry";
 import FileViewer, { type FileViewerProps } from "./FileViewer";
 
 const { getApiClientMock, highlightMock } = vi.hoisted(() => ({
@@ -89,7 +91,11 @@ beforeEach(() => {
 afterEach(() => {
   // The unique ids are untracked; clear any that got created (keeps the
   // viewer store from growing across the file).
-  for (let i = 1; i <= serverSeq; i += 1) resetServer(`srv-viewer-${i}`);
+  for (let i = 1; i <= serverSeq; i += 1) {
+    resetServer(`srv-viewer-${i}`);
+    resetProjects(`srv-viewer-${i}`);
+  }
+  setActiveServer(null);
 });
 
 describe("FileViewer tab bar", () => {
@@ -304,9 +310,20 @@ describe("FileViewer content branches", () => {
 
     await waitFor(() => expect(screen.getByTestId("viewer-diff")).toBeInTheDocument());
     const rows = screen.getAllByTestId("viewer-diff-row");
-    expect(rows[0]).toHaveAttribute("data-kind", "hunk");
-    expect(rows[0]).toHaveTextContent("@@ -1,2 +1,2 @@");
-    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual(["hunk", "ctx", "del", "add"]);
+    expect(rows[0]).toHaveAttribute("data-kind", "meta");
+    expect(rows[0]).toHaveTextContent("--- src/a.ts");
+    expect(rows[1]).toHaveAttribute("data-kind", "meta");
+    expect(rows[1]).toHaveTextContent("+++ src/a.ts");
+    expect(rows[2]).toHaveAttribute("data-kind", "hunk");
+    expect(rows[2]).toHaveTextContent("@@ -1,2 +1,2 @@");
+    expect(rows.map((row) => row.getAttribute("data-kind"))).toEqual([
+      "meta",
+      "meta",
+      "hunk",
+      "ctx",
+      "del",
+      "add",
+    ]);
   });
 });
 
@@ -383,5 +400,46 @@ describe("FileViewer fetch states", () => {
     await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
     openTab(serverId, "src/a.ts");
     expect(contentCalls(requestMock, "src/a.ts")).toBe(1);
+  });
+
+  it("evicts the cached content when its tab is closed", async () => {
+    const serverId = freshServer();
+    const requestMock = mountViewer(serverId, { "src/a.ts": textContent("alpha") });
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
+    expect(contentCalls(requestMock, "src/a.ts")).toBe(1);
+
+    fireEvent.click(screen.getByTestId("viewer-tab-close-src/a.ts"));
+    await waitFor(() => expect(screen.getByTestId("viewer-empty")).toBeInTheDocument());
+
+    // Re-opening the same file fetches again: the close evicted the entry.
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
+    expect(contentCalls(requestMock, "src/a.ts")).toBe(2);
+  });
+
+  it("scopes the cache to the active directory (project switch refetches)", async () => {
+    const serverId = freshServer();
+    setActiveServer(serverId);
+    setCurrent(serverId, "/proj/alpha");
+    let dir = "/proj/alpha";
+    const requestMock = mountViewer(serverId, () => textContent(`content of ${dir}`));
+    openTab(serverId, "README.md");
+    await waitFor(() =>
+      expect(screen.getByTestId("viewer-code")).toHaveTextContent("content of /proj/alpha"),
+    );
+    expect(contentCalls(requestMock, "README.md")).toBe(1);
+
+    // Project switch: the shell resets the viewer store and the active
+    // directory changes; re-opening the same path must refetch instead of
+    // showing the previous directory's payload.
+    resetServer(serverId);
+    setCurrent(serverId, "/proj/beta");
+    dir = "/proj/beta";
+    openTab(serverId, "README.md");
+    await waitFor(() =>
+      expect(screen.getByTestId("viewer-code")).toHaveTextContent("content of /proj/beta"),
+    );
+    expect(contentCalls(requestMock, "README.md")).toBe(2);
   });
 });
