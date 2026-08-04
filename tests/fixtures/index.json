@@ -16,5 +16,6 @@
   "permission": "permission.asked.json",
   "question": "question.asked.json",
   "todo.list": "todo.list.json",
-  "pty.list": "pty.list.json"
+  "pty.list": "pty.list.json",
+  "pty.shells": "pty.shells.json"
 }

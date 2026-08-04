@@ -23,6 +23,8 @@ import {
   setAgentForSession,
   setAgents,
 } from "./agents.js";
+import { ptys, resetServer as resetPtys } from "./ptys.js";
+import type { Pty } from "../services/pty.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -53,6 +55,18 @@ function project(id: string, worktree: string): Project {
   return { id, worktree, time: { created: 1, updated: 1 }, sandboxes: [] } as Project;
 }
 
+function pty(id: string, status: "running" | "exited" = "running"): Pty {
+  return {
+    id,
+    title: id,
+    command: "sh",
+    args: [],
+    cwd: "/mock/projects/opencode-demo",
+    status,
+    pid: 1000,
+  } as Pty;
+}
+
 function mockServices() {
   return {
     session: {
@@ -77,6 +91,7 @@ afterEach(() => {
   resetPermissions(SERVER);
   resetQuestions(SERVER);
   resetAgents(SERVER);
+  resetPtys(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -526,6 +541,56 @@ describe("applyEvent — edge routes", () => {
   });
 });
 
+describe("applyEvent — pty events", () => {
+  it("maps pty.created / pty.updated to upserts in the ptys store", () => {
+    applyEvent(SERVER, {
+      type: "pty.created",
+      properties: { info: pty("pty_1") },
+    });
+    applyEvent(SERVER, {
+      type: "pty.updated",
+      properties: { info: { ...pty("pty_1"), title: "renamed" } },
+    });
+    const state = ptys[SERVER];
+    expect(state.order).toEqual(["pty_1"]);
+    expect(state.ptys["pty_1"]).toMatchObject({ id: "pty_1", title: "renamed", status: "running" });
+  });
+
+  it("maps pty.exited to a status + exitCode update", () => {
+    applyEvent(SERVER, { type: "pty.created", properties: { info: pty("pty_2") } });
+    applyEvent(SERVER, {
+      type: "pty.exited",
+      properties: { id: "pty_2", exitCode: 0 },
+    });
+    expect(ptys[SERVER].ptys["pty_2"]).toMatchObject({ status: "exited", exitCode: 0 });
+  });
+
+  it("maps pty.exited without an exitCode to a plain exited status", () => {
+    applyEvent(SERVER, { type: "pty.created", properties: { info: pty("pty_3") } });
+    applyEvent(SERVER, { type: "pty.exited", properties: { id: "pty_3" } });
+    expect(ptys[SERVER].ptys["pty_3"].status).toBe("exited");
+    expect(ptys[SERVER].ptys["pty_3"].exitCode).toBeUndefined();
+  });
+
+  it("maps pty.deleted to removal and keeps sibling order", () => {
+    applyEvent(SERVER, { type: "pty.created", properties: { info: pty("pty_4") } });
+    applyEvent(SERVER, { type: "pty.created", properties: { info: pty("pty_5") } });
+    applyEvent(SERVER, { type: "pty.deleted", properties: { id: "pty_4" } });
+    const state = ptys[SERVER];
+    expect(state.order).toEqual(["pty_5"]);
+    expect(state.ptys["pty_4"]).toBeUndefined();
+    expect(state.ptys["pty_5"]).toBeDefined();
+  });
+
+  it("ignores pty events without the required ids", () => {
+    applyEvent(SERVER, { type: "pty.created", properties: {} });
+    applyEvent(SERVER, { type: "pty.updated", properties: { info: { nope: true } } });
+    applyEvent(SERVER, { type: "pty.exited", properties: {} });
+    applyEvent(SERVER, { type: "pty.deleted", properties: {} });
+    expect(ptys[SERVER]).toBeUndefined();
+  });
+});
+
 describe("syncAll", () => {
   it("pulls and applies session list, status map, projects and current directory", async () => {
     const services = mockServices();
@@ -602,6 +667,10 @@ describe("subscribeToServerEvents", () => {
         questions: [{ question: "A?", header: "A", options: [] }],
       },
     });
+    applyEvent(SERVER, {
+      type: "pty.created",
+      properties: { info: pty("pty_stale") },
+    });
     setTree(SERVER, undefined, []);
     // Stale agent state exists before the re-connect; its forever-true
     // loaded flag would block a catalog refresh without the reset (M5 review).
@@ -615,6 +684,7 @@ describe("subscribeToServerEvents", () => {
     expect(questions[SERVER]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
     expect(agentStates[SERVER]).toBeDefined();
+    expect(ptys[SERVER].ptys["pty_stale"]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -632,6 +702,8 @@ describe("subscribeToServerEvents", () => {
     // The agents bucket is dropped too, so the next mount refetches.
     expect(agentStates[SERVER]).toBeUndefined();
     expect(getServerAgentState(SERVER).loaded).toBe(false);
+    // The pty bucket is dropped too (the terminal list refetches on mount).
+    expect(ptys[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.
     onEvent?.({

@@ -1,0 +1,21 @@
+[
+  {
+    "id": "pty_abc123",
+    "title": "dev server",
+    "command": "pnpm",
+    "args": ["dev"],
+    "cwd": "/home/user/project",
+    "status": "running",
+    "pid": 42137
+  },
+  {
+    "id": "pty_abc124",
+    "title": "database shell",
+    "command": "psql",
+    "args": ["opencode_dev"],
+    "cwd": "/home/user/project",
+    "status": "exited",
+    "pid": 42138,
+    "exitCode": 0
+  }
+]

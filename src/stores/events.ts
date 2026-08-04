@@ -26,6 +26,8 @@ import * as vcsStore from "./vcs.js";
 import * as permissionStore from "./permission.js";
 import * as questionStore from "./question.js";
 import * as agentsStore from "./agents.js";
+import * as ptysStore from "./ptys.js";
+import type { Pty } from "../services/pty.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
@@ -46,6 +48,7 @@ export interface EventStoreDeps {
   permissions: typeof permissionStore;
   questions: typeof questionStore;
   agents: typeof agentsStore;
+  ptys: typeof ptysStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -59,6 +62,7 @@ export const defaultEventStores: EventStoreDeps = {
   permissions: permissionStore,
   questions: questionStore,
   agents: agentsStore,
+  ptys: ptysStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -83,8 +87,19 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files, diffs, vcs, permissions, questions, agents } =
-    deps;
+  const {
+    session,
+    messages,
+    project,
+    todos,
+    files,
+    diffs,
+    vcs,
+    permissions,
+    questions,
+    agents,
+    ptys,
+  } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -213,6 +228,25 @@ export function applyEvent(
       // `requestID` (answers only exist on the replied variant).
       if (typeof p.requestID === "string") questions.dequeue(serverId, p.requestID);
       return;
+    case "pty.created":
+    case "pty.updated":
+      // PTY list refresh (api-coverage §7): the schema properties carry the
+      // full Pty object in `info`.
+      if (p.info !== undefined && typeof (p.info as { id?: unknown }).id === "string") {
+        ptys.upsertPty(serverId, p.info as Pty);
+      }
+      return;
+    case "pty.exited":
+      // The PTY process terminated (schema properties: id + exitCode):
+      // mark the entry exited so the terminal tab can show the exit state.
+      if (typeof p.id === "string") {
+        ptys.markPtyExited(serverId, p.id, typeof p.exitCode === "number" ? p.exitCode : undefined);
+      }
+      return;
+    case "pty.deleted":
+      // The PTY was removed (schema properties: id): drop it from the list.
+      if (typeof p.id === "string") ptys.removePty(serverId, p.id);
+      return;
     default:
       if (import.meta.env.DEV) {
         console.debug(`[stores] ignoring SSE event type "${event.type}"`);
@@ -308,6 +342,7 @@ export async function subscribeToServerEvents(
       deps.permissions.resetServer(serverId);
       deps.questions.resetServer(serverId);
       deps.agents.resetServer(serverId);
+      deps.ptys.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

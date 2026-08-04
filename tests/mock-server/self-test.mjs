@@ -1200,6 +1200,213 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
+    // TASK-M6-01: PTY family (REST part).
+    await test("pty list returns Pty entries with required fields", async () => {
+      const { status, body } = await request(baseUrl, "/pty");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 2, "body must have >= 2 ptys");
+      for (const pty of body) {
+        expect(
+          typeof pty?.id === "string" && pty.id.startsWith("pty_"),
+          `id ${JSON.stringify(pty?.id)}`,
+        );
+        expect(typeof pty?.title === "string", "pty must carry title");
+        expect(typeof pty?.command === "string", "pty must carry command");
+        expect(Array.isArray(pty?.args), "pty must carry args");
+        expect(typeof pty?.cwd === "string", "pty must carry cwd");
+        expect(
+          ["running", "exited"].includes(pty?.status),
+          `status ${JSON.stringify(pty?.status)}`,
+        );
+        expect(typeof pty?.pid === "number", "pty must carry pid");
+      }
+      // The fixture covers both lifecycle states (running + exited with code).
+      const exited = body.find((pty) => pty?.status === "exited");
+      expect(exited !== undefined, "fixture must include an exited pty");
+      expect(typeof exited?.exitCode === "number", "exited pty must carry exitCode");
+    });
+
+    await test("pty create returns a running pty honoring the payload", async () => {
+      const { status, body } = await request(baseUrl, "/pty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "pnpm", args: ["dev"], cwd: "/tmp", title: "dev server" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.id === "string", "created pty must carry id");
+      expect(body?.command === "pnpm", `command ${JSON.stringify(body?.command)}`);
+      expect(
+        JSON.stringify(body?.args) === JSON.stringify(["dev"]),
+        `args ${JSON.stringify(body?.args)}`,
+      );
+      expect(body?.cwd === "/tmp", `cwd ${JSON.stringify(body?.cwd)}`);
+      expect(body?.title === "dev server", `title ${JSON.stringify(body?.title)}`);
+      expect(body?.status === "running", `status ${JSON.stringify(body?.status)}`);
+    });
+
+    await test("pty create accepts a bare payload (default shell)", async () => {
+      const { status, body } = await request(baseUrl, "/pty", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.command === "string" && body.command !== "", "command must default");
+      expect(body?.status === "running", `status ${JSON.stringify(body?.status)}`);
+    });
+
+    await test("pty get returns the fixture entry", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc123");
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "pty_abc123", `id ${JSON.stringify(body?.id)}`);
+      expect(body?.status === "running", `status ${JSON.stringify(body?.status)}`);
+    });
+
+    await test("pty get of an unknown id is a 404 PtyNotFoundError", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_nope");
+      expect(status === 404, `status ${status}`);
+      expect(body?._tag === "PtyNotFoundError", `_tag ${JSON.stringify(body?._tag)}`);
+      expect(typeof body?.message === "string", "404 must carry a message");
+    });
+
+    await test("pty update resizes via the size body", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc123", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ size: { rows: 40, cols: 120 } }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "pty_abc123", `id ${JSON.stringify(body?.id)}`);
+    });
+
+    await test("pty update rejects a malformed size", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc123", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ size: { rows: 0, cols: 120 } }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("pty update of an unknown id is a 404", async () => {
+      const { status } = await request(baseUrl, "/pty/pty_nope", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "x" }),
+      });
+      expect(status === 404, `status ${status}`);
+    });
+
+    await test("pty delete returns true", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc124", { method: "DELETE" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("pty shells returns path/name/acceptable entries", async () => {
+      const { status, body } = await request(baseUrl, "/pty/shells");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 2, "body must have >= 2 shells");
+      for (const shell of body) {
+        expect(
+          typeof shell?.path === "string" && shell.path.startsWith("/"),
+          `path ${JSON.stringify(shell?.path)}`,
+        );
+        expect(
+          typeof shell?.name === "string" && shell.name !== "",
+          `name ${JSON.stringify(shell?.name)}`,
+        );
+        expect(
+          typeof shell?.acceptable === "boolean",
+          `acceptable ${JSON.stringify(shell?.acceptable)}`,
+        );
+      }
+      // The fixture covers both acceptable and non-acceptable shells.
+      expect(
+        body.some((shell) => shell.acceptable === true),
+        "fixture must include acceptable shells",
+      );
+      expect(
+        body.some((shell) => shell.acceptable === false),
+        "fixture must include non-acceptable shells",
+      );
+    });
+
+    await test("pty connect-token returns the PtyTicketConnectToken shape", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc123/connect-token", {
+        method: "POST",
+      });
+      expect(status === 200, `status ${status}`);
+      expect(
+        typeof body?.ticket === "string" && body.ticket !== "",
+        `ticket ${JSON.stringify(body?.ticket)}`,
+      );
+      expect(
+        typeof body?.expires_in === "number" && body.expires_in > 0,
+        `expires_in ${JSON.stringify(body?.expires_in)}`,
+      );
+    });
+
+    await test("pty connect answers 426 with the websocket note", async () => {
+      const { status, body } = await request(baseUrl, "/pty/pty_abc123/connect?ticket=t-1");
+      expect(status === 426, `status ${status}`);
+      expect(
+        typeof body?.message === "string" && body.message.includes("WebSocket"),
+        "426 must explain the websocket upgrade",
+      );
+      expect(body?.ticket === "t-1", `ticket must echo back; got ${JSON.stringify(body?.ticket)}`);
+    });
+
+    // TASK-M6-01: the PTY WebSocket data channel, simulated by the
+    // standalone ws-echo server (the express mock cannot upgrade natively).
+    await test("pty ws: ws-echo server echoes a binary frame", async () => {
+      const wsPort = randomPort();
+      const echo = spawn("node", ["tests/mock-server/ws-echo.mjs", "--port", String(wsPort)], {
+        cwd: ROOT,
+        stdio: ["ignore", "pipe", "pipe"],
+      });
+      try {
+        await new Promise((resolve, reject) => {
+          const timer = setTimeout(() => reject(new Error("ws-echo did not start")), 5000);
+          echo.stdout.on("data", (chunk) => {
+            if (String(chunk).includes("listening")) {
+              clearTimeout(timer);
+              resolve();
+            }
+          });
+          echo.on("exit", (code) => {
+            clearTimeout(timer);
+            reject(new Error(`ws-echo exited early (code ${code})`));
+          });
+        });
+        const { WebSocket } = await import("ws");
+        const echoed = await new Promise((resolve, reject) => {
+          const socket = new WebSocket(`ws://localhost:${wsPort}`);
+          const timer = setTimeout(() => reject(new Error("ws echo round trip timed out")), 5000);
+          socket.on("open", () =>
+            socket.send(Buffer.from([0x1b, 0x5b, 0x33, 0x32, 0x6d, 0x68, 0x69])),
+          );
+          socket.on("message", (data) => {
+            clearTimeout(timer);
+            resolve(data);
+            socket.close();
+          });
+          socket.on("error", (err) => {
+            clearTimeout(timer);
+            reject(err);
+          });
+        });
+        const bytes = [...Buffer.from(echoed)];
+        expect(
+          JSON.stringify(bytes) === JSON.stringify([0x1b, 0x5b, 0x33, 0x32, 0x6d, 0x68, 0x69]),
+          `echo mismatch: ${JSON.stringify(bytes)}`,
+        );
+      } finally {
+        echo.kill("SIGTERM");
+      }
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/model");
       expect(status === 501, `status ${status}`);

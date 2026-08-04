@@ -28,5 +28,7 @@
   "skill": "skill.json",
   "provider": "provider.json",
   "config.providers": "config.providers.json",
-  "provider.auth": "provider.auth.json"
+  "provider.auth": "provider.auth.json",
+  "pty": "pty.list.json",
+  "pty.shells": "pty.shells.json"
 }

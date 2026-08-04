@@ -128,6 +128,16 @@ const PROVIDER_ROUTES: Route[] = [
   { method: "get", path: "/provider/auth", operation: "provider.auth", fixture: "provider.auth" },
 ];
 
+// P3 — PTY family (M6): the session list and the shell catalog are static
+// fixtures; the per-pty endpoints, the connect-token exchange and the
+// connect upgrade are dynamic (see registerDynamic — the connect endpoint
+// answers 426 because express cannot upgrade to WebSocket natively, see
+// docs/api-coverage.md §4).
+const PTY_ROUTES: Route[] = [
+  { method: "get", path: "/pty", operation: "pty.list", fixture: "pty" },
+  { method: "get", path: "/pty/shells", operation: "pty.shells", fixture: "pty.shells" },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
@@ -139,6 +149,7 @@ const ROUTES: Route[] = [
   ...AGENT_ROUTES,
   ...SKILL_ROUTES,
   ...PROVIDER_ROUTES,
+  ...PTY_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.
@@ -640,6 +651,121 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     }
     // Auto flow poll (mock extension): report whether the flow completed.
     res.json(latest?.completed === true);
+  });
+
+  // ---- TASK-M6-01: PTY family (list/shells are declarative fixtures) ----
+
+  // A pty entry from the fixture list, so dynamic handlers stay coherent
+  // with the recorded fixture root.
+  function ptyOf(id: string): Record<string, unknown> | undefined {
+    const list = Array.isArray(fixtures["pty"]) ? fixtures["pty"] : [];
+    return (list as Record<string, unknown>[]).find((pty) => pty?.id === id);
+  }
+
+  let ptySequence = 0;
+
+  // Create (TASK-M6-01): the schema's { command, args, cwd, title, env } body
+  // is optional throughout — a bare POST creates the default shell. The
+  // response is a running Pty.
+  app.post("/pty", (req, res) => {
+    const body = (req.body ?? {}) as {
+      command?: unknown;
+      args?: unknown;
+      cwd?: unknown;
+      title?: unknown;
+    };
+    if (typeof body !== "object" || body === null || Array.isArray(body)) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid pty payload" });
+      return;
+    }
+    ptySequence += 1;
+    const command = typeof body.command === "string" ? body.command : "sh";
+    const created: Record<string, unknown> = {
+      id: `pty_created_${ptySequence}`,
+      title: typeof body.title === "string" ? body.title : command,
+      command,
+      args: Array.isArray(body.args) ? body.args.filter((a) => typeof a === "string") : [],
+      cwd: typeof body.cwd === "string" ? body.cwd : base.directory,
+      status: "running",
+      pid: 42000 + ptySequence,
+    };
+    res.json(created);
+  });
+
+  // Get: serve the fixture entry for the id, unknown ids are a 404
+  // PtyNotFoundError (contract shape { _tag, ptyID, message }).
+  app.get("/pty/:ptyID", (req, res) => {
+    const pty = ptyOf(req.params.ptyID);
+    if (pty === undefined) {
+      res.status(404).json({
+        _tag: "PtyNotFoundError",
+        ptyID: req.params.ptyID,
+        message: `pty ${req.params.ptyID} not found`,
+      });
+      return;
+    }
+    res.json(pty);
+  });
+
+  // Update (TASK-M6-01): accepts { title?, size?: { rows, cols } } — the
+  // resize channel of the PTY protocol (contract; not a WebSocket frame).
+  // A malformed size is a 400, unknown ids a 404.
+  app.put("/pty/:ptyID", (req, res) => {
+    const pty = ptyOf(req.params.ptyID);
+    if (pty === undefined) {
+      res.status(404).json({
+        _tag: "PtyNotFoundError",
+        ptyID: req.params.ptyID,
+        message: `pty ${req.params.ptyID} not found`,
+      });
+      return;
+    }
+    const body = (req.body ?? {}) as { title?: unknown; size?: unknown };
+    const size = body.size;
+    if (size !== undefined) {
+      const rows = (size as { rows?: unknown })?.rows;
+      const cols = (size as { cols?: unknown })?.cols;
+      if (
+        typeof rows !== "number" ||
+        !Number.isInteger(rows) ||
+        rows <= 0 ||
+        typeof cols !== "number" ||
+        !Number.isInteger(cols) ||
+        cols <= 0
+      ) {
+        res.status(400).json({ _tag: "BadRequestError", message: "invalid pty size" });
+        return;
+      }
+    }
+    const updated: Record<string, unknown> = { ...pty, id: req.params.ptyID };
+    if (typeof body.title === "string") updated.title = body.title;
+    res.json(updated);
+  });
+
+  // Remove: always reports success (like the session delete).
+  app.delete("/pty/:ptyID", (_req, res) => {
+    res.json(true);
+  });
+
+  // Connect token (TASK-M6-01): returns the PtyTicketConnectToken the Rust
+  // transport exchanges before opening the WebSocket channel.
+  app.post("/pty/:ptyID/connect-token", (req, res) => {
+    res.json({ ticket: `mock-ticket-${req.params.ptyID}`, expires_in: 60 });
+  });
+
+  // Connect (TASK-M6-01): the contract documents this endpoint as a plain
+  // HTTP boolean, but the real server upgrades it to a WebSocket carrying
+  // the connect ticket. express cannot upgrade natively, so the mock
+  // answers 426 Upgrade Required with a JSON note — the WS data channel is
+  // simulated by the standalone ws-echo.mjs server (docs/tasks/M6.md
+  // appendix, contract-based verification).
+  app.get("/pty/:ptyID/connect", (req, res) => {
+    res.status(426).json({
+      error: "upgrade required",
+      message:
+        "GET /pty/{id}/connect is a WebSocket upgrade endpoint; the express mock cannot upgrade natively — run tests/mock-server/ws-echo.mjs for WS channel contract tests (docs/tasks/M6.md appendix).",
+      ticket: req.query.ticket,
+    });
   });
 }
 

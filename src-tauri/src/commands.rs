@@ -12,6 +12,10 @@ use crate::transport::http::{
     HttpResponse,
 };
 use crate::transport::sse::{sse_subscribe as subscribe, sse_unsubscribe as unsubscribe};
+use crate::transport::ws::{
+    pty_ws_close as close_pty_connection, pty_ws_connect as connect_pty_ws,
+    pty_ws_send as send_pty_ws,
+};
 
 /// Performs a REST request against an OpenCode server (reqwest / rustls).
 /// `serverID`-based requests resolve their base URL through the registry.
@@ -48,6 +52,35 @@ pub fn sse_subscribe(
 #[tauri::command]
 pub fn sse_unsubscribe(subscription_id: u64) {
     unsubscribe(subscription_id);
+}
+
+/// Opens a PTY WebSocket data channel: fetches a connect ticket through the
+/// REST transport, assembles the ws(s) URL and spawns the read loop. Binary
+/// frames arrive on `channel` as `{ "bytes": [...] }` envelopes, termination
+/// as `{ "type": "pty.ws.closed" }`.
+#[tauri::command]
+pub async fn pty_ws_connect(
+    server_id: String,
+    pty_id: String,
+    directory: Option<String>,
+    channel: tauri::ipc::Channel<serde_json::Value>,
+    auth: Option<Auth>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<u64, ApiError> {
+    let base_url = lookup_server_base_url(&server_id, &registry)?;
+    connect_pty_ws(base_url, pty_id, directory, channel, auth).await
+}
+
+/// Sends one binary frame on the given PTY connection.
+#[tauri::command]
+pub async fn pty_ws_send(connection_id: u64, data: Vec<u8>) -> Result<(), ApiError> {
+    send_pty_ws(connection_id, data).await
+}
+
+/// Closes the given PTY connection (idempotent).
+#[tauri::command]
+pub fn pty_ws_close(connection_id: u64) {
+    close_pty_connection(connection_id);
 }
 
 /// Lists all saved servers.

@@ -22,6 +22,7 @@ import fileTreeJson from "../../../tests/fixtures/file.tree.json";
 import diffJson from "../../../tests/fixtures/diff.session.json";
 import todoJson from "../../../tests/fixtures/todo.list.json";
 import ptyJson from "../../../tests/fixtures/pty.list.json";
+import ptyShellsJson from "../../../tests/fixtures/pty.shells.json";
 import healthJson from "../../../tests/fixtures/health.json";
 import projectListJson from "../../../tests/fixtures/project.list.json";
 import projectCurrentJson from "../../../tests/fixtures/project.current.json";
@@ -95,6 +96,13 @@ const fileTree = fileTreeJson satisfies WidenLiterals<components["schemas"]["Fil
 const diffList = diffJson satisfies WidenLiterals<components["schemas"]["SnapshotFileDiff"][]>;
 const todoList = todoJson satisfies WidenLiterals<components["schemas"]["Todo"][]>;
 const ptyList = ptyJson satisfies WidenLiterals<components["schemas"]["Pty"][]>;
+const ptyShells = ptyShellsJson satisfies WidenLiterals<
+  {
+    path: string;
+    name: string;
+    acceptable: boolean;
+  }[]
+>;
 const health = healthJson satisfies WidenLiterals<{ healthy: true; version: string }>;
 const projectList = projectListJson satisfies WidenLiterals<components["schemas"]["Project"][]>;
 const projectCurrent = projectCurrentJson satisfies WidenLiterals<components["schemas"]["Project"]>;
@@ -207,6 +215,11 @@ describe("recorded fixtures (tests/fixtures)", () => {
       expect(Array.isArray(pty.args)).toBe(true);
       expect(["running", "exited"]).toContain(pty.status);
       expect(typeof pty.pid).toBe("number");
+    }
+    for (const shell of ptyShells) {
+      expect(typeof shell.path).toBe("string");
+      expect(typeof shell.name).toBe("string");
+      expect(typeof shell.acceptable).toBe("boolean");
     }
     expect(health.healthy).toBe(true);
     expect(projectList[0].id).toBe("prj_001");

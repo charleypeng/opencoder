@@ -89,6 +89,14 @@
 | `GET /session/{id}/children` | 子会话树（subagent 任务可视化） | M6 |
 | `POST /session/{id}/message` | 同步发消息（等待完整响应，供简单场景/脚本化） | M6 |
 
+> `GET /pty/{id}/connect` 说明（TASK-M6-01）：1.18.11 契约将该端点文档化为普通
+> HTTP（200 返回 JSON boolean），**未记录 WebSocket 子协议/帧格式**；真实服务端
+> 实为 WebSocket 升级端点，认证走 `POST /pty/{id}/connect-token` 的 `ticket`
+> query（字段名 ticket 而非 token），resize 走 REST `PUT /pty/{id}`（契约确认）。
+> 契约级验证结论见 `docs/tasks/M6.md` 附录（contract-based，待真实服务端确认）。
+> Mock 中该端点返回 **426 Upgrade Required** + JSON 说明（express 无法原生 WS
+> 升级），WS 数据通道由独立 `tests/mock-server/ws-echo.mjs` 模拟（L3 契约测试）。
+
 ## 5. P4 — 管理与配置（M5、M9）
 
 | 端点 | 用途 | 里程碑 |

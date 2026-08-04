@@ -59,7 +59,7 @@ impl ApiError {
         }
     }
 
-    fn network(message: impl Into<String>) -> Self {
+    pub(crate) fn network(message: impl Into<String>) -> Self {
         Self::new("network", None, message, true)
     }
 
@@ -75,7 +75,7 @@ impl ApiError {
         Self::new("cancelled", None, message, false)
     }
 
-    fn http(status: u16, message: impl Into<String>) -> Self {
+    pub(crate) fn http(status: u16, message: impl Into<String>) -> Self {
         Self::new("http", Some(status), message, status >= 500)
     }
 

@@ -111,6 +111,11 @@ const TARGETS = [
     url: (base, ctx) => `${base}/vcs/diff?directory=${encodeURIComponent(ctx.worktree)}&mode=git`,
   },
   { keys: ["pty.list"], file: "pty.list.json", url: (base) => `${base}/pty` },
+  {
+    keys: ["pty.shells"],
+    file: "pty.shells.json",
+    url: (base) => `${base}/pty/shells`,
+  },
 ];
 
 function printUsage() {

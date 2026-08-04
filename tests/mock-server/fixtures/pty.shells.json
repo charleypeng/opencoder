@@ -1,0 +1,22 @@
+[
+  {
+    "path": "/bin/zsh",
+    "name": "zsh",
+    "acceptable": true
+  },
+  {
+    "path": "/bin/bash",
+    "name": "bash",
+    "acceptable": true
+  },
+  {
+    "path": "/bin/sh",
+    "name": "sh",
+    "acceptable": true
+  },
+  {
+    "path": "/usr/bin/fish",
+    "name": "fish",
+    "acceptable": false
+  }
+]
