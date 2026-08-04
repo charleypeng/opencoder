@@ -100,6 +100,13 @@
 | `GET /api/permission/saved` / `DELETE /api/permission/saved/{id}` ★ | 已保存权限规则管理 | M9 |
 | `GET /api/agent` / `GET /api/command` / `GET /api/model` / `GET /api/skill` ★ | V2 只读目录（与稳定面比对后选用） | M9 |
 
+> OAuth 自动流说明（TASK-M5-07）：1.18.11 契约无授权状态查询端点，`auto`
+> 模式客户端以 2s 间隔轮询 `POST /provider/{id}/oauth/callback`，body 携带
+> `poll: true` —— 为 Mock Server 扩展（契约的 callback body `additionalProperties: false`，
+> 真实服务端会忽略/拒绝该字段，自动流真实完成靠服务端本地回调监听器）；轮询在
+> 授权完成时返回 `true`（最长 60s 超时）。Mock 中 `GET /oauth/authorize?state=`
+> 页面模拟浏览器往返（访问即置完成），`code` 模式校验固定码 `mock-oauth-code`。
+
 ## 6. Backlog（实验面与 TUI 面，本期不实现）
 
 | 端点组 | 说明 | 后续评估方向 |

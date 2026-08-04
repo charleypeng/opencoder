@@ -32,5 +32,11 @@
       "type": "oauth",
       "label": "OAuth"
     }
+  ],
+  "google": [
+    {
+      "type": "oauth",
+      "label": "OAuth (authorization code)"
+    }
   ]
 }

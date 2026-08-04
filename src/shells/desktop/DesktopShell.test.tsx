@@ -791,7 +791,7 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     // The settings page fetches and renders the provider key rows.
     await waitFor(() => expect(screen.getByTestId("provider-key-row-openai")).toBeInTheDocument());
     expect(screen.getByTestId("provider-key-row-openai")).toHaveAttribute("data-connected", "true");
-    expect(screen.getByTestId("provider-oauth-note")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-oauth-authorize")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("settings-back"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");

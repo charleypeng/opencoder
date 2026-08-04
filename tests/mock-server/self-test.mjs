@@ -1020,6 +1020,94 @@ try {
       expect(body === true, `body ${JSON.stringify(body)}`);
     });
 
+    // TASK-M5-07: provider OAuth flow (auto + code).
+    await test("oauth authorize auto returns the browser url, flow and instructions", async () => {
+      const { status, body } = await request(baseUrl, "/provider/azure/oauth/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0 }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(
+        typeof body?.url === "string" && body.url.startsWith("http") && body.url.includes("state="),
+        `url ${JSON.stringify(body?.url)}`,
+      );
+      expect(body?.method === "auto", `flow ${JSON.stringify(body?.method)}`);
+      expect(typeof body?.instructions === "string" && body.instructions !== "", "instructions");
+    });
+
+    await test("oauth auto poll reports false until the browser completes", async () => {
+      const { status, body } = await request(baseUrl, "/provider/azure/oauth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0, poll: true }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === false, `pending poll must be false; got ${JSON.stringify(body)}`);
+    });
+
+    await test("oauth auto completes when the authorize url is visited", async () => {
+      const auth = await request(baseUrl, "/provider/azure/oauth/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0 }),
+      });
+      // Visiting the returned URL is the browser round-trip; the real
+      // server's local callback listener does this automatically.
+      const page = await fetch(auth.body.url);
+      expect(page.status === 200, `page status ${page.status}`);
+      const html = await page.text();
+      expect(html.includes("Authorization complete"), "page must confirm completion");
+
+      const done = await request(baseUrl, "/provider/azure/oauth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0, poll: true }),
+      });
+      expect(done.body === true, `completed poll must be true; got ${JSON.stringify(done.body)}`);
+    });
+
+    await test("oauth authorize code flow returns the code method", async () => {
+      const { status, body } = await request(baseUrl, "/provider/google/oauth/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0 }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.method === "code", `flow ${JSON.stringify(body?.method)}`);
+      expect(typeof body?.url === "string", "url must be a string");
+    });
+
+    await test("oauth callback accepts a valid code", async () => {
+      const { status, body } = await request(baseUrl, "/provider/google/oauth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0, code: "mock-oauth-code" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("oauth callback rejects an invalid code", async () => {
+      const { status, body } = await request(baseUrl, "/provider/google/oauth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 0, code: "wrong-code" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("oauth authorize rejects an invalid method index", async () => {
+      const { status, body } = await request(baseUrl, "/provider/azure/oauth/authorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ method: 5 }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/model");
       expect(status === 501, `status ${status}`);

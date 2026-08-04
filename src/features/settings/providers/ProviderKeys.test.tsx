@@ -1,9 +1,10 @@
-// L2 tests for the provider API-key panel (TASK-M5-06): the provider rows
-// with connected badges and per-auth-method forms (api key form for `api`
-// methods, deferred note for `oauth`), saving a key PUTs /auth/{id} and
-// refreshes the provider catalog so the connected state updates, removing
-// a key goes through an inline confirmation and then DELETEs + refreshes,
-// and load/mutation failures surface inline with retry.
+// L2 tests for the provider keys panel (TASK-M5-06/07): the provider rows
+// with connected badges and per-auth-method UI (api key form for `api`
+// methods, an Authorize button opening the OAuth dialog for `oauth`
+// methods), saving a key PUTs /auth/{id} and refreshes the provider
+// catalog so the connected state updates, removing a key goes through an
+// inline confirmation and then DELETEs + refreshes, and load/mutation
+// failures surface inline with retry.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -15,9 +16,13 @@ import type {
 } from "../../../services/provider";
 import { getServerModelState, resetServer as resetModels } from "../../../stores/models";
 
-const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+const { getApiClientMock, openUrlMock } = vi.hoisted(() => ({
+  getApiClientMock: vi.fn(),
+  openUrlMock: vi.fn(),
+}));
 
 vi.mock("../../../services/client.js", () => ({ getApiClient: getApiClientMock }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 
 const SERVER = "srv-keys";
 
@@ -49,7 +54,19 @@ function mockClient() {
     }),
     put: vi.fn<(path: string, options?: { body?: unknown }) => Promise<unknown>>(async () => true),
     delete: vi.fn<(path: string, options?: unknown) => Promise<unknown>>(async () => true),
-    post: vi.fn(async () => undefined),
+    post: vi.fn<(path: string, options?: { body?: unknown }) => Promise<unknown>>(
+      async (path: string) => {
+        if (path.endsWith("/oauth/authorize")) {
+          return {
+            url: "https://auth.example/azure",
+            method: "auto",
+            instructions: "Complete the authorization in the browser.",
+          };
+        }
+        // Auto-mode callback polls stay pending.
+        return false;
+      },
+    ),
     patch: vi.fn(async () => undefined),
   };
   // Lets tests mutate the connected set the mock /provider returns.
@@ -65,6 +82,8 @@ let client: ReturnType<typeof mockClient>;
 beforeEach(() => {
   resetModels(SERVER);
   getApiClientMock.mockReset();
+  openUrlMock.mockReset();
+  openUrlMock.mockResolvedValue(undefined);
   client = mockClient();
 });
 
@@ -102,8 +121,27 @@ describe("ProviderKeys", () => {
     expect(screen.getAllByTestId("provider-key-save")).toHaveLength(2);
 
     const azure = rowOf("azure");
-    expect(within(azure).getByTestId("provider-oauth-note")).toHaveTextContent(
-      "OAuth sign-in is not available yet.",
+    expect(within(azure).getByTestId("provider-oauth-authorize")).toHaveTextContent("Authorize");
+  });
+
+  it("opens the OAuth dialog from the authorize button and closes on cancel", async () => {
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    fireEvent.click(within(rowOf("azure")).getByTestId("provider-oauth-authorize"));
+
+    await waitFor(() => expect(screen.getByTestId("provider-oauth-dialog")).toBeInTheDocument());
+    expect(screen.getByText("Sign in to Azure OpenAI")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith("/provider/azure/oauth/authorize", {
+        body: { method: 0 },
+      }),
+    );
+    await waitFor(() => expect(openUrlMock).toHaveBeenCalledWith("https://auth.example/azure"));
+
+    fireEvent.click(screen.getByTestId("provider-oauth-cancel"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("provider-oauth-dialog")).not.toBeInTheDocument(),
     );
   });
 

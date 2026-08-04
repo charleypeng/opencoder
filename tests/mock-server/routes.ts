@@ -473,6 +473,93 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   app.delete("/auth/:providerID", (_req, res) => {
     res.json(true);
   });
+
+  // Provider OAuth flow (TASK-M5-07): `authorize` creates a pending
+  // session and returns the browser URL (with a per-session state), the
+  // flow kind (auto | code, per provider auth method) and instructions;
+  // the returned URL itself (GET /oauth/authorize) simulates the browser
+  // round-trip — visiting it completes the pending session, mirroring the
+  // real server's local callback listener; the callback endpoint validates
+  // a submitted code (code flow, fixed mock code) or reports whether the
+  // auto flow completed. The auto-mode poll body `{ method, poll: true }`
+  // is a mock extension: the 1.18.11 contract has no status endpoint, so
+  // the client polls the callback (documented in docs/api-coverage.md §5).
+  const OAUTH_FLOWS: Record<string, string[]> = { azure: ["auto"], google: ["code"] };
+  const MOCK_OAUTH_CODE = "mock-oauth-code";
+  interface OAuthSession {
+    providerID: string;
+    methodIndex: number;
+    state: string;
+    completed: boolean;
+  }
+  const oauthSessions: OAuthSession[] = [];
+  let oauthSequence = 0;
+
+  app.post("/provider/:providerID/oauth/authorize", (req, res) => {
+    const { providerID } = req.params;
+    const { method } = (req.body ?? {}) as { method?: unknown };
+    const flows = OAUTH_FLOWS[providerID] ?? [];
+    if (!Number.isInteger(method) || (method as number) < 0 || (method as number) >= flows.length) {
+      res.status(400).json({ _tag: "BadRequestError", message: `invalid oauth method: ${method}` });
+      return;
+    }
+    oauthSequence += 1;
+    const state = `oauth_state_${oauthSequence}`;
+    oauthSessions.push({
+      providerID,
+      methodIndex: method as number,
+      state,
+      completed: false,
+    });
+    res.json({
+      url: `${req.protocol}://${req.get("host")}/oauth/authorize?state=${state}`,
+      method: flows[method as number],
+      instructions: "Complete the authorization in the opened browser window, then return here.",
+    });
+  });
+
+  // The browser page the authorize URL points at: visiting it completes
+  // the pending session (the real server's local callback listener does
+  // this automatically when the browser redirects back).
+  app.get("/oauth/authorize", (req, res) => {
+    const state = queryString(req, "state");
+    const session = oauthSessions.findLast((s) => s.state === state);
+    if (session !== undefined) session.completed = true;
+    res
+      .type("text/html")
+      .send(
+        "<html><body><h1>Authorization complete — you can close this window.</h1></body></html>",
+      );
+  });
+
+  app.post("/provider/:providerID/oauth/callback", (req, res) => {
+    const { providerID } = req.params;
+    const body = (req.body ?? {}) as { method?: unknown; code?: unknown; poll?: unknown };
+    const method = body.method;
+    if (!Number.isInteger(method)) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid oauth callback payload" });
+      return;
+    }
+    const latest = oauthSessions.findLast(
+      (s) => s.providerID === providerID && s.methodIndex === method,
+    );
+    // Code flow: a submitted code must match the fixed mock code; a valid
+    // code completes the pending session (the real server exchanges it
+    // with the provider).
+    if (typeof body.code === "string" && body.code !== "") {
+      if (body.code !== MOCK_OAUTH_CODE) {
+        res
+          .status(400)
+          .json({ _tag: "BadRequestError", message: `invalid oauth code: ${body.code}` });
+        return;
+      }
+      if (latest !== undefined) latest.completed = true;
+      res.json(true);
+      return;
+    }
+    // Auto flow poll (mock extension): report whether the flow completed.
+    res.json(latest?.completed === true);
+  });
 }
 
 export function registerRoutes(app: Express, fixtures: Fixtures): void {

@@ -1,12 +1,12 @@
-// Provider API key management (TASK-M5-06): lists the server's providers
-// with their connected state and renders the auth form per
+// Provider API key management (TASK-M5-06/07): lists the server's providers
+// with their connected state and renders the auth UI per
 // ProviderAuthMethod — an API key form (password input + Save, plus a
-// Remove button with inline confirmation) for `api` methods and a
-// deferred note for `oauth` methods (TASK-M5-07). The key value is never
-// fetched (the contract has no key GET); a stored key is indicated by
-// the connected badge and a "Key set" hint. Saving/removing a key
-// re-lists the providers through the models store so the connected state
-// refreshes.
+// Remove button with inline confirmation) for `api` methods and an
+// Authorize button opening the OAuth dialog (TASK-M5-07) for `oauth`
+// methods. The key value is never fetched (the contract has no key GET); a
+// stored key is indicated by the connected badge and a "Key set" hint.
+// Saving/removing a key or completing an OAuth flow re-lists the providers
+// through the models store so the connected state refreshes.
 
 import { createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -17,6 +17,7 @@ import {
 } from "../../../services/provider.js";
 import { getApiClient } from "../../../services/client.js";
 import { getServerModelState, setProviders } from "../../../stores/models.js";
+import ProviderOAuth from "./ProviderOAuth.js";
 
 export interface ProviderKeysProps {
   /** The server whose provider keys are managed. */
@@ -33,6 +34,11 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   const [busy, setBusy] = createSignal<string | null>(null);
   // Provider awaiting the second remove confirmation click.
   const [confirmRemove, setConfirmRemove] = createSignal<string | null>(null);
+  // Provider whose OAuth dialog is open (with its oauth method index).
+  const [oauthTarget, setOauthTarget] = createSignal<{
+    provider: Provider;
+    methodIndex: number;
+  } | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
 
@@ -137,7 +143,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
               {(provider: Provider) => {
                 const methods = () => authMethods()[provider.id] ?? [];
                 const apiMethod = () => methods().find((m) => m.type === "api");
-                const oauthOnly = () => methods().length > 0 && apiMethod() === undefined;
+                const oauthMethodIndex = () => methods().findIndex((m) => m.type === "oauth");
                 const connected = () =>
                   getServerModelState(props.serverId).connected.includes(provider.id);
                 const draft = () => drafts()[provider.id] ?? "";
@@ -243,16 +249,37 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                       </Show>
                     </Show>
 
-                    <Show when={oauthOnly()}>
-                      <p data-testid="provider-oauth-note" class="mt-2 text-xs text-fg-secondary">
-                        OAuth sign-in is not available yet.
-                      </p>
+                    <Show when={oauthMethodIndex() !== -1}>
+                      <div class="mt-2">
+                        <button
+                          type="button"
+                          data-testid="provider-oauth-authorize"
+                          class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+                          onClick={() =>
+                            setOauthTarget({
+                              provider,
+                              methodIndex: oauthMethodIndex(),
+                            })
+                          }
+                        >
+                          Authorize
+                        </button>
+                      </div>
                     </Show>
                   </li>
                 );
               }}
             </For>
           </ul>
+        </Show>
+
+        <Show when={oauthTarget() !== null}>
+          <ProviderOAuth
+            provider={oauthTarget()!.provider}
+            methodIndex={oauthTarget()!.methodIndex}
+            onClose={() => setOauthTarget(null)}
+            onAuthorized={() => void refreshProviders()}
+          />
         </Show>
 
         <Show when={error() !== null}>

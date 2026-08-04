@@ -1,15 +1,19 @@
-// L1 tests for the provider domain service (TASK-M5-05/06): `list` GETs
+// L1 tests for the provider domain service (TASK-M5-05/06/07): `list` GETs
 // /provider, `configProviders` GETs /config/providers, `authMethods` GETs
 // /provider/auth and `setKey`/`removeKey` PUT/DELETE /auth/{providerID} —
 // all without a query by default, all forwarding the explicit directory
 // query (same convention as the agent/permission/command services) — and
-// each resolves its full response shape.
+// each resolves its full response shape; the OAuth flow methods
+// (TASK-M5-07) POST /provider/{id}/oauth/authorize (body { method,
+// inputs? }) and POST /provider/{id}/oauth/callback (body { method, code? }
+// or the mock `poll: true` extension for auto-mode polling).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiClient, invokeTransport, type HttpResponse } from "./client.js";
 import {
   createProviderService,
   type ConfigProvidersResponse,
+  type ProviderAuthAuthorization,
   type ProviderAuthMethodsResponse,
   type ProviderListResponse,
 } from "./provider.js";
@@ -211,6 +215,140 @@ describe("createProviderService (invoke payload assembly)", () => {
     invokeMock.mockResolvedValue(httpResponse({ body: true }));
 
     const result = await createProviderService(makeClient()).removeKey("openai");
+
+    expect(result).toBe(true);
+  });
+
+  const AUTH_BODY_OAUTH: ProviderAuthAuthorization = {
+    url: "http://mock/oauth/authorize?state=oauth_state_1",
+    method: "auto",
+    instructions: "Complete the authorization in the browser, then return here.",
+  };
+
+  it("oauthAuthorize POSTs /provider/{id}/oauth/authorize with the method index", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: AUTH_BODY_OAUTH }));
+    await createProviderService(makeClient()).oauthAuthorize("azure", 0);
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/azure/oauth/authorize",
+        body: { method: 0 },
+      },
+    });
+  });
+
+  it("oauthAuthorize passes inputs and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: AUTH_BODY_OAUTH }));
+    await createProviderService(makeClient()).oauthAuthorize(
+      "google",
+      1,
+      "/mock/projects/opencode-labs",
+      { project: "demo" },
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/google/oauth/authorize",
+        query: { directory: "/mock/projects/opencode-labs" },
+        body: { method: 1, inputs: { project: "demo" } },
+      },
+    });
+  });
+
+  it("oauthAuthorize resolves the browser url, flow kind and instructions", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: AUTH_BODY_OAUTH }));
+
+    const result = await createProviderService(makeClient()).oauthAuthorize("azure", 0);
+
+    expect(result).toEqual(AUTH_BODY_OAUTH);
+  });
+
+  it("oauthCallback POSTs /provider/{id}/oauth/callback with the code", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createProviderService(makeClient()).oauthCallback("google", 0, "mock-oauth-code");
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/google/oauth/callback",
+        body: { method: 0, code: "mock-oauth-code" },
+      },
+    });
+  });
+
+  it("oauthCallback POSTs the callback without a code when none is given", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createProviderService(makeClient()).oauthCallback("google", 0);
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/google/oauth/callback",
+        body: { method: 0 },
+      },
+    });
+  });
+
+  it("oauthCallback passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createProviderService(makeClient()).oauthCallback(
+      "google",
+      0,
+      "mock-oauth-code",
+      "/mock/projects/opencode-labs",
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/google/oauth/callback",
+        query: { directory: "/mock/projects/opencode-labs" },
+        body: { method: 0, code: "mock-oauth-code" },
+      },
+    });
+  });
+
+  it("oauthCallback resolves the boolean result", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+
+    const result = await createProviderService(makeClient()).oauthCallback("google", 0, "c");
+
+    expect(result).toBe(true);
+  });
+
+  it("oauthPoll POSTs the callback with the mock poll extension", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: false }));
+    await createProviderService(makeClient()).oauthPoll("azure", 0);
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/azure/oauth/callback",
+        body: { method: 0, poll: true },
+      },
+    });
+  });
+
+  it("oauthPoll passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: false }));
+    await createProviderService(makeClient()).oauthPoll("azure", 0, "/mock/projects/opencode-labs");
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/provider/azure/oauth/callback",
+        query: { directory: "/mock/projects/opencode-labs" },
+        body: { method: 0, poll: true },
+      },
+    });
+  });
+
+  it("oauthPoll resolves the boolean status", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+
+    const result = await createProviderService(makeClient()).oauthPoll("azure", 0);
 
     expect(result).toBe(true);
   });
