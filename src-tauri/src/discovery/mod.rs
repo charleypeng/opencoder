@@ -95,9 +95,20 @@ pub fn parse_resolved(service: &ResolvedService) -> DiscoveredServer {
     DiscoveredServer {
         id: service.fullname.clone(),
         name,
-        url: format!("http://{host}:{}", service.port),
+        url: format!("http://{}:{}", url_host(&host), service.port),
         host,
         port: service.port,
+    }
+}
+
+/// Renders a host for the authority component of a URL: IPv6 literals get
+/// bracketed (`fd00::1` -> `[fd00::1]`) per RFC 3986 section 3.2.2, IPv4
+/// addresses and hostnames pass through unchanged.
+fn url_host(host: &str) -> String {
+    if host.contains(':') {
+        format!("[{host}]")
+    } else {
+        host.to_string()
     }
 }
 
@@ -184,6 +195,14 @@ impl<R: tauri::Runtime> MdnsDiscovery<R> {
     /// no browse could be registered (e.g. no LAN interface), the session
     /// degrades silently to nothing.
     pub fn start(&self) {
+        if self
+            .inner
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+            .is_some()
+        {
+            return;
+        }
         match mdns::MdnsSdBackend::new() {
             Ok(backend) => self.start_with_backend(Box::new(backend)),
             Err(error) => {
@@ -386,6 +405,13 @@ mod tests {
     }
 
     #[test]
+    fn url_host_brackets_ipv6_literals_only() {
+        assert_eq!(url_host("192.168.1.5"), "192.168.1.5");
+        assert_eq!(url_host("fd00::1"), "[fd00::1]");
+        assert_eq!(url_host("opencode.local"), "opencode.local");
+    }
+
+    #[test]
     fn url_falls_back_to_ipv6_and_then_to_the_hostname() {
         let ipv6_only = resolved(
             "opencode-8080._http._tcp.local.",
@@ -395,7 +421,7 @@ mod tests {
             &[],
         );
         let server = parse_resolved(&ipv6_only);
-        assert_eq!(server.url, "http://fd00::1:8080");
+        assert_eq!(server.url, "http://[fd00::1]:8080");
         assert_eq!(server.host, "fd00::1");
 
         let unresolved = resolved(

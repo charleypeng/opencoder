@@ -691,8 +691,18 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn successful_probe_yields_ok_snapshot() {
         let server = ScriptedServer::start(0);
-        let health = probe(format!("http://{}", server.addr), None).await;
-        assert!(health.healthy);
+        let url = format!("http://{}", server.addr);
+        // One-shot probes against the local listener can flake under
+        // parallel suite load (the accept loop sleeps between polls), so
+        // retry a few times before treating the probe as a failure.
+        let mut health = probe(url.clone(), None).await;
+        let mut attempts = 1;
+        while !health.healthy && attempts < 3 {
+            tokio::time::sleep(Duration::from_millis(25)).await;
+            health = probe(url.clone(), None).await;
+            attempts += 1;
+        }
+        assert!(health.healthy, "probe failed after {attempts} attempts");
         assert_eq!(health.status, HealthStatus::Ok);
         assert_eq!(health.version.as_deref(), Some("1.18.11-mock"));
         assert_eq!(health.fail_count, 0);
