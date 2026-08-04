@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for considering contributing to opencode-client. This project is MIT-licensed and developed in the open — issues, PRs, and feedback are all welcome.
+Thanks for considering contributing to opencoder. This project is MIT-licensed and developed in the open — issues, PRs, and feedback are all welcome.
 
 ## Development Setup
 

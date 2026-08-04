@@ -335,7 +335,7 @@ function ServerHome(props: ServerHomeProps) {
     <div class="min-h-screen bg-bg-base text-fg-primary" data-testid="server-home">
       <header class="glass sticky top-0 z-10 flex items-center justify-between px-6 py-4">
         <div>
-          <h1 class="text-lg font-semibold">opencode-client</h1>
+          <h1 class="text-lg font-semibold">opencoder</h1>
           <p class="text-sm text-fg-secondary">Servers</p>
         </div>
         <button

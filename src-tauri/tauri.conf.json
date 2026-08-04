@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "opencode-client",
+  "productName": "opencoder",
   "version": "0.1.0",
-  "identifier": "com.opencode.client",
+  "identifier": "com.opencode.opencoder",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "opencode-client",
+        "title": "opencoder",
         "width": 800,
         "height": 600
       }

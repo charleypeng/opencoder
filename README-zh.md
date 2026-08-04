@@ -1,4 +1,4 @@
-# opencode-client
+# opencoder
 
 基于 [Tauri 2](https://tauri.app) 与 [SolidJS](https://www.solidjs.com) 构建的 [OpenCode](https://opencode.ai) 跨平台桌面与移动客户端。
 

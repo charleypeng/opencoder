@@ -115,7 +115,7 @@ mod tests {
     fn temp_path() -> PathBuf {
         let counter = TEST_FILE_COUNTER.fetch_add(1, Ordering::Relaxed);
         std::env::temp_dir().join(format!(
-            "opencode-client-store-test-{}-{counter}.json",
+            "opencoder-store-test-{}-{counter}.json",
             std::process::id()
         ))
     }

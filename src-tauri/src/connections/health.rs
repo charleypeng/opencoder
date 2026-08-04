@@ -630,10 +630,8 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn start_all_spawns_monitors_and_touches_last_connected() {
         let server = ScriptedServer::start(0);
-        let path = std::env::temp_dir().join(format!(
-            "opencode-client-health-test-{}.json",
-            std::process::id()
-        ));
+        let path =
+            std::env::temp_dir().join(format!("opencoder-health-test-{}.json", std::process::id()));
         let store = JsonFileStore::new(path.clone());
         store
             .save(&[

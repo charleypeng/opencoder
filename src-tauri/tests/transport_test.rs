@@ -7,7 +7,7 @@
 //!
 //! Skipped by default so `pnpm verify` never needs a network connection.
 
-use opencode_client_lib::transport::http::{http_request, ApiError, HttpRequest};
+use opencoder_lib::transport::http::{http_request, ApiError, HttpRequest};
 
 fn mock_base_url() -> Option<String> {
     std::env::var("MOCK_URL").ok().filter(|v| !v.is_empty())

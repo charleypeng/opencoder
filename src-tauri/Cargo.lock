@@ -2429,7 +2429,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "opencode-client"
+name = "opencoder"
 version = "0.1.0"
 dependencies = [
  "flume",

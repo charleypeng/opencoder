@@ -1,4 +1,4 @@
-# opencode-client
+# opencoder
 
 A cross-platform desktop & mobile client for [OpenCode](https://opencode.ai), built with Tauri 2 and SolidJS.
 

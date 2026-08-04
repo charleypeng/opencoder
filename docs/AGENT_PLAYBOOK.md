@@ -88,7 +88,7 @@ CHANGELOG（Keep a Changelog，`[Unreleased]` → `Added/Changed/Fixed`）：
 ## 5. 派发 Prompt 模板
 
 ```text
-你是 opencode-client 项目的实施工程师。请完成任务 TASK-M2-03。
+你是 opencoder 项目的实施工程师。请完成任务 TASK-M2-03。
 
 必读上下文（按顺序阅读）：
 - docs/PLAN.md §8（工程规范）

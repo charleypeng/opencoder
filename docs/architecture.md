@@ -7,7 +7,7 @@
 ## 1. 仓库结构
 
 ```
-opencode-client/
+opencoder/
 ├── .github/workflows/          # CI：lint/test/build/e2e/release
 ├── src-tauri/                  # Rust 核心
 │   ├── src/
