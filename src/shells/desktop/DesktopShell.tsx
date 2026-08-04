@@ -24,11 +24,13 @@ import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
 import { getServerSessionState, resetServer as resetSessions } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
+import { resetServer as resetTodos } from "../../stores/todos";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
 import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
 import PromptBox from "../../features/sessions/PromptBox";
 import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
 import SessionList from "../../features/sessions/SessionList";
+import TodoPanel from "../../features/sessions/TodoPanel";
 import MessageList from "../../features/messages/MessageList";
 
 export interface DesktopShellProps {
@@ -51,6 +53,13 @@ function healthKind(server: ServerEntry): HealthKind {
   return connections[server.id]?.status ?? "unknown";
 }
 
+/** Chat header title: the server-provided title, falling back to the slug
+ * and finally the raw session id. Reads the reactive store directly. */
+function titleOf(serverId: string, sessionId: string): string {
+  const session = getServerSessionState(serverId).sessions[sessionId];
+  return session ? session.title || session.slug || sessionId : sessionId;
+}
+
 const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
   // Main-pane placeholder target: the store's active session id, so both
@@ -59,6 +68,18 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // show a session from another server's context.
   const activeServerId = () => registry.activeServerId ?? props.server.id;
   const activeSessionId = createMemo(() => getServerSessionState(activeServerId()).activeSessionId);
+  // Todo drawer (TASK-M3-07): local open state; closes on Esc or backdrop.
+  const [todosOpen, setTodosOpen] = createSignal(false);
+  const closeTodos = () => setTodosOpen(false);
+
+  createEffect(() => {
+    if (!todosOpen()) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeTodos();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+  });
 
   async function refresh() {
     try {
@@ -94,11 +115,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     sse = undefined;
     if (previous) await previous.unsubscribe();
     if (serverId === null || version !== rebuildVersion) return;
-    // Drop the previous context's sessions and messages so the new
+    // Drop the previous context's sessions, messages and todos so the new
     // directory's data can never mix with the old one; the re-sync
     // re-applies fresh snapshots right after the stream is up.
     resetSessions(serverId);
     resetMessages(serverId);
+    resetTodos(serverId);
     let dir = directory;
     if (dir === undefined) {
       // Context not seeded yet (mount / server switch): resolve the current
@@ -237,11 +259,59 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             </div>
           }
         >
+          <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
+            <h2 data-testid="chat-session-title" class="min-w-0 truncate text-sm font-semibold">
+              {titleOf(activeServerId(), activeSessionId() as string)}
+            </h2>
+            <button
+              type="button"
+              data-testid="todo-toggle"
+              aria-pressed={todosOpen() ? "true" : "false"}
+              aria-label="Toggle todo panel"
+              class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                todosOpen()
+                  ? "border-accent text-accent"
+                  : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+              }`}
+              onClick={() => setTodosOpen((open) => !open)}
+            >
+              Todos
+            </button>
+          </header>
           <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
           <SessionErrorBanner serverId={activeServerId()} sessionId={activeSessionId() as string} />
           <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
         </Show>
       </main>
+
+      {/* Todo drawer (TASK-M3-07): fixed right-side overlay panel with a
+          backdrop; Esc and backdrop clicks close it (mobile bottom sheet
+          lands in M7). */}
+      <Show when={todosOpen() && activeSessionId()}>
+        <div
+          data-testid="todo-drawer-backdrop"
+          class="fixed inset-0 z-40 bg-black/40"
+          onClick={closeTodos}
+        />
+        <aside
+          data-testid="todo-drawer"
+          class="fixed right-0 top-0 z-50 flex h-full w-[280px] flex-col border-l border-bg-sunken bg-bg-elevated shadow-lg"
+        >
+          <header class="flex shrink-0 items-center justify-between border-b border-bg-sunken px-4 py-3">
+            <h2 class="text-sm font-semibold">Todos</h2>
+            <button
+              type="button"
+              data-testid="todo-drawer-close"
+              aria-label="Close todo panel"
+              class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary hover:bg-bg-sunken hover:text-fg-primary"
+              onClick={closeTodos}
+            >
+              ✕
+            </button>
+          </header>
+          <TodoPanel serverId={activeServerId()} sessionId={activeSessionId() as string} />
+        </aside>
+      </Show>
     </div>
   );
 };

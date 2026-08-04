@@ -495,6 +495,25 @@ try {
         toolUpdates[1].properties.part.state.status === "completed",
         "second tool part state must be completed",
       );
+      const todoUpdates = events.filter((e) => e.type === "todo.updated");
+      expect(
+        todoUpdates.length >= 3,
+        `expected >= 3 todo.updated events; got ${todoUpdates.length}`,
+      );
+      expect(
+        Array.isArray(todoUpdates[0].properties.todos) &&
+          todoUpdates[0].properties.todos.length === 2,
+        "first todo.updated must carry a 2-item todos array",
+      );
+      expect(
+        todoUpdates[0].properties.todos[0].status === "in_progress",
+        "first todo must start in_progress",
+      );
+      const lastTodos = todoUpdates[todoUpdates.length - 1].properties.todos;
+      expect(
+        Array.isArray(lastTodos) && lastTodos.every((t) => t.status === "completed"),
+        "final todo.updated must mark every todo completed",
+      );
     });
 
     await test("sse: permission-flow asks then replies", async () => {

@@ -23,6 +23,7 @@ import {
   resetServer as resetSessions,
 } from "../../stores/session";
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
+import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -175,6 +176,8 @@ afterEach(() => {
   resetSessions("srv-prompt");
   resetSessions("srv-noprompt");
   resetMessages("srv-switch");
+  resetTodos("srv-todos");
+  resetTodos("srv-todos-live");
   resetProjects("srv-sse");
   resetProjects("srv-switch");
   resetProjects("srv-rail-a");
@@ -436,5 +439,70 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
 
     expect(screen.queryByTestId("prompt-box")).not.toBeInTheDocument();
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+  });
+});
+
+describe("DesktopShell todo drawer (TASK-M3-07)", () => {
+  it("toggles the drawer from the chat header and closes via Esc / backdrop / close button", async () => {
+    const alpha = server({ id: "srv-todos", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-todos", [session("sess_todo_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_todo_01"));
+
+    // The chat header carries the session title + the todo toggle.
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+    expect(screen.getByTestId("todo-toggle")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("todo-toggle"));
+    expect(screen.getByTestId("todo-drawer")).toBeInTheDocument();
+    expect(screen.getByTestId("todo-panel")).toBeInTheDocument();
+    expect(screen.getByTestId("todo-toggle")).toHaveAttribute("aria-pressed", "true");
+
+    // Esc closes the drawer.
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
+
+    // Backdrop click closes the drawer.
+    fireEvent.click(screen.getByTestId("todo-toggle"));
+    fireEvent.click(screen.getByTestId("todo-drawer-backdrop"));
+    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
+
+    // The close button closes the drawer.
+    fireEvent.click(screen.getByTestId("todo-toggle"));
+    fireEvent.click(screen.getByTestId("todo-drawer-close"));
+    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
+  });
+
+  it("renders the todo list live from the store inside the drawer", async () => {
+    const alpha = server({ id: "srv-todos-live", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-todos-live", [session("sess_todo_02", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_todo_02"));
+
+    // Seed the store like a todo.updated SSE event.
+    applyTodos("srv-todos-live", "sess_todo_02", [
+      { content: "Explore the repo", status: "in_progress", priority: "high" },
+      { content: "Summarize the code", status: "pending", priority: "medium" },
+    ]);
+    fireEvent.click(screen.getByTestId("todo-toggle"));
+
+    const items = await screen.findAllByTestId("todo-item");
+    expect(items).toHaveLength(2);
+    expect(items[0]).toHaveAttribute("data-status", "in_progress");
+    expect(screen.getByText("Explore the repo")).toBeInTheDocument();
+    expect(screen.getByText("Summarize the code")).toBeInTheDocument();
+
+    // A store mutation (live event) updates the open panel immediately.
+    applyTodos("srv-todos-live", "sess_todo_02", [
+      { content: "Explore the repo", status: "completed", priority: "high" },
+      { content: "Summarize the code", status: "in_progress", priority: "medium" },
+    ]);
+    await waitFor(() => expect(screen.getByText("Explore the repo")).toHaveClass("line-through"));
+    expect(screen.getByText("Explore the repo")).toHaveClass("text-fg-faint");
   });
 });

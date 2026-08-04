@@ -48,6 +48,15 @@ const SESSION_INFO: Record<string, unknown> = {
   time: { created: NOW, updated: NOW },
 };
 
+// Todos have no id in the 1.18.11 schema; they are keyed by content so the
+// follow-up todo.updated events stay coherent (same items, new statuses).
+const TODO_EXPLORE = "Explore the repo structure";
+const TODO_SUMMARIZE = "Summarize the codebase";
+
+function todo(content: string, status: string, priority: string): Record<string, unknown> {
+  return { content, status, priority };
+}
+
 const USER_MESSAGE: Record<string, unknown> = {
   id: MSG_USER,
   sessionID: SESSION_ID,
@@ -148,6 +157,36 @@ export const scenarios: ScenarioMap = {
         partID: PART_TEXT,
         field: "text",
         delta: " Found 3 files. I will summarize them for you.",
+      }),
+    },
+    {
+      at: 2300,
+      event: event("todo.updated", {
+        sessionID: SESSION_ID,
+        todos: [
+          todo(TODO_EXPLORE, "in_progress", "high"),
+          todo(TODO_SUMMARIZE, "pending", "medium"),
+        ],
+      }),
+    },
+    {
+      at: 2450,
+      event: event("todo.updated", {
+        sessionID: SESSION_ID,
+        todos: [
+          todo(TODO_EXPLORE, "completed", "high"),
+          todo(TODO_SUMMARIZE, "in_progress", "medium"),
+        ],
+      }),
+    },
+    {
+      at: 2550,
+      event: event("todo.updated", {
+        sessionID: SESSION_ID,
+        todos: [
+          todo(TODO_EXPLORE, "completed", "high"),
+          todo(TODO_SUMMARIZE, "completed", "medium"),
+        ],
       }),
     },
     {

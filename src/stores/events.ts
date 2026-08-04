@@ -19,21 +19,25 @@ import { sseSubscribe, type SseEvent } from "../services/sse.js";
 import * as sessionStore from "./session.js";
 import * as messagesStore from "./messages.js";
 import * as projectStore from "./project.js";
+import * as todosStore from "./todos.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
+type Todo = components["schemas"]["Todo"];
 
 /** Store module APIs the router dispatches into (injectable for tests). */
 export interface EventStoreDeps {
   session: typeof sessionStore;
   messages: typeof messagesStore;
   project: typeof projectStore;
+  todos: typeof todosStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
   session: sessionStore,
   messages: messagesStore,
   project: projectStore,
+  todos: todosStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -58,14 +62,23 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project } = deps;
+  const { session, messages, project, todos } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
-    case "todo.updated":
-      // server.connected triggers syncAll in subscribeToServerEvents;
-      // todos land in M3-07.
+      // server.connected triggers syncAll in subscribeToServerEvents.
       return;
+    case "todo.updated": {
+      // Todo list refresh (api-coverage §7). The schema carries a full
+      // `todos` array; a single-todo envelope is handled defensively.
+      if (typeof p.sessionID !== "string") return;
+      if (Array.isArray(p.todos)) {
+        todos.applyTodos(serverId, p.sessionID, p.todos as Todo[]);
+      } else if (p.todo !== undefined) {
+        todos.applyTodoUpdate(serverId, p.sessionID, p.todo as Todo);
+      }
+      return;
+    }
     case "project.updated":
     case "project.directories.updated":
       // Project list refresh (api-coverage §7). Only full `projects`
@@ -215,6 +228,7 @@ export async function subscribeToServerEvents(
       deps.session.resetServer(serverId);
       deps.messages.resetServer(serverId);
       deps.project.resetServer(serverId);
+      deps.todos.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

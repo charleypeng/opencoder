@@ -10,6 +10,7 @@ import { applyEvent, subscribeToServerEvents, syncAll } from "./events.js";
 import { sessions, resetServer as resetSessions } from "./session.js";
 import { messages, resetServer as resetMessages } from "./messages.js";
 import { projects, resetServer as resetProjects } from "./project.js";
+import { todos, resetServer as resetTodos } from "./todos.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -57,6 +58,7 @@ afterEach(() => {
   resetSessions(SERVER);
   resetMessages(SERVER);
   resetProjects(SERVER);
+  resetTodos(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -89,6 +91,10 @@ describe("applyEvent — happy-chat scenario", () => {
       type: "tool",
       state: { status: "completed", output: "src/\ndocs/\n" },
     });
+    expect(todos[SERVER]["ses_abc123"]).toEqual([
+      { content: "Explore the repo structure", status: "completed", priority: "high" },
+      { content: "Summarize the codebase", status: "completed", priority: "medium" },
+    ]);
   });
 });
 
@@ -152,11 +158,51 @@ describe("applyEvent — edge routes", () => {
 
   it("ignores unknown and deferred event types", () => {
     applyEvent(SERVER, { type: "project.updated", properties: {} });
-    applyEvent(SERVER, { type: "todo.updated", properties: {} });
     applyEvent(SERVER, { type: "server.connected", properties: {} });
     expect(sessions[SERVER]).toBeUndefined();
     expect(messages[SERVER]).toBeUndefined();
     expect(projects[SERVER]).toBeUndefined();
+  });
+
+  it("maps todo.updated with a todos array to the todos store", () => {
+    const list = [
+      { content: "a", status: "pending", priority: "high" },
+      { content: "b", status: "completed", priority: "low" },
+    ];
+    applyEvent(SERVER, { type: "todo.updated", properties: { sessionID: "ses_t1", todos: list } });
+    expect(todos[SERVER]["ses_t1"]).toEqual(list);
+
+    const refreshed = [{ content: "a", status: "completed", priority: "high" }];
+    applyEvent(SERVER, {
+      type: "todo.updated",
+      properties: { sessionID: "ses_t1", todos: refreshed },
+    });
+    expect(todos[SERVER]["ses_t1"]).toEqual(refreshed);
+  });
+
+  it("maps todo.updated with a single todo defensively", () => {
+    applyEvent(SERVER, {
+      type: "todo.updated",
+      properties: {
+        sessionID: "ses_t2",
+        todos: [{ content: "a", status: "pending", priority: "high" }],
+      },
+    });
+    applyEvent(SERVER, {
+      type: "todo.updated",
+      properties: {
+        sessionID: "ses_t2",
+        todo: { content: "a", status: "completed", priority: "high" },
+      },
+    });
+    expect(todos[SERVER]["ses_t2"]).toEqual([
+      { content: "a", status: "completed", priority: "high" },
+    ]);
+  });
+
+  it("ignores todo.updated without a session id or list", () => {
+    applyEvent(SERVER, { type: "todo.updated", properties: {} });
+    expect(todos[SERVER]).toBeUndefined();
   });
 
   it("maps project.updated with a projects array to the project store", () => {
@@ -215,7 +261,15 @@ describe("subscribeToServerEvents", () => {
       type: "session.created",
       properties: { sessionID: "ses_stale", info: session("ses_stale") },
     });
+    applyEvent(SERVER, {
+      type: "todo.updated",
+      properties: {
+        sessionID: "ses_stale",
+        todos: [{ content: "a", status: "pending", priority: "high" }],
+      },
+    });
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
+    expect(todos[SERVER]["ses_stale"]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -224,6 +278,7 @@ describe("subscribeToServerEvents", () => {
     expect(sessions[SERVER].order).toEqual(["ses_synced"]);
     expect("ses_stale" in sessions[SERVER].sessions).toBe(false);
     expect(projects[SERVER].current).toBe("/sync/proj");
+    expect(todos[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.
     onEvent?.({
