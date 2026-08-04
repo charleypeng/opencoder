@@ -58,7 +58,7 @@ export function isAuthError(err: ApiError): boolean {
 export function errorTitle(err: ApiError): string {
   if (err.status === 401) return "Authentication required";
   // Rate limits surface as 429 or as a message-level hint (TASK-M2-10).
-  if (isRateLimited(err)) return "Rate limited — try again shortly";
+  if (isRateLimitHint(err.status, err.message)) return "Rate limited — try again shortly";
   switch (err.code) {
     case "network":
       return "Cannot reach server";
@@ -77,11 +77,16 @@ export function errorTitle(err: ApiError): string {
   }
 }
 
-/** True when the error is a provider/HTTP rate limit (429 or message hint). */
-function isRateLimited(err: ApiError): boolean {
-  if (err.status === 429) return true;
-  const message = err.message.toLowerCase();
-  return message.includes("rate limit") || message.includes("429");
+/**
+ * True when a status/message pair is a provider/HTTP rate limit (429 or a
+ * message-level hint). Shape-agnostic so both the transport ApiError and the
+ * schema APIError parts classify the same way.
+ */
+export function isRateLimitHint(status: number | undefined, message: string | undefined): boolean {
+  if (status === 429) return true;
+  if (typeof message !== "string") return false;
+  const normalized = message.toLowerCase();
+  return normalized.includes("rate limit") || normalized.includes("429");
 }
 
 /**

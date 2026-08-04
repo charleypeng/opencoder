@@ -4,10 +4,12 @@
 // `retryAt` prop (epoch ms): with it the "next attempt in Xs" label ticks
 // down once per second and is cleaned up on dispose; without it the label
 // stays a static "Retrying…". Rate-limit failures (429 or a message hint,
-// mirroring services/errors.ts) render the error in danger styling.
+// via the shared services/errors.ts predicate) render the error in danger
+// styling.
 
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { isRateLimitHint } from "../../../services/errors.js";
 import type { Part } from "../../../stores/messages.js";
 
 export type RetryPartData = Extract<Part, { type: "retry" }>;
@@ -22,9 +24,7 @@ const TICK_MS = 1000;
 
 /** True when the retry error is a provider/HTTP rate limit (429 or hint). */
 export function isRateLimitError(error: RetryPartData["error"]): boolean {
-  if (error.data.statusCode === 429) return true;
-  const message = error.data.message.toLowerCase();
-  return message.includes("rate limit") || message.includes("429");
+  return isRateLimitHint(error.data.statusCode, error.data.message);
 }
 
 const RetryPart: Component<RetryPartProps> = (props) => {
