@@ -242,6 +242,86 @@ try {
       expect(Array.isArray(body.parts), "parts must be an array");
     });
 
+    await test("path returns the instance path info", async () => {
+      const { status, body } = await request(baseUrl, "/path");
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.directory === "string", "directory must be a string");
+      expect(typeof body?.worktree === "string", "worktree must be a string");
+      expect(typeof body?.home === "string", "home must be a string");
+      expect(typeof body?.state === "string", "state must be a string");
+      expect(typeof body?.config === "string", "config must be a string");
+    });
+
+    await test("session status returns a status map keyed by session id", async () => {
+      const { status, body } = await request(baseUrl, "/session/status");
+      expect(status === 200, `status ${status}`);
+      expect(
+        typeof body === "object" && body !== null && !Array.isArray(body),
+        "body must be an object map",
+      );
+      const statuses = Object.values(body);
+      expect(statuses.length > 0, "map must not be empty");
+      for (const s of statuses) {
+        expect(
+          ["idle", "busy", "retry"].includes(s?.type),
+          `status type ${JSON.stringify(s?.type)}`,
+        );
+      }
+    });
+
+    await test("session create honors title and parentID", async () => {
+      const { status, body } = await request(baseUrl, "/session", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "New session", parentID: "sess_01" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body.title === "New session", `title ${JSON.stringify(body.title)}`);
+      expect(body.parentID === "sess_01", `parentID ${JSON.stringify(body.parentID)}`);
+      expect(typeof body.id === "string", "created session must have an id");
+      expect(typeof body.version === "string", "created session must carry a version");
+    });
+
+    await test("session update patches the title", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: "Renamed" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body.id === "sess_01", `id ${JSON.stringify(body.id)}`);
+      expect(body.title === "Renamed", `title ${JSON.stringify(body.title)}`);
+    });
+
+    await test("session delete returns true", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_02", { method: "DELETE" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("prompt_async returns 204", async () => {
+      const { status } = await request(baseUrl, "/session/sess_01/prompt_async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parts: [{ type: "text", text: "hello" }] }),
+      });
+      expect(status === 204, `status ${status}`);
+    });
+
+    await test("abort returns true", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/abort", {
+        method: "POST",
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("session messages honors the limit pagination param", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 1, `expected 1 entry; got ${body?.length}`);
+    });
+
     await test("todo returns todo entries", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/todo");
       expect(status === 200, `status ${status}`);

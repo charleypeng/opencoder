@@ -160,6 +160,15 @@ describe("fetch transport (dev-only)", () => {
     expect(init.headers.Authorization).toBe(`Basic ${btoa("user:p@ss")}`);
   });
 
+  it("sends JSON Content-Type when a body is present (Rust transport parity)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(mockFetchResponse(200, "{}"));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ApiClient(fetchTransport);
+    await client.post("/log", { body: { level: "info", message: "hi" } });
+    const [, init] = fetchMock.mock.calls[0];
+    expect(init.headers["Content-Type"]).toBe("application/json");
+  });
+
   it("classifies 401 as non-retriable http error", async () => {
     const fetchMock = vi.fn().mockResolvedValue(mockFetchResponse(401, '{"error":"unauthorized"}'));
     vi.stubGlobal("fetch", fetchMock);

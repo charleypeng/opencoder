@@ -102,6 +102,11 @@ export const fetchTransport: Transport = {
     if (input.auth?.password) {
       headers.Authorization = basicAuthHeader(input.auth.username, input.auth.password);
     }
+    if (input.body !== undefined) {
+      // Mirrors the Rust transport (`reqwest::RequestBuilder::json`), which
+      // sets Content-Type: application/json for JSON bodies.
+      headers["Content-Type"] = "application/json";
+    }
     let response: Response;
     try {
       response = await fetch(url, {

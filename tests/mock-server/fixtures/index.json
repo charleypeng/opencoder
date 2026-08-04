@@ -2,8 +2,10 @@
   "health": "health.json",
   "project.list": "project.json",
   "project.current": "project.current.json",
+  "path": "path.json",
   "session.list": "session.list.json",
   "session.detail": "session.detail.json",
+  "session.status": "session.status.json",
   "session.messages": "session.messages.json",
   "session.message": "session.message.json",
   "session.todo": "todo.json"

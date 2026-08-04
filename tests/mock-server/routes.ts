@@ -30,18 +30,21 @@ const P0_CORE_LOOP: Route[] = [
     operation: "project.current",
     fixture: "project.current",
   },
+  { method: "get", path: "/path", operation: "path.get", fixture: "path" },
   { method: "get", path: "/session", operation: "session.list", fixture: "session.list" },
+  // `/session/status` must precede `/session/:sessionID` (express matches in
+  // registration order).
+  {
+    method: "get",
+    path: "/session/status",
+    operation: "session.status",
+    fixture: "session.status",
+  },
   {
     method: "get",
     path: "/session/:sessionID",
     operation: "session.get",
     fixture: "session.detail",
-  },
-  {
-    method: "get",
-    path: "/session/:sessionID/message",
-    operation: "session.messages",
-    fixture: "session.messages",
   },
   {
     method: "get",
@@ -66,6 +69,99 @@ function registerSSE(app: Express): void {
   app.get("/global/event", (req, res) => handleSSE(req, res, { global: true }));
 }
 
+interface BaseSession {
+  projectID: string;
+  directory: string;
+  version: string;
+  title: string;
+  time: { created: number; updated: number };
+}
+
+// Deterministic base session derived from the session list fixture so the
+// dynamic handlers stay coherent across fixture roots (mock + recorded).
+function baseOf(fixtures: Fixtures): BaseSession {
+  const sessions = fixtures["session.list"];
+  const first = Array.isArray(sessions) ? (sessions[0] as Record<string, unknown>) : undefined;
+  const time =
+    typeof first?.time === "object" && first?.time !== null
+      ? (first.time as Record<string, unknown>)
+      : {};
+  return {
+    projectID: typeof first?.projectID === "string" ? first.projectID : "project-mock-1",
+    directory:
+      typeof first?.directory === "string" ? first.directory : "/mock/projects/opencode-demo",
+    version: typeof first?.version === "string" ? first.version : "1.18.11",
+    title: typeof first?.title === "string" ? first.title : "",
+    time: {
+      created: typeof time.created === "number" ? time.created : 1750000000000,
+      updated: typeof time.updated === "number" ? time.updated : 1750000000000,
+    },
+  };
+}
+
+function slugify(title: string): string {
+  const slug = title
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return slug || "untitled";
+}
+
+// Endpoints whose responses depend on the request body / params are handled
+// imperatively; the declarative fixture table cannot express them.
+function registerDynamic(app: Express, fixtures: Fixtures): void {
+  const base = baseOf(fixtures);
+
+  app.post("/session", (req, res) => {
+    const { parentID, title } = (req.body ?? {}) as { parentID?: string; title?: string };
+    const created: Record<string, unknown> = {
+      id: "sess_created",
+      slug: slugify(title ?? "untitled"),
+      projectID: base.projectID,
+      directory: base.directory,
+      title: title ?? "",
+      version: base.version,
+      time: { created: base.time.updated, updated: base.time.updated },
+    };
+    if (parentID) created.parentID = parentID;
+    res.json(created);
+  });
+
+  app.patch("/session/:sessionID", (req, res) => {
+    const { title } = (req.body ?? {}) as { title?: string };
+    const updated: Record<string, unknown> = {
+      ...base,
+      id: req.params.sessionID,
+      time: { ...base.time, updated: base.time.updated + 1 },
+    };
+    if (title !== undefined) updated.title = title;
+    res.json(updated);
+  });
+
+  app.delete("/session/:sessionID", (_req, res) => {
+    res.json(true);
+  });
+
+  app.post("/session/:sessionID/prompt_async", (_req, res) => {
+    res.status(204).end();
+  });
+
+  app.post("/session/:sessionID/abort", (_req, res) => {
+    res.json(true);
+  });
+
+  // Messages honor the `limit` pagination param so client-side pagination
+  // can be contract-tested against the mock.
+  app.get("/session/:sessionID/message", (req, res) => {
+    const messages = Array.isArray(fixtures["session.messages"])
+      ? fixtures["session.messages"]
+      : [];
+    const limit = Number(req.query.limit);
+    const sliced = Number.isInteger(limit) && limit > 0 ? messages.slice(0, limit) : messages;
+    res.json(sliced);
+  });
+}
+
 export function registerRoutes(app: Express, fixtures: Fixtures): void {
   for (const route of ROUTES) {
     const handler = (_req: Request, res: Response): void => {
@@ -73,5 +169,6 @@ export function registerRoutes(app: Express, fixtures: Fixtures): void {
     };
     app[route.method](route.path, handler);
   }
+  registerDynamic(app, fixtures);
   registerSSE(app);
 }

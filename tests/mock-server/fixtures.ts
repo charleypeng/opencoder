@@ -29,23 +29,30 @@ let cache: Fixtures | undefined;
 let cacheRoot: string | undefined;
 
 // Loads (and caches) all fixtures referenced by the index file.
+//
+// When MOCK_FIXTURES_DIR points at an alternate root (recorded fixtures),
+// keys missing from that index fall back to the built-in mock fixtures so
+// every registered route still resolves (e.g. `path`, `session.status`).
 export function loadFixtures(): Fixtures {
   const root = fixturesRoot();
   if (cache && cacheRoot === root) return cache;
 
-  const indexPath = join(root, "index.json");
-  if (!existsSync(indexPath)) {
-    throw new Error(`fixture index not found: ${indexPath}`);
-  }
-  const index = JSON.parse(readFileSync(indexPath, "utf8")) as Record<string, string>;
   const loaded: Fixtures = {};
-
-  for (const [key, fileName] of Object.entries(index)) {
-    const filePath = join(root, fileName);
-    if (!existsSync(filePath)) {
-      throw new Error(`fixture file missing for "${key}": ${fileName}`);
+  for (const base of [root, DEFAULT_FIXTURES_DIR]) {
+    const indexPath = join(base, "index.json");
+    if (!existsSync(indexPath)) {
+      if (base === root) throw new Error(`fixture index not found: ${indexPath}`);
+      continue;
     }
-    loaded[key] = JSON.parse(readFileSync(filePath, "utf8"));
+    const index = JSON.parse(readFileSync(indexPath, "utf8")) as Record<string, string>;
+    for (const [key, fileName] of Object.entries(index)) {
+      if (key in loaded) continue;
+      const filePath = join(base, fileName);
+      if (!existsSync(filePath)) {
+        throw new Error(`fixture file missing for "${key}": ${filePath}`);
+      }
+      loaded[key] = JSON.parse(readFileSync(filePath, "utf8"));
+    }
   }
 
   cache = loaded;

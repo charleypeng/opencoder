@@ -1,0 +1,202 @@
+// L1 tests for the session domain service (TASK-M2-01): exact invoke payload
+// assembly per method and ApiError passthrough. The optional L3 contract
+// block runs against a live mock server when MOCK_URL is set.
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ApiError } from "./errors.js";
+import { ApiClient, fetchTransport, invokeTransport, type HttpResponse } from "./client.js";
+import { createSessionService } from "./session.js";
+
+const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+
+function httpResponse(overrides: Partial<HttpResponse> = {}): HttpResponse {
+  return { status: 200, headers: {}, body: undefined, bodyText: undefined, ...overrides };
+}
+
+function makeClient(): ApiClient {
+  return new ApiClient(invokeTransport);
+}
+
+describe("session service (invoke payload assembly)", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("list GETs /session without query by default", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [{ id: "sess_01" }] }));
+    const result = await createSessionService(makeClient()).list();
+    expect(result).toEqual([{ id: "sess_01" }]);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session" },
+    });
+  });
+
+  it("list passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createSessionService(makeClient()).list("/project/alpha");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", query: { directory: "/project/alpha" } },
+    });
+  });
+
+  it("create POSTs the parentID/title body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_created", title: "New" } }));
+    const result = await createSessionService(makeClient()).create({
+      parentID: "sess_01",
+      title: "New",
+    });
+    expect(result.title).toBe("New");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session",
+        body: { parentID: "sess_01", title: "New" },
+      },
+    });
+  });
+
+  it("create defaults to an empty body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_created" } }));
+    await createSessionService(makeClient()).create();
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/session", body: {} },
+    });
+  });
+
+  it("get GETs the parameterized session path", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    const result = await createSessionService(makeClient()).get("sess_01");
+    expect(result.id).toBe("sess_01");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session/sess_01" },
+    });
+  });
+
+  it("update PATCHes the session with the patch body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01", title: "Renamed" } }));
+    const result = await createSessionService(makeClient()).update("sess_01", { title: "Renamed" });
+    expect(result.title).toBe("Renamed");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "PATCH",
+        path: "/session/sess_01",
+        body: { title: "Renamed" },
+      },
+    });
+  });
+
+  it("remove DELETEs the session", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createSessionService(makeClient()).remove("sess_01");
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "DELETE", path: "/session/sess_01" },
+    });
+  });
+
+  it("statusAll GETs /session/status", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { sess_01: { type: "idle" } } }));
+    const result = await createSessionService(makeClient()).statusAll();
+    expect(result).toEqual({ sess_01: { type: "idle" } });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session/status" },
+    });
+  });
+
+  it("promptAsync POSTs the parts body to the session", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ status: 204 }));
+    await createSessionService(makeClient()).promptAsync("sess_01", {
+      parts: [{ type: "text", text: "hello" }],
+    });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/prompt_async",
+        body: { parts: [{ type: "text", text: "hello" }] },
+      },
+    });
+  });
+
+  it("abort POSTs to the session abort endpoint", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createSessionService(makeClient()).abort("sess_01");
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/session/sess_01/abort" },
+    });
+  });
+
+  it("passes ApiError rejections through unchanged", async () => {
+    invokeMock.mockRejectedValue({
+      status: 404,
+      code: "http",
+      message: "missing",
+      retriable: false,
+    });
+    const service = createSessionService(makeClient());
+    await expect(service.get("sess_99")).rejects.toBeInstanceOf(ApiError);
+    await expect(service.get("sess_99")).rejects.toMatchObject({
+      status: 404,
+      code: "http",
+      retriable: false,
+    });
+  });
+});
+
+const mockUrl = process.env.MOCK_URL;
+
+describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
+  const client = new ApiClient({
+    request: (input) => fetchTransport.request({ ...input, url: mockUrl }),
+  });
+  const service = createSessionService(client);
+
+  it("list returns session fixtures", async () => {
+    const sessions = await service.list();
+    expect(sessions.length).toBeGreaterThan(0);
+    expect(sessions[0].id).toBeTypeOf("string");
+    expect(sessions[0].title).toBeTypeOf("string");
+  });
+
+  it("create honors title and parentID", async () => {
+    const created = await service.create({ title: "Contract created", parentID: "sess_01" });
+    expect(created.title).toBe("Contract created");
+    expect(created.parentID).toBe("sess_01");
+  });
+
+  it("get returns the session detail", async () => {
+    const session = await service.get("sess_01");
+    expect(session.id).toBe("sess_01");
+    expect(session.time.updated).toBeTypeOf("number");
+  });
+
+  it("update patches the title", async () => {
+    const updated = await service.update("sess_01", { title: "Contract renamed" });
+    expect(updated.id).toBe("sess_01");
+    expect(updated.title).toBe("Contract renamed");
+  });
+
+  it("remove deletes the session", async () => {
+    const removed = await service.remove("sess_02");
+    expect(removed).toBe(true);
+  });
+
+  it("statusAll returns the status map", async () => {
+    const statuses = await service.statusAll();
+    expect(typeof statuses).toBe("object");
+    expect(Object.keys(statuses).length).toBeGreaterThan(0);
+    expect(["idle", "busy", "retry"]).toContain(statuses.sess_01.type);
+  });
+
+  it("promptAsync is accepted with 204", async () => {
+    await expect(
+      service.promptAsync("sess_01", { parts: [{ type: "text", text: "hi" }] }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("abort stops the session", async () => {
+    const aborted = await service.abort("sess_01");
+    expect(aborted).toBe(true);
+  });
+});
