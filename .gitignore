@@ -34,3 +34,4 @@ vitest.config.d.ts
 
 # OS
 Thumbs.db
+opencode.json
