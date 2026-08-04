@@ -128,7 +128,13 @@ export function createVirtualList(
   }
 
   function measureRow(index: number, el: HTMLElement | undefined): void {
-    if (el === undefined) return;
+    if (el === undefined) {
+      // Row unmounted: release the observer so the map doesn't retain a
+      // disconnected observer and a detached DOM element per row index.
+      observers.get(index)?.disconnect();
+      observers.delete(index);
+      return;
+    }
     const rowEl = el;
     // Streaming rows grow while mounted (their height is unknown until the
     // next ResizeObserver pass); without one (jsdom, old WebViews) the

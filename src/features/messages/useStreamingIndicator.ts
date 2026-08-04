@@ -45,7 +45,15 @@ export function useStreamingIndicator(
   let timer: ReturnType<typeof setInterval> | undefined;
   createEffect(() => {
     const stamp = lastDeltaAt();
-    if (stamp === undefined) return;
+    if (stamp === undefined) {
+      // Switched to a session with no deltas: stop the interval instead of
+      // leaving it running for the quiet session.
+      if (timer !== undefined) {
+        clearInterval(timer);
+        timer = undefined;
+      }
+      return;
+    }
     // Fresh clock on every new delta; the interval only exists while the
     // window is open, so the timer stays idle for quiet sessions.
     setNow(Date.now());

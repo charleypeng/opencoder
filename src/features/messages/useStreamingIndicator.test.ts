@@ -3,7 +3,7 @@
 // the 5-second window; the 1s ticker closes the window and cleans up.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createRoot } from "solid-js";
+import { createRoot, createSignal } from "solid-js";
 import { applyTextDelta, resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetSessions, setSessionStatus } from "../../stores/session";
 import { STREAMING_WINDOW_MS, useStreamingIndicator } from "./useStreamingIndicator";
@@ -89,6 +89,38 @@ describe("useStreamingIndicator", () => {
     setSessionStatus(SERVER, SESSION, { type: "idle" });
     expect(probe.busy()).toBe(false);
     expect(probe.streaming()).toBe(false);
+  });
+
+  it("clears the interval when switching to a session with no deltas", () => {
+    vi.useFakeTimers();
+    // Dedicated sessions so the live probes from earlier tests (which watch
+    // the shared SESSION) stay out of this timer accounting.
+    const sessionA = "ses_switch_a";
+    const sessionB = "ses_switch_b";
+    setSessionStatus(SERVER, sessionA, { type: "busy" });
+    const [session, setSession] = createSignal(sessionA);
+    let result: { streaming: () => boolean; busy: () => boolean } | undefined;
+    createRoot(() => {
+      result = useStreamingIndicator(() => SERVER, session);
+    });
+    const probe = result as { streaming: () => boolean; busy: () => boolean };
+    applyTextDelta(SERVER, sessionA, {
+      messageID: "msg_1",
+      partID: "prt_1",
+      field: "text",
+      delta: "tok",
+    });
+    expect(probe.streaming()).toBe(true);
+    expect(vi.getTimerCount()).toBe(1);
+
+    // Switch to a session that never streamed: the effect re-runs with no
+    // delta stamp and must stop the interval, not leave it ticking.
+    setSession(sessionB);
+    expect(probe.streaming()).toBe(false);
+    expect(vi.getTimerCount()).toBe(0);
+
+    vi.advanceTimersByTime(STREAMING_WINDOW_MS + 1000);
+    expect(vi.getTimerCount()).toBe(0);
   });
 
   it("retry counts as busy", () => {
