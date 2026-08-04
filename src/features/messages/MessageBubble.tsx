@@ -14,7 +14,10 @@ import { createMemo, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
+import FilePart from "./parts/FilePart.js";
+import PatchPart from "./parts/PatchPart.js";
 import ReasoningPart from "./parts/ReasoningPart.js";
+import SnapshotPart from "./parts/SnapshotPart.js";
 import TextPart from "./parts/TextPart.js";
 import ToolPart from "./parts/ToolPart.js";
 
@@ -31,12 +34,25 @@ export interface MessageBubbleProps {
   typing?: boolean;
 }
 
-type RenderablePart = Extract<Part, { type: "text" } | { type: "reasoning" } | { type: "tool" }>;
+type RenderablePart = Extract<
+  Part,
+  | { type: "text" }
+  | { type: "reasoning" }
+  | { type: "tool" }
+  | { type: "file" }
+  | { type: "patch" }
+  | { type: "snapshot" }
+>;
 
 function isRenderable(part: Part | undefined): part is RenderablePart {
   return (
     part !== undefined &&
-    (part.type === "text" || part.type === "reasoning" || part.type === "tool")
+    (part.type === "text" ||
+      part.type === "reasoning" ||
+      part.type === "tool" ||
+      part.type === "file" ||
+      part.type === "patch" ||
+      part.type === "snapshot")
   );
 }
 
@@ -56,6 +72,12 @@ function PartView(props: { part: Part | undefined; streaming?: boolean }) {
         return <ReasoningPart part={props.part} />;
       case "tool":
         return <ToolPart part={props.part} />;
+      case "file":
+        return <FilePart part={props.part} />;
+      case "patch":
+        return <PatchPart part={props.part} />;
+      case "snapshot":
+        return <SnapshotPart part={props.part} />;
       default:
         // Unsupported part types render nothing until their milestones land.
         return null;

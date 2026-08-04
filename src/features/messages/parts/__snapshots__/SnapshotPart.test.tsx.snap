@@ -1,0 +1,49 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`SnapshotPart snapshot > matches the fixture's snapshot part 1`] = `
+<div>
+  <span
+    class="my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-sunken/60 px-2 py-0.5 text-xs text-fg-secondary"
+    data-testid="snapshot-part"
+    title="Reverting to a snapshot lands in M6"
+  >
+    <svg
+      aria-hidden=""
+      class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="1.5"
+      viewBox="0 0 16 16"
+    >
+      <rect
+        height="9"
+        rx="1.5"
+        width="12"
+        x="2"
+        y="4.5"
+      />
+      <circle
+        cx="8"
+        cy="9"
+        r="2.5"
+      />
+      <path
+        d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7"
+      />
+    </svg>
+    <span
+      class="font-medium"
+    >
+      Snapshot
+    </span>
+    <span
+      class="font-code text-[10px] text-fg-faint"
+      data-testid="snapshot-id"
+    >
+      snp_a1b2c3d4
+    </span>
+  </span>
+</div>
+`;

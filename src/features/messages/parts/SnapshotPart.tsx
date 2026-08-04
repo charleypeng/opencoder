@@ -1,0 +1,47 @@
+// Snapshot marker (TASK-M3-02): renders a SnapshotPart as a subtle chip
+// with a camera icon, the "Snapshot" label and the short snapshot id.
+// M6 wires the revert action (restore snapshot) here; until then the chip
+// is inert and explains itself via its tooltip.
+
+import { createMemo } from "solid-js";
+import type { Component } from "solid-js";
+import type { Part } from "../../../stores/messages.js";
+
+export type SnapshotPartData = Extract<Part, { type: "snapshot" }>;
+
+export interface SnapshotPartProps {
+  part: SnapshotPartData;
+}
+
+const SnapshotPart: Component<SnapshotPartProps> = (props) => {
+  const shortId = createMemo(() => props.part.snapshot.slice(0, 12));
+
+  return (
+    <span
+      data-testid="snapshot-part"
+      class="my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-sunken/60 px-2 py-0.5 text-xs text-fg-secondary"
+      title="Reverting to a snapshot lands in M6"
+    >
+      <svg
+        aria-hidden
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="2" y="4.5" width="12" height="9" rx="1.5" />
+        <circle cx="8" cy="9" r="2.5" />
+        <path d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7" />
+      </svg>
+      <span class="font-medium">Snapshot</span>
+      <span data-testid="snapshot-id" class="font-code text-[10px] text-fg-faint">
+        {shortId()}
+      </span>
+    </span>
+  );
+};
+
+export default SnapshotPart;

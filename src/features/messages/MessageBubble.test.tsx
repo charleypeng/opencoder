@@ -9,8 +9,15 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { render, screen, waitFor } from "@solidjs/testing-library";
 import MessageBubble from "./MessageBubble";
-import { applyTextDelta, messages, resetServer, upsertMessage } from "../../stores/messages";
-import type { Message } from "../../stores/messages";
+import {
+  applyPartDelta,
+  applyTextDelta,
+  messages,
+  resetServer,
+  upsertMessage,
+} from "../../stores/messages";
+import type { Message, Part } from "../../stores/messages";
+import allPartsFixtureJson from "../../../tests/fixtures/message.stream.all-parts.json";
 
 const SERVER = "srv-bubble";
 const SESSION = "ses_bubble_1";
@@ -140,6 +147,40 @@ describe("MessageBubble", () => {
 
     setTyping(false);
     await waitFor(() => expect(bubble.querySelector('[data-testid="typing-cursor"]')).toBeNull());
+  });
+
+  it("renders file, patch and snapshot parts from the all-parts fixture", async () => {
+    for (const partId of ["prt_p3", "prt_p6", "prt_p10", "prt_p11"]) {
+      const part = allPartsFixtureJson.parts.find((item) => item.id === partId);
+      expect(part).toBeDefined();
+      applyPartDelta(SERVER, SESSION, part as Part);
+    }
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_m2"
+        partIds={["prt_p3", "prt_p6", "prt_p10", "prt_p11"]}
+      />
+    ));
+
+    const bubble = screen.getByTestId("message-msg_m2");
+    expect(bubble).toHaveTextContent("Let me check the existing project structure first.");
+
+    const file = bubble.querySelector('[data-testid="file-part"]');
+    expect(file).not.toBeNull();
+    expect(file).toHaveTextContent("login-flow.png");
+    expect(file).toHaveTextContent("Content unavailable");
+
+    const patch = bubble.querySelector('[data-testid="patch-part"]');
+    expect(patch).not.toBeNull();
+    expect(patch).toHaveTextContent("Patch");
+    expect(patch?.querySelectorAll('[data-testid="patch-file"]')).toHaveLength(2);
+
+    const snapshot = bubble.querySelector('[data-testid="snapshot-part"]');
+    expect(snapshot).not.toBeNull();
+    expect(snapshot).toHaveTextContent("Snapshot");
+    expect(snapshot).toHaveTextContent("snp_a1b2c3d4");
   });
 
   it("keeps the caret in place across text deltas", async () => {
