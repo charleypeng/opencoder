@@ -1,0 +1,12 @@
+[
+  "docs/tasks/M3.md",
+  "docs/architecture.md",
+  "package.json",
+  "README.md",
+  "src/features/sessions/PromptBox.tsx",
+  "src/features/sessions/TodoPanel.tsx",
+  "src/services/find.ts",
+  "src/services/session.ts",
+  "src/stores/messages.ts",
+  "src/stores/session.ts"
+]

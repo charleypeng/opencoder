@@ -375,6 +375,68 @@ try {
       expect(status === 204, `status ${status}`);
     });
 
+    // TASK-M3-08: the composer sends attachments as FilePartInput parts.
+    await test("prompt_async accepts file parts alongside text parts", async () => {
+      const { status } = await request(baseUrl, "/session/sess_01/prompt_async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parts: [
+            { type: "text", text: "check this" },
+            {
+              type: "file",
+              mime: "image/png",
+              filename: "clip.png",
+              url: "data:image/png;base64,aGVsbG8=",
+            },
+          ],
+        }),
+      });
+      expect(status === 204, `status ${status}`);
+    });
+
+    // TASK-M3-08: the @-reference menu searches /find/file.
+    await test("find/file filters the file list by query", async () => {
+      const { status, body } = await request(baseUrl, "/find/file?query=PromptBox");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body), "body must be an array");
+      expect(body.length >= 1, `expected >= 1 match; got ${body.length}`);
+      expect(
+        typeof body[0] === "string" && body[0].includes("PromptBox"),
+        `first match ${JSON.stringify(body[0])}`,
+      );
+    });
+
+    await test("find/file with an empty query returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find/file?query=");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find/file with no matches returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find/file?query=zzz_no_match");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find returns text search matches", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=prompt");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      expect(typeof body[0]?.path?.text === "string", "match must carry path.text");
+      expect(typeof body[0]?.line_number === "number", "match must carry line_number");
+      expect(Array.isArray(body[0]?.submatches), "match must carry submatches");
+    });
+
+    await test("find/symbol returns workspace symbols", async () => {
+      const { status, body } = await request(baseUrl, "/find/symbol?query=Prompt");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      expect(typeof body[0]?.name === "string", "symbol must carry a name");
+      expect(typeof body[0]?.kind === "number", "symbol must carry a numeric kind");
+      expect(typeof body[0]?.location?.uri === "string", "symbol must carry a location uri");
+    });
+
     await test("abort returns true", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/abort", {
         method: "POST",

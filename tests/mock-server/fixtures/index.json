@@ -9,5 +9,8 @@
   "session.status": "session.status.json",
   "session.messages": "session.messages.json",
   "session.message": "session.message.json",
-  "session.todo": "todo.json"
+  "session.todo": "todo.json",
+  "find": "find.json",
+  "find.file": "find.file.json",
+  "find.symbol": "find.symbol.json"
 }

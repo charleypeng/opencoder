@@ -1,0 +1,40 @@
+[
+  {
+    "path": {
+      "text": "src/features/sessions/PromptBox.tsx"
+    },
+    "lines": {
+      "text": "  const [inlineError, setInlineError] = createSignal<ApiError | null>(null);"
+    },
+    "line_number": 71,
+    "absolute_offset": 2100,
+    "submatches": [
+      {
+        "match": {
+          "text": "inlineError"
+        },
+        "start": 17,
+        "end": 28
+      }
+    ]
+  },
+  {
+    "path": {
+      "text": "src/stores/messages.ts"
+    },
+    "lines": {
+      "text": "export type Part = components[\"schemas\"][\"Part\"];"
+    },
+    "line_number": 40,
+    "absolute_offset": 1240,
+    "submatches": [
+      {
+        "match": {
+          "text": "Part"
+        },
+        "start": 15,
+        "end": 19
+      }
+    ]
+  }
+]

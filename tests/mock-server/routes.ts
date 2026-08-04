@@ -56,8 +56,16 @@ const P0_CORE_LOOP: Route[] = [
   },
 ];
 
-// P1–P4 endpoints are intentionally not registered yet; they return 501.
-const ROUTES: Route[] = [...P0_CORE_LOOP];
+// P2 — efficiency tools (M4): /find family. `/find` and `/find/symbol`
+// serve their fixtures declaratively; `/find/file` is handled dynamically
+// (query filtering, TASK-M3-08) so the composer's `@` reference menu and
+// M4-04 QuickOpen can share it.
+const FIND_ROUTES: Route[] = [
+  { method: "get", path: "/find", operation: "find.text", fixture: "find" },
+  { method: "get", path: "/find/symbol", operation: "find.symbols", fixture: "find.symbol" },
+];
+
+const ROUTES: Route[] = [...P0_CORE_LOOP, ...FIND_ROUTES];
 
 // SSE endpoints stream events; they are not part of the fixture table.
 function registerSSE(app: Express): void {
@@ -168,6 +176,20 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
 
   app.post("/session/:sessionID/prompt_async", (_req, res) => {
     res.status(204).end();
+  });
+
+  // Fuzzy file search (TASK-M3-08): the fixture path list is filtered by a
+  // case-insensitive substring match; an empty or missing query returns an
+  // empty array (the composer never calls with one, but the contract holds).
+  app.get("/find/file", (req, res) => {
+    const query = queryString(req, "query");
+    const files = Array.isArray(fixtures["find.file"]) ? (fixtures["find.file"] as string[]) : [];
+    if (query === undefined || query === "") {
+      res.json([]);
+      return;
+    }
+    const needle = query.toLowerCase();
+    res.json(files.filter((path) => path.toLowerCase().includes(needle)));
   });
 
   app.post("/session/:sessionID/abort", (_req, res) => {

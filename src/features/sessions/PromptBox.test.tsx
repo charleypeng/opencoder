@@ -1,18 +1,23 @@
-// L2 tests for the prompt box (TASK-M2-08 / M2-10): ⌘/Ctrl+Enter sends
-// (plain Enter only inserts a newline), the POST body carries the text part,
-// the optimistic user message lands in the store and the textarea clears,
-// the input locks while the session is busy/retry or a send is in flight, a
-// failed POST rolls the optimistic message back and shows an error banner,
-// ↑ on an empty input recalls and cycles the per-server prompt history, the
-// attachment button is a disabled M3 placeholder, and an integration-style
-// chain (optimistic send -> happy-chat SSE events through applyEvent ->
-// store/render) ends with the sent prompt and the assistant reply on screen,
-// with the optimistic bubble reconciled onto the server-issued user message
-// (no local-* duplicates; full-chain E2E E03 itself lands with the M10
-// infra). M2-10 additions: while busy the Send button is replaced by a Stop
-// button that POSTs /session/{id}/abort (double-clicks collapsed to one
-// call), Esc does the same, an abort failure surfaces as the inline banner,
-// and the Send button returns once the session turns idle.
+// L2 tests for the prompt box (TASK-M2-08 / M2-10 / M3-08): ⌘/Ctrl+Enter
+// sends (plain Enter only inserts a newline), the POST body carries the
+// text part, the optimistic user message lands in the store and the
+// textarea clears, the input locks while the session is busy/retry or a
+// send is in flight, a failed POST rolls the optimistic message back and
+// shows an error banner, ↑ on an empty input recalls and cycles the
+// per-server prompt history, and an integration-style chain (optimistic
+// send -> happy-chat SSE events through applyEvent -> store/render) ends
+// with the sent prompt and the assistant reply on screen, with the
+// optimistic bubble reconciled onto the server-issued user message (no
+// local-* duplicates; full-chain E2E E03 itself lands with the M10 infra).
+// M2-10 additions: while busy the Send button is replaced by a Stop button
+// that POSTs /session/{id}/abort (double-clicks collapsed to one call), Esc
+// does the same, an abort failure surfaces as the inline banner, and the
+// Send button returns once the session turns idle. M3-08 additions: the
+// attachment button opens a file picker, clipboard images and dropped
+// files become removable chips (cleared on a successful send, kept for
+// retry on failure), the M7 image-pick button is a disabled placeholder,
+// and `@` at a word start opens a debounced /find/file reference menu with
+// ↑↓/Enter/Esc keyboard navigation inserting the chosen path.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -289,12 +294,178 @@ describe("PromptBox", () => {
     expect(input().value).toBe("recalled prompt, edited");
   });
 
-  it("shows the attachment button as a disabled M3 placeholder", () => {
+  it("adds files through the attachment button file picker", async () => {
+    const file = new File(["picked"], "pick.txt", { type: "text/plain" });
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
 
     const attach = screen.getByTestId("prompt-attach");
-    expect(attach).toBeDisabled();
-    expect(attach).toHaveAttribute("title", "Attachments — M3");
+    expect(attach).toBeEnabled();
+    const picker = screen.getByTestId("prompt-file-input") as HTMLInputElement;
+    fireEvent.change(picker, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByText("pick.txt")).toBeInTheDocument());
+  });
+
+  it("shows the M7 image picker placeholder as a disabled button", () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    const pick = screen.getByTestId("prompt-pick-image");
+    expect(pick).toBeDisabled();
+    expect(pick).toHaveAttribute("title", expect.stringContaining("M7"));
+  });
+
+  it("pastes a clipboard image as a removable attachment chip", async () => {
+    const file = new File(["png-bytes"], "clip.png", { type: "image/png" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.paste(input(), {
+      clipboardData: { items: [{ type: "image/png", getAsFile: () => file }] },
+    });
+
+    await waitFor(() => expect(screen.getByText("clip.png")).toBeInTheDocument());
+    // The pasted image does not leak text into the input.
+    expect(input().value).toBe("");
+  });
+
+  it("does not treat a text-only paste as an attachment", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.paste(input(), {
+      clipboardData: { items: [{ type: "text/plain", getAsFile: () => null }] },
+    });
+
+    expect(screen.queryByText(/clip|\.png/i)).not.toBeInTheDocument();
+  });
+
+  it("drops files onto the composer as attachment chips", async () => {
+    const textFile = new File(["line one"], "notes.txt", { type: "text/plain" });
+    const imageFile = new File(["png-bytes"], "shot.png", { type: "image/png" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.drop(screen.getByTestId("prompt-box"), {
+      dataTransfer: { files: [textFile, imageFile] },
+    });
+
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("shot.png")).toBeInTheDocument());
+  });
+
+  it("removes an attachment chip with its × button", async () => {
+    const file = new File(["hello"], "notes.txt", { type: "text/plain" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    fireEvent.drop(screen.getByTestId("prompt-box"), { dataTransfer: { files: [file] } });
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("attachment-remove"));
+
+    await waitFor(() => expect(screen.queryByText("notes.txt")).not.toBeInTheDocument());
+    expect(screen.getByTestId("prompt-send")).toBeDisabled();
+  });
+
+  it("sends attachment file parts after the text part and clears chips on success", async () => {
+    const file = new File(["line one"], "notes.txt", { type: "text/plain" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    fireEvent.drop(screen.getByTestId("prompt-box"), { dataTransfer: { files: [file] } });
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeInTheDocument());
+
+    fireEvent.input(input(), { target: { value: "check this" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: {
+          parts: [
+            { type: "text", text: "check this" },
+            {
+              type: "file",
+              mime: "text/plain",
+              filename: "notes.txt",
+              url: "data:text/plain;charset=utf-8,line%20one",
+            },
+          ],
+        },
+      }),
+    );
+    // Chips clear once the send round-trip succeeds.
+    await waitFor(() => expect(screen.queryByText("notes.txt")).not.toBeInTheDocument());
+  });
+
+  it("keeps the attachments for retry when the send fails", async () => {
+    const file = new File(["line one"], "notes.txt", { type: "text/plain" });
+    client.post.mockRejectedValueOnce(new ApiError(500, "http", "boom", true));
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    fireEvent.drop(screen.getByTestId("prompt-box"), { dataTransfer: { files: [file] } });
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeInTheDocument());
+
+    fireEvent.input(input(), { target: { value: "doomed" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByText("notes.txt")).toBeInTheDocument();
+  });
+
+  it("@ opens the file reference menu; ↑↓ + Enter inserts the path", async () => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/find/file") {
+        return ["src/features/sessions/PromptBox.tsx", "src/services/find.ts"];
+      }
+      return [];
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "see @find" } });
+
+    await waitFor(() => expect(screen.getByTestId("prompt-at-menu")).toBeInTheDocument());
+    // Items arrive after the 150ms debounce + the /find/file round-trip.
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(2));
+
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    fireEvent.keyDown(input(), { key: "Enter" });
+
+    expect(input().value).toBe("see @src/services/find.ts");
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+  });
+
+  it("@ menu queries the file search with the word after @", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "refer @PromptBox" } });
+
+    await waitFor(() =>
+      expect(client.get).toHaveBeenCalledWith("/find/file", {
+        query: { query: "PromptBox" },
+      }),
+    );
+  });
+
+  it("@ menu debounces: consecutive keystrokes collapse into one query", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@x" } });
+    fireEvent.input(input(), { target: { value: "@xy" } });
+
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(1));
+    expect(client.get).toHaveBeenCalledWith("/find/file", { query: { query: "xy" } });
+  });
+
+  it("Esc closes the @ menu without inserting anything", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@find" } });
+    await waitFor(() => expect(screen.getByTestId("prompt-at-menu")).toBeInTheDocument());
+
+    fireEvent.keyDown(input(), { key: "Escape" });
+
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+    expect(input().value).toBe("@find");
+  });
+
+  it("@ inside a word (not at a word start) does not open the menu", () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "mail@example.com" } });
+
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
   });
 
   it("full chain: optimistic send plus SSE happy-chat events render user and assistant", async () => {

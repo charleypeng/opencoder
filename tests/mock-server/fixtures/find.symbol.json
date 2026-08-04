@@ -1,0 +1,36 @@
+[
+  {
+    "name": "PromptBox",
+    "kind": 12,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/features/sessions/PromptBox.tsx",
+      "range": {
+        "start": {
+          "line": 68,
+          "character": 15
+        },
+        "end": {
+          "line": 68,
+          "character": 24
+        }
+      }
+    }
+  },
+  {
+    "name": "sendPrompt",
+    "kind": 5,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/features/sessions/sendPrompt.ts",
+      "range": {
+        "start": {
+          "line": 35,
+          "character": 12
+        },
+        "end": {
+          "line": 35,
+          "character": 22
+        }
+      }
+    }
+  }
+]

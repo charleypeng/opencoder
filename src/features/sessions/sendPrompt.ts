@@ -11,7 +11,7 @@
 
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
-import { createSessionService } from "../../services/session.js";
+import { createSessionService, type PromptAsyncInput } from "../../services/session.js";
 import type { Message, Part } from "../../stores/messages.js";
 import {
   applyPartDelta,
@@ -21,57 +21,68 @@ import {
   upsertMessage,
 } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
+import { attachmentToPart, type Attachment } from "./attachments.js";
 import { pushPrompt } from "./promptHistory.js";
 
 /**
  * Sends a prompt through the full optimistic pipeline. Resolves to the
  * classified error when the POST fails (the optimistic message is rolled
- * back), or null when the round-trip succeeded.
+ * back), or null when the round-trip succeeded. Attachments (TASK-M3-08)
+ * are appended as FilePartInput parts after the text part; the optimistic
+ * store insert and the prompt history only cover the text part — attachment
+ * parts appear once the server echoes them.
  */
 export async function sendPrompt(
   serverId: string,
   sessionId: string,
   text: string,
+  attachments: Attachment[] = [],
 ): Promise<ApiError | null> {
   const message = text.trim();
-  if (message === "") return null;
+  if (message === "" && attachments.length === 0) return null;
   const now = Date.now();
-  const localMessageId = `local-${now}`;
-  const localPartId = `local-part-${now}`;
   const session = getServerSessionState(serverId).sessions[sessionId];
 
   // Optimistic local insert so the bubble appears before the server echoes
-  // it back through SSE; the tracked pending id lets the first real
-  // message.updated roll this local message over onto the echo.
-  // The session's model uses { id, providerID } while a user message
-  // expects { providerID, modelID }, so the fields are mapped.
-  const optimistic: Message = {
-    id: localMessageId,
-    sessionID: sessionId,
-    role: "user",
-    time: { created: now },
-    agent: session?.agent ?? "",
-    model: {
-      providerID: session?.model?.providerID ?? "",
-      modelID: session?.model?.id ?? "",
-    },
-  };
-  const part: Part = {
-    id: localPartId,
-    sessionID: sessionId,
-    messageID: localMessageId,
-    type: "text",
-    text: message,
-  };
-  upsertMessage(serverId, sessionId, optimistic);
-  applyPartDelta(serverId, sessionId, part);
-  trackPendingLocalMessage(serverId, sessionId, localMessageId);
-  pushPrompt(serverId, message);
+  // it back through SSE (text-only: attachment parts surface with the echo,
+  // TASK-M3-08); the tracked pending id lets the first real message.updated
+  // roll this local message over onto the echo. The session's model uses
+  // { id, providerID } while a user message expects { providerID, modelID },
+  // so the fields are mapped.
+  const localMessageId = `local-${now}`;
+  const localPartId = `local-part-${now}`;
+  if (message !== "") {
+    const optimistic: Message = {
+      id: localMessageId,
+      sessionID: sessionId,
+      role: "user",
+      time: { created: now },
+      agent: session?.agent ?? "",
+      model: {
+        providerID: session?.model?.providerID ?? "",
+        modelID: session?.model?.id ?? "",
+      },
+    };
+    const part: Part = {
+      id: localPartId,
+      sessionID: sessionId,
+      messageID: localMessageId,
+      type: "text",
+      text: message,
+    };
+    upsertMessage(serverId, sessionId, optimistic);
+    applyPartDelta(serverId, sessionId, part);
+    trackPendingLocalMessage(serverId, sessionId, localMessageId);
+    pushPrompt(serverId, message);
+  }
 
   try {
-    await createSessionService(getApiClient()).promptAsync(sessionId, {
-      parts: [{ type: "text", text: message }],
-    });
+    const parts: NonNullable<PromptAsyncInput["parts"]> = [];
+    if (message !== "") parts.push({ type: "text", text: message });
+    for (const attachment of attachments) {
+      parts.push(attachmentToPart(attachment));
+    }
+    await createSessionService(getApiClient()).promptAsync(sessionId, { parts });
     return null;
   } catch (err) {
     // Roll the optimistic message back; on success the SSE echo would

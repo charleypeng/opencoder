@@ -117,4 +117,69 @@ describe("sendPrompt", () => {
     expect(messages[SERVER]?.[SESSION]).toBeUndefined();
     expect(readPrompts(SERVER)).toEqual([]);
   });
+
+  it("is a no-op for an empty prompt without attachments", async () => {
+    const err = await sendPrompt(SERVER, SESSION, "   ", []);
+
+    expect(err).toBeNull();
+    expect(client.post).not.toHaveBeenCalled();
+  });
+
+  it("sends attachment file parts after the text part", async () => {
+    const err = await sendPrompt(SERVER, SESSION, "check this", [
+      {
+        id: "att-1",
+        kind: "image",
+        name: "clip.png",
+        mimeType: "image/png",
+        content: "data:image/png;base64,aGVsbG8=",
+      },
+    ]);
+
+    expect(err).toBeNull();
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+      body: {
+        parts: [
+          { type: "text", text: "check this" },
+          {
+            type: "file",
+            mime: "image/png",
+            filename: "clip.png",
+            url: "data:image/png;base64,aGVsbG8=",
+          },
+        ],
+      },
+    });
+    // Optimistic store + history only cover the text part.
+    const entry = messages[SERVER]?.[SESSION];
+    const part = entry?.parts[entry.order[0]];
+    expect(part).toMatchObject({ type: "text", text: "check this" });
+    expect(readPrompts(SERVER)).toEqual(["check this"]);
+  });
+
+  it("sends attachments even when the text part is empty", async () => {
+    const err = await sendPrompt(SERVER, SESSION, "", [
+      {
+        id: "att-2",
+        kind: "file",
+        name: "notes.txt",
+        mimeType: "text/plain",
+        content: "hello",
+      },
+    ]);
+
+    expect(err).toBeNull();
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+      body: {
+        parts: [
+          {
+            type: "file",
+            mime: "text/plain",
+            filename: "notes.txt",
+            url: "data:text/plain;charset=utf-8,hello",
+          },
+        ],
+      },
+    });
+  });
 });
