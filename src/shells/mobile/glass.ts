@@ -4,7 +4,12 @@
 //
 //   native -> web: window.__glassTabSelected(index)   (0-based tab index)
 //   web -> native: window.webkit.messageHandlers.glassBridge.postMessage({
-//                  type: "setActive", index } | { type: "ping" })
+//                  type: "setActive", index } | { type: "setHidden",
+//                  hidden } | { type: "ping" })
+//
+// setHidden (TASK-M7-04) gates the native bar's visibility: the plugin
+// starts with the bar hidden, MobileShell shows it on workspace mount and
+// hides it on unmount — see glassControl.ts for the call sites.
 //
 // Every helper reads window at call time, so tests can stub the bridge.
 

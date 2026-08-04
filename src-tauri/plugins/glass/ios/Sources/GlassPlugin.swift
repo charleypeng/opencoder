@@ -9,7 +9,16 @@
 // Bridge contract used by the mobile shell (src/shells/mobile/glass.ts):
 //   native -> web: window.__glassTabSelected(index) / window.__glassNativePing(msg)
 //   web -> native: window.webkit.messageHandlers.glassBridge.postMessage({
-//                  type: "setActive", index: N } | { type: "ping" })
+//                  type: "setActive", index: N } | { type: "setHidden",
+//                  hidden: Bool } | { type: "ping" })
+//
+// TASK-M7-04: the bar is created HIDDEN and shown only when the web
+// workspace mounts (setHidden false) — the servers home has no bottom
+// navigation, so the bar would otherwise float over it with inert tabs.
+// The requested visibility is stored so a setHidden that races the
+// async injection still applies to the bar once it exists. The WKWebView
+// scroll view's iOS 26 top edge effect is suppressed so the notch area
+// never shows a WebKit bounce/shadow above the content.
 
 import Foundation
 import SwiftRs
@@ -20,10 +29,19 @@ import WebKit
 class GlassPlugin: Plugin, UITabBarDelegate, WKScriptMessageHandler {
   private var webview: WKWebView?
   private var tabBar: UITabBar?
+  /// Requested bar visibility (TASK-M7-04): the bar starts hidden and the
+  /// web layer gates it (shown in the workspace, hidden on the servers
+  /// home). Stored so a setHidden racing the async injection still applies.
+  private var tabBarHidden = true
 
   @objc override func load(webview: WKWebView) {
     self.webview = webview
     webview.configuration.userContentController.add(self, name: "glassBridge")
+    if #available(iOS 26.0, *) {
+      // TASK-M7-04: hide the iOS 26 top edge effect (rubber-band glow /
+      // shadow) so the notch area stays clean under the status bar.
+      webview.scrollView.topEdgeEffect.isHidden = true
+    }
     DispatchQueue.main.async {
       self.injectTabBar()
     }
@@ -46,6 +64,9 @@ class GlassPlugin: Plugin, UITabBarDelegate, WKScriptMessageHandler {
     ]
     bar.setItems(items, animated: false)
     bar.selectedItem = items.first
+    // TASK-M7-04: the bar starts hidden (servers home); the web workspace
+    // shows it via the setHidden bridge message once it mounts.
+    bar.isHidden = tabBarHidden
 
     view.addSubview(bar)
     view.bringSubviewToFront(bar)
@@ -105,6 +126,13 @@ class GlassPlugin: Plugin, UITabBarDelegate, WKScriptMessageHandler {
         // Programmatic selection does not reliably fire tabBar(_:didSelect:),
         // so notify the web side explicitly to complete the round trip.
         notifyTabSelected(index)
+      }
+    case "setHidden":
+      // TASK-M7-04: show/hide the native bar from the web layer (the
+      // workspace shows it, the servers home hides it).
+      if let hidden = body["hidden"] as? Bool {
+        tabBarHidden = hidden
+        tabBar?.isHidden = hidden
       }
     case "ping":
       notifyPing("pong")

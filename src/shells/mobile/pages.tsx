@@ -28,11 +28,13 @@ export const NotFoundPage: MobilePage = (props) => (
   </div>
 );
 
-/** Thin placeholder for pages that land in later tasks. */
-function placeholderPage(title: string): MobilePage {
+/** Thin placeholder for pages that land in later tasks. The optional root
+ *  class lets a placeholder participate in M7-04 layouts early (the
+ *  Terminal placeholder goes fullscreen in landscape). */
+function placeholderPage(title: string, rootClass = ""): MobilePage {
   return () => (
     <div
-      class="flex h-full flex-col"
+      class={`flex h-full flex-col ${rootClass}`}
       data-testid={`mobile-page-${title.toLowerCase()}-placeholder`}
     >
       <PageHeader title={title} onBack={() => back()} />
@@ -47,7 +49,7 @@ export const pageRegistry: Record<string, MobilePage> = {
   sessions: SessionsPage,
   chat: ChatPage,
   files: placeholderPage("Files"),
-  terminal: placeholderPage("Terminal"),
+  terminal: placeholderPage("Terminal", "landscape-terminal"),
   settings: placeholderPage("Settings"),
   diff: placeholderPage("Diff"),
 };

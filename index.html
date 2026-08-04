@@ -2,7 +2,15 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- TASK-M7-04: viewport-fit=cover lets the web content extend under
+         the notch/home indicator so env(safe-area-inset-*) has real values
+         to pad against; interactive-widget=resizes-content makes the
+         viewport resize to the area above the virtual keyboard, so the
+         bottom-anchored composer stays visible above it. -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content"
+    />
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <title>opencoder</title>

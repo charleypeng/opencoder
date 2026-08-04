@@ -2,13 +2,21 @@
 // the landing page on every platform, and opening a server mounts the
 // shell for the detected platform — DesktopShell on desktop, MobileShell
 // on mobile (src/platform). The shells are stubbed so the test focuses on
-// the switch itself.
+// the switch itself. TASK-M7-04: on mobile the startup state is the
+// servers home (no bottom nav), so App asserts the native glass bar stays
+// hidden through the bridge control.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import App from "./App";
 import { refreshPlatform } from "./platform";
 
+const { glassHide } = vi.hoisted(() => ({ glassHide: vi.fn() }));
+
+vi.mock("./shells/mobile/glassControl.js", () => ({
+  setGlassBarHidden: glassHide,
+  setGlassBarShown: vi.fn(),
+}));
 vi.mock("./features/servers/ServerHome", () => ({
   default: (props: { onSelect: (server: { id: string }) => void }) => (
     <button type="button" data-testid="server-home" onClick={() => props.onSelect({ id: "srv-1" })}>
@@ -28,6 +36,7 @@ const ORIGINAL_UA = window.navigator.userAgent;
 afterEach(() => {
   Object.defineProperty(window.navigator, "userAgent", { value: ORIGINAL_UA, configurable: true });
   delete window.webkit;
+  glassHide.mockClear();
   refreshPlatform();
 });
 
@@ -40,6 +49,8 @@ describe("App platform switch", () => {
     fireEvent.click(home);
     await screen.findByTestId("desktop-shell-mock");
     expect(screen.queryByTestId("mobile-shell-mock")).not.toBeInTheDocument();
+    // Desktop never touches the native glass bar control.
+    expect(glassHide).not.toHaveBeenCalled();
   });
 
   it("mounts MobileShell instead on a mobile platform", async () => {
@@ -51,6 +62,9 @@ describe("App platform switch", () => {
     refreshPlatform();
     render(() => <App />);
     const home = await screen.findByTestId("server-home");
+    // Mobile startup lands on the servers home: no bottom navigation, so
+    // the native glass bar must stay hidden (TASK-M7-04).
+    expect(glassHide).toHaveBeenCalledTimes(1);
     fireEvent.click(home);
     await screen.findByTestId("mobile-shell-mock");
     expect(screen.queryByTestId("desktop-shell-mock")).not.toBeInTheDocument();

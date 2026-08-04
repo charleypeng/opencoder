@@ -6,12 +6,20 @@
 //
 // Bottom navigation: on iOS with the glass plugin bridge reachable (M7-02
 // concluded: tier A — native Liquid Glass UITabBar), the web nav is hidden
-// entirely and the content reserves space under the native bar (pb-20
-// placeholder; M7-04 refines the safe-area insets). Native tab taps arrive
-// via window.__glassTabSelected and route through the same selectTab
-// action. Everywhere else (Android Material 3 style web nav, iOS without
-// the bridge) the web nav renders; when the bridge exists it mirrors the
-// native bar via the setActive message.
+// entirely and the content reserves space under the native bar
+// (pb-safe-bar — the bar's height plus the home-indicator inset, M7-04).
+// Native tab taps arrive via window.__glassTabSelected and route through
+// the same selectTab action. Everywhere else (Android Material 3 style web
+// nav, iOS without the bridge) the web nav renders; when the bridge exists
+// it mirrors the native bar via the setActive message.
+//
+// TASK-M7-04 (safe areas & keyboard): the native bar is GATED — the
+// plugin starts with it hidden and this shell shows it on mount
+// (setGlassBarShown) and hides it again on unmount (setGlassBarHidden),
+// so the servers home never shows a bar with inert tabs; the shell root
+// uses 100dvh so the keyboard-resized viewport (interactive-widget=
+// resizes-content in index.html) leaves the bottom chrome visible above
+// it, and the web nav pads the home-indicator inset (pb-safe).
 
 import { For, onCleanup, onMount } from "solid-js";
 import type { Component, JSX } from "solid-js";
@@ -19,6 +27,7 @@ import type { ServerEntry } from "../../services/servers";
 import { capabilitiesOf } from "../../platform/capabilities";
 import { platform } from "../../platform";
 import { hasGlassBridge, installGlassTabHandler, postGlassMessage } from "./glass.js";
+import { setGlassBarHidden, setGlassBarShown } from "./glassControl.js";
 import { nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
 import type { TabId } from "./navigation.js";
 import { pageRegistry, NotFoundPage } from "./pages.js";
@@ -111,6 +120,11 @@ const MobileShell: Component<MobileShellProps> = (props) => {
       if (tab !== undefined) selectTab(tab);
     });
     onCleanup(cleanup);
+    // TASK-M7-04: the workspace owns the bottom edge — show the native
+    // bar (the plugin starts hidden for the servers home) and hide it
+    // again when the workspace unmounts (back to home).
+    setGlassBarShown();
+    onCleanup(() => setGlassBarHidden());
   });
 
   /** Renders the top route of one tab through the page registry. */
@@ -124,13 +138,16 @@ const MobileShell: Component<MobileShellProps> = (props) => {
     <div
       data-testid="mobile-shell"
       data-native-glass={nativeGlass ? "true" : "false"}
-      class="flex h-screen min-h-0 flex-col bg-bg-base text-fg-primary"
+      class="flex h-dvh min-h-0 flex-col bg-bg-base text-fg-primary"
     >
       {/* Keep-alive tab pages: all four stay mounted, hidden while inactive
-          (each tab's state survives switching). pb-20 reserves space under
-          the native bar when it owns the bottom edge; M7-04 refines the
-          safe-area insets. */}
-      <main data-testid="mobile-content" class={`min-h-0 flex-1 ${nativeGlass ? "pb-20" : ""}`}>
+          (each tab's state survives switching). pb-safe-bar reserves space
+          under the native bar — bar height plus home-indicator inset —
+          when it owns the bottom edge (TASK-M7-04). */}
+      <main
+        data-testid="mobile-content"
+        class={`min-h-0 flex-1 ${nativeGlass ? "pb-safe-bar" : ""}`}
+      >
         <For each={TAB_ORDER}>
           {(tab) => (
             <div
@@ -145,14 +162,13 @@ const MobileShell: Component<MobileShellProps> = (props) => {
       </main>
 
       {/* Web nav (Android Material 3 style + iOS fallback without the
-          plugin): hidden while the native bar is in charge. */}
+          plugin): hidden while the native bar is in charge. pb-safe pads
+          the home-indicator inset (TASK-M7-04). */}
       <nav
         data-testid="mobile-nav"
         aria-label="Main navigation"
         class={
-          nativeGlass
-            ? "hidden"
-            : "flex shrink-0 border-t border-bg-sunken bg-bg-elevated pb-[env(safe-area-inset-bottom)]"
+          nativeGlass ? "hidden" : "flex shrink-0 border-t border-bg-sunken bg-bg-elevated pb-safe"
         }
       >
         <For each={TAB_ORDER}>

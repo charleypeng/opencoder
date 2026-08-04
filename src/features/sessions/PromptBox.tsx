@@ -1011,7 +1011,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
-      <div class="flex items-end gap-2 px-4 py-3">
+      {/* TASK-M7-04 (keyboard & safe area): with interactive-widget=
+          resizes-content in index.html the WebView viewport shrinks to the
+          area above the virtual keyboard, so this shrink-0 composer stays
+          pinned above it without JS. The bottom padding grows by the
+          home-indicator inset (max() keeps the desktop spacing, where
+          env() is 0) so the chips/send row never sit under the indicator. */}
+      <div class="flex items-end gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-3">
         <div class="min-w-0 flex-1">
           <ErrorBanner error={inlineError()} onDismiss={() => setInlineError(null)} />
           <div class="relative flex flex-col gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">

@@ -2,7 +2,10 @@
 // switching preserves state (hidden tabs stay mounted, stacks survive),
 // the push stack flows session list -> chat -> back, native-glass mode
 // (iOS + glass bridge) hides the web nav and routes native taps, and the
-// web nav is the fallback on Android / bridge-less iOS.
+// web nav is the fallback on Android / bridge-less iOS. TASK-M7-04 adds
+// the safe-area classes (pb-safe-bar / pb-safe) and the native bar
+// visibility lifecycle: the shell shows the bar on mount and hides it on
+// unmount through the glass bridge's setHidden message.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -53,15 +56,21 @@ function httpResponse(body: unknown) {
   return { status: 200, headers: {}, body, bodyText: undefined };
 }
 
+// The glassBridge postMessage stub of the currently stubbed environment
+// (undefined when no bridge is installed).
+let bridgePostMessage: ReturnType<typeof vi.fn> | undefined;
+
 /** Sets the environment to a mobile platform and re-resolves platform. */
 function stubPlatform(userAgent: string, bridge: boolean): void {
   Object.defineProperty(window.navigator, "userAgent", { value: userAgent, configurable: true });
   if (bridge) {
+    bridgePostMessage = vi.fn();
     Object.defineProperty(window, "webkit", {
-      value: { messageHandlers: { glassBridge: { postMessage: vi.fn() } } },
+      value: { messageHandlers: { glassBridge: { postMessage: bridgePostMessage } } },
       configurable: true,
     });
   } else {
+    bridgePostMessage = undefined;
     delete window.webkit;
   }
   refreshPlatform();
@@ -88,6 +97,7 @@ afterEach(() => {
   Object.defineProperty(window.navigator, "userAgent", { value: ORIGINAL_UA, configurable: true });
   delete window.webkit;
   delete window.__glassTabSelected;
+  bridgePostMessage = undefined;
   refreshPlatform();
   resetNav();
   resetSessions(SERVER.id);
@@ -201,10 +211,11 @@ describe("MobileShell", () => {
     renderShell();
     await waitFor(() => screen.getByTestId("mobile-shell"));
 
-    // Native mode: web nav hidden, content reserves space for the native bar.
+    // Native mode: web nav hidden, content reserves space for the native bar
+    // (bar height + home-indicator inset, TASK-M7-04).
     expect(screen.getByTestId("mobile-shell")).toHaveAttribute("data-native-glass", "true");
     expect(screen.getByTestId("mobile-nav")).toHaveClass("hidden");
-    expect(screen.getByTestId("mobile-content")).toHaveClass("pb-20");
+    expect(screen.getByTestId("mobile-content")).toHaveClass("pb-safe-bar");
 
     // Native -> web tap (0-based index, matching UITabBar item order).
     await waitFor(() => {
@@ -217,6 +228,27 @@ describe("MobileShell", () => {
     });
   });
 
+  it("shows the native glass bar on mount and hides it on unmount", async () => {
+    stubIOS(true);
+    const view = renderShell();
+    await waitFor(() => screen.getByTestId("mobile-shell"));
+
+    // Workspace owns the bottom edge: the bar is shown on mount...
+    expect(bridgePostMessage).toHaveBeenCalledWith({ type: "setHidden", hidden: false });
+
+    // ...and hidden again when leaving back to the servers home.
+    view.unmount();
+    expect(bridgePostMessage).toHaveBeenCalledWith({ type: "setHidden", hidden: true });
+  });
+
+  it("pads the web nav with the home-indicator inset (Android)", async () => {
+    stubAndroid();
+    renderShell();
+    await waitFor(() => screen.getByTestId("mobile-shell"));
+
+    expect(screen.getByTestId("mobile-nav")).toHaveClass("pb-safe");
+  });
+
   it("falls back to the web nav on iOS without the glass bridge", async () => {
     stubIOS(false);
     renderShell();
@@ -224,7 +256,7 @@ describe("MobileShell", () => {
 
     expect(screen.getByTestId("mobile-shell")).toHaveAttribute("data-native-glass", "false");
     expect(screen.getByTestId("mobile-nav")).not.toHaveClass("hidden");
-    expect(screen.getByTestId("mobile-content")).not.toHaveClass("pb-20");
+    expect(screen.getByTestId("mobile-content")).not.toHaveClass("pb-safe-bar");
 
     fireEvent.click(screen.getByTestId("mobile-tab-terminal"));
     await waitFor(() =>

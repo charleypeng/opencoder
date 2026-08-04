@@ -1,7 +1,8 @@
-import { createSignal, Show } from "solid-js";
+import { createSignal, onMount, Show } from "solid-js";
 import ServerHome from "./features/servers/ServerHome";
 import DesktopShell from "./shells/desktop/DesktopShell";
 import MobileShell from "./shells/mobile/MobileShell";
+import { setGlassBarHidden } from "./shells/mobile/glassControl.js";
 import { platform } from "./platform";
 import type { ServerEntry } from "./services/servers";
 
@@ -10,9 +11,18 @@ import type { ServerEntry } from "./services/servers";
 // detected platform (src/platform, docs/architecture.md §3) — DesktopShell
 // on desktop, MobileShell on iOS/Android. Platform detection is
 // UA/WebView-based with a viewport fallback; it never changes at runtime.
+//
+// TASK-M7-04: on mobile the app starts on the servers home, which has NO
+// bottom navigation — assert the native glass bar stays hidden here (the
+// plugin starts hidden too); MobileShell shows it while the workspace is
+// mounted and hides it again on unmount (src/shells/mobile/glassControl.ts).
 
 function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
+
+  onMount(() => {
+    if (platform.kind === "mobile") setGlassBarHidden();
+  });
 
   return (
     <>

@@ -1,6 +1,68 @@
 @import "tailwindcss";
 
 /*
+ * TASK-M7-04: mobile safe-area utilities.
+ *
+ * index.html sets viewport-fit=cover, so the web content extends under the
+ * iPhone notch / home indicator and env(safe-area-inset-*) carries real
+ * values. Each utility declares the plain value first (fallback where
+ * env() is unsupported), then constant() (iOS 11.0-11.2 naming), then
+ * env(): engines accept the last supported declaration, so unsupported
+ * env() degrades to the plain base instead of zero. The utilities are
+ * unlayered, so they beat Tailwind's py-/px- utilities when combined —
+ * apply them on elements without a conflicting padding utility, or use
+ * max(base, env(...)) arbitrary values where a base must be kept.
+ */
+@layer base {
+  :root {
+    /* Reserved height under the floating native Liquid Glass tab bar:
+     * bar height plus the home-indicator inset. */
+    --safe-bar-h: 4.5rem;
+  }
+}
+
+.pt-safe {
+  padding-top: 0;
+  padding-top: constant(safe-area-inset-top);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: 0;
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.px-safe {
+  padding-left: 0;
+  padding-right: 0;
+  padding-left: constant(safe-area-inset-left);
+  padding-left: env(safe-area-inset-left, 0px);
+  padding-right: constant(safe-area-inset-right);
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+/* Content padding that leaves room for the native tab bar: the bar's own
+ * height (floating capsule over the content) plus the home indicator. */
+.pb-safe-bar {
+  padding-bottom: var(--safe-bar-h);
+  padding-bottom: calc(var(--safe-bar-h) + constant(safe-area-inset-bottom));
+  padding-bottom: calc(var(--safe-bar-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/*
+ * M7-04 landscape layout: the terminal view goes fullscreen (100dvh) in
+ * landscape so the chat/terminal chrome does not compete with the small
+ * horizontal viewport. The mobile Terminal page lands in M7-09; the class
+ * is applied to the placeholder so the mechanism is exercised now.
+ */
+@media (orientation: landscape) {
+  .landscape-terminal {
+    height: 100dvh;
+  }
+}
+
+/*
  * Bridge design tokens (tokens.css) into Tailwind v4 utilities.
  * `inline` emits var() references so utilities stay live on theme switch,
  * e.g. bg-bg-base, text-fg-secondary, rounded-r-lg, text-text-sm, font-code.
