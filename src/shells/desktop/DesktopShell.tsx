@@ -577,7 +577,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       // The window is shown and focused Rust-side; nothing to do here.
     });
     const disposeBadgeSync = startTrayBadgeSync();
-    void applyDesktopPrefs();
+    void applyDesktopPrefs().catch(() => {
+      // IPC rejection at mount: swallow so it never surfaces as an
+      // unhandled rejection; the stored prefs stay un-applied until the
+      // next run (the Rust defaults remain in effect).
+    });
     onCleanup(() => {
       stopHealth();
       stopChanged();

@@ -17,7 +17,10 @@ use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
 
 /// Default summon accelerator registered at startup; shown until the user
 /// customizes it ("Option+Space" is the macOS keyboard spelling of the
-/// same accelerator).
+/// same accelerator). Must stay in sync with DEFAULT_SUMMON_SHORTCUT in
+/// src/services/tray.ts: the frontend skips re-applying the persisted
+/// prefs when the stored shortcut equals this value, so a divergence
+/// would silently break that skip.
 pub const DEFAULT_SUMMON_SHORTCUT: &str = "Alt+Space";
 
 /// Tray icon id; the badge command looks the tray up by it.
@@ -185,6 +188,9 @@ pub fn set_global_shortcut(
     app: AppHandle,
     state: State<'_, DesktopState>,
 ) -> Result<String, String> {
+    if !is_valid_shortcut(&accelerator) {
+        return Err(format!("invalid accelerator: {accelerator}"));
+    }
     let Ok(shortcut) = accelerator.parse::<Shortcut>() else {
         return Err(format!("invalid accelerator: {accelerator}"));
     };

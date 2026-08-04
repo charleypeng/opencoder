@@ -8,7 +8,10 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
-/** Default summon accelerator registered by Rust at startup. */
+/** Default summon accelerator registered by Rust at startup. Must stay in
+ *  sync with DEFAULT_SUMMON_SHORTCUT in src-tauri/src/desktop.rs (same
+ *  value): prefs replay skips re-applying the stored shortcut when it
+ *  equals this, so a divergence would silently break that skip. */
 export const DEFAULT_SUMMON_SHORTCUT = "Alt+Space";
 
 function inTauri(): boolean {
