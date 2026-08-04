@@ -4,7 +4,9 @@
 // highlight, and exiting / unmounting clears the context. TASK-M2-03 adds
 // the project switcher in the sidebar and the per-directory SSE wiring:
 // the stream is (re)built when the active server or directory changes, and
-// switching projects re-syncs isolated session/message state.
+// switching projects re-syncs isolated session/message state. TASK-M2-04
+// mounts the session list below the switcher; selecting a row echoes the
+// session id in the main placeholder.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -12,7 +14,12 @@ import DesktopShell from "./DesktopShell";
 import type { ServerEntry } from "../../services/servers";
 import { getActiveServerId, registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState, resetServer as resetProjects } from "../../stores/project";
-import { sessions, resetServer as resetSessions } from "../../stores/session";
+import {
+  applySessionList,
+  getServerSessionState,
+  sessions,
+  resetServer as resetSessions,
+} from "../../stores/session";
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
@@ -148,6 +155,7 @@ afterEach(() => {
   resetSessions("srv-switch");
   resetSessions("srv-rail-a");
   resetSessions("srv-rail-b");
+  resetSessions("srv-sel");
   resetMessages("srv-switch");
   resetProjects("srv-sse");
   resetProjects("srv-switch");
@@ -163,7 +171,9 @@ describe("DesktopShell workspace", () => {
 
     expect(getActiveServerId()).toBe("srv-alpha");
     expect(screen.getByTestId("desktop-shell")).toBeInTheDocument();
-    expect(screen.getByText("Chat sessions — M2")).toBeInTheDocument();
+    // The sidebar's session list renders the (empty) store immediately.
+    expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    expect(screen.getByText("No sessions yet")).toBeInTheDocument();
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
 
@@ -353,5 +363,19 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     await waitFor(() => expect(lastSseCall()[0]).toBe("srv-rail-b"));
     expect(lastSseCall()[1]).toBe(DEMO_DIR);
     expect(previousUnsubscribe).toHaveBeenCalled();
+  });
+
+  it("selecting a session row updates the main placeholder (TASK-M2-04)", async () => {
+    const alpha = server({ id: "srv-sel", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    // The shell resets session state while (re)building the stream, so seed
+    // the store afterwards — like a live SSE session.updated event.
+    applySessionList("srv-sel", [session("sess_sel_01", DEMO_DIR)]);
+
+    fireEvent.click(await screen.findByTestId("session-item-sess_sel_01"));
+    expect(getServerSessionState("srv-sel").activeSessionId).toBe("sess_sel_01");
+    expect(screen.getByTestId("main-selected-session")).toHaveTextContent("sess_sel_01");
   });
 });

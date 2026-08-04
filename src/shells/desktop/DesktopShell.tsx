@@ -3,13 +3,14 @@
 // sets the active server context (registry store); unmounting clears it and
 // tears down that server's SSE stream. The rail mirrors the server list
 // (listServers + servers-changed) with a health dot per server and offers
-// ⌘/Ctrl+1..9 switching in list order. The sidebar top section is the
-// project/folder switcher (TASK-M2-03); this shell owns the per-directory
-// SSE subscription and rebuilds it whenever the active server or the active
-// directory changes, re-syncing the stores so sessions and messages never
-// mix across contexts.
+// ⌘/Ctrl+1..9 switching in list order. The sidebar holds the project/folder
+// switcher (TASK-M2-03) on top and the session list (TASK-M2-04) below; the
+// main pane shows the selected session id until the chat view lands in
+// M2-06/08. This shell owns the per-directory SSE subscription and rebuilds
+// it whenever the active server or the active directory changes, re-syncing
+// the stores so sessions and messages never mix across contexts.
 
-import { createEffect, createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { subscribeToServersChanged } from "../../services/events";
 import { listServers } from "../../services/servers";
@@ -23,6 +24,7 @@ import { resetServer as resetSessions } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
 import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
+import SessionList from "../../features/sessions/SessionList";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -46,6 +48,10 @@ function healthKind(server: ServerEntry): HealthKind {
 
 const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
+  // Main-pane placeholder target: echoes the selected session id until the
+  // chat view lands in M2-06/08. Reset on server switch so the placeholder
+  // never shows a session from another server's context.
+  const [selectedSession, setSelectedSession] = createSignal<string | null>(null);
 
   async function refresh() {
     try {
@@ -121,6 +127,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       serverId === null ? undefined : (getServerProjectState(serverId).current ?? undefined);
     const version = ++rebuildVersion;
     void rebuild(serverId, directory, version);
+    if (serverId !== props.server.id) setSelectedSession(null);
   });
 
   onCleanup(() => {
@@ -212,15 +219,30 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           </button>
         </header>
         <ProjectSwitcher serverId={registry.activeServerId ?? props.server.id} />
-        <div class="flex flex-1 items-center justify-center p-4">
-          <p class="text-sm text-fg-secondary">Chat sessions — M2</p>
-        </div>
+        <SessionList
+          serverId={registry.activeServerId ?? props.server.id}
+          onSelect={setSelectedSession}
+        />
       </aside>
 
       <main class="flex min-w-0 flex-1 flex-col">
-        <div class="flex flex-1 items-center justify-center p-4">
-          <p class="text-sm text-fg-secondary">Select a session — M2</p>
-        </div>
+        <Show
+          when={selectedSession()}
+          fallback={
+            <div class="flex flex-1 items-center justify-center p-4">
+              <p class="text-sm text-fg-secondary">Select a session — M2</p>
+            </div>
+          }
+        >
+          <div class="flex flex-1 items-center justify-center p-4">
+            <p
+              data-testid="main-selected-session"
+              class="truncate font-code text-sm text-fg-secondary"
+            >
+              {selectedSession()}
+            </p>
+          </div>
+        </Show>
       </main>
     </div>
   );
