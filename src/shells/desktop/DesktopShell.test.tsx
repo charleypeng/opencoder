@@ -30,6 +30,7 @@ import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer
 import { resetServer as resetDiffs } from "../../stores/diff";
 import { resetServer as resetVcs } from "../../stores/vcs";
 import { resetServer as resetModels } from "../../stores/models";
+import { resetServer as resetPtys } from "../../stores/ptys";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -350,6 +351,7 @@ afterEach(() => {
   resetVcs("srv-m4vcs");
   resetVcs("srv-m4vcsbar");
   resetModels("srv-m5settings");
+  resetPtys("srv-m6term");
   localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
@@ -796,6 +798,56 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     fireEvent.click(screen.getByTestId("settings-back"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByTestId("settings-page")).not.toBeInTheDocument();
+  });
+});
+
+describe("DesktopShell terminal view (TASK-M6-02)", () => {
+  it("⌘J opens the terminal view and toggles back to chat", async () => {
+    const alpha = server({ id: "srv-m6term", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: "j", metaKey: true });
+    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+    // The tab bar is hidden while the terminal view is open.
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+
+    // A second ⌘J toggles back to the chat view.
+    fireEvent.keyDown(window, { key: "J", ctrlKey: true });
+    expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
+  });
+
+  it("ignores ⌘J while typing in a text control", async () => {
+    const alpha = server({ id: "srv-m6term", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m6term", [session("sess_term_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_term_01"));
+
+    fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "j", metaKey: true });
+    expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
+
+    // The same shortcut on the window (no text target) opens the panel.
+    fireEvent.keyDown(window, { key: "j", metaKey: true });
+    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+  });
+
+  it("the terminal toggle button opens the view and Back returns to chat", async () => {
+    const alpha = server({ id: "srv-m6term", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId("terminal-toggle"));
+    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("terminal-back"));
+    expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
   });
 });
 

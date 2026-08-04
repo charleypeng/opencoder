@@ -22,7 +22,10 @@
 // whose branch chip follows the vcs store (one GET /vcs per server on
 // mount and after each re-sync that clears the store bucket;
 // `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
-// M9-07 extends the bar with LSP/MCP/tokens).
+// M9-07 extends the bar with LSP/MCP/tokens). TASK-M6-02 adds the
+// terminal view (a terminal icon in the Chat|Files tab bar or the
+// provisional ⌘/Ctrl+J hook opens it; its own Back header returns to
+// chat, like the settings view).
 // This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
@@ -61,6 +64,7 @@ import { resetServer as resetPermissions } from "../../stores/permission";
 import PermissionSheet from "../../features/permissions/PermissionSheet";
 import QuestionSheet from "../../features/questions/QuestionSheet";
 import SettingsPage from "../../features/settings/SettingsPage";
+import TerminalPanel from "../../features/terminal/TerminalPanel";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -169,10 +173,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // button, with the tab bar hidden while it is open like the diff view.
   // TASK-M5-06 adds the Settings view (gear button in the tab bar; its own
   // Back header returns to the chat view), the base for the M9-04 settings
-  // center.
-  const [mainView, setMainView] = createSignal<"chat" | "files" | "diff" | "changes" | "settings">(
-    "chat",
-  );
+  // center. TASK-M6-02 adds the Terminal view (terminal icon in the tab
+  // bar or the provisional ⌘/Ctrl+J hook; its own Back header returns to
+  // chat, and the tab bar is hidden while it is open like the others).
+  const [mainView, setMainView] = createSignal<
+    "chat" | "files" | "diff" | "changes" | "settings" | "terminal"
+  >("chat");
   // Diff message filter (TASK-M4-07): set when opened from a message's
   // "View diff"; the diff header's chip clears it back to the whole
   // session's diff.
@@ -267,6 +273,22 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       }
       if (!activeSessionId()) return;
       openDiff();
+      return;
+    }
+    if (event.key.toLowerCase() === "j") {
+      // Provisional ⌘/Ctrl+J hook for the terminal panel (TASK-M6-02);
+      // M8 moves it into the command-palette registry. Guarded like ⌘P
+      // while typing in text controls; a second press toggles back to
+      // the chat view.
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setMainView((view) => (view === "terminal" ? "chat" : "terminal"));
       return;
     }
     if (!/^[1-9]$/.test(event.key)) return;
@@ -484,7 +506,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
         <main class="flex min-w-0 flex-1 flex-col">
           <Show
-            when={mainView() === "diff" || mainView() === "changes" || mainView() === "settings"}
+            when={
+              mainView() === "diff" ||
+              mainView() === "changes" ||
+              mainView() === "settings" ||
+              mainView() === "terminal"
+            }
             fallback={
               <>
                 <div
@@ -563,6 +590,27 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       </svg>
                     </button>
                   </Show>
+                  <button
+                    type="button"
+                    data-testid="terminal-toggle"
+                    aria-label="Open terminal"
+                    title="Terminal (⌘J)"
+                    class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+                    onClick={() => setMainView("terminal")}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.6"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="h-4 w-4"
+                      aria-hidden="true"
+                    >
+                      <path d="m4 7 5 5-5 5M12 17h8" />
+                    </svg>
+                  </button>
                   <button
                     type="button"
                     data-testid="settings-toggle"
@@ -663,84 +711,109 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           >
             {/* Diff view (TASK-M4-07): its own header (back to chat + message
               filter chip) replaces the Chat|Files tab bar while open. The
-              Changes view (TASK-M4-08) sits beside it the same way, and the
+              Changes view (TASK-M4-08) sits beside it the same way, the
               Settings view (TASK-M5-06) is the third sibling (the gear
-              button's Back header returns to chat; M9-04 expands it). */}
+              button's Back header returns to chat; M9-04 expands it), and
+              the Terminal view (TASK-M6-02) is the fourth (⌘/Ctrl+J or the
+              tab-bar icon; its Back returns to chat). */}
             <Show
-              when={mainView() === "changes"}
+              when={mainView() === "terminal"}
               fallback={
-                <>
-                  <Show
-                    when={mainView() === "settings"}
-                    fallback={
-                      <>
-                        <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
-                          <button
-                            type="button"
-                            data-testid="diff-back"
-                            class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                            onClick={() => setMainView("chat")}
-                          >
-                            ← Back
-                          </button>
-                          <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
-                          <Show when={diffMessageId() !== undefined}>
-                            <span
-                              data-testid="diff-message-filter"
-                              class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
-                            >
-                              Message {diffMessageId()}
+                <Show
+                  when={mainView() === "changes"}
+                  fallback={
+                    <>
+                      <Show
+                        when={mainView() === "settings"}
+                        fallback={
+                          <>
+                            <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
                               <button
                                 type="button"
-                                data-testid="diff-filter-clear"
-                                aria-label="Show the whole session diff"
-                                class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
-                                onClick={() => setDiffMessageId(undefined)}
+                                data-testid="diff-back"
+                                class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                                onClick={() => setMainView("chat")}
                               >
-                                ×
+                                ← Back
                               </button>
-                            </span>
-                          </Show>
-                        </header>
-                        <Show
-                          when={activeSessionId()}
-                          fallback={
-                            <div class="flex flex-1 items-center justify-center p-4">
-                              <p class="text-sm text-fg-secondary">Select a session — M2</p>
-                            </div>
-                          }
-                        >
-                          <DiffView
-                            serverId={activeServerId()}
-                            sessionId={activeSessionId() as string}
-                            messageId={diffMessageId()}
-                          />
-                        </Show>
-                      </>
-                    }
-                  >
-                    {/* Settings view (TASK-M5-06): the gear button's own Back
-                      header returns to the chat view; the page hosts the
-                      provider API-key section (M9-04 expands the sections). */}
-                    <SettingsPage serverId={activeServerId()} onBack={() => setMainView("chat")} />
-                  </Show>
-                </>
+                              <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
+                              <Show when={diffMessageId() !== undefined}>
+                                <span
+                                  data-testid="diff-message-filter"
+                                  class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
+                                >
+                                  Message {diffMessageId()}
+                                  <button
+                                    type="button"
+                                    data-testid="diff-filter-clear"
+                                    aria-label="Show the whole session diff"
+                                    class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                                    onClick={() => setDiffMessageId(undefined)}
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              </Show>
+                            </header>
+                            <Show
+                              when={activeSessionId()}
+                              fallback={
+                                <div class="flex flex-1 items-center justify-center p-4">
+                                  <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                                </div>
+                              }
+                            >
+                              <DiffView
+                                serverId={activeServerId()}
+                                sessionId={activeSessionId() as string}
+                                messageId={diffMessageId()}
+                              />
+                            </Show>
+                          </>
+                        }
+                      >
+                        {/* Settings view (TASK-M5-06): the gear button's own Back
+                          header returns to the chat view; the page hosts the
+                          provider API-key section (M9-04 expands the sections). */}
+                        <SettingsPage
+                          serverId={activeServerId()}
+                          onBack={() => setMainView("chat")}
+                        />
+                      </Show>
+                    </>
+                  }
+                >
+                  {/* Changes view (TASK-M4-08): the VCS panel with its own back
+                    header returning to the Files view it was opened from. */}
+                  <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
+                    <button
+                      type="button"
+                      data-testid="changes-back"
+                      class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                      onClick={() => setMainView("files")}
+                    >
+                      ← Back
+                    </button>
+                    <h2 class="shrink-0 text-sm font-semibold">Changes</h2>
+                  </header>
+                  <VcsPanel serverId={activeServerId()} />
+                </Show>
               }
             >
-              {/* Changes view (TASK-M4-08): the VCS panel with its own back
-                header returning to the Files view it was opened from. */}
+              {/* Terminal view (TASK-M6-02): the multi-tab PTY panel with
+                its own Back header returning to the chat view. */}
               <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
                 <button
                   type="button"
-                  data-testid="changes-back"
+                  data-testid="terminal-back"
                   class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                  onClick={() => setMainView("files")}
+                  onClick={() => setMainView("chat")}
                 >
                   ← Back
                 </button>
-                <h2 class="shrink-0 text-sm font-semibold">Changes</h2>
+                <h2 class="shrink-0 text-sm font-semibold">Terminal</h2>
               </header>
-              <VcsPanel serverId={activeServerId()} />
+              <TerminalPanel serverId={activeServerId()} />
             </Show>
           </Show>
         </main>
