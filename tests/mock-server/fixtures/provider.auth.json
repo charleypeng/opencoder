@@ -1,0 +1,36 @@
+{
+  "openai": [
+    {
+      "type": "api",
+      "label": "API key",
+      "prompts": [
+        {
+          "type": "text",
+          "key": "key",
+          "message": "OpenAI API key",
+          "placeholder": "sk-…"
+        }
+      ]
+    }
+  ],
+  "anthropic": [
+    {
+      "type": "api",
+      "label": "API key",
+      "prompts": [
+        {
+          "type": "text",
+          "key": "key",
+          "message": "Anthropic API key",
+          "placeholder": "sk-ant-…"
+        }
+      ]
+    }
+  ],
+  "azure": [
+    {
+      "type": "oauth",
+      "label": "OAuth"
+    }
+  ]
+}

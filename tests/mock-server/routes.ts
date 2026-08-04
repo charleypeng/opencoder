@@ -106,7 +106,10 @@ const AGENT_ROUTES: Route[] = [
 
 // P3 — models (M5): the provider catalog with per-provider default models
 // and connected ids (TASK-M5-05); /config/providers carries the config
-// default record the picker's Default marker follows.
+// default record the picker's Default marker follows. TASK-M5-06 adds the
+// per-provider auth methods (GET /provider/auth) driving the settings
+// forms; the credential endpoints PUT/DELETE /auth/{providerID} are
+// dynamic (body validation, see registerDynamic).
 const PROVIDER_ROUTES: Route[] = [
   { method: "get", path: "/provider", operation: "provider.list", fixture: "provider" },
   {
@@ -115,6 +118,7 @@ const PROVIDER_ROUTES: Route[] = [
     operation: "config.providers",
     fixture: "config.providers",
   },
+  { method: "get", path: "/provider/auth", operation: "provider.auth", fixture: "provider.auth" },
 ];
 
 const ROUTES: Route[] = [
@@ -449,6 +453,25 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
       },
       parts: [],
     });
+  });
+
+  // Provider API key set (TASK-M5-06): accepts the schema's ApiAuth body
+  // ({ type: "api", key }) and reports success; the real server then
+  // probes the credentials and the connected state moves with the next
+  // GET /provider. A payload missing type "api" + a string key is a 400
+  // BadRequestError (the OAuth form lands with TASK-M5-07).
+  app.put("/auth/:providerID", (req, res) => {
+    const body = (req.body ?? {}) as { type?: unknown; key?: unknown };
+    if (body.type !== "api" || typeof body.key !== "string" || body.key === "") {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid auth payload" });
+      return;
+    }
+    res.json(true);
+  });
+
+  // Provider API key remove (TASK-M5-06): no body, always reports success.
+  app.delete("/auth/:providerID", (_req, res) => {
+    res.json(true);
   });
 }
 

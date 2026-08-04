@@ -960,6 +960,66 @@ try {
       );
     });
 
+    // TASK-M5-06: /provider/auth + PUT/DELETE /auth/{providerID}.
+    await test("provider auth returns the per-provider auth methods", async () => {
+      const { status, body } = await request(baseUrl, "/provider/auth");
+      expect(status === 200, `status ${status}`);
+      expect(
+        typeof body === "object" && body !== null && !Array.isArray(body),
+        "body must be a record keyed by provider id",
+      );
+      expect(Array.isArray(body?.openai) && body.openai.length > 0, "openai must carry methods");
+      const openai = body.openai[0];
+      expect(
+        ["oauth", "api"].includes(openai?.type),
+        `method type ${JSON.stringify(openai?.type)}`,
+      );
+      expect(typeof openai?.label === "string" && openai.label !== "", "method must carry a label");
+      // The fixture covers both forms: api (openai/anthropic) and oauth (azure).
+      expect(
+        body?.openai?.some((m) => m?.type === "api") === true,
+        "openai must expose the api form",
+      );
+      expect(
+        body?.anthropic?.some((m) => m?.type === "api") === true,
+        "anthropic must expose the api form",
+      );
+      expect(
+        body?.azure?.some((m) => m?.type === "oauth") === true,
+        "azure must expose the oauth form",
+      );
+      expect(
+        Array.isArray(body?.openai?.[0]?.prompts) && body.openai[0].prompts.length > 0,
+        "api method must carry prompts",
+      );
+    });
+
+    await test("auth set accepts an api-key payload and returns true", async () => {
+      const { status, body } = await request(baseUrl, "/auth/openai", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "api", key: "sk-mock-secret" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("auth set rejects a payload without an api key", async () => {
+      const { status, body } = await request(baseUrl, "/auth/openai", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "api" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("auth remove returns true", async () => {
+      const { status, body } = await request(baseUrl, "/auth/openai", { method: "DELETE" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/model");
       expect(status === 501, `status ${status}`);

@@ -29,6 +29,7 @@ import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer";
 import { resetServer as resetDiffs } from "../../stores/diff";
 import { resetServer as resetVcs } from "../../stores/vcs";
+import { resetServer as resetModels } from "../../stores/models";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -223,6 +224,40 @@ function mockHttpRoutes(servers: ServerEntry[]) {
           ),
         );
       }
+      if (request?.path === "/provider/auth") {
+        return Promise.resolve(
+          httpResponse({
+            openai: [{ type: "api", label: "API key" }],
+            azure: [{ type: "oauth", label: "OAuth" }],
+          }),
+        );
+      }
+      if (request?.path === "/provider") {
+        return Promise.resolve(
+          httpResponse({
+            all: [
+              {
+                id: "openai",
+                name: "OpenAI",
+                source: "env",
+                env: ["OPENAI_API_KEY"],
+                options: {},
+                models: {},
+              },
+              {
+                id: "azure",
+                name: "Azure OpenAI",
+                source: "custom",
+                env: [],
+                options: {},
+                models: {},
+              },
+            ],
+            default: {},
+            connected: ["openai"],
+          }),
+        );
+      }
       if (/^\/session\/.+\/diff$/.test(request?.path ?? "")) {
         return Promise.resolve(httpResponse(DIFF_FIXTURE));
       }
@@ -314,6 +349,7 @@ afterEach(() => {
   resetTodos("srv-m4search");
   resetVcs("srv-m4vcs");
   resetVcs("srv-m4vcsbar");
+  resetModels("srv-m5settings");
   localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
@@ -737,6 +773,29 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     // A second click re-activates the existing tab without a duplicate.
     fireEvent.click(screen.getByTestId("file-row-README.md"));
     expect(viewer["srv-m4view"]?.tabs).toHaveLength(1);
+  });
+});
+
+describe("DesktopShell settings view (TASK-M5-06)", () => {
+  it("the gear button opens the settings view and its Back returns to chat", async () => {
+    const alpha = server({ id: "srv-m5settings", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId("settings-toggle"));
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+    // The tab bar is hidden while the settings view is open.
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+
+    // The settings page fetches and renders the provider key rows.
+    await waitFor(() => expect(screen.getByTestId("provider-key-row-openai")).toBeInTheDocument());
+    expect(screen.getByTestId("provider-key-row-openai")).toHaveAttribute("data-connected", "true");
+    expect(screen.getByTestId("provider-oauth-note")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-back"));
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("settings-page")).not.toBeInTheDocument();
   });
 });
 

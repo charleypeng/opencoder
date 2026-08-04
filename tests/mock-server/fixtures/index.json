@@ -26,5 +26,6 @@
   "command": "command.json",
   "agent": "agent.json",
   "provider": "provider.json",
-  "config.providers": "config.providers.json"
+  "config.providers": "config.providers.json",
+  "provider.auth": "provider.auth.json"
 }
