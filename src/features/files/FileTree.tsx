@@ -240,7 +240,10 @@ const FileTree: Component<FileTreeProps> = (props) => {
     if (node.children !== undefined) return;
     setDirLoading(true);
     try {
-      await loadChildren(path);
+      // A failed subtree load leaves the dir empty; fall back to the
+      // workspace root (always loaded) so the user is not stranded on a
+      // dead directory under the error banner.
+      if (!(await loadChildren(path))) setCurrentPath("");
     } finally {
       setDirLoading(false);
     }
@@ -299,20 +302,25 @@ const FileTree: Component<FileTreeProps> = (props) => {
    * newer fetch of the SAME path (rapid re-toggle, refill after a refetch)
    * drops an in-flight result — sibling expansions never invalidate each
    * other, so every expanded dir keeps the children it fetched.
+   * Resolves true when the subtree landed (or a newer fetch of the same
+   * path owns the outcome), false when this fetch definitively failed and
+   * the dir reverted to unloaded.
    */
-  async function loadChildren(path: string): Promise<void> {
+  async function loadChildren(path: string): Promise<boolean> {
     const seq = (expansionSeq.get(path) ?? 0) + 1;
     expansionSeq.set(path, seq);
     try {
       const nodes = await createFileService(getApiClient()).tree(path);
-      if (expansionSeq.get(path) !== seq) return;
+      if (expansionSeq.get(path) !== seq) return true;
       setTree(props.serverId, path, nodes);
       refillExpanded();
+      return true;
     } catch (err) {
-      if (expansionSeq.get(path) !== seq) return;
+      if (expansionSeq.get(path) !== seq) return true;
       // Revert the chevron and surface the failure; the row click retries.
       collapse(props.serverId, path);
       setError(ApiError.fromUnknown(err));
+      return false;
     }
   }
 

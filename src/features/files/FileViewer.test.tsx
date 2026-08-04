@@ -619,7 +619,30 @@ describe("FileViewer mobile zoom (TASK-M7-09)", () => {
     fireEvent.dblClick(wrap);
     await waitFor(() => expect(wrap).toHaveAttribute("data-zoom", "150"));
 
-    fireEvent.click(screen.getByTestId("viewer-tab-src/a.ts"));
+    // The fullscreen tab bar is non-interactive (it shows only the pushed
+    // file), so a file switch arrives through the store, as openTab does.
+    openTab(serverId, "src/a.ts");
     await waitFor(() => expect(wrap).toHaveAttribute("data-zoom", "100"));
+  });
+
+  it("fullscreen shows only the pushed tab — no switching or closing", async () => {
+    const serverId = freshServer();
+    mountViewer(
+      serverId,
+      { "src/a.ts": textContent("alpha"), "src/b.ts": textContent("beta") },
+      { fullscreen: true },
+    );
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
+    openTab(serverId, "src/b.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("beta"));
+
+    // Only the pushed (active) tab renders — the other tab is not
+    // reachable, so the content can never drift from the page title.
+    expect(screen.getByTestId("viewer-tab-src/b.ts")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("viewer-tab-src/a.ts")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("viewer-tab-close-src/b.ts")).not.toBeInTheDocument();
+    // The zoom chip still mirrors the state.
+    expect(screen.getByTestId("viewer-zoom-toggle")).toBeInTheDocument();
   });
 });

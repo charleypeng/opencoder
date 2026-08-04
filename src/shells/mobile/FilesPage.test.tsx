@@ -169,6 +169,42 @@ describe("mobile Files flow (TASK-M7-09)", () => {
     expect(within(view).getByTestId("viewer-zoom-wrap")).toHaveAttribute("data-zoom", "100");
   });
 
+  it("the fullscreen viewer can never switch away from the pushed file", async () => {
+    const filesTab = await openFilesTab();
+
+    // Open README.md, back out, then open src/App.tsx (both stay open in
+    // the shared viewer store).
+    fireEvent.click(within(filesTab).getByTestId("file-row-README.md"));
+    await waitFor(() =>
+      expect(within(filesTab).getByTestId("mobile-page-file-view")).toBeInTheDocument(),
+    );
+    fireEvent.click(within(filesTab).getByTestId("page-back"));
+    await waitFor(() =>
+      expect(within(filesTab).queryByTestId("mobile-page-file-view")).not.toBeInTheDocument(),
+    );
+    fireEvent.click(within(filesTab).getByTestId("file-row-src"));
+    await waitFor(() =>
+      expect(within(filesTab).getByTestId("file-row-src/App.tsx")).toBeInTheDocument(),
+    );
+    fireEvent.click(within(filesTab).getByTestId("file-row-src/App.tsx"));
+    await waitFor(() =>
+      expect(within(filesTab).getByTestId("mobile-page-file-view")).toBeInTheDocument(),
+    );
+
+    const view = within(filesTab).getByTestId("mobile-page-file-view");
+    expect(within(view).getByTestId("mobile-page-title")).toHaveTextContent("App.tsx");
+    await waitFor(() =>
+      expect(within(view).getByTestId("viewer-code")).toHaveTextContent("content of src/App.tsx"),
+    );
+    // The fullscreen bar shows only the pushed file's tab: the first file
+    // is not switchable, so content and title cannot diverge.
+    expect(within(view).queryByTestId("viewer-tab-README.md")).not.toBeInTheDocument();
+    expect(within(view).getByTestId("viewer-tab-src/App.tsx")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
   it("Back from the viewer returns to the tree with state intact", async () => {
     const filesTab = await openFilesTab();
 

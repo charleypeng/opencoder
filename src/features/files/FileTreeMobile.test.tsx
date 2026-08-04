@@ -224,6 +224,33 @@ describe("FileTree mobile variant", () => {
     expect(screen.queryByTestId("file-tree-dir-loading")).not.toBeInTheDocument();
   });
 
+  it("falls back to the workspace root when descending into a directory fails", async () => {
+    requestMock = vi
+      .fn()
+      .mockImplementation((input: { path: string; query?: Record<string, string> }) => {
+        if (input.path === "/file/status") return Promise.resolve(httpResponse([]));
+        const path = input.query?.path;
+        if (path === "src") return Promise.reject(new Error("boom"));
+        return Promise.resolve(httpResponse(ROOT_NODES));
+      });
+    const transport: Transport = {
+      request: requestMock as unknown as Transport["request"],
+    };
+    getApiClientMock.mockReturnValue(new ApiClient(transport));
+    render(() => <FileTree serverId={SERVER} variant="mobile" />);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+
+    fireEvent.click(row("src"));
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+
+    // Not stranded on the failed dir: the view is back at the workspace
+    // root (its rows visible) with the error banner + retry on top.
+    expect(screen.getByTestId("file-breadcrumb-root")).toHaveAttribute("data-current", "true");
+    expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument();
+    expect(screen.queryByTestId("file-row-src/App.tsx")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("file-tree-empty")).not.toBeInTheDocument();
+  });
+
   it("renders the empty folder state for an empty subdirectory", async () => {
     mountTree({}, (path) => {
       if (path === "src") return [node("src", "directory")];

@@ -21,8 +21,11 @@ import { ptyConnect, ptySend } from "../../services/ptyWs.js";
 import { markPtyExited } from "../../stores/ptys.js";
 
 export interface TerminalInstanceApi {
-  /** Writes a raw key sequence into the terminal AND sends it over the
-   *  PTY channel (the aux key strip's input path, TASK-M7-09). */
+  /** Sends a raw key sequence over the PTY channel when one is connected
+   *  (the server echoes keystrokes back as frames, so nothing is written
+   *  locally); exited ptys have no channel and write locally — the only
+   *  display path for their frozen screen. The aux key strip's input path
+   *  (TASK-M7-09). */
   sendInput: (data: string) => void;
 }
 
@@ -99,13 +102,19 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
     fit.fit();
   }
 
-  /** Writes a key sequence into the terminal (local echo) and sends it over
-   *  the PTY channel when one is connected (the aux key strip's path). */
+  /** Sends a key sequence over the PTY channel when one is connected. The
+   *  channel is echo-based — the server echoes keystrokes back as frames —
+   *  so sending must NOT write locally (a visible character would render
+   *  twice). Only exited ptys (no channel) write locally: local echo is
+   *  their sole display path. */
   function sendInput(data: string): void {
     if (disposed) return;
-    term?.write(data);
     const current = connection;
-    if (current) void ptySend(current.connectionId, encoder.encode(data));
+    if (current) {
+      void ptySend(current.connectionId, encoder.encode(data));
+    } else {
+      term?.write(data);
+    }
   }
 
   /** Mobile double-tap font zoom: 13 <-> 16, then refit so the new

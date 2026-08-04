@@ -419,41 +419,61 @@ const FileViewer: Component<FileViewerProps> = (props) => {
           aria-label="Open files"
           class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
         >
-          <For each={tabs()}>
-            {(tab) => {
-              const active = () => activePath() === tab.path;
-              return (
-                <div
-                  class={`flex shrink-0 items-center rounded-md border ${
-                    active()
-                      ? "border-accent bg-accent-soft"
-                      : "border-transparent text-fg-secondary hover:text-fg-primary"
-                  }`}
-                >
-                  <button
-                    type="button"
-                    role="tab"
-                    data-testid={`viewer-tab-${tab.path}`}
-                    aria-selected={active() ? "true" : "false"}
-                    title={tab.path}
-                    class="max-w-48 truncate px-2.5 py-1 text-xs outline-none"
-                    onClick={() => setActive(props.serverId, tab.path)}
+          <Show when={!fullscreen}>
+            <For each={tabs()}>
+              {(tab) => {
+                const active = () => activePath() === tab.path;
+                return (
+                  <div
+                    class={`flex shrink-0 items-center rounded-md border ${
+                      active()
+                        ? "border-accent bg-accent-soft"
+                        : "border-transparent text-fg-secondary hover:text-fg-primary"
+                    }`}
                   >
-                    {tab.name}
-                  </button>
-                  <button
-                    type="button"
-                    data-testid={`viewer-tab-close-${tab.path}`}
-                    aria-label={`Close ${tab.name}`}
-                    class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
-                    onClick={() => handleCloseTab(props.serverId, tab.path)}
-                  >
-                    ×
-                  </button>
-                </div>
-              );
-            }}
-          </For>
+                    <button
+                      type="button"
+                      role="tab"
+                      data-testid={`viewer-tab-${tab.path}`}
+                      aria-selected={active() ? "true" : "false"}
+                      title={tab.path}
+                      class="max-w-48 truncate px-2.5 py-1 text-xs outline-none"
+                      onClick={() => setActive(props.serverId, tab.path)}
+                    >
+                      {tab.name}
+                    </button>
+                    <button
+                      type="button"
+                      data-testid={`viewer-tab-close-${tab.path}`}
+                      aria-label={`Close ${tab.name}`}
+                      class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
+                      onClick={() => handleCloseTab(props.serverId, tab.path)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                );
+              }}
+            </For>
+          </Show>
+          {/* Fullscreen (the mobile file page, TASK-M7-09): the bar shows
+              only the pushed file — the multi-tab bar would drift the
+              viewer's active tab from the pushed path and show another
+              file under the page title. No switching or closing, so the
+              content can never leave the pushed path. */}
+          <Show when={fullscreen && activePath() !== null}>
+            <div class="flex shrink-0 items-center rounded-md border border-accent bg-accent-soft">
+              <span
+                role="tab"
+                data-testid={`viewer-tab-${activePath()}`}
+                aria-selected="true"
+                title={activePath() as string}
+                class="max-w-48 truncate px-2.5 py-1 text-xs"
+              >
+                {tabs().find((tab) => tab.path === activePath())?.name}
+              </span>
+            </div>
+          </Show>
           {/* Mobile zoom toggle (TASK-M7-09): doubles as the visible state
               chip; double-tapping the code area toggles the same state. */}
           <Show when={fullscreen}>

@@ -362,7 +362,7 @@ describe("TerminalInstance", () => {
 });
 
 describe("TerminalInstance mobile input API and font zoom (TASK-M7-09)", () => {
-  it("exposes sendInput that echoes locally and sends over the channel", async () => {
+  it("sendInput on a connected pty sends over the channel without local echo", async () => {
     connectFixture();
     let inputApi: { sendInput: (data: string) => void } | undefined;
     render(() => (
@@ -381,8 +381,10 @@ describe("TerminalInstance mobile input API and font zoom (TASK-M7-09)", () => {
     expect(inputApi).toBeDefined();
     inputApi?.sendInput("ls\n");
 
-    // Local echo into xterm plus the UTF-8 bytes over the channel.
-    expect(term().written).toEqual(["ls\n"]);
+    // No local write: the channel is echo-based (the server echoes
+    // keystrokes back as frames), so a visible character would render
+    // twice. Only the UTF-8 bytes go over the channel.
+    expect(term().written).toEqual([]);
     await waitFor(() => expect(ptySendMock).toHaveBeenCalledTimes(1));
     expect(ptySendMock.mock.calls[0][0]).toBe(7);
     expect(Array.from(ptySendMock.mock.calls[0][1] as Uint8Array)).toEqual([108, 115, 10]);
