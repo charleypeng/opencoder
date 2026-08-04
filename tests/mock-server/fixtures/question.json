@@ -1,0 +1,38 @@
+[
+  {
+    "id": "que_mock_001",
+    "sessionID": "ses_abc123",
+    "questions": [
+      {
+        "question": "Which approach should I take for the refactor?",
+        "header": "Refactor approach",
+        "options": [
+          {
+            "label": "Incremental",
+            "description": "Small steps, keep tests green"
+          },
+          {
+            "label": "Big bang",
+            "description": "Rewrite the module in one pass"
+          }
+        ],
+        "multiple": false,
+        "custom": true
+      }
+    ],
+    "tool": { "messageID": "msg_asst_001", "callID": "call_mock_001" }
+  },
+  {
+    "id": "que_mock_002",
+    "sessionID": "ses_abc123",
+    "questions": [
+      {
+        "question": "Describe the feature you need for the next milestone.",
+        "header": "Feature details",
+        "options": [],
+        "custom": true
+      }
+    ],
+    "tool": { "messageID": "msg_asst_001", "callID": "call_mock_002" }
+  }
+]

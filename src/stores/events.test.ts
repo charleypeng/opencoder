@@ -15,6 +15,7 @@ import { files, resetServer as resetFiles, setTree } from "./files.js";
 import { diffs, resetServer as resetDiffs } from "./diff.js";
 import { vcs, resetServer as resetVcs } from "./vcs.js";
 import { permissions, resetServer as resetPermissions } from "./permission.js";
+import { questions, resetServer as resetQuestions } from "./question.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -67,6 +68,7 @@ afterEach(() => {
   resetDiffs(SERVER);
   resetVcs(SERVER);
   resetPermissions(SERVER);
+  resetQuestions(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -411,6 +413,106 @@ describe("applyEvent — edge routes", () => {
     applyEvent(SERVER, { type: "permission.replied", properties: { reply: "once" } });
     expect(permissions[SERVER]).toBeUndefined();
   });
+
+  it("maps question.asked to the question queue (deduped by id)", () => {
+    applyEvent(SERVER, {
+      type: "question.asked",
+      properties: {
+        id: "que_1",
+        sessionID: "ses_x",
+        questions: [
+          {
+            question: "Which approach?",
+            header: "Approach",
+            options: [{ label: "A", description: "first" }],
+          },
+        ],
+        tool: { messageID: "m1", callID: "c1" },
+      },
+    });
+    expect(questions[SERVER].queue).toEqual([
+      {
+        id: "que_1",
+        sessionID: "ses_x",
+        questions: [
+          {
+            question: "Which approach?",
+            header: "Approach",
+            options: [{ label: "A", description: "first" }],
+          },
+        ],
+        tool: { messageID: "m1", callID: "c1" },
+      },
+    ]);
+
+    // A duplicate event for the same request is ignored.
+    applyEvent(SERVER, {
+      type: "question.asked",
+      properties: {
+        id: "que_1",
+        sessionID: "ses_x",
+        questions: [
+          {
+            question: "Any preference?",
+            header: "Preference",
+            options: [],
+          },
+        ],
+      },
+    });
+    expect(questions[SERVER].queue).toHaveLength(1);
+    expect(questions[SERVER].queue[0].questions[0].question).toBe("Which approach?");
+  });
+
+  it("ignores question.asked without an id or questions", () => {
+    applyEvent(SERVER, { type: "question.asked", properties: {} });
+    applyEvent(SERVER, { type: "question.asked", properties: { id: "que_1" } });
+    expect(questions[SERVER]).toBeUndefined();
+  });
+
+  it("maps question.replied and question.rejected to a queue dequeue by requestID", () => {
+    applyEvent(SERVER, {
+      type: "question.asked",
+      properties: {
+        id: "que_1",
+        sessionID: "ses_x",
+        questions: [{ question: "A?", header: "A", options: [] }],
+      },
+    });
+    applyEvent(SERVER, {
+      type: "question.asked",
+      properties: {
+        id: "que_2",
+        sessionID: "ses_x",
+        questions: [{ question: "B?", header: "B", options: [] }],
+      },
+    });
+    applyEvent(SERVER, {
+      type: "question.replied",
+      properties: { sessionID: "ses_x", requestID: "que_1", answers: [["A"]] },
+    });
+    expect(questions[SERVER].queue.map((request) => request.id)).toEqual(["que_2"]);
+
+    applyEvent(SERVER, {
+      type: "question.rejected",
+      properties: { sessionID: "ses_x", requestID: "que_2" },
+    });
+    expect(questions[SERVER].queue).toEqual([]);
+
+    // Rejecting an unknown request is a no-op.
+    const version = questions[SERVER].version;
+    applyEvent(SERVER, {
+      type: "question.rejected",
+      properties: { sessionID: "ses_x", requestID: "que_nope" },
+    });
+    expect(questions[SERVER].version).toBe(version);
+  });
+
+  it("ignores question.replied / question.rejected without a requestID", () => {
+    applyEvent(SERVER, { type: "question.replied", properties: {} });
+    applyEvent(SERVER, { type: "question.rejected", properties: { answers: [] } });
+    expect(questions[SERVER]).toBeUndefined();
+  });
 });
 
 describe("syncAll", () => {
@@ -481,12 +583,21 @@ describe("subscribeToServerEvents", () => {
         always: [],
       },
     });
+    applyEvent(SERVER, {
+      type: "question.asked",
+      properties: {
+        id: "que_stale",
+        sessionID: "ses_stale",
+        questions: [{ question: "A?", header: "A", options: [] }],
+      },
+    });
     setTree(SERVER, undefined, []);
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
     expect(diffs[SERVER]["ses_stale"]).toBeDefined();
     expect(vcs[SERVER]).toBeDefined();
     expect(permissions[SERVER]).toBeDefined();
+    expect(questions[SERVER]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
@@ -500,6 +611,7 @@ describe("subscribeToServerEvents", () => {
     expect(diffs[SERVER]).toBeUndefined();
     expect(vcs[SERVER]).toBeUndefined();
     expect(permissions[SERVER]).toBeUndefined();
+    expect(questions[SERVER]).toBeUndefined();
     expect(files[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.

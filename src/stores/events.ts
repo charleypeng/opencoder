@@ -24,12 +24,14 @@ import * as filesStore from "./files.js";
 import * as diffStore from "./diff.js";
 import * as vcsStore from "./vcs.js";
 import * as permissionStore from "./permission.js";
+import * as questionStore from "./question.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
 type Todo = components["schemas"]["Todo"];
 type SnapshotFileDiff = components["schemas"]["SnapshotFileDiff"];
 type PermissionRequest = components["schemas"]["PermissionRequest"];
+type QuestionRequest = components["schemas"]["QuestionRequest"];
 
 /** Store module APIs the router dispatches into (injectable for tests). */
 export interface EventStoreDeps {
@@ -41,6 +43,7 @@ export interface EventStoreDeps {
   diffs: typeof diffStore;
   vcs: typeof vcsStore;
   permissions: typeof permissionStore;
+  questions: typeof questionStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -52,6 +55,7 @@ export const defaultEventStores: EventStoreDeps = {
   diffs: diffStore,
   vcs: vcsStore,
   permissions: permissionStore,
+  questions: questionStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -76,7 +80,7 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files, diffs, vcs, permissions } = deps;
+  const { session, messages, project, todos, files, diffs, vcs, permissions, questions } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -188,6 +192,21 @@ export function applyEvent(
       // the queue. The payload references the request by `requestID`.
       if (typeof p.requestID === "string") permissions.dequeue(serverId, p.requestID);
       return;
+    case "question.asked":
+      // A pending question joins the server's queue (deduped by id); the
+      // global question sheet shows the queue head (TASK-M5-02). The payload
+      // shape equals QuestionRequest (id/sessionID/questions/tool).
+      if (typeof p.id === "string" && Array.isArray(p.questions)) {
+        questions.enqueue(serverId, p as QuestionRequest);
+      }
+      return;
+    case "question.replied":
+    case "question.rejected":
+      // The question was answered or rejected (here or by another client):
+      // drop it from the queue. The payload references the request by
+      // `requestID` (answers only exist on the replied variant).
+      if (typeof p.requestID === "string") questions.dequeue(serverId, p.requestID);
+      return;
     default:
       if (import.meta.env.DEV) {
         console.debug(`[stores] ignoring SSE event type "${event.type}"`);
@@ -281,6 +300,7 @@ export async function subscribeToServerEvents(
       deps.diffs.resetServer(serverId);
       deps.vcs.resetServer(serverId);
       deps.permissions.resetServer(serverId);
+      deps.questions.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

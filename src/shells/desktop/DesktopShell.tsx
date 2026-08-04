@@ -59,6 +59,7 @@ import { resetServer as resetDiffs } from "../../stores/diff";
 import { applyVcs, vcs } from "../../stores/vcs";
 import { resetServer as resetPermissions } from "../../stores/permission";
 import PermissionSheet from "../../features/permissions/PermissionSheet";
+import QuestionSheet from "../../features/questions/QuestionSheet";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -754,6 +755,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           server's pending permission queue; renders only while a request
           is waiting (the mobile bottom-sheet variant lands in M7). */}
       <PermissionSheet serverId={activeServerId()} variant="overlay" />
+
+      {/* Question sheet (TASK-M5-02): global overlay for the active
+          server's pending question queue; renders only while a question
+          is waiting (the mobile bottom-sheet variant lands in M7). */}
+      <QuestionSheet serverId={activeServerId()} variant="overlay" />
     </div>
   );
 };

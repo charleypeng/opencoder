@@ -21,5 +21,6 @@
   "vcs.diff": "vcs.diff.json",
   "vcs.diff.raw": "vcs.diff.raw.json",
   "session.diff": "session.diff.json",
-  "permission": "permission.json"
+  "permission": "permission.json",
+  "question": "question.json"
 }

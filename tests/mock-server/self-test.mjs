@@ -767,6 +767,65 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
+    // TASK-M5-02: /question family.
+    await test("question list returns pending questions", async () => {
+      const { status, body } = await request(baseUrl, "/question");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 2, "body must have >= 2 requests");
+      const q = body[0];
+      expect(typeof q?.id === "string" && q.id.startsWith("que_"), "request must carry que_ id");
+      expect(typeof q?.sessionID === "string", "request must carry sessionID");
+      expect(Array.isArray(q?.questions) && q.questions.length > 0, "request must carry questions");
+      const question = q.questions[0];
+      expect(typeof question?.question === "string", "question must carry the text");
+      expect(typeof question?.header === "string", "question must carry a header");
+      expect(Array.isArray(question?.options), "question must carry an options array");
+      expect(typeof q?.tool?.messageID === "string", "request must carry tool context");
+      // The fixture covers both answer forms: an options question and a
+      // free-input question (empty options).
+      const freeInput = body.find(
+        (r) => Array.isArray(r?.questions?.[0]?.options) && r.questions[0].options.length === 0,
+      );
+      expect(freeInput !== undefined, "fixture must include a free-input question");
+    });
+
+    await test("question reply returns true", async () => {
+      const { status, body } = await request(baseUrl, "/question/que_mock_001/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: [["Incremental"]] }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("question reply accepts a free-input text answer", async () => {
+      const { status } = await request(baseUrl, "/question/que_mock_002/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: [["Use the CLI instead"]] }),
+      });
+      expect(status === 200, `status ${status}`);
+    });
+
+    await test("question reply rejects an invalid answers payload", async () => {
+      const { status, body } = await request(baseUrl, "/question/que_mock_001/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ answers: "Incremental" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("question reject returns true", async () => {
+      const { status, body } = await request(baseUrl, "/question/que_mock_001/reject", {
+        method: "POST",
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/agent");
       expect(status === 501, `status ${status}`);
@@ -984,6 +1043,18 @@ try {
     expect(
       permission.body[0]?.id === "per_abc123",
       `recorded permission id ${JSON.stringify(permission.body[0]?.id)}`,
+    );
+
+    // The recorded root maps question.asked onto the /question list
+    // (TASK-M5-02).
+    const question = await request(fixtureUrl, "/question");
+    expect(
+      Array.isArray(question.body) && question.body.length > 0,
+      "question list must serve in fixture mode",
+    );
+    expect(
+      question.body[0]?.id === "que_abc123",
+      `recorded question id ${JSON.stringify(question.body[0]?.id)}`,
     );
   });
 

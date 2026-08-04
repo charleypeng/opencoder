@@ -85,12 +85,20 @@ const PERMISSION_ROUTES: Route[] = [
   { method: "get", path: "/permission", operation: "permission.list", fixture: "permission" },
 ];
 
+// P3 — questions (M5): the pending-question list is a static fixture (one
+// options question, one free-input question); the reply/reject endpoints
+// are dynamic (body validation, TASK-M5-02).
+const QUESTION_ROUTES: Route[] = [
+  { method: "get", path: "/question", operation: "question.list", fixture: "question" },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
   ...FILE_ROUTES,
   ...VCS_ROUTES,
   ...PERMISSION_ROUTES,
+  ...QUESTION_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.
@@ -361,6 +369,25 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
       res.status(400).json({ _tag: "BadRequestError", message: `invalid reply: ${reply}` });
       return;
     }
+    res.json(true);
+  });
+
+  // Question reply (TASK-M5-02): accepts an `answers` array (one entry per
+  // question, each an array of selected labels / the typed text) and
+  // reports success; a missing or non-array payload is a 400 BadRequestError.
+  // The `question.replied` SSE event is streamed by the scenario scripts,
+  // not emitted live here (the real server broadcasts it after processing).
+  app.post("/question/:requestID/reply", (req, res) => {
+    const { answers } = (req.body ?? {}) as { answers?: unknown };
+    if (!Array.isArray(answers) || answers.some((answer) => !Array.isArray(answer))) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid answers" });
+      return;
+    }
+    res.json(true);
+  });
+
+  // Question reject (TASK-M5-02): no body, always reports success.
+  app.post("/question/:requestID/reject", (_req, res) => {
     res.json(true);
   });
 }
