@@ -267,7 +267,6 @@ export function useLongPress(
   }
 
   function onPointerDown(event: PointerEvent): void {
-    console.log("[debug-longpress] pointerdown", event.button, event.currentTarget);
     if (event.button !== 0) return;
     element = event.currentTarget as HTMLElement;
     startX = event.clientX;
