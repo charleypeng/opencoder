@@ -50,6 +50,24 @@ function userMessage(id: string, extra: Record<string, unknown> = {}): Message {
   } as Message;
 }
 
+function assistantMessage(id: string): Message {
+  return {
+    id,
+    sessionID: SESSION,
+    role: "assistant",
+    time: { created: 1 },
+    agent: "build",
+    model: { providerID: "openai", modelID: "gpt-5" },
+    parentID: "msg_user_001",
+    modelID: "gpt-5",
+    providerID: "openai",
+    mode: "primary",
+    path: { cwd: "/p", root: "/p" },
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+  } as Message;
+}
+
 afterEach(() => {
   resetServer("srv-msg");
   resetServer("srv-msg-b");
@@ -271,5 +289,134 @@ describe("messages store", () => {
     const entry = messages["srv-msg"][SESSION];
     expect(entry.infos["local-2"]).toBeDefined();
     expect(entry.order).toEqual(["local-part-2"]);
+  });
+
+  it("drops the local message when the echo already carries its own text part", () => {
+    // TASK-M2-08: an echo that brings its own text (carried on the info
+    // payload) replaces the optimistic bubble instead of being overwritten
+    // by the re-issued local part.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    upsertMessage(
+      "srv-msg",
+      SESSION,
+      userMessage("msg_echo_1", {
+        parts: [
+          {
+            id: "prt_echo_1",
+            sessionID: SESSION,
+            messageID: "msg_echo_1",
+            type: "text",
+            text: "hello",
+          },
+        ],
+      }),
+    );
+
+    const entry = messages["srv-msg"][SESSION];
+    expect(Object.keys(entry.infos)).toEqual(["msg_echo_1"]);
+    expect(entry.order).toEqual(["prt_echo_1"]);
+    expect(Object.keys(entry.parts)).toEqual(["prt_echo_1"]);
+    expect(textOf(entry.parts["prt_echo_1"])).toBe("hello");
+    // No duplicates in order and no local-* survivors anywhere.
+    expect(entry.order).toHaveLength(new Set(entry.order).size);
+    expect(entry.parts["local-part-1"]).toBeUndefined();
+    expect("local-1" in entry.infos).toBe(false);
+  });
+
+  it("reconciles when the echo part arrives before the echo message", () => {
+    // TASK-M2-08 ordering safety: message.part.updated for the echo can
+    // arrive before message.updated. The part-first path runs the same
+    // reconciliation and consumes the marker exactly once.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    applyPartDelta("srv-msg", SESSION, {
+      id: "prt_echo_1",
+      sessionID: SESSION,
+      messageID: "msg_echo_1",
+      type: "text",
+      text: "hello",
+    } as Part);
+
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.order).toEqual(["prt_echo_1"]);
+    expect(Object.keys(entry.infos)).toEqual([]);
+    expect("local-part-1" in entry.parts).toBe(false);
+
+    // The message.updated that follows must not re-reconcile: the marker
+    // was consumed and the part list stays free of duplicates.
+    upsertMessage("srv-msg", SESSION, userMessage("msg_echo_1"));
+    expect(Object.keys(entry.infos)).toEqual(["msg_echo_1"]);
+    expect(entry.order).toEqual(["prt_echo_1"]);
+    expect(entry.order).toHaveLength(new Set(entry.order).size);
+  });
+
+  it("reconciles when a delta for the echo arrives before the part and message", () => {
+    // TASK-M2-08: the delta-stub path (message.part.delta before the part
+    // and the message) reconciles the same way as part-first ordering.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    applyTextDelta("srv-msg", SESSION, {
+      messageID: "msg_echo_1",
+      partID: "prt_echo_1",
+      field: "text",
+      delta: "stream",
+    });
+
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.order).toEqual(["prt_echo_1"]);
+    expect("local-1" in entry.infos).toBe(false);
+    expect("local-part-1" in entry.parts).toBe(false);
+    expect(textOf(entry.parts["prt_echo_1"])).toBe("stream");
+  });
+
+  it("keeps the marker and the local message when a non-user message arrives first", () => {
+    // TASK-M2-08: only the user echo consumes the marker; an assistant
+    // message (or any history replay) must not roll the optimistic bubble
+    // over, otherwise the prompt text would be lost.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    upsertMessage("srv-msg", SESSION, assistantMessage("msg_asst_001"));
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.infos["local-1"]).toBeDefined();
+    expect(entry.order).toEqual(["local-part-1"]);
+
+    // The user echo that follows reconciles normally (marker still pending).
+    upsertMessage("srv-msg", SESSION, userMessage("msg_echo_1"));
+    expect("local-1" in entry.infos).toBe(false);
+    expect(entry.order).toEqual(["prt-msg_echo_1"]);
+    expect(textOf(entry.parts["prt-msg_echo_1"])).toBe("hello");
   });
 });

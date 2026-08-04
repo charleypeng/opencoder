@@ -8,11 +8,14 @@
 // ("text"/"output") and replaces anything else.
 //
 // TASK-M2-08 optimistic reconciliation: a local-* message inserted by the
-// prompt box is tracked here until its server echo arrives; the first real
-// server message for the session rolls it over onto the echoed message (see
-// upsertMessage). A prompt the server never echoes keeps its optimistic
-// bubble and marker until the next send replaces it — same as a silent
-// server.
+// prompt box is tracked here until its server echo arrives; the first user
+// echo for the session rolls it over onto the echoed message (see
+// reconcilePending, called from upsertMessage and from the part-first
+// paths). An echo that already carries its own text replaces the optimistic
+// message entirely; a non-user message leaves both the marker and the local
+// message pending until the real echo arrives. A prompt the server never
+// echoes keeps its optimistic bubble and marker until the next send
+// replaces it — same as a silent server.
 
 import { createStore, produce } from "solid-js/store";
 import type { components } from "../services/api/schema.js";
@@ -102,15 +105,8 @@ function putPart(bucket: Record<string, SessionMessages>, sessionId: string, par
  * Upserts a message (message.updated): replaces the info (both the
  * most-recent slot and the per-message table) and normalizes any parts
  * carried on the info payload (recorded session messages use a
- * { info, parts } shape; the event schema itself has no parts).
- *
- * TASK-M2-08: while a pending local message is tracked for the session, the
- * first real server message is the echo of the optimistic prompt. The local
- * parts are re-issued under prt-* ids of the echoed message (the server echo
- * carries message metadata only, so the prompt text would be lost otherwise)
- * and the local info is dropped — the echo replaces the optimistic bubble
- * instead of duplicating it. The marker is cleared so later messages never
- * re-trigger.
+ * { info, parts } shape; the event schema itself has no parts), then runs
+ * the pending-message reconciliation (TASK-M2-08, see reconcilePending).
  */
 export function upsertMessage(serverId: string, sessionId: string, info: Message): void {
   updateServer(serverId, (bucket) => {
@@ -122,23 +118,139 @@ export function upsertMessage(serverId: string, sessionId: string, info: Message
     if (Array.isArray(carried)) {
       for (const part of carried) putPart(bucket, sessionId, part as Part);
     }
-    const pendingId = pendingLocalMessages.get(pendingKey(serverId, sessionId));
-    if (pendingId === undefined || pendingId === info.id) return;
+  });
+  const carried = (info as Message & { parts?: unknown }).parts;
+  reconcilePending(
+    serverId,
+    sessionId,
+    info.id,
+    info.role,
+    Array.isArray(carried) ? (carried as Part[]) : undefined,
+  );
+}
+
+/**
+ * True while the tracked local message still owns parts in the bucket
+ * (i.e. its marker has not been consumed by an earlier reconciliation).
+ */
+function pendingLocalPartsExist(serverId: string, sessionId: string, pendingId: string): boolean {
+  const entry = messages[serverId]?.[sessionId];
+  if (entry === undefined) return false;
+  return entry.order.some((id) => entry.parts[id]?.messageID === pendingId);
+}
+
+/**
+ * Part-first reconciliation hook (TASK-M2-08): message.part.updated and
+ * message.part.delta for the echo can arrive before message.updated. When a
+ * part for a server message lands while the session's marker is pending and
+ * the local parts still exist, the same reconcile-if-safe logic runs.
+ */
+function maybeReconcileOnPart(
+  serverId: string,
+  sessionId: string,
+  messageId: string,
+  part?: Part,
+): void {
+  if (typeof messageId !== "string") return;
+  const pendingId = pendingLocalMessages.get(pendingKey(serverId, sessionId));
+  if (pendingId === undefined || pendingId === messageId) return;
+  if (!pendingLocalPartsExist(serverId, sessionId, pendingId)) return;
+  reconcilePending(
+    serverId,
+    sessionId,
+    messageId,
+    undefined,
+    part === undefined ? undefined : [part],
+  );
+}
+
+/**
+ * Reconciles the pending optimistic local message against the incoming
+ * server message (TASK-M2-08), called from upsertMessage and, via
+ * maybeReconcileOnPart, from the part-first paths. Idempotent: the marker
+ * is cleared once a reconciliation applies, so later messages upsert
+ * normally.
+ *
+ * Reconcile-if-safe conditions, all required:
+ * - a pending marker exists for the session and the incoming message is not
+ *   the local message itself;
+ * - the incoming message is the user echo: role "user", or unknown when a
+ *   part triggered the call (parts carry no role);
+ * - the echo does not already carry its own text (parts on the info payload
+ *   or a stored part under the echo's message id).
+ *
+ * When the echo has its own text the local message is dropped entirely —
+ * the echo replaces it. Otherwise the local parts are re-issued under the
+ * echo's prt-* ids; a target id that already exists wins, so the local part
+ * is dropped instead of overwriting the server's part, and order is deduped
+ * after the rename mapping. A non-user message (assistant reply or history
+ * replay) leaves both the marker and the local message in place — the
+ * server will send its own user echo later.
+ */
+function reconcilePending(
+  serverId: string,
+  sessionId: string,
+  incomingMessageId: string,
+  incomingRole: string | undefined,
+  incomingParts: Part[] | undefined,
+): void {
+  const key = pendingKey(serverId, sessionId);
+  updateServer(serverId, (bucket) => {
+    const entry = bucket[sessionId];
+    const pendingId = pendingLocalMessages.get(key);
+    if (entry === undefined || pendingId === undefined) return;
+    if (pendingId === incomingMessageId) return;
+    // Only the user echo consumes the marker; an assistant or history
+    // message leaves the optimistic message pending for its own echo.
+    if (incomingRole !== undefined && incomingRole !== "user") return;
+    const echoHasOwnParts =
+      (incomingParts?.length ?? 0) > 0 ||
+      entry.order.some((id) => entry.parts[id]?.messageID === incomingMessageId);
+    if (echoHasOwnParts) {
+      // The echo carries its own text: the optimistic bubble is replaced,
+      // local-* info, parts and order entries all go away.
+      for (const partId of [...entry.order]) {
+        if (entry.parts[partId]?.messageID === pendingId) delete entry.parts[partId];
+      }
+      entry.order = entry.order.filter((id) => id in entry.parts);
+      if (entry.info?.id === pendingId) entry.info = null;
+      delete entry.infos[pendingId];
+      pendingLocalMessages.delete(key);
+      bucket[sessionId] = entry;
+      return;
+    }
+    // The echo is metadata-only: re-issue the local text under its prt-*
+    // ids. A target id that already exists wins — drop the local part
+    // instead of overwriting the server's part.
     const renames = new Map<string, string>();
     for (const partId of [...entry.order]) {
       const part = entry.parts[partId];
       if (part === undefined || part.messageID !== pendingId) continue;
-      renames.set(partId, renames.size === 0 ? `prt-${info.id}` : `prt-${info.id}-${renames.size}`);
+      const to =
+        renames.size === 0
+          ? `prt-${incomingMessageId}`
+          : `prt-${incomingMessageId}-${renames.size}`;
+      if (to in entry.parts) {
+        delete entry.parts[partId];
+        continue;
+      }
+      renames.set(partId, to);
     }
     for (const [from, to] of renames) {
       const part = entry.parts[from];
       if (part === undefined) continue;
       delete entry.parts[from];
-      entry.parts[to] = { ...part, id: to, messageID: info.id };
+      entry.parts[to] = { ...part, id: to, messageID: incomingMessageId };
     }
-    if (renames.size > 0) entry.order = entry.order.map((id) => renames.get(id) ?? id);
+    if (renames.size > 0 || entry.order.some((id) => !(id in entry.parts))) {
+      // Dropped locals leave the order: filter and dedupe in one pass.
+      entry.order = entry.order
+        .map((id) => renames.get(id) ?? id)
+        .filter((id, index, all) => id in entry.parts && all.indexOf(id) === index);
+    }
     delete entry.infos[pendingId];
-    pendingLocalMessages.delete(pendingKey(serverId, sessionId));
+    pendingLocalMessages.delete(key);
+    bucket[sessionId] = entry;
   });
 }
 
@@ -147,6 +259,8 @@ export function applyPartDelta(serverId: string, sessionId: string, part: Part):
   updateServer(serverId, (bucket) => {
     putPart(bucket, sessionId, part);
   });
+  // TASK-M2-08: a part for the echo may arrive before message.updated.
+  maybeReconcileOnPart(serverId, sessionId, part.messageID, part);
 }
 
 export interface PartDelta {
@@ -192,6 +306,8 @@ export function applyTextDelta(serverId: string, sessionId: string, delta: PartD
     }
     bucket[sessionId] = entry;
   });
+  // TASK-M2-08: a delta for the echo may arrive before message.updated.
+  maybeReconcileOnPart(serverId, sessionId, delta.messageID);
 }
 
 /** Removes one part (message.part.removed). */
