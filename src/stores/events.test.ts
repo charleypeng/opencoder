@@ -12,6 +12,7 @@ import { messages, resetServer as resetMessages } from "./messages.js";
 import { projects, resetServer as resetProjects } from "./project.js";
 import { todos, resetServer as resetTodos } from "./todos.js";
 import { files, resetServer as resetFiles, setTree } from "./files.js";
+import { diffs, resetServer as resetDiffs } from "./diff.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -61,6 +62,7 @@ afterEach(() => {
   resetProjects(SERVER);
   resetTodos(SERVER);
   resetFiles(SERVER);
+  resetDiffs(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -256,6 +258,43 @@ describe("applyEvent — edge routes", () => {
     applyEvent(SERVER, { type: "file.watcher.updated", properties: {} });
     expect(files[SERVER]).toBeUndefined();
   });
+
+  it("maps session.diff to the diff store with a version bump", () => {
+    const diff = [
+      {
+        file: "src/a.ts",
+        patch: "--- a/src/a.ts\n+++ b/src/a.ts\n@@ -1 +1 @@\n-old\n+new\n",
+        additions: 1,
+        deletions: 1,
+        status: "modified",
+      },
+    ];
+    applyEvent(SERVER, { type: "session.diff", properties: { sessionID: "ses_diff", diff } });
+    expect(diffs[SERVER]["ses_diff"]).toMatchObject({ version: 1 });
+    expect(diffs[SERVER]["ses_diff"].diffs).toEqual(diff);
+
+    // A second event replaces the payload and bumps the version again.
+    applyEvent(SERVER, { type: "session.diff", properties: { sessionID: "ses_diff", diff: [] } });
+    expect(diffs[SERVER]["ses_diff"]).toMatchObject({ version: 2, diffs: [] });
+  });
+
+  it("bumps the version for a session.diff without a payload", () => {
+    applyEvent(SERVER, {
+      type: "session.diff",
+      properties: { sessionID: "ses_diff2", diff: [{ file: "b.ts", additions: 0, deletions: 0 }] },
+    });
+    applyEvent(SERVER, { type: "session.diff", properties: { sessionID: "ses_diff2" } });
+    expect(diffs[SERVER]["ses_diff2"]).toMatchObject({ version: 2 });
+
+    // Unknown sessions are left untouched by refresh-only events.
+    applyEvent(SERVER, { type: "session.diff", properties: { sessionID: "ses_unknown" } });
+    expect(diffs[SERVER]["ses_unknown"]).toBeUndefined();
+  });
+
+  it("ignores session.diff without a session id", () => {
+    applyEvent(SERVER, { type: "session.diff", properties: {} });
+    expect(diffs[SERVER]).toBeUndefined();
+  });
 });
 
 describe("syncAll", () => {
@@ -307,9 +346,17 @@ describe("subscribeToServerEvents", () => {
         todos: [{ content: "a", status: "pending", priority: "high" }],
       },
     });
+    applyEvent(SERVER, {
+      type: "session.diff",
+      properties: {
+        sessionID: "ses_stale",
+        diff: [{ file: "a.ts", additions: 1, deletions: 0 }],
+      },
+    });
     setTree(SERVER, undefined, []);
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
+    expect(diffs[SERVER]["ses_stale"]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
@@ -320,6 +367,7 @@ describe("subscribeToServerEvents", () => {
     expect("ses_stale" in sessions[SERVER].sessions).toBe(false);
     expect(projects[SERVER].current).toBe("/sync/proj");
     expect(todos[SERVER]).toBeUndefined();
+    expect(diffs[SERVER]).toBeUndefined();
     expect(files[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.

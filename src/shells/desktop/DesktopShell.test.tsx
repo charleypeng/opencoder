@@ -27,6 +27,7 @@ import {
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
 import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer";
+import { resetServer as resetDiffs } from "../../stores/diff";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -69,6 +70,19 @@ function handlerFor(event: string): (payload: unknown) => void {
 
 const DEMO_DIR = "/mock/projects/opencode-demo";
 const LABS_DIR = "/mock/projects/opencode-labs";
+
+/** /session/{id}/diff payload with one patched file and one stats-only file. */
+const DIFF_FIXTURE = [
+  {
+    file: "src/auth/login.ts",
+    patch:
+      '--- a/src/auth/login.ts\n+++ b/src/auth/login.ts\n@@ -1,3 +1,4 @@\n import { auth } from "./api";\n const a = 1;\n-const gone = 2;\n+export const added = 2;\n',
+    additions: 1,
+    deletions: 1,
+    status: "modified" as const,
+  },
+  { file: "src/auth/token.ts", additions: 8, deletions: 0, status: "added" as const },
+];
 
 function project(id: string, worktree: string, name: string): Project {
   return {
@@ -198,6 +212,32 @@ function mockHttpRoutes(servers: ServerEntry[]) {
           ),
         );
       }
+      if (/^\/session\/.+\/diff$/.test(request?.path ?? "")) {
+        return Promise.resolve(httpResponse(DIFF_FIXTURE));
+      }
+      if (request?.path === "/session/sess_diff_01/message") {
+        return Promise.resolve(
+          httpResponse([
+            {
+              info: {
+                id: "msg_02",
+                sessionID: "ses_diff_01",
+                role: "user",
+                time: { created: 1, updated: 1 },
+              },
+              parts: [
+                {
+                  id: "prt_1",
+                  sessionID: "ses_diff_01",
+                  messageID: "msg_02",
+                  type: "text",
+                  text: "hello",
+                },
+              ],
+            },
+          ]),
+        );
+      }
     }
     return Promise.resolve(httpResponse(undefined));
   });
@@ -258,6 +298,7 @@ afterEach(() => {
   resetViewer("srv-m4search");
   resetSessions("srv-m4search");
   resetProjects("srv-m4search");
+  resetDiffs("srv-m4diff");
   resetMessages("srv-m4search");
   resetTodos("srv-m4search");
   localStorage.removeItem("oc-recent-files:srv-m4quick");
@@ -830,5 +871,93 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     // The same shortcut on the window (no text target) opens search.
     fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
+  });
+});
+
+describe("DesktopShell session diff view (TASK-M4-07)", () => {
+  it("⌘D opens the diff view for the active session and Back returns to chat", async () => {
+    const alpha = server({ id: "srv-m4diff", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+
+    // ⌘D opens the diff view with its own header (no Chat|Files tab bar).
+    fireEvent.keyDown(window, { key: "d", metaKey: true });
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    expect(screen.getByText("Session diff")).toBeInTheDocument();
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getAllByTestId("diff-file-header").length).toBeGreaterThan(0),
+    );
+    expect(screen.getByText("src/auth/login.ts")).toBeInTheDocument();
+    // No message filter chip for a whole-session diff.
+    expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
+
+    // Back returns to the chat view.
+    fireEvent.click(screen.getByTestId("diff-back"));
+    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
+  });
+
+  it("⌘D toggles back to chat and is ignored while typing in a text control", async () => {
+    const alpha = server({ id: "srv-m4diff", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+
+    // Guarded while typing in the prompt input.
+    fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "d", metaKey: true });
+    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+
+    // Open, then a second ⌘D toggles back to chat.
+    fireEvent.keyDown(window, { key: "d", metaKey: true });
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "D", ctrlKey: true });
+    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
+  });
+
+  it("message View diff opens the filtered diff and the chip clears it", async () => {
+    const alpha = server({ id: "srv-m4diff", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    await waitFor(() => expect(screen.getByTestId("message-msg_02")).toBeInTheDocument());
+
+    // Message menu → View diff jumps Main to the diff view filtered to the
+    // message id (the request carries the messageID query).
+    const invokeForDiff = invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/diff$/.test(call[1].request?.path ?? ""),
+    );
+    expect(invokeForDiff).toHaveLength(0);
+
+    fireEvent.pointerDown(screen.getByTestId("message-actions"), { pointerType: "mouse" });
+    const item = await screen.findByTestId("message-action-view-diff");
+    expect(item).not.toBeDisabled();
+    fireEvent.pointerUp(item, { pointerType: "mouse" });
+
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("diff-message-filter")).toBeInTheDocument());
+    expect(screen.getByTestId("diff-message-filter")).toHaveTextContent("Message msg_02");
+    await waitFor(() =>
+      expect(screen.getAllByTestId("diff-file-header").length).toBeGreaterThan(0),
+    );
+    const diffCalls = invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/diff$/.test(call[1].request?.path ?? ""),
+    );
+    expect(diffCalls[0][1].request.query.messageID).toBe("msg_02");
+
+    // The chip's × clears the filter (whole-session diff, chip gone).
+    fireEvent.click(screen.getByTestId("diff-filter-clear"));
+    expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
   });
 });

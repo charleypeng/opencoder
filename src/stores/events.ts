@@ -21,10 +21,12 @@ import * as messagesStore from "./messages.js";
 import * as projectStore from "./project.js";
 import * as todosStore from "./todos.js";
 import * as filesStore from "./files.js";
+import * as diffStore from "./diff.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
 type Todo = components["schemas"]["Todo"];
+type SnapshotFileDiff = components["schemas"]["SnapshotFileDiff"];
 
 /** Store module APIs the router dispatches into (injectable for tests). */
 export interface EventStoreDeps {
@@ -33,6 +35,7 @@ export interface EventStoreDeps {
   project: typeof projectStore;
   todos: typeof todosStore;
   files: typeof filesStore;
+  diffs: typeof diffStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -41,6 +44,7 @@ export const defaultEventStores: EventStoreDeps = {
   project: projectStore,
   todos: todosStore,
   files: filesStore,
+  diffs: diffStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -65,7 +69,7 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files } = deps;
+  const { session, messages, project, todos, files, diffs } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -141,7 +145,15 @@ export function applyEvent(
       // No-op for now: M6 handles compaction parts.
       return;
     case "session.diff":
-      // No-op for now: M4 wires the diff view.
+      // Session diff refresh (TASK-M4-07): a full SnapshotFileDiff[] payload
+      // replaces the session's diff (version bump); an event without one
+      // only bumps the version so a mounted DiffView refetches.
+      if (typeof p.sessionID !== "string") return;
+      if (Array.isArray(p.diff)) {
+        diffs.applyDiff(serverId, p.sessionID, p.diff as SnapshotFileDiff[]);
+      } else {
+        diffs.bumpDiffVersion(serverId, p.sessionID);
+      }
       return;
     case "file.watcher.updated":
     case "file.edited":
@@ -240,6 +252,7 @@ export async function subscribeToServerEvents(
       deps.project.resetServer(serverId);
       deps.todos.resetServer(serverId);
       deps.files.resetServer(serverId);
+      deps.diffs.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

@@ -44,6 +44,8 @@ export interface MessageListProps {
   serverId: string;
   /** The session to render. */
   sessionId: string;
+  /** Opens the M4 diff view filtered to one message (wired by M4-07). */
+  onViewDiff?: (messageID: string) => void;
 }
 
 interface MessageGroup {
@@ -368,6 +370,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                           messageID={row.messageID}
                           partIds={row.partIds}
                           typing={row.typing}
+                          onViewDiff={props.onViewDiff}
                         />
                       </div>
                     )}

@@ -46,6 +46,8 @@ import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
 import QuickOpen from "../../features/files/QuickOpen";
 import SearchPanel, { SearchIcon } from "../../features/files/SearchPanel";
+import DiffView from "../../features/vcs/DiffView";
+import { resetServer as resetDiffs } from "../../stores/diff";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -89,7 +91,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
   // Main pane view switch (TASK-M4-03): Chat transcript or the Files
   // viewer; opening a file from the sidebar tree jumps Main to Files.
-  const [mainView, setMainView] = createSignal<"chat" | "files">("chat");
+  // TASK-M4-07 adds the session/message diff view (⌘/Ctrl+D or the
+  // message menu's "View diff"), reached through its own header's back
+  // button; the Chat|Files tab bar is hidden while it is open.
+  const [mainView, setMainView] = createSignal<"chat" | "files" | "diff">("chat");
+  // Diff message filter (TASK-M4-07): set when opened from a message's
+  // "View diff"; the diff header's chip clears it back to the whole
+  // session's diff.
+  const [diffMessageId, setDiffMessageId] = createSignal<string | undefined>(undefined);
   // Files pane mode (TASK-M4-05): the tabbed viewer or the full-text
   // search panel. Both stay mounted (hidden via CSS) so search results
   // survive the round trip when a hit switches back to the viewer.
@@ -97,6 +106,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Quick open dialog (TASK-M4-04): toggled by the provisional ⌘/Ctrl+P
   // hook below; M8 moves the shortcut into the command-palette registry.
   const [quickOpen, setQuickOpen] = createSignal(false);
+
+  /** Opens the diff view, optionally filtered to one message. */
+  function openDiff(messageId?: string) {
+    setDiffMessageId(messageId);
+    setMainView("diff");
+  }
 
   createEffect(() => {
     if (!todosOpen()) return;
@@ -150,6 +165,32 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       setFilesMode((mode) => (mode === "search" ? "viewer" : "search"));
       return;
     }
+    if (event.key.toLowerCase() === "d") {
+      // Provisional ⌘/Ctrl+D hook for the session diff view (TASK-M4-07);
+      // M8 moves it into the command-palette registry. Guarded like ⌘P
+      // while typing in text controls. From the diff view it cycles: a
+      // filtered diff clears the filter, an unfiltered one goes back to
+      // the chat view.
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (mainView() === "diff") {
+        if (diffMessageId() !== undefined) {
+          setDiffMessageId(undefined);
+        } else {
+          setMainView("chat");
+        }
+        return;
+      }
+      if (!activeSessionId()) return;
+      openDiff();
+      return;
+    }
     if (!/^[1-9]$/.test(event.key)) return;
     const target = servers()[Number(event.key) - 1];
     if (!target) return;
@@ -181,6 +222,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     resetMessages(serverId);
     resetTodos(serverId);
     resetViewer(serverId);
+    resetDiffs(serverId);
     let dir = directory;
     if (dir === undefined) {
       // Context not seeded yet (mount / server switch): resolve the current
@@ -358,76 +400,162 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </aside>
 
       <main class="flex min-w-0 flex-1 flex-col">
-        <div
-          role="tablist"
-          aria-label="Main view"
-          class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
-        >
-          <button
-            type="button"
-            role="tab"
-            data-testid="main-tab-chat"
-            aria-selected={mainView() === "chat" ? "true" : "false"}
-            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-              mainView() === "chat"
-                ? "bg-accent-soft text-fg-primary"
-                : "text-fg-secondary hover:text-fg-primary"
-            }`}
-            onClick={() => setMainView("chat")}
-          >
-            Chat
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-testid="main-tab-files"
-            aria-selected={mainView() === "files" ? "true" : "false"}
-            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-              mainView() === "files"
-                ? "bg-accent-soft text-fg-primary"
-                : "text-fg-secondary hover:text-fg-primary"
-            }`}
-            onClick={() => setMainView("files")}
-          >
-            Files
-          </button>
-          <Show when={mainView() === "files"}>
-            <button
-              type="button"
-              data-testid="files-search-toggle"
-              aria-pressed={filesMode() === "search" ? "true" : "false"}
-              aria-label="Toggle full-text search"
-              title="Full-text search (⌘⇧F)"
-              class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
-                filesMode() === "search" ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
-              }`}
-              onClick={() => setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))}
-            >
-              <SearchIcon />
-            </button>
-          </Show>
-        </div>
         <Show
-          when={mainView() === "chat"}
+          when={mainView() === "diff"}
           fallback={
-            <div class="flex h-full min-h-0 flex-col">
+            <>
               <div
-                data-testid="files-viewer-pane"
-                data-visible={filesMode() === "viewer" ? "true" : "false"}
-                class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+                role="tablist"
+                aria-label="Main view"
+                class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
               >
-                <FileViewer serverId={activeServerId()} visible={filesMode() === "viewer"} />
+                <button
+                  type="button"
+                  role="tab"
+                  data-testid="main-tab-chat"
+                  aria-selected={mainView() === "chat" ? "true" : "false"}
+                  class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                    mainView() === "chat"
+                      ? "bg-accent-soft text-fg-primary"
+                      : "text-fg-secondary hover:text-fg-primary"
+                  }`}
+                  onClick={() => setMainView("chat")}
+                >
+                  Chat
+                </button>
+                <button
+                  type="button"
+                  role="tab"
+                  data-testid="main-tab-files"
+                  aria-selected={mainView() === "files" ? "true" : "false"}
+                  class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                    mainView() === "files"
+                      ? "bg-accent-soft text-fg-primary"
+                      : "text-fg-secondary hover:text-fg-primary"
+                  }`}
+                  onClick={() => setMainView("files")}
+                >
+                  Files
+                </button>
+                <Show when={mainView() === "files"}>
+                  <button
+                    type="button"
+                    data-testid="files-search-toggle"
+                    aria-pressed={filesMode() === "search" ? "true" : "false"}
+                    aria-label="Toggle full-text search"
+                    title="Full-text search (⌘⇧F)"
+                    class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                      filesMode() === "search"
+                        ? "text-accent"
+                        : "text-fg-secondary hover:text-fg-primary"
+                    }`}
+                    onClick={() =>
+                      setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
+                    }
+                  >
+                    <SearchIcon />
+                  </button>
+                </Show>
               </div>
-              <div
-                data-testid="files-search-pane"
-                data-visible={filesMode() === "search" ? "true" : "false"}
-                class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+              <Show
+                when={mainView() === "chat"}
+                fallback={
+                  <div class="flex h-full min-h-0 flex-col">
+                    <div
+                      data-testid="files-viewer-pane"
+                      data-visible={filesMode() === "viewer" ? "true" : "false"}
+                      class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+                    >
+                      <FileViewer serverId={activeServerId()} visible={filesMode() === "viewer"} />
+                    </div>
+                    <div
+                      data-testid="files-search-pane"
+                      data-visible={filesMode() === "search" ? "true" : "false"}
+                      class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+                    >
+                      <SearchPanel
+                        serverId={activeServerId()}
+                        onOpenHit={() => setFilesMode("viewer")}
+                      />
+                    </div>
+                  </div>
+                }
               >
-                <SearchPanel serverId={activeServerId()} onOpenHit={() => setFilesMode("viewer")} />
-              </div>
-            </div>
+                <Show
+                  when={activeSessionId()}
+                  fallback={
+                    <div class="flex flex-1 items-center justify-center p-4">
+                      <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                    </div>
+                  }
+                >
+                  <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
+                    <h2
+                      data-testid="chat-session-title"
+                      class="min-w-0 truncate text-sm font-semibold"
+                    >
+                      {titleOf(activeServerId(), activeSessionId() as string)}
+                    </h2>
+                    <button
+                      type="button"
+                      data-testid="todo-toggle"
+                      aria-pressed={todosOpen() ? "true" : "false"}
+                      aria-label="Toggle todo panel"
+                      class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                        todosOpen()
+                          ? "border-accent text-accent"
+                          : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                      }`}
+                      onClick={() => setTodosOpen((open) => !open)}
+                    >
+                      Todos
+                    </button>
+                  </header>
+                  <MessageList
+                    serverId={activeServerId()}
+                    sessionId={activeSessionId() as string}
+                    onViewDiff={openDiff}
+                  />
+                  <SessionErrorBanner
+                    serverId={activeServerId()}
+                    sessionId={activeSessionId() as string}
+                  />
+                  <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
+                </Show>
+              </Show>
+            </>
           }
         >
+          {/* Diff view (TASK-M4-07): its own header (back to chat + message
+              filter chip) replaces the Chat|Files tab bar while open. */}
+          <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
+            <button
+              type="button"
+              data-testid="diff-back"
+              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+              onClick={() => setMainView("chat")}
+            >
+              ← Back
+            </button>
+            <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
+            <Show when={diffMessageId() !== undefined}>
+              <span
+                data-testid="diff-message-filter"
+                class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
+              >
+                Message {diffMessageId()}
+                <button
+                  type="button"
+                  data-testid="diff-filter-clear"
+                  aria-label="Show the whole session diff"
+                  class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                  onClick={() => setDiffMessageId(undefined)}
+                >
+                  ×
+                </button>
+              </span>
+            </Show>
+          </header>
           <Show
             when={activeSessionId()}
             fallback={
@@ -436,31 +564,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               </div>
             }
           >
-            <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
-              <h2 data-testid="chat-session-title" class="min-w-0 truncate text-sm font-semibold">
-                {titleOf(activeServerId(), activeSessionId() as string)}
-              </h2>
-              <button
-                type="button"
-                data-testid="todo-toggle"
-                aria-pressed={todosOpen() ? "true" : "false"}
-                aria-label="Toggle todo panel"
-                class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                  todosOpen()
-                    ? "border-accent text-accent"
-                    : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-                }`}
-                onClick={() => setTodosOpen((open) => !open)}
-              >
-                Todos
-              </button>
-            </header>
-            <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
-            <SessionErrorBanner
+            <DiffView
               serverId={activeServerId()}
               sessionId={activeSessionId() as string}
+              messageId={diffMessageId()}
             />
-            <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
           </Show>
         </Show>
       </main>

@@ -24,6 +24,7 @@ import { closeTab, setActive, setActiveLine, viewer } from "../../stores/viewer.
 import { getActiveDirectory } from "../../stores/project.js";
 import { highlightCode } from "../messages/markdown/highlighter.js";
 import { escapeHtml } from "../messages/markdown/markdown.js";
+import { rowKindOf, type DiffLineKind } from "../vcs/diffLines.js";
 
 export interface FileViewerProps {
   /** The server whose open tabs are shown. */
@@ -136,24 +137,9 @@ function ViewerCode(props: {
 }
 
 // --- diff / patch rendering ------------------------------------------------
+// Line classification is shared with the session diff view (TASK-M4-07).
 
-type DiffRow = { kind: "ctx" | "add" | "del" | "hunk" | "meta"; text: string };
-
-/** Classifies one unified-diff line by its prefix (no diff library). */
-function rowKindOf(line: string): DiffRow["kind"] {
-  if (line.startsWith("+") && !line.startsWith("+++")) return "add";
-  if (line.startsWith("-") && !line.startsWith("---")) return "del";
-  if (line.startsWith("---") || line.startsWith("+++")) return "meta";
-  if (line.startsWith("@@")) return "hunk";
-  if (
-    /^(diff --git|index |new file|deleted file|rename |copy |similarity |dissimilarity |\\)/.test(
-      line,
-    )
-  ) {
-    return "meta";
-  }
-  return "ctx";
-}
+type DiffRow = { kind: DiffLineKind; text: string };
 
 function diffRowsOf(content: FileContent): DiffRow[] {
   // Structured patch: rebuild the unified headers from the file names and
