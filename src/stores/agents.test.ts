@@ -7,6 +7,7 @@ import type { Agent } from "../services/agent.js";
 import {
   agentNameFor,
   agentStates,
+  clearSession,
   getServerAgentState,
   resetServer,
   setAgentForSession,
@@ -102,5 +103,28 @@ describe("resetServer", () => {
       activeBySession: {},
     });
     expect(agentStates[SERVER]).toBeUndefined();
+  });
+});
+
+describe("clearSession", () => {
+  it("drops the recorded choice for one session", () => {
+    setAgents(SERVER, CATALOG);
+    setAgentForSession(SERVER, "ses_1", "plan");
+    clearSession(SERVER, "ses_1");
+
+    expect(getServerAgentState(SERVER).activeBySession["ses_1"]).toBeUndefined();
+    // The resolution falls back to the first visible agent.
+    expect(agentNameFor(SERVER, "ses_1")).toBe("build");
+  });
+
+  it("leaves other sessions and unknown buckets untouched", () => {
+    setAgents(SERVER, CATALOG);
+    setAgentForSession(SERVER, "ses_1", "plan");
+    setAgentForSession(SERVER, "ses_2", "build");
+    clearSession(SERVER, "ses_nope");
+    clearSession(SERVER + "-other", "ses_1");
+
+    expect(agentNameFor(SERVER, "ses_1")).toBe("plan");
+    expect(agentNameFor(SERVER, "ses_2")).toBe("build");
   });
 });

@@ -188,16 +188,18 @@ const ModelPicker: Component<ModelPickerProps> = (props) => {
     if (!props.open) return;
     const serverId = props.serverId;
     if (getServerModelState(serverId).loaded || modelFetch !== null) return;
-    modelFetch = Promise.all([
+    modelFetch = Promise.allSettled([
       createProviderService(getApiClient()).list(),
       createProviderService(getApiClient()).configProviders(),
     ])
       .then(([list, config]) => {
-        setProviders(serverId, list);
-        setConfigDefault(serverId, config.default);
-      })
-      .catch(() => {
-        // Catalog failures leave the store untouched; retried on next open.
+        // The catalog and the config defaults settle independently: a
+        // config failure must not discard a successful provider catalog
+        // (M5 review) — the /provider default record covers the gap.
+        if (list.status === "fulfilled") setProviders(serverId, list.value);
+        if (config.status === "fulfilled" && config.value?.default !== undefined) {
+          setConfigDefault(serverId, config.value.default);
+        }
       })
       .finally(() => {
         modelFetch = null;

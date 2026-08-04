@@ -16,6 +16,13 @@ import { diffs, resetServer as resetDiffs } from "./diff.js";
 import { vcs, resetServer as resetVcs } from "./vcs.js";
 import { permissions, resetServer as resetPermissions } from "./permission.js";
 import { questions, resetServer as resetQuestions } from "./question.js";
+import {
+  agentStates,
+  getServerAgentState,
+  resetServer as resetAgents,
+  setAgentForSession,
+  setAgents,
+} from "./agents.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -69,6 +76,7 @@ afterEach(() => {
   resetVcs(SERVER);
   resetPermissions(SERVER);
   resetQuestions(SERVER);
+  resetAgents(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -121,12 +129,15 @@ describe("applyEvent — edge routes", () => {
         info: { id: "m1", sessionID: "ses_x", role: "user", time: { created: 1 } },
       },
     });
+    // The per-session agent choice is pruned with the session (M5 review).
+    setAgentForSession(SERVER, "ses_x", "plan");
     applyEvent(SERVER, {
       type: "session.deleted",
       properties: { sessionID: "ses_x", info: session("ses_x") },
     });
     expect(sessions[SERVER].sessions["ses_x"]).toBeUndefined();
     expect(messages[SERVER]["ses_x"]).toBeUndefined();
+    expect(getServerAgentState(SERVER).activeBySession["ses_x"]).toBeUndefined();
   });
 
   it("maps message.removed to part cleanup for that message", () => {
@@ -592,6 +603,10 @@ describe("subscribeToServerEvents", () => {
       },
     });
     setTree(SERVER, undefined, []);
+    // Stale agent state exists before the re-connect; its forever-true
+    // loaded flag would block a catalog refresh without the reset (M5 review).
+    setAgents(SERVER, [{ name: "stale", mode: "primary", permission: [], options: {} }]);
+    setAgentForSession(SERVER, "ses_stale", "stale");
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
     expect(diffs[SERVER]["ses_stale"]).toBeDefined();
@@ -599,6 +614,7 @@ describe("subscribeToServerEvents", () => {
     expect(permissions[SERVER]).toBeDefined();
     expect(questions[SERVER]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
+    expect(agentStates[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -613,6 +629,9 @@ describe("subscribeToServerEvents", () => {
     expect(permissions[SERVER]).toBeUndefined();
     expect(questions[SERVER]).toBeUndefined();
     expect(files[SERVER]).toBeUndefined();
+    // The agents bucket is dropped too, so the next mount refetches.
+    expect(agentStates[SERVER]).toBeUndefined();
+    expect(getServerAgentState(SERVER).loaded).toBe(false);
 
     // Events keep flowing after the re-sync.
     onEvent?.({

@@ -145,6 +145,99 @@ describe("ProviderKeys", () => {
     );
   });
 
+  it("marks the key inputs to suppress password autofill", async () => {
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    for (const input of screen.getAllByTestId("provider-key-input")) {
+      expect(input).toHaveAttribute("autocomplete", "new-password");
+    }
+  });
+
+  it("disables every row's save/remove while a mutation is in flight", async () => {
+    let providerCalls = 0;
+    let resolveRefresh: ((value: ProviderListResponse) => void) | undefined;
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/provider") {
+        providerCalls += 1;
+        // The mount load resolves immediately; the post-save refresh hangs
+        // until the test releases it.
+        if (providerCalls === 1) return listResponse(["openai"]);
+        return new Promise<ProviderListResponse>((resolve) => {
+          resolveRefresh = resolve;
+        });
+      }
+      if (path === "/provider/auth") return AUTH_METHODS;
+      return [];
+    });
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
+      target: { value: "sk-ant-secret" },
+    });
+    fireEvent.click(within(rowOf("anthropic")).getByTestId("provider-key-save"));
+    await waitFor(() => expect(client.put).toHaveBeenCalled());
+
+    // While the save's refresh is pending, no row may start another action.
+    for (const save of screen.getAllByTestId("provider-key-save")) {
+      expect((save as HTMLButtonElement).disabled).toBe(true);
+    }
+    for (const remove of screen.getAllByTestId("provider-key-remove")) {
+      expect((remove as HTMLButtonElement).disabled).toBe(true);
+    }
+
+    resolveRefresh!(listResponse(["openai", "anthropic"]));
+    // The save succeeded, so the draft cleared; the openai remove button
+    // (disabled only by the busy lock) proves the row unlocked again.
+    await waitFor(() =>
+      expect((screen.getAllByTestId("provider-key-remove")[0] as HTMLButtonElement).disabled).toBe(
+        false,
+      ),
+    );
+  });
+
+  it("drops a stale refresh response that resolves after a newer load", async () => {
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    // The post-save refresh resolves late with the OLD catalog; a manual
+    // refresh (load) in between returns the NEWER catalog immediately.
+    // (The mount load already consumed the default mock, so the first
+    // /provider call here is the save's refresh.)
+    let providerCalls = 0;
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/provider") {
+        providerCalls += 1;
+        if (providerCalls === 1) {
+          return new Promise<ProviderListResponse>((resolve) =>
+            setTimeout(() => resolve(listResponse(["openai"])), 50),
+          );
+        }
+        return listResponse(["openai", "anthropic"]);
+      }
+      if (path === "/provider/auth") return AUTH_METHODS;
+      return [];
+    });
+
+    fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
+      target: { value: "sk-ant-secret" },
+    });
+    fireEvent.click(within(rowOf("anthropic")).getByTestId("provider-key-save"));
+    await waitFor(() => expect(client.put).toHaveBeenCalled());
+    // The save's refresh is in flight; the Refresh button runs a newer load
+    // that lands before the stale response.
+    fireEvent.click(screen.getByTestId("provider-keys-refresh"));
+
+    // The newer load's catalog wins; the stale response must not clobber it.
+    await waitFor(() =>
+      expect(getServerModelState(SERVER).connected).toEqual(["openai", "anthropic"]),
+    );
+    // Let the stale refresh land and confirm it was dropped by the guard.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(getServerModelState(SERVER).connected).toEqual(["openai", "anthropic"]);
+  });
+
   it("saves an API key: PUTs the key and refreshes the connected state", async () => {
     renderKeys();
     await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));

@@ -931,6 +931,16 @@ try {
       expect(missingCommand.status === 400, `status ${missingCommand.status}`);
     });
 
+    await test("shell run rejects a malformed model", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/shell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "ls", agent: "build", model: { providerID: "openai" } }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("prompt_async accepts an agent part (AgentPartInput shape)", async () => {
       const { status } = await request(baseUrl, "/session/sess_01/prompt_async", {
         method: "POST",

@@ -91,3 +91,14 @@ export function resetServer(serverId: string): void {
     }),
   );
 }
+
+/** Drops the recorded agent choice for one session (session.deleted). */
+export function clearSession(serverId: string, sessionId: string): void {
+  setAgentStates(
+    produce((draft) => {
+      const state = draft[serverId];
+      if (state === undefined) return;
+      delete state.activeBySession[sessionId];
+    }),
+  );
+}

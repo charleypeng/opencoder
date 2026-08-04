@@ -747,6 +747,52 @@ describe("PromptBox slash commands", () => {
     expect(client.post).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps attachment chips and shows a one-time note when a command is submitted", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.drop(screen.getByTestId("prompt-box"), {
+      dataTransfer: { files: [new File(["line one"], "notes.txt", { type: "text/plain" })] },
+    });
+    await waitFor(() => expect(screen.getByText("notes.txt")).toBeInTheDocument());
+
+    fireEvent.input(input(), { target: { value: "/init" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/command`, {
+        body: { command: "init", arguments: "" },
+      }),
+    );
+    // The command body carries no parts: the chips stay for the next plain
+    // prompt and a one-time note explains why (M5 review).
+    expect(screen.getByText("notes.txt")).toBeInTheDocument();
+    expect(screen.getByTestId("attachment-command-note")).toHaveTextContent(
+      "Attachments are not sent with commands",
+    );
+
+    // The note resets on the next input; a plain prompt send still clears
+    // the chips.
+    fireEvent.input(input(), { target: { value: "check this" } });
+    expect(screen.queryByTestId("attachment-command-note")).not.toBeInTheDocument();
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: {
+          parts: [
+            { type: "text", text: "check this" },
+            {
+              type: "file",
+              mime: "text/plain",
+              filename: "notes.txt",
+              url: "data:text/plain;charset=utf-8,line%20one",
+            },
+          ],
+        },
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("notes.txt")).not.toBeInTheDocument());
+  });
+
   it("an unmatched `/` message falls back to the plain prompt path", async () => {
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
 
@@ -1199,6 +1245,26 @@ describe("PromptBox skill references and shell commands", () => {
     // The skills group leads the list; files follow below (debounced fetch).
     await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(1));
     expect(skills[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("renders each group header directly above its own rows", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@res" } });
+    await waitFor(() => expect(screen.getByTestId("prompt-at-skill")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(1));
+
+    // DOM order: Skills header -> skill rows -> Files header -> file rows
+    // (the Files header must not float above the skill rows; M5 review).
+    const order = Array.from(screen.getByTestId("prompt-at-menu").children).map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(order).toEqual([
+      "prompt-at-group-skills",
+      "prompt-at-skill",
+      "prompt-at-group-files",
+      "prompt-at-item",
+    ]);
   });
 
   it("the skills catalog is fetched once per mount and reused for later queries", async () => {

@@ -25,6 +25,7 @@ import * as diffStore from "./diff.js";
 import * as vcsStore from "./vcs.js";
 import * as permissionStore from "./permission.js";
 import * as questionStore from "./question.js";
+import * as agentsStore from "./agents.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
@@ -44,6 +45,7 @@ export interface EventStoreDeps {
   vcs: typeof vcsStore;
   permissions: typeof permissionStore;
   questions: typeof questionStore;
+  agents: typeof agentsStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -56,6 +58,7 @@ export const defaultEventStores: EventStoreDeps = {
   vcs: vcsStore,
   permissions: permissionStore,
   questions: questionStore,
+  agents: agentsStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -80,7 +83,8 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files, diffs, vcs, permissions, questions } = deps;
+  const { session, messages, project, todos, files, diffs, vcs, permissions, questions, agents } =
+    deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -115,6 +119,8 @@ export function applyEvent(
     case "session.deleted":
       session.removeSession(serverId, p.sessionID as string);
       messages.removeMessage(serverId, p.sessionID as string);
+      // The per-session agent choice dies with its session.
+      agents.clearSession(serverId, p.sessionID as string);
       return;
     case "session.status":
       session.setSessionStatus(serverId, p.sessionID as string, p.status as SessionStatus | string);
@@ -301,6 +307,7 @@ export async function subscribeToServerEvents(
       deps.vcs.resetServer(serverId);
       deps.permissions.resetServer(serverId);
       deps.questions.resetServer(serverId);
+      deps.agents.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

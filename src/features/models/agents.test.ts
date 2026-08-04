@@ -4,7 +4,13 @@
 
 import { describe, expect, it } from "vitest";
 import type { Agent } from "../../services/agent.js";
-import { agentColor, cycleAgentName, DEFAULT_AGENT_COLOR, visibleAgents } from "./agents.js";
+import {
+  agentColor,
+  cycleAgentName,
+  DEFAULT_AGENT_COLOR,
+  safeAgentColor,
+  visibleAgents,
+} from "./agents.js";
 
 function agent(name: string, overrides: Partial<Agent> = {}): Agent {
   return { name, mode: "primary", permission: [], options: {}, ...overrides };
@@ -34,6 +40,27 @@ describe("agentColor", () => {
     expect(agentColor(agent("build"))).toBe(DEFAULT_AGENT_COLOR);
     expect(agentColor(agent("build", { color: "" }))).toBe(DEFAULT_AGENT_COLOR);
     expect(agentColor(undefined)).toBe(DEFAULT_AGENT_COLOR);
+  });
+});
+
+describe("safeAgentColor", () => {
+  it("accepts plain hex colors with 3-8 digits", () => {
+    expect(safeAgentColor("#E5B83C")).toBe("#E5B83C");
+    expect(safeAgentColor("#abc")).toBe("#abc");
+    expect(safeAgentColor("#abcd")).toBe("#abcd");
+    expect(safeAgentColor("#11223344")).toBe("#11223344");
+    expect(safeAgentColor("#ABCdef")).toBe("#ABCdef");
+  });
+
+  it("falls back for malformed, missing or injection-shaped colors", () => {
+    expect(safeAgentColor(undefined)).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("red")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("E5B83C")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("#12")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("#123456789")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("#gggggg")).toBe(DEFAULT_AGENT_COLOR);
+    expect(safeAgentColor("#E5B83C;background:url(javascript:x)")).toBe(DEFAULT_AGENT_COLOR);
   });
 });
 

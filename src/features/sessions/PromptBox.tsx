@@ -83,7 +83,7 @@ import { createSessionService } from "../../services/session.js";
 import { createSkillService, type Skill } from "../../services/skill.js";
 import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
-import { agentColor, cycleAgentName, visibleAgents } from "../models/agents.js";
+import { cycleAgentName, safeAgentColor, visibleAgents } from "../models/agents.js";
 import {
   agentNameFor,
   getServerAgentState,
@@ -100,7 +100,13 @@ import { modelName } from "../models/models.js";
 import ModelPicker from "../models/ModelPicker.js";
 import { type Attachment, fileToAttachment } from "./attachments.js";
 import { commandTemplate, matchCommand, type CommandMatch } from "../commands/commands.js";
-import { atEntriesFor, atInsertText, type AtEntry } from "../commands/skills.js";
+import {
+  atEntriesFor,
+  atInsertText,
+  type AtEntry,
+  type AtFileEntry,
+  type AtSkillEntry,
+} from "../commands/skills.js";
 import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
@@ -292,6 +298,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const [inlineError, setInlineError] = createSignal<ApiError | null>(null);
   // Rejected-drop message (e.g. an oversized file) shown next to the chips.
   const [attachError, setAttachError] = createSignal<string | null>(null);
+  // One-time inline note next to the chips when a known command was
+  // submitted with attachments (the command body carries no parts, so the
+  // chips stay for the next plain prompt; M5 review).
+  const [commandAttachNote, setCommandAttachNote] = createSignal(false);
   // Local lock while an abort request is in flight (no double stops).
   const [aborting, setAborting] = createSignal(false);
   // -1 = not browsing; >= 0 = index into the history list (0 is most recent).
@@ -372,16 +382,18 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   createEffect(() => {
     const serverId = props.serverId;
     if (getServerModelState(serverId).loaded || modelFetch !== null) return;
-    modelFetch = Promise.all([
+    modelFetch = Promise.allSettled([
       createProviderService(getApiClient()).list(),
       createProviderService(getApiClient()).configProviders(),
     ])
       .then(([list, config]) => {
-        setProviders(serverId, list);
-        setConfigDefault(serverId, config.default);
-      })
-      .catch(() => {
-        // Catalog failures degrade to the session model; retried on mount.
+        // The catalog and the config defaults settle independently: a
+        // config failure must not discard a successful provider catalog
+        // (M5 review) — the /provider default record covers the gap.
+        if (list.status === "fulfilled") setProviders(serverId, list.value);
+        if (config.status === "fulfilled" && config.value?.default !== undefined) {
+          setConfigDefault(serverId, config.value.default);
+        }
       })
       .finally(() => {
         modelFetch = null;
@@ -800,6 +812,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     resizeToContent(el);
     refreshAtMenu(el);
     refreshSlashMenu(el);
+    setCommandAttachNote(false);
   }
 
   function onPaste(event: ClipboardEvent) {
@@ -872,8 +885,12 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setSending(true);
     setInlineError(null);
     setAttachError(null);
+    setCommandAttachNote(false);
     try {
       let err: ApiError | null;
+      // Whether the input ran through the command endpoint, whose body
+      // carries no parts (attachments cannot ride along).
+      let ranCommand = false;
       // TASK-M5-08: a leading `!` with a command routes to the shell path
       // (POST /session/{id}/shell, synchronous — the response applies to
       // the store directly); the session's effective agent rides in the
@@ -906,6 +923,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         // starting with `/` falls back to the plain prompt path.
         const commands = await loadCommands().catch(() => []);
         const match = matchCommand(message, commands);
+        ranCommand = match !== null;
         err =
           match === null
             ? await sendPrompt(
@@ -927,8 +945,16 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           modelRef() ?? undefined,
         );
       }
-      // Chips clear on success only; a failed send keeps them for retry.
-      if (err === null) setAttachments([]);
+      // Chips clear on success only; a failed send keeps them for retry. A
+      // successful command run keeps them too (the command body carries no
+      // parts) and shows a one-time note instead (M5 review).
+      if (err === null) {
+        if (ranCommand) {
+          setCommandAttachNote(true);
+        } else {
+          setAttachments([]);
+        }
+      }
       setInlineError(err);
     } finally {
       setSending(false);
@@ -963,6 +989,20 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     const m = menu();
     return m === null ? [] : atEntriesFor(m.skills, m.files, m.query);
   });
+  // Indexed entry slices per group: the selected row is the flat index
+  // into the combined list, so each slice keeps its original position.
+  // Splitting the render lets each group header sit directly above its own
+  // rows (M5 review) — the Files header must not float above skill rows.
+  const atSkillEntries = createMemo(() =>
+    atEntries()
+      .map((entry, index) => ({ entry, index }))
+      .filter((row): row is { entry: AtSkillEntry; index: number } => row.entry.kind === "skill"),
+  );
+  const atFileEntries = createMemo(() =>
+    atEntries()
+      .map((entry, index) => ({ entry, index }))
+      .filter((row): row is { entry: AtFileEntry; index: number } => row.entry.kind === "file"),
+  );
 
   return (
     <div
@@ -1002,7 +1042,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                     data-testid="agent-chip-dot"
                     aria-hidden="true"
                     class="h-2 w-2 shrink-0 rounded-full"
-                    style={{ background: agentColor(currentAgent()) }}
+                    style={{ background: safeAgentColor(currentAgent()?.color) }}
                   />
                   <span data-testid="agent-chip-name" class="max-w-28 truncate font-mono">
                     {agentName() ?? "agent"}
@@ -1039,7 +1079,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                             <span
                               aria-hidden="true"
                               class="h-2 w-2 shrink-0 rounded-full"
-                              style={{ background: agentColor(agent) }}
+                              style={{ background: safeAgentColor(agent.color) }}
                             />
                             <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
                               <span class="flex w-full items-baseline gap-2">
@@ -1095,57 +1135,63 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                     fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No matches</div>}
                   >
                     {/* Skills group (TASK-M5-08): matching skills first, a
-                      plain `@name` reference on select; files follow. */}
-                    <Show when={atEntries().some((entry) => entry.kind === "skill")}>
-                      <div class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint">
+                      plain `@name` reference on select; files follow. Each
+                      header renders immediately before its own rows. */}
+                    <Show when={atSkillEntries().length > 0}>
+                      <div
+                        data-testid="prompt-at-group-skills"
+                        class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint"
+                      >
                         Skills
                       </div>
                     </Show>
-                    <Show when={atEntries().some((entry) => entry.kind === "file")}>
-                      <div class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint">
+                    <For each={atSkillEntries()}>
+                      {({ entry, index }) => (
+                        <button
+                          type="button"
+                          data-testid="prompt-at-skill"
+                          role="option"
+                          aria-selected={index === m().selected}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => insertAtReference(entry)}
+                          class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                            index === m().selected ? "bg-bg-sunken" : ""
+                          }`}
+                        >
+                          <SparkleIcon />
+                          <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                            <span class="shrink-0 font-mono text-fg-default">{entry.name}</span>
+                            <Show when={entry.description !== undefined}>
+                              <span class="w-full truncate text-fg-faint">{entry.description}</span>
+                            </Show>
+                          </span>
+                        </button>
+                      )}
+                    </For>
+                    <Show when={atFileEntries().length > 0}>
+                      <div
+                        data-testid="prompt-at-group-files"
+                        class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint"
+                      >
                         Files
                       </div>
                     </Show>
-                    <For each={atEntries()}>
-                      {(entry, index) =>
-                        entry.kind === "skill" ? (
-                          <button
-                            type="button"
-                            data-testid="prompt-at-skill"
-                            role="option"
-                            aria-selected={index() === m().selected}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => insertAtReference(entry)}
-                            class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                              index() === m().selected ? "bg-bg-sunken" : ""
-                            }`}
-                          >
-                            <SparkleIcon />
-                            <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
-                              <span class="shrink-0 font-mono text-fg-default">{entry.name}</span>
-                              <Show when={entry.description !== undefined}>
-                                <span class="w-full truncate text-fg-faint">
-                                  {entry.description}
-                                </span>
-                              </Show>
-                            </span>
-                          </button>
-                        ) : (
-                          <button
-                            type="button"
-                            data-testid="prompt-at-item"
-                            role="option"
-                            aria-selected={index() === m().selected}
-                            onMouseDown={(event) => event.preventDefault()}
-                            onClick={() => insertAtReference(entry)}
-                            class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                              index() === m().selected ? "bg-bg-sunken" : ""
-                            }`}
-                          >
-                            <span class="truncate font-mono text-fg-default">{entry.path}</span>
-                          </button>
-                        )
-                      }
+                    <For each={atFileEntries()}>
+                      {({ entry, index }) => (
+                        <button
+                          type="button"
+                          data-testid="prompt-at-item"
+                          role="option"
+                          aria-selected={index === m().selected}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => insertAtReference(entry)}
+                          class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                            index === m().selected ? "bg-bg-sunken" : ""
+                          }`}
+                        >
+                          <span class="truncate font-mono text-fg-default">{entry.path}</span>
+                        </button>
+                      )}
                     </For>
                   </Show>
                 </div>
@@ -1222,6 +1268,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <Show when={attachError() !== null}>
                   <span data-testid="attachment-error" role="alert" class="text-xs text-danger">
                     {attachError()}
+                  </span>
+                </Show>
+                <Show when={commandAttachNote()}>
+                  <span
+                    data-testid="attachment-command-note"
+                    class="self-center text-xs text-fg-faint"
+                  >
+                    Attachments are not sent with commands
                   </span>
                 </Show>
               </div>

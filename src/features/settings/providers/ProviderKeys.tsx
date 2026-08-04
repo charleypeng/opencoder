@@ -42,10 +42,15 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   const [error, setError] = createSignal<string | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
 
-  /** Refreshes the provider catalog so the connected badges update. */
+  /**
+   * Refreshes the provider catalog so the connected badges update. The
+   * same fetch-version guard as load() drops a stale response that lands
+   * after a newer fetch (M5 review).
+   */
   async function refreshProviders(): Promise<void> {
+    const version = ++fetchVersion;
     const list = await service.list();
-    setProviders(props.serverId, list);
+    if (version === fetchVersion) setProviders(props.serverId, list);
   }
 
   let fetchVersion = 0;
@@ -191,6 +196,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                         <input
                           data-testid="provider-key-input"
                           type="password"
+                          autocomplete="new-password"
                           value={draft()}
                           placeholder="••••••••"
                           aria-label={`${provider.name} API key`}
@@ -203,7 +209,9 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                         <button
                           type="button"
                           data-testid="provider-key-save"
-                          disabled={draft().trim() === "" || isBusy()}
+                          // Any in-flight mutation locks every row's actions
+                          // so concurrent saves/removes cannot race (M5 review).
+                          disabled={draft().trim() === "" || busy() !== null}
                           class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => void saveKey(provider.id)}
                         >
@@ -218,7 +226,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                                 ? "border-danger text-danger"
                                 : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
                             }`}
-                            disabled={isBusy()}
+                            disabled={busy() !== null}
                             onClick={() =>
                               confirming()
                                 ? void removeKey(provider.id)

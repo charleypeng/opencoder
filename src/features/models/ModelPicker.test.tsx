@@ -171,6 +171,26 @@ describe("ModelPicker", () => {
     expect(client.get).toHaveBeenCalledWith("/config/providers", undefined);
   });
 
+  it("keeps the provider catalog when the config fetch fails", async () => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/provider") return LIST;
+      if (path === "/config/providers") return Promise.reject(new Error("config boom"));
+      return [];
+    });
+    renderPicker();
+
+    // The catalog still populates: all three provider groups render and
+    // the /provider default record marks openai/gpt-5 as the default.
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    expect(screen.getAllByTestId("model-default")).toHaveLength(1);
+    expect(
+      screen
+        .getByTestId("model-default")
+        .closest("[data-testid='model-item']")
+        ?.getAttribute("data-model"),
+    ).toBe("gpt-5");
+  });
+
   it("grays out an unconnected provider: tag, grayed rows and disabled select", async () => {
     renderPicker();
 
