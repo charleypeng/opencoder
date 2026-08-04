@@ -1,9 +1,18 @@
-// Message history list (TASK-M2-06 / M2-09): the main pane's chat transcript
-// for one session. On mount (and whenever the session changes) the history is
-// fetched from GET /session/{id}/message and merged into the normalized
-// messages store in ONE batched store pass (applyMessageBatch); live SSE
-// updates keep applying on top afterwards (the fetch only upserts, so
-// nothing is ever dropped).
+// Message history list (TASK-M2-06 / M2-09 / M3-05): the main pane's chat
+// transcript for one session. On mount (and whenever the session changes)
+// the MOST RECENT page of history is fetched from GET /session/{id}/message
+// and merged into the normalized messages store in ONE batched store pass
+// (applyMessageBatch); live SSE updates keep applying on top afterwards
+// (the fetch only upserts, so nothing is ever dropped).
+//
+// Pagination (TASK-M3-05): scrolling to the top of the list triggers a load
+// of the next older page (limit + before cursor); the page is PREPENDED to
+// the store so render order stays chronological, deduplicated by message id,
+// and the scroll position is re-anchored to the previously visible content
+// (the viewport's scrollTop grows by exactly the height of the inserted
+// rows), so the list never jumps. A thin spinner sits above the chat area
+// while an earlier page is in flight; when the last page comes back short,
+// hasMore flips false and no further requests are made.
 //
 // Rendering (TASK-M2-09 streaming pipeline):
 // - messages are grouped by id through the store's `messageParts` map, which
@@ -23,14 +32,11 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
-import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
-import { createMessageService } from "../../services/message.js";
-import { getActiveDirectory } from "../../stores/project.js";
-import { applyMessageBatch, messages } from "../../stores/messages.js";
-import type { MessageBatchItem } from "../../stores/messages.js";
+import { messages } from "../../stores/messages.js";
 import MessageBubble from "./MessageBubble.js";
 import { createVirtualList } from "./useVirtualList.js";
+import { usePaginatedMessages } from "./usePaginatedMessages.js";
 import { useStreamingIndicator } from "./useStreamingIndicator.js";
 
 export interface MessageListProps {
@@ -47,6 +53,9 @@ interface MessageGroup {
 
 /** Default height of a message row before measurement, in px. */
 const ROW_ESTIMATE_PX = 96;
+
+/** Scroll offset from the top (px) that triggers loading an older page. */
+const EARLIER_TRIGGER_PX = 40;
 
 // A mounted row: the virtual position plus the group data it renders. Row
 // objects are REUSED (same reference) as long as nothing about them changed,
@@ -72,6 +81,16 @@ const MessageList: Component<MessageListProps> = (props) => {
   let suppressUntil = 0;
   let lastGroupCount = 0;
   let lastDeltaStamp = 0;
+  // True while an older page is being inserted; the follow effect checks it
+  // so a PREPENDED page never flags the "New messages" jump button. It is a
+  // plain ref (not a signal): the effect flush happens after loadEarlier's
+  // synchronous part, so a signal would already read false.
+  let prepending = false;
+
+  const pagination = usePaginatedMessages(
+    () => props.serverId,
+    () => props.sessionId,
+  );
 
   const streaming = useStreamingIndicator(
     () => props.serverId,
@@ -158,11 +177,12 @@ const MessageList: Component<MessageListProps> = (props) => {
 
   // History fetch: re-runs on session/server change and on retry. A version
   // counter rejects stale responses so fast session switches can't apply
-  // the wrong history. The fetch only upserts, so it never clobbers parts
-  // that a live SSE stream already delivered (M2-09).
+  // the wrong history. Only the MOST RECENT page is fetched here — older
+  // pages load lazily via loadEarlier on top-reach (TASK-M3-05).
   createEffect(() => {
-    const serverId = props.serverId;
-    const sessionId = props.sessionId;
+    // Reactive keys: the reads re-run this effect on session/server change.
+    void props.serverId;
+    void props.sessionId;
     loadKey(); // tracked so retry re-runs the fetch
     const version = ++fetchVersion;
     setLoading(true);
@@ -175,19 +195,9 @@ const MessageList: Component<MessageListProps> = (props) => {
     });
     void (async () => {
       try {
-        const service = createMessageService(getApiClient());
-        const history = await service.list(sessionId, { dir: getActiveDirectory() });
+        await pagination.loadInitial();
         if (cancelled || version !== fetchVersion) return;
-        // The service returns { info, parts } pairs: record the message info
-        // and normalize its parts so the store's part order matches history.
-        // Applied in ONE store pass (M2-09) instead of one produce per item.
-        const items: MessageBatchItem[] = [];
-        for (const item of history) {
-          items.push({ type: "message", info: item.info });
-          for (const part of item.parts) items.push({ type: "part", part });
-        }
-        applyMessageBatch(serverId, sessionId, items);
-        if (version === fetchVersion) setLoading(false);
+        setLoading(false);
       } catch (err) {
         if (cancelled || version !== fetchVersion) return;
         setError(ApiError.fromUnknown(err));
@@ -196,15 +206,47 @@ const MessageList: Component<MessageListProps> = (props) => {
     })();
   });
 
+  // Loads the next older page and re-anchors the viewport on the previously
+  // visible content: rows are PREPENDED, so the content below the insertion
+  // point shifts down by exactly the inserted height — restoring the saved
+  // scrollTop plus that height keeps the transcript visually still. The
+  // height delta comes from the virtualizer's (measured) total height, so
+  // real row heights are honored. Earlier-load failures stay silent: the
+  // next top-reach simply retries.
+  async function loadEarlier() {
+    if (pagination.loadingEarlier() || !pagination.hasMore()) return;
+    const el = scrollRef;
+    const anchorTop = el?.scrollTop ?? list.scrollTop();
+    const beforeTotal = list.totalHeight();
+    prepending = true;
+    try {
+      const inserted = await pagination.loadEarlier();
+      if (inserted === 0) return;
+      // Solid flushes effects on a microtask; wait one macrotask so the new
+      // rows are mounted (and measured) before the total height is read.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return;
+      list.measure();
+      const delta = list.totalHeight() - beforeTotal;
+      if (delta > 0) list.scrollTo(anchorTop + delta);
+    } catch {
+      // Handled by the caller's retry on the next scroll.
+    } finally {
+      prepending = false;
+    }
+  }
+
   // Auto-scroll: while the user is not paused, pin the bottom whenever the
   // transcript grows (new groups) or a streamed delta lands; while paused,
   // either one flags the jump button. The lastDeltaAt subscription fires
-  // per delta at O(1) — no part scanning.
+  // per delta at O(1) — no part scanning. A page PREPENDED by pagination
+  // grows the transcript but must never flag the jump button (it is a
+  // history backfill, not new content).
   createEffect(() => {
     const count = groups().length;
     const stamp = messages[props.serverId]?.[props.sessionId]?.lastDeltaAt ?? 0;
     if (count > lastGroupCount || stamp !== lastDeltaStamp) {
-      if (paused()) setHasNew(true);
+      if (paused() && !prepending) setHasNew(true);
     }
     lastGroupCount = count;
     lastDeltaStamp = stamp;
@@ -227,6 +269,11 @@ const MessageList: Component<MessageListProps> = (props) => {
     const el = event.currentTarget as HTMLDivElement;
     list.onScroll(el);
     if (Date.now() < suppressUntil) return;
+    // TASK-M3-05: reaching the top of the list loads the next older page
+    // (scroll position is restored by loadEarlier's re-anchor).
+    if (list.scrollTop() <= EARLIER_TRIGGER_PX) {
+      void loadEarlier();
+    }
     const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;
     if (nearBottom) {
       if (hasNew()) setHasNew(false);
@@ -253,6 +300,18 @@ const MessageList: Component<MessageListProps> = (props) => {
       <Show when={streaming.busy()}>
         <div data-testid="streaming-progress" class="h-0.5 shrink-0" aria-hidden="true">
           <div class="streaming-progress-bar" />
+        </div>
+      </Show>
+      {/* M3-05: thin spinner above the chat area while an older history
+          page loads. It lives OUTSIDE the scroll container so appearing /
+          disappearing never shifts the transcript. */}
+      <Show when={pagination.loadingEarlier()}>
+        <div
+          data-testid="message-loading-earlier"
+          class="flex h-6 shrink-0 items-center justify-center"
+          aria-hidden="true"
+        >
+          <span class="inline-block h-3 w-3 animate-n rounded-full border-2 border-accent border-t-transparent" />
         </div>
       </Show>
       <div

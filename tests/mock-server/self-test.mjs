@@ -354,6 +354,45 @@ try {
       expect(Array.isArray(body) && body.length === 1, `expected 1 entry; got ${body?.length}`);
     });
 
+    // TASK-M3-05: `limit` serves the most recent page (chronological order),
+    // `before` pages strictly older messages (no overlap), unknown ids yield
+    // an empty array and a full page chain walks the whole fixture once.
+    await test("session messages serves the most recent page by default", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
+      expect(status === 200, `status ${status}`);
+      expect(body.length === 1, `expected 1 entry; got ${body?.length}`);
+      expect(body[0].info?.id === "msg_02", `first ${JSON.stringify(body[0]?.info?.id)}`);
+    });
+
+    await test("session messages before pages strictly older messages", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/session/sess_01/message?limit=1&before=msg_02",
+      );
+      expect(status === 200, `status ${status}`);
+      expect(body.length === 1, `expected 1 entry; got ${body?.length}`);
+      expect(body[0].info?.id === "msg_01", `first ${JSON.stringify(body[0]?.info?.id)}`);
+    });
+
+    await test("session messages before with an unknown id returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message?before=msg_nope");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("session messages page chain has no overlap", async () => {
+      const page1 = await request(baseUrl, "/session/sess_01/message?limit=1");
+      const ids1 = page1.body.map((m) => m.info?.id);
+      const page2 = await request(baseUrl, `/session/sess_01/message?limit=1&before=${ids1[0]}`);
+      const ids2 = page2.body.map((m) => m.info?.id);
+      expect(
+        ids1.length === 1 && ids2.length === 1,
+        `pages ${JSON.stringify(ids1)}/${JSON.stringify(ids2)}`,
+      );
+      const overlap = ids1.filter((id) => ids2.includes(id));
+      expect(overlap.length === 0, `overlap ${JSON.stringify(overlap)}`);
+    });
+
     await test("todo returns todo entries", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/todo");
       expect(status === 200, `status ${status}`);

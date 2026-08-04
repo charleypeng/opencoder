@@ -14,14 +14,21 @@ import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-lib
 import MessageList from "./MessageList";
 import type { SessionMessage } from "../../services/message";
 import { ApiError } from "../../services/errors";
-import { applyTextDelta, resetServer as resetMessages } from "../../stores/messages";
+import {
+  applyTextDelta,
+  getServerMessages,
+  resetServer as resetMessages,
+} from "../../stores/messages";
 import { resetServer as resetSessions, setSessionStatus } from "../../stores/session";
+import { HISTORY_PAGE_SIZE } from "./usePaginatedMessages";
 
 import historyFixtureJson from "../../../tests/fixtures/session.messages.json";
 import allPartsFixtureJson from "../../../tests/fixtures/message.stream.all-parts.json";
+import longHistoryFixtureJson from "../../../tests/fixtures/session.messages.long.json";
 
 const historyFixture = historyFixtureJson as unknown as SessionMessage[];
 const allPartsFixture = allPartsFixtureJson as unknown as SessionMessage;
+const longHistoryFixture = longHistoryFixtureJson as unknown as SessionMessage[];
 
 const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
 
@@ -68,6 +75,40 @@ function syntheticHistory(count: number): SessionMessage[] {
     });
   }
   return out;
+}
+
+/**
+ * TASK-M3-05: a client mock that serves a fixed chronological message list
+ * with real pagination semantics (limit = most recent page, before = the
+ * strictly older page, unknown cursor = empty page), like the mock server.
+ * `includeCursor` makes the server echo the cursor message back on paged
+ * responses to exercise the client-side dedupe.
+ */
+type GetCall = (
+  path: string,
+  options?: { query?: Record<string, unknown> },
+) => Promise<SessionMessage[]>;
+
+function paginatedClientFrom(messages: SessionMessage[], includeCursor = false) {
+  const client = {
+    get: vi.fn<GetCall>(() => Promise.resolve([])),
+    post: vi.fn(async () => undefined),
+    patch: vi.fn(async () => undefined),
+    put: vi.fn(async () => undefined),
+    delete: vi.fn(async () => undefined),
+  };
+  getApiClientMock.mockReturnValue(client);
+  client.get.mockImplementation(async (_path, options) => {
+    const query = (options?.query ?? {}) as { limit?: number; before?: string };
+    const limit = typeof query.limit === "number" ? query.limit : messages.length;
+    let window = messages;
+    if (query.before !== undefined) {
+      const index = messages.findIndex((m) => m.info.id === query.before);
+      window = index === -1 ? [] : messages.slice(0, includeCursor ? index + 1 : index);
+    }
+    return window.slice(-limit);
+  });
+  return client;
 }
 
 beforeEach(() => {
@@ -323,4 +364,178 @@ describe("MessageList", () => {
     timeSpy.mockRestore();
     nowSpy.mockRestore();
   });
+});
+
+describe("MessageList pagination (TASK-M3-05)", () => {
+  function storeEntry() {
+    return getServerMessages(SERVER)[SESSION];
+  }
+
+  function topReach(scroll: HTMLElement) {
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 400 });
+    // In jsdom the virtualizer can only learn the viewport from a scroll
+    // event; that first event re-pins the follow (measuring the viewport
+    // triggers the auto-scroll effect), so a second event from the top is
+    // the one that fires the earlier-page load — same as the existing
+    // virtual-list tests, which re-set scrollTop after the first scroll.
+    Object.defineProperty(scroll, "scrollTop", { configurable: true, value: 0, writable: true });
+    fireEvent.scroll(scroll);
+    scroll.scrollTop = 0;
+    fireEvent.scroll(scroll);
+  }
+
+  it("fetches only the most recent page on mount and merges it chronologically", async () => {
+    const client = paginatedClientFrom(longHistoryFixture);
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-msg_l120")).toBeInTheDocument());
+
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(client.get.mock.calls[0][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE });
+    const store = storeEntry();
+    expect(Object.keys(store.infos)).toHaveLength(HISTORY_PAGE_SIZE);
+    expect(store.infos["msg_l71"]).toBeDefined();
+    expect(store.infos["msg_l70"]).toBeUndefined();
+    // The page renders oldest-first inside itself.
+    expect(Object.keys(store.messageParts)[0]).toBe("msg_l71");
+    const pageKeys = Object.keys(store.messageParts);
+    expect(pageKeys[pageKeys.length - 1]).toBe("msg_l120");
+  });
+
+  it("loads older pages on top-reach with scroll preservation and no jump button", async () => {
+    const client = paginatedClientFrom(longHistoryFixture);
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_l120")).toBeInTheDocument());
+
+    topReach(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(2));
+    expect(client.get.mock.calls[1][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_l71",
+    });
+
+    // The older page was PREPENDED: 100 messages, msg_l21..msg_l70 new.
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(100));
+    expect(Object.keys(storeEntry().messageParts)[0]).toBe("msg_l21");
+    expect(storeEntry().infos["msg_l70"]).toBeDefined();
+
+    // Scroll position preserved: scrollTop grew by exactly the inserted rows
+    // (50 rows x 96px estimate in jsdom), so the viewport stays anchored on
+    // the previously visible content and nothing jumps.
+    await waitFor(() => expect(scroll.scrollTop).toBe(50 * 96));
+    expect(screen.getByTestId("message-msg_l71")).toBeInTheDocument();
+    // A prepended page must not flag the "New messages" jump button.
+    expect(screen.queryByTestId("message-jump")).not.toBeInTheDocument();
+  });
+
+  it("shows the loading indicator and never double-requests while a page is in flight", async () => {
+    let release: (page: SessionMessage[]) => void = () => {};
+    const client = {
+      get: vi.fn<GetCall>(() => Promise.resolve([])),
+      post: vi.fn(async () => undefined),
+      patch: vi.fn(async () => undefined),
+      put: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+    getApiClientMock.mockReturnValue(client);
+    client.get.mockImplementation(async (_path, options) => {
+      const query = (options?.query ?? {}) as { before?: string };
+      if (query.before === undefined) return syntheticHistory(120).slice(-HISTORY_PAGE_SIZE);
+      return new Promise<SessionMessage[]>((resolve) => {
+        release = resolve;
+      });
+    });
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_s120")).toBeInTheDocument());
+
+    topReach(scroll);
+    // More scroll events while the page is in flight: still one request.
+    fireEvent.scroll(scroll);
+    fireEvent.scroll(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(2));
+    expect(screen.getByTestId("message-loading-earlier")).toBeInTheDocument();
+
+    release(syntheticHistory(120).slice(0, HISTORY_PAGE_SIZE));
+    await waitFor(() =>
+      expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument(),
+    );
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(100));
+    expect(client.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not request older pages when the first page is short", async () => {
+    const client = paginatedClientFrom(historyFixture);
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_m4")).toBeInTheDocument());
+
+    topReach(scroll);
+    fireEvent.scroll(scroll);
+    expect(client.get).toHaveBeenCalledTimes(1);
+    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
+  });
+
+  it("stops paging when the server ignores the before cursor (replay detection)", async () => {
+    const client = paginatedClientFrom(syntheticHistory(120));
+    const recent = syntheticHistory(120).slice(-HISTORY_PAGE_SIZE);
+    client.get.mockImplementation(async () => recent);
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_s120")).toBeInTheDocument());
+
+    topReach(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(2));
+    // The replayed page adds nothing and hasMore flips false.
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(HISTORY_PAGE_SIZE));
+    fireEvent.scroll(scroll);
+    expect(client.get).toHaveBeenCalledTimes(2);
+  });
+
+  it("dedupes pages that overlap the cursor message", async () => {
+    const client = paginatedClientFrom(syntheticHistory(120), true);
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_s120")).toBeInTheDocument());
+
+    topReach(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(2));
+    await waitFor(() => {
+      const store = storeEntry();
+      // 50 initial + 49 new: the cursor message msg_s71 was already known.
+      expect(Object.keys(store.infos)).toHaveLength(99);
+      expect(store.order).toHaveLength(new Set(store.order).size);
+    });
+  });
+
+  it("walks a 1000+ message transcript in segments without jump or duplicates", async () => {
+    const client = paginatedClientFrom(syntheticHistory(1000));
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_s1000")).toBeInTheDocument());
+
+    for (let page = 2; page <= 20; page++) {
+      topReach(scroll);
+      await waitFor(() => expect(client.get.mock.calls.length).toBe(page));
+      await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(page * 50));
+      // No jump: the viewport stays anchored on the previously visible rows.
+      await waitFor(() => expect(scroll.scrollTop).toBe(50 * 96));
+    }
+
+    const store = storeEntry();
+    expect(Object.keys(store.infos)).toHaveLength(1000);
+    expect(store.order).toHaveLength(1000);
+    expect(new Set(Object.keys(store.infos)).size).toBe(1000);
+    expect(Object.keys(store.messageParts)[0]).toBe("msg_s1");
+    const keys = Object.keys(store.messageParts);
+    expect(keys[keys.length - 1]).toBe("msg_s1000");
+
+    // The last page came back full, so one probe request lands the empty
+    // page and hasMore flips false — further top-reach is a no-op.
+    topReach(scroll);
+    await waitFor(() => expect(client.get.mock.calls.length).toBe(21));
+    expect(Object.keys(storeEntry().infos)).toHaveLength(1000);
+    fireEvent.scroll(scroll);
+    expect(client.get.mock.calls.length).toBe(21);
+  }, 15000);
 });

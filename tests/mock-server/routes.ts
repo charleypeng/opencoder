@@ -174,14 +174,24 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     res.json(true);
   });
 
-  // Messages honor the `limit` pagination param so client-side pagination
-  // can be contract-tested against the mock.
+  // Messages honor the `limit`/`before` pagination params (TASK-M2-01 /
+  // TASK-M3-05): the fixture list is chronological (oldest first), `limit`
+  // without `before` serves the MOST RECENT page (last `limit` entries) and
+  // `before` pages strictly older than the given message id (combined with
+  // `limit`; unknown ids yield an empty array). The client opens the
+  // transcript with the recent page and walks backwards with `before`.
   app.get("/session/:sessionID/message", (req, res) => {
     const messages = Array.isArray(fixtures["session.messages"])
       ? fixtures["session.messages"]
       : [];
     const limit = Number(req.query.limit);
-    const sliced = Number.isInteger(limit) && limit > 0 ? messages.slice(0, limit) : messages;
+    const before = queryString(req, "before");
+    let window = messages;
+    if (before !== undefined) {
+      const index = messages.findIndex((m) => m.info?.id === before);
+      window = index === -1 ? [] : messages.slice(0, index);
+    }
+    const sliced = Number.isInteger(limit) && limit > 0 ? window.slice(-limit) : window;
     res.json(sliced);
   });
 }

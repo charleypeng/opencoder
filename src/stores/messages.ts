@@ -159,18 +159,30 @@ function syncMessageParts(entry: SessionMessages): void {
  * Inserts a part into the normalized table, appending to order when new.
  * A new part id also updates `messageParts` (replacing the map wholesale, so
  * grouping subscribers fire once) and bumps `lastDeltaAt`.
+ *
+ * TASK-M3-05 prepend: an older history page lands in FRONT of the already
+ * loaded transcript — new part ids unshift the order and the message group
+ * is inserted at the head of the grouping map, so render order always
+ * matches server history.
  */
 function putPartDraft(
   bucket: Record<string, SessionMessages>,
   sessionId: string,
   part: Part,
+  prepend = false,
 ): void {
   if (typeof part?.id !== "string") return;
   const entry = bucket[sessionId] ?? freshSessionMessages();
   if (!(part.id in entry.parts)) {
-    entry.order.push(part.id);
-    const ids = entry.messageParts[part.messageID] ?? [];
-    entry.messageParts = { ...entry.messageParts, [part.messageID]: [...ids, part.id] };
+    if (prepend) {
+      entry.order.unshift(part.id);
+      const ids = entry.messageParts[part.messageID] ?? [];
+      entry.messageParts = { [part.messageID]: [part.id, ...ids], ...entry.messageParts };
+    } else {
+      entry.order.push(part.id);
+      const ids = entry.messageParts[part.messageID] ?? [];
+      entry.messageParts = { ...entry.messageParts, [part.messageID]: [...ids, part.id] };
+    }
   }
   entry.parts[part.id] = part;
   entry.lastDeltaAt = Date.now();
@@ -183,20 +195,24 @@ function putPartDraft(
  * carried on the info payload (recorded session messages use a
  * { info, parts } shape; the event schema itself has no parts), then runs
  * the pending-message reconciliation (TASK-M2-08, see reconcilePendingDraft).
+ *
+ * TASK-M3-05 prepend: an older history page keeps its metadata in `infos`
+ * but must NOT overwrite the most-recent info slot with an older message.
  */
 function upsertMessageDraft(
   bucket: Record<string, SessionMessages>,
   sessionId: string,
   key: string,
   info: Message,
+  opts: { prepend?: boolean } = {},
 ): void {
   const entry = bucket[sessionId] ?? freshSessionMessages();
-  entry.info = info;
+  if (!opts.prepend) entry.info = info;
   entry.infos[info.id] = info;
   bucket[sessionId] = entry;
   const carried = (info as Message & { parts?: unknown }).parts;
   if (Array.isArray(carried)) {
-    for (const part of carried) putPartDraft(bucket, sessionId, part as Part);
+    for (const part of carried) putPartDraft(bucket, sessionId, part as Part, opts.prepend);
   }
   reconcilePendingDraft(bucket, sessionId, key, info.id, info.role, carried as Part[] | undefined);
 }
@@ -336,8 +352,9 @@ function applyPartDeltaDraft(
   sessionId: string,
   key: string,
   part: Part,
+  prepend = false,
 ): void {
-  putPartDraft(bucket, sessionId, part);
+  putPartDraft(bucket, sessionId, part, prepend);
   maybeReconcileOnPartDraft(bucket, sessionId, key, part.messageID, part);
 }
 
@@ -414,27 +431,41 @@ export function applyTextDelta(serverId: string, sessionId: string, delta: PartD
  * Item order is preserved; reconciliation semantics are identical to the
  * single-item API (each item is applied as if it were the only one, in
  * sequence). Used by MessageList's history fetch.
+ *
+ * TASK-M3-05: with `{ prepend: true }` the items land in FRONT of the loaded
+ * history (an older page) instead of at the end, and the most-recent info
+ * slot is left untouched.
  */
 export type MessageBatchItem =
   | { type: "message"; info: Message }
   | { type: "part"; part: Part }
   | { type: "delta"; delta: PartDelta };
 
+export interface MessageBatchOptions {
+  /** Insert the batch in front of the existing history (TASK-M3-05). */
+  prepend?: boolean;
+}
+
 export function applyMessageBatch(
   serverId: string,
   sessionId: string,
   items: MessageBatchItem[],
+  options: MessageBatchOptions = {},
 ): void {
   if (items.length === 0) return;
   const key = pendingKey(serverId, sessionId);
   updateServer(serverId, (bucket) => {
-    for (const item of items) {
+    // TASK-M3-05: a prepend inserts each new item at the HEAD, so applying
+    // the page in reverse keeps the page's internal order (chronological
+    // oldest first) intact once every item has landed.
+    const ordered = options.prepend ? [...items].reverse() : items;
+    for (const item of ordered) {
       switch (item.type) {
         case "message":
-          upsertMessageDraft(bucket, sessionId, key, item.info);
+          upsertMessageDraft(bucket, sessionId, key, item.info, options);
           break;
         case "part":
-          applyPartDeltaDraft(bucket, sessionId, key, item.part);
+          applyPartDeltaDraft(bucket, sessionId, key, item.part, options.prepend);
           break;
         case "delta":
           if (typeof item.delta?.partID !== "string" || typeof item.delta.delta !== "string") {

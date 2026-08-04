@@ -23,7 +23,7 @@
 | `GET /session` / `POST /session` | 会话列表/创建 | M2 |
 | `GET /session/{id}` / `PATCH` / `DELETE` | 会话详情/改名/删除 | M2 |
 | `GET /session/status` | 全部会话运行状态（忙碌/空闲/重试） | M2 |
-| `GET /session/{id}/message` | 消息历史（分页 `limit`/`before`） | M2 |
+| `GET /session/{id}/message` | 消息历史（分页 `limit`/`before`；`limit` 无游标时返回最近一页，`before` 为消息 id 游标、仅返回更早消息，未知 id 返回空数组） | M2（M3-05 分页语义） |
 | `POST /session/{id}/prompt_async` | 发送消息（异步，配合 SSE 流式渲染） | M2 |
 | `POST /session/{id}/abort` | 中断生成 | M2 |
 

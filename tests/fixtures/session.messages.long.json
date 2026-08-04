@@ -1,0 +1,2882 @@
+[
+  {
+    "info": {
+      "id": "msg_l1",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000060000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l1",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l1",
+        "type": "text",
+        "text": "Long fixture message 1"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l2",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000120000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l2",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l2",
+        "type": "text",
+        "text": "Long fixture message 2"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l3",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000180000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l3",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l3",
+        "type": "text",
+        "text": "Long fixture message 3"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l4",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000240000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l4",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l4",
+        "type": "text",
+        "text": "Long fixture message 4"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l5",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000300000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l5",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l5",
+        "type": "text",
+        "text": "Long fixture message 5"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l6",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000360000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l6",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l6",
+        "type": "text",
+        "text": "Long fixture message 6"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l7",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000420000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l7",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l7",
+        "type": "text",
+        "text": "Long fixture message 7"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l8",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000480000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l8",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l8",
+        "type": "text",
+        "text": "Long fixture message 8"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l9",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000540000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l9",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l9",
+        "type": "text",
+        "text": "Long fixture message 9"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l10",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000600000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l10",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l10",
+        "type": "text",
+        "text": "Long fixture message 10"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l11",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000660000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l11",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l11",
+        "type": "text",
+        "text": "Long fixture message 11"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l12",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000720000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l12",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l12",
+        "type": "text",
+        "text": "Long fixture message 12"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l13",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000780000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l13",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l13",
+        "type": "text",
+        "text": "Long fixture message 13"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l14",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000840000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l14",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l14",
+        "type": "text",
+        "text": "Long fixture message 14"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l15",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750000900000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l15",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l15",
+        "type": "text",
+        "text": "Long fixture message 15"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l16",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750000960000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l16",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l16",
+        "type": "text",
+        "text": "Long fixture message 16"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l17",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001020000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l17",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l17",
+        "type": "text",
+        "text": "Long fixture message 17"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l18",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001080000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l18",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l18",
+        "type": "text",
+        "text": "Long fixture message 18"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l19",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001140000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l19",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l19",
+        "type": "text",
+        "text": "Long fixture message 19"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l20",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001200000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l20",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l20",
+        "type": "text",
+        "text": "Long fixture message 20"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l21",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001260000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l21",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l21",
+        "type": "text",
+        "text": "Long fixture message 21"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l22",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001320000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l22",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l22",
+        "type": "text",
+        "text": "Long fixture message 22"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l23",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001380000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l23",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l23",
+        "type": "text",
+        "text": "Long fixture message 23"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l24",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001440000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l24",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l24",
+        "type": "text",
+        "text": "Long fixture message 24"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l25",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001500000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l25",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l25",
+        "type": "text",
+        "text": "Long fixture message 25"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l26",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001560000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l26",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l26",
+        "type": "text",
+        "text": "Long fixture message 26"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l27",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001620000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l27",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l27",
+        "type": "text",
+        "text": "Long fixture message 27"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l28",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001680000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l28",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l28",
+        "type": "text",
+        "text": "Long fixture message 28"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l29",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001740000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l29",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l29",
+        "type": "text",
+        "text": "Long fixture message 29"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l30",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001800000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l30",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l30",
+        "type": "text",
+        "text": "Long fixture message 30"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l31",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001860000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l31",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l31",
+        "type": "text",
+        "text": "Long fixture message 31"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l32",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750001920000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l32",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l32",
+        "type": "text",
+        "text": "Long fixture message 32"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l33",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750001980000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l33",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l33",
+        "type": "text",
+        "text": "Long fixture message 33"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l34",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002040000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l34",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l34",
+        "type": "text",
+        "text": "Long fixture message 34"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l35",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002100000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l35",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l35",
+        "type": "text",
+        "text": "Long fixture message 35"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l36",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002160000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l36",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l36",
+        "type": "text",
+        "text": "Long fixture message 36"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l37",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002220000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l37",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l37",
+        "type": "text",
+        "text": "Long fixture message 37"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l38",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002280000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l38",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l38",
+        "type": "text",
+        "text": "Long fixture message 38"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l39",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002340000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l39",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l39",
+        "type": "text",
+        "text": "Long fixture message 39"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l40",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002400000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l40",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l40",
+        "type": "text",
+        "text": "Long fixture message 40"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l41",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002460000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l41",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l41",
+        "type": "text",
+        "text": "Long fixture message 41"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l42",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002520000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l42",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l42",
+        "type": "text",
+        "text": "Long fixture message 42"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l43",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002580000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l43",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l43",
+        "type": "text",
+        "text": "Long fixture message 43"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l44",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002640000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l44",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l44",
+        "type": "text",
+        "text": "Long fixture message 44"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l45",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002700000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l45",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l45",
+        "type": "text",
+        "text": "Long fixture message 45"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l46",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002760000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l46",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l46",
+        "type": "text",
+        "text": "Long fixture message 46"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l47",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002820000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l47",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l47",
+        "type": "text",
+        "text": "Long fixture message 47"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l48",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750002880000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l48",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l48",
+        "type": "text",
+        "text": "Long fixture message 48"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l49",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750002940000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l49",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l49",
+        "type": "text",
+        "text": "Long fixture message 49"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l50",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003000000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l50",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l50",
+        "type": "text",
+        "text": "Long fixture message 50"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l51",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003060000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l51",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l51",
+        "type": "text",
+        "text": "Long fixture message 51"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l52",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003120000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l52",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l52",
+        "type": "text",
+        "text": "Long fixture message 52"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l53",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003180000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l53",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l53",
+        "type": "text",
+        "text": "Long fixture message 53"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l54",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003240000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l54",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l54",
+        "type": "text",
+        "text": "Long fixture message 54"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l55",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003300000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l55",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l55",
+        "type": "text",
+        "text": "Long fixture message 55"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l56",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003360000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l56",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l56",
+        "type": "text",
+        "text": "Long fixture message 56"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l57",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003420000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l57",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l57",
+        "type": "text",
+        "text": "Long fixture message 57"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l58",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003480000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l58",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l58",
+        "type": "text",
+        "text": "Long fixture message 58"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l59",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003540000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l59",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l59",
+        "type": "text",
+        "text": "Long fixture message 59"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l60",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003600000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l60",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l60",
+        "type": "text",
+        "text": "Long fixture message 60"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l61",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003660000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l61",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l61",
+        "type": "text",
+        "text": "Long fixture message 61"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l62",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003720000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l62",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l62",
+        "type": "text",
+        "text": "Long fixture message 62"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l63",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003780000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l63",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l63",
+        "type": "text",
+        "text": "Long fixture message 63"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l64",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003840000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l64",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l64",
+        "type": "text",
+        "text": "Long fixture message 64"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l65",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750003900000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l65",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l65",
+        "type": "text",
+        "text": "Long fixture message 65"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l66",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750003960000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l66",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l66",
+        "type": "text",
+        "text": "Long fixture message 66"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l67",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004020000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l67",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l67",
+        "type": "text",
+        "text": "Long fixture message 67"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l68",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004080000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l68",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l68",
+        "type": "text",
+        "text": "Long fixture message 68"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l69",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004140000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l69",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l69",
+        "type": "text",
+        "text": "Long fixture message 69"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l70",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004200000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l70",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l70",
+        "type": "text",
+        "text": "Long fixture message 70"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l71",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004260000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l71",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l71",
+        "type": "text",
+        "text": "Long fixture message 71"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l72",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004320000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l72",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l72",
+        "type": "text",
+        "text": "Long fixture message 72"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l73",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004380000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l73",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l73",
+        "type": "text",
+        "text": "Long fixture message 73"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l74",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004440000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l74",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l74",
+        "type": "text",
+        "text": "Long fixture message 74"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l75",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004500000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l75",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l75",
+        "type": "text",
+        "text": "Long fixture message 75"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l76",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004560000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l76",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l76",
+        "type": "text",
+        "text": "Long fixture message 76"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l77",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004620000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l77",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l77",
+        "type": "text",
+        "text": "Long fixture message 77"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l78",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004680000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l78",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l78",
+        "type": "text",
+        "text": "Long fixture message 78"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l79",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004740000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l79",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l79",
+        "type": "text",
+        "text": "Long fixture message 79"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l80",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004800000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l80",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l80",
+        "type": "text",
+        "text": "Long fixture message 80"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l81",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004860000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l81",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l81",
+        "type": "text",
+        "text": "Long fixture message 81"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l82",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750004920000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l82",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l82",
+        "type": "text",
+        "text": "Long fixture message 82"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l83",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750004980000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l83",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l83",
+        "type": "text",
+        "text": "Long fixture message 83"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l84",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005040000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l84",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l84",
+        "type": "text",
+        "text": "Long fixture message 84"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l85",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005100000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l85",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l85",
+        "type": "text",
+        "text": "Long fixture message 85"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l86",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005160000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l86",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l86",
+        "type": "text",
+        "text": "Long fixture message 86"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l87",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005220000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l87",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l87",
+        "type": "text",
+        "text": "Long fixture message 87"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l88",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005280000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l88",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l88",
+        "type": "text",
+        "text": "Long fixture message 88"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l89",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005340000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l89",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l89",
+        "type": "text",
+        "text": "Long fixture message 89"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l90",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005400000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l90",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l90",
+        "type": "text",
+        "text": "Long fixture message 90"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l91",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005460000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l91",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l91",
+        "type": "text",
+        "text": "Long fixture message 91"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l92",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005520000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l92",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l92",
+        "type": "text",
+        "text": "Long fixture message 92"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l93",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005580000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l93",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l93",
+        "type": "text",
+        "text": "Long fixture message 93"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l94",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005640000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l94",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l94",
+        "type": "text",
+        "text": "Long fixture message 94"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l95",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005700000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l95",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l95",
+        "type": "text",
+        "text": "Long fixture message 95"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l96",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005760000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l96",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l96",
+        "type": "text",
+        "text": "Long fixture message 96"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l97",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005820000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l97",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l97",
+        "type": "text",
+        "text": "Long fixture message 97"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l98",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750005880000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l98",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l98",
+        "type": "text",
+        "text": "Long fixture message 98"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l99",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750005940000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l99",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l99",
+        "type": "text",
+        "text": "Long fixture message 99"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l100",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006000000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l100",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l100",
+        "type": "text",
+        "text": "Long fixture message 100"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l101",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006060000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l101",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l101",
+        "type": "text",
+        "text": "Long fixture message 101"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l102",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006120000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l102",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l102",
+        "type": "text",
+        "text": "Long fixture message 102"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l103",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006180000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l103",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l103",
+        "type": "text",
+        "text": "Long fixture message 103"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l104",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006240000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l104",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l104",
+        "type": "text",
+        "text": "Long fixture message 104"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l105",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006300000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l105",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l105",
+        "type": "text",
+        "text": "Long fixture message 105"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l106",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006360000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l106",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l106",
+        "type": "text",
+        "text": "Long fixture message 106"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l107",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006420000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l107",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l107",
+        "type": "text",
+        "text": "Long fixture message 107"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l108",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006480000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l108",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l108",
+        "type": "text",
+        "text": "Long fixture message 108"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l109",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006540000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l109",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l109",
+        "type": "text",
+        "text": "Long fixture message 109"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l110",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006600000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l110",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l110",
+        "type": "text",
+        "text": "Long fixture message 110"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l111",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006660000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l111",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l111",
+        "type": "text",
+        "text": "Long fixture message 111"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l112",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006720000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l112",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l112",
+        "type": "text",
+        "text": "Long fixture message 112"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l113",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006780000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l113",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l113",
+        "type": "text",
+        "text": "Long fixture message 113"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l114",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006840000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l114",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l114",
+        "type": "text",
+        "text": "Long fixture message 114"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l115",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750006900000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l115",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l115",
+        "type": "text",
+        "text": "Long fixture message 115"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l116",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750006960000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l116",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l116",
+        "type": "text",
+        "text": "Long fixture message 116"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l117",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750007020000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l117",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l117",
+        "type": "text",
+        "text": "Long fixture message 117"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l118",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750007080000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l118",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l118",
+        "type": "text",
+        "text": "Long fixture message 118"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l119",
+      "sessionID": "ses_abc123",
+      "role": "user",
+      "time": {
+        "created": 1750007140000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l119",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l119",
+        "type": "text",
+        "text": "Long fixture message 119"
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_l120",
+      "sessionID": "ses_abc123",
+      "role": "assistant",
+      "time": {
+        "created": 1750007200000
+      },
+      "agent": "build",
+      "model": {
+        "providerID": "openai",
+        "modelID": "gpt-5"
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_l120",
+        "sessionID": "ses_abc123",
+        "messageID": "msg_l120",
+        "type": "text",
+        "text": "Long fixture message 120"
+      }
+    ]
+  }
+]

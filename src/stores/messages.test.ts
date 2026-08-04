@@ -604,4 +604,77 @@ describe("messages store", () => {
       expect(messages["srv-msg"][SESSION].order).toEqual(["prt_solo"]);
     });
   });
+
+  describe("TASK-M3-05 pagination prepend", () => {
+    it("prepends an older page in front of the loaded history", () => {
+      // The recent page lands first (normal append semantics)…
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: userMessage("msg_3") },
+        { type: "part", part: { ...textPart("prt_3", "recent"), messageID: "msg_3" } as Part },
+      ]);
+      // …then the older page arrives and must render BEFORE it.
+      applyMessageBatch(
+        "srv-msg",
+        SESSION,
+        [
+          { type: "message", info: userMessage("msg_1") },
+          { type: "part", part: { ...textPart("prt_1", "old"), messageID: "msg_1" } as Part },
+          { type: "message", info: userMessage("msg_2") },
+          { type: "part", part: { ...textPart("prt_2", "older"), messageID: "msg_2" } as Part },
+        ],
+        { prepend: true },
+      );
+
+      const entry = messages["srv-msg"][SESSION];
+      expect(entry.order).toEqual(["prt_1", "prt_2", "prt_3"]);
+      expect(entry.messageParts).toEqual({ msg_1: ["prt_1"], msg_2: ["prt_2"], msg_3: ["prt_3"] });
+      expect(Object.keys(entry.messageParts)).toEqual(["msg_1", "msg_2", "msg_3"]);
+    });
+
+    it("keeps the most recent info slot when prepending older messages", () => {
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: userMessage("msg_2") },
+        { type: "part", part: { ...textPart("prt_2", "b"), messageID: "msg_2" } as Part },
+      ]);
+      applyMessageBatch(
+        "srv-msg",
+        SESSION,
+        [
+          { type: "message", info: userMessage("msg_1") },
+          { type: "part", part: { ...textPart("prt_1", "a"), messageID: "msg_1" } as Part },
+        ],
+        { prepend: true },
+      );
+
+      const entry = messages["srv-msg"][SESSION];
+      expect(entry.info?.id).toBe("msg_2");
+      expect(Object.keys(entry.infos).sort()).toEqual(["msg_1", "msg_2"]);
+    });
+
+    it("dedupes a message that appears in both pages", () => {
+      // Page 1 covers msg_1..msg_3; page 2 overlaps at msg_2.
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: userMessage("msg_2") },
+        { type: "part", part: { ...textPart("prt_2", "b"), messageID: "msg_2" } as Part },
+        { type: "message", info: userMessage("msg_3") },
+        { type: "part", part: { ...textPart("prt_3", "c"), messageID: "msg_3" } as Part },
+      ]);
+      applyMessageBatch(
+        "srv-msg",
+        SESSION,
+        [
+          { type: "message", info: userMessage("msg_1") },
+          { type: "part", part: { ...textPart("prt_1", "a"), messageID: "msg_1" } as Part },
+          { type: "message", info: userMessage("msg_2") },
+          { type: "part", part: { ...textPart("prt_2", "b"), messageID: "msg_2" } as Part },
+        ],
+        { prepend: true },
+      );
+
+      const entry = messages["srv-msg"][SESSION];
+      expect(entry.order).toEqual(["prt_1", "prt_2", "prt_3"]);
+      expect(entry.messageParts).toEqual({ msg_1: ["prt_1"], msg_2: ["prt_2"], msg_3: ["prt_3"] });
+      expect(entry.order).toHaveLength(new Set(entry.order).size);
+    });
+  });
 });
