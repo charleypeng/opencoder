@@ -1,5 +1,6 @@
-// L2 tests for the text part (TASK-M2-06): plain text rendering with
-// preserved whitespace (markdown rendering lands in TASK-M2-07).
+// L2 tests for the text part (TASK-M2-07): the part text renders through
+// the markdown pipeline (plain pre-wrap was replaced by markdown rendering
+// in this task).
 
 import { describe, expect, it } from "vitest";
 import { render, screen } from "@solidjs/testing-library";
@@ -15,12 +16,17 @@ describe("TextPart", () => {
     expect(screen.getByTestId("text-part")).toHaveTextContent("Hello world");
   });
 
-  it("preserves whitespace and line breaks", () => {
-    render(() => <TextPart part={textPart("line one\n\nline two   spaced")} />);
+  it("renders markdown structure", () => {
+    render(() => <TextPart part={textPart("## Heading\n\nSome **bold** text")} />);
     const el = screen.getByTestId("text-part");
-    expect(el).toHaveTextContent("line one");
-    // jest-dom normalizes whitespace, so the multi-space run collapses.
-    expect(el).toHaveTextContent("line two spaced");
-    expect(el.className).toContain("whitespace-pre-wrap");
+    expect(el.querySelector("h2")?.textContent).toBe("Heading");
+    expect(el.querySelector("strong")?.textContent).toBe("bold");
+  });
+
+  it("escapes raw HTML in the source", () => {
+    render(() => <TextPart part={textPart("<script>alert(1)</script>")} />);
+    const el = screen.getByTestId("text-part");
+    expect(el.querySelector("script")).toBeNull();
+    expect(el.textContent).toContain("<script>alert(1)</script>");
   });
 });

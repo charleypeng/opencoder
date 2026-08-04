@@ -22,10 +22,18 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
           >
             <div
-              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
               data-testid="text-part"
             >
-              Add a login flow with password-based auth.
+              <div
+                class="markdown-body text-sm leading-relaxed"
+                data-testid="markdown-text"
+              >
+                <p>
+                  Add a login flow with password-based auth.
+                </p>
+                
+
+              </div>
             </div>
           </div>
           <span
@@ -73,10 +81,18 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               
             </div>
             <div
-              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
               data-testid="text-part"
             >
-              Let me check the existing project structure first.
+              <div
+                class="markdown-body text-sm leading-relaxed"
+                data-testid="markdown-text"
+              >
+                <p>
+                  Let me check the existing project structure first.
+                </p>
+                
+
+              </div>
             </div>
             <div
               class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
@@ -175,10 +191,18 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
           >
             <div
-              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
               data-testid="text-part"
             >
-              Also add a logout button to the sidebar.
+              <div
+                class="markdown-body text-sm leading-relaxed"
+                data-testid="markdown-text"
+              >
+                <p>
+                  Also add a logout button to the sidebar.
+                </p>
+                
+
+              </div>
             </div>
           </div>
           <span
@@ -197,10 +221,18 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
           >
             <div
-              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
               data-testid="text-part"
             >
-              Done. The sidebar now shows a logout button in the account section.
+              <div
+                class="markdown-body text-sm leading-relaxed"
+                data-testid="markdown-text"
+              >
+                <p>
+                  Done. The sidebar now shows a logout button in the account section.
+                </p>
+                
+
+              </div>
             </div>
           </div>
           <span
