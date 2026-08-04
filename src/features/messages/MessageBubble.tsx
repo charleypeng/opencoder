@@ -14,6 +14,7 @@ import { createMemo, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
+import MessageActions from "./MessageActions.js";
 import AgentPart from "./parts/AgentPart.js";
 import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
@@ -37,6 +38,9 @@ export interface MessageBubbleProps {
   partIds: string[];
   /** Shows the breathing caret on the message's last text part. */
   typing?: boolean;
+  /** Opens the M4 diff view for this message (wired by M4-07); while
+   *  absent the message menu's "View diff" item stays disabled. */
+  onViewDiff?: (messageID: string) => void;
 }
 
 type RenderablePart = Extract<
@@ -143,10 +147,12 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
 
   return (
     <Show when={hasRenderable()}>
-      <div
-        data-testid={`message-${props.messageID}`}
-        data-role={role()}
-        class={`flex flex-col gap-1 ${user() ? "items-end" : "items-start"}`}
+      <MessageActions
+        serverId={props.serverId}
+        sessionId={props.sessionId}
+        messageID={props.messageID}
+        partIds={props.partIds}
+        onViewDiff={props.onViewDiff}
       >
         <div
           class={`max-w-[78%] rounded-lg px-3 py-2 ${
@@ -172,7 +178,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
             {formatMessageTime(created() as number)}
           </span>
         </Show>
-      </div>
+      </MessageActions>
     </Show>
   );
 };

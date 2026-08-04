@@ -19,6 +19,7 @@ import {
   removePart,
   removePartsForMessage,
   resetServer,
+  restoreMessage,
   trackPendingLocalMessage,
   untrackPendingLocalMessage,
   upsertMessage,
@@ -232,6 +233,69 @@ describe("messages store", () => {
     applyPartDelta("srv-msg", SESSION, textPart("prt_a", "a"));
     removeMessage("srv-msg", SESSION);
     expect(messages["srv-msg"][SESSION]).toBeUndefined();
+  });
+
+  it("restoreMessage re-inserts info and parts at the recorded order position", () => {
+    // A full transcript: user msg (prt_1), assistant msg (prt_2, prt_3).
+    upsertMessage("srv-msg", SESSION, userMessage("msg_user"));
+    applyPartDelta("srv-msg", SESSION, { ...textPart("prt_1", "one"), messageID: "msg_user" });
+    upsertMessage("srv-msg", SESSION, assistantMessage(MSG_ASSISTANT));
+    applyPartDelta("srv-msg", SESSION, textPart("prt_2", "two"));
+    applyPartDelta("srv-msg", SESSION, textPart("prt_3", "three"));
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.order).toEqual(["prt_1", "prt_2", "prt_3"]);
+
+    // Delete the assistant message optimistically, then roll it back.
+    removePartsForMessage("srv-msg", SESSION, MSG_ASSISTANT);
+    expect(messages["srv-msg"][SESSION].order).toEqual(["prt_1"]);
+
+    restoreMessage(
+      "srv-msg",
+      SESSION,
+      assistantMessage(MSG_ASSISTANT),
+      [textPart("prt_2", "two"), textPart("prt_3", "three")],
+      1, // first part sat at index 1 before the removal
+    );
+    const restored = messages["srv-msg"][SESSION];
+    expect(restored.order).toEqual(["prt_1", "prt_2", "prt_3"]);
+    expect(textOf(restored.parts["prt_2"])).toBe("two");
+    expect(textOf(restored.parts["prt_3"])).toBe("three");
+    expect(restored.infos[MSG_ASSISTANT].id).toBe(MSG_ASSISTANT);
+    expect(restored.info?.id).toBe(MSG_ASSISTANT);
+    expect(restored.messageParts[MSG_ASSISTANT]).toEqual(["prt_2", "prt_3"]);
+  });
+
+  it("restoreMessage restores a latest-message info slot and restores info without parts", () => {
+    upsertMessage("srv-msg", SESSION, userMessage("msg_user"));
+    applyPartDelta("srv-msg", SESSION, { ...textPart("prt_1", "one"), messageID: "msg_user" });
+    removePartsForMessage("srv-msg", SESSION, "msg_user");
+    expect(messages["srv-msg"][SESSION].info).toBeNull();
+
+    // Metadata-only message: the info (and the latest slot) come back
+    // without any parts.
+    restoreMessage("srv-msg", SESSION, userMessage("msg_user"), [], 0);
+    const restored = messages["srv-msg"][SESSION];
+    expect(restored.info?.id).toBe("msg_user");
+    expect(restored.infos["msg_user"].id).toBe("msg_user");
+    expect(restored.order).toEqual([]);
+  });
+
+  it("restoreMessage clamps an out-of-range order index", () => {
+    upsertMessage("srv-msg", SESSION, userMessage("msg_user"));
+    applyPartDelta("srv-msg", SESSION, { ...textPart("prt_1", "one"), messageID: "msg_user" });
+    applyPartDelta("srv-msg", SESSION, textPart("prt_2", "two"));
+    removePartsForMessage("srv-msg", SESSION, "msg_user");
+
+    // The recorded index is stale (the message was the latest when the
+    // snapshot was taken); the restore appends instead of losing the part.
+    restoreMessage(
+      "srv-msg",
+      SESSION,
+      userMessage("msg_user"),
+      [{ ...textPart("prt_1", "one"), messageID: "msg_user" }],
+      2,
+    );
+    expect(messages["srv-msg"][SESSION].order).toEqual(["prt_2", "prt_1"]);
   });
 
   it("keeps servers independent and resetServer clears only its own bucket", () => {

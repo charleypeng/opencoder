@@ -22,7 +22,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 0px;"
         >
           <div
-            class="flex flex-col gap-1 items-end"
+            class="group relative flex flex-col gap-1 items-end"
             data-role="user"
             data-testid="message-msg_m1"
           >
@@ -51,6 +51,21 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             >
               10:26
             </span>
+            <button
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-label="Message actions"
+              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-closed=""
+              data-testid="message-actions"
+              id="dropdownmenu-cl-206-trigger"
+              type="button"
+            >
+              ⋯
+            </button>
+            
+            
+            
           </div>
         </div>
         <div
@@ -59,7 +74,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 96px;"
         >
           <div
-            class="flex flex-col gap-1 items-start"
+            class="group relative flex flex-col gap-1 items-start"
             data-role="assistant"
             data-testid="message-msg_m2"
           >
@@ -242,6 +257,21 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             >
               10:26
             </span>
+            <button
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-label="Message actions"
+              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-closed=""
+              data-testid="message-actions"
+              id="dropdownmenu-cl-208-trigger"
+              type="button"
+            >
+              ⋯
+            </button>
+            
+            
+            
           </div>
         </div>
         <div
@@ -250,7 +280,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 192px;"
         >
           <div
-            class="flex flex-col gap-1 items-end"
+            class="group relative flex flex-col gap-1 items-end"
             data-role="user"
             data-testid="message-msg_m3"
           >
@@ -279,6 +309,21 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             >
               10:26
             </span>
+            <button
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-label="Message actions"
+              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-closed=""
+              data-testid="message-actions"
+              id="dropdownmenu-cl-210-trigger"
+              type="button"
+            >
+              ⋯
+            </button>
+            
+            
+            
           </div>
         </div>
         <div
@@ -287,7 +332,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 288px;"
         >
           <div
-            class="flex flex-col gap-1 items-start"
+            class="group relative flex flex-col gap-1 items-start"
             data-role="assistant"
             data-testid="message-msg_m4"
           >
@@ -316,6 +361,21 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             >
               10:26
             </span>
+            <button
+              aria-expanded="false"
+              aria-haspopup="true"
+              aria-label="Message actions"
+              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-closed=""
+              data-testid="message-actions"
+              id="dropdownmenu-cl-212-trigger"
+              type="button"
+            >
+              ⋯
+            </button>
+            
+            
+            
           </div>
         </div>
       </div>

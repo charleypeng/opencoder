@@ -23,6 +23,14 @@ function messagePath(sessionID: string, messageID?: string): ApiPath {
   return `/session/${sessionID}/message${messageID ? `/${messageID}` : ""}` as ApiPath;
 }
 
+function partPath(sessionID: string, messageID: string, partID: string): ApiPath {
+  return `/session/${sessionID}/message/${messageID}/part/${partID}` as ApiPath;
+}
+
+function dirQuery(dir?: string): { query: { directory: string } } | undefined {
+  return dir === undefined ? undefined : { query: { directory: dir } };
+}
+
 export function createMessageService(client: ApiClient) {
   return {
     /** List messages of a session with optional pagination. */
@@ -35,10 +43,25 @@ export function createMessageService(client: ApiClient) {
     },
     /** Retrieve a specific message by id. */
     get: (sessionID: string, messageID: string, dir?: string) =>
-      client.get<SessionMessage>(
-        messagePath(sessionID, messageID),
-        dir === undefined ? undefined : { query: { directory: dir } },
-      ),
+      client.get<SessionMessage>(messagePath(sessionID, messageID), dirQuery(dir)),
+    /** Delete a message (TASK-M3-06). Resolves to true on success. */
+    remove: (sessionID: string, messageID: string, dir?: string) =>
+      client.delete<boolean>(messagePath(sessionID, messageID), dirQuery(dir)),
+    /** Patch one part of a message (edit-resend basis, TASK-M3-06). */
+    updatePart: (
+      sessionID: string,
+      messageID: string,
+      partID: string,
+      part: components["schemas"]["Part"],
+      dir?: string,
+    ) =>
+      client.patch<components["schemas"]["Part"]>(partPath(sessionID, messageID, partID), {
+        body: part,
+        ...dirQuery(dir),
+      }),
+    /** Delete one part of a message (TASK-M3-06). Resolves to true on success. */
+    removePart: (sessionID: string, messageID: string, partID: string, dir?: string) =>
+      client.delete<boolean>(partPath(sessionID, messageID, partID), dirQuery(dir)),
   };
 }
 

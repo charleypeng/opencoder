@@ -194,6 +194,27 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     const sliced = Number.isInteger(limit) && limit > 0 ? window.slice(-limit) : window;
     res.json(sliced);
   });
+
+  // Message operations (TASK-M3-06): delete returns true; part PATCH echoes
+  // the submitted Part with the path ids normalized onto it (the client
+  // applies the response as the new part state), part DELETE returns true.
+  app.delete("/session/:sessionID/message/:messageID", (_req, res) => {
+    res.json(true);
+  });
+
+  app.patch("/session/:sessionID/message/:messageID/part/:partID", (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    res.json({
+      ...body,
+      id: req.params.partID,
+      sessionID: req.params.sessionID,
+      messageID: req.params.messageID,
+    });
+  });
+
+  app.delete("/session/:sessionID/message/:messageID/part/:partID", (_req, res) => {
+    res.json(true);
+  });
 }
 
 export function registerRoutes(app: Express, fixtures: Fixtures): void {

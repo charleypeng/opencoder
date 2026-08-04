@@ -6,6 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "./errors.js";
 import { ApiClient, fetchTransport, invokeTransport, type HttpResponse } from "./client.js";
 import { createMessageService } from "./message.js";
+import type { components } from "./api/schema.js";
+
+type Part = components["schemas"]["Part"];
 
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -81,6 +84,79 @@ describe("message service (invoke payload assembly)", () => {
     });
   });
 
+  it("remove DELETEs the single message path and returns the boolean", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createMessageService(makeClient()).remove("sess_01", "msg_02");
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "DELETE", path: "/session/sess_01/message/msg_02" },
+    });
+  });
+
+  it("updatePart PATCHes the part path with the full part body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "prt_01", text: "edited" } }));
+    const part: Part = {
+      id: "prt_01",
+      sessionID: "sess_01",
+      messageID: "msg_02",
+      type: "text",
+      text: "edited",
+    };
+    const result = await createMessageService(makeClient()).updatePart(
+      "sess_01",
+      "msg_02",
+      "prt_01",
+      part,
+    );
+    expect(result).toEqual({ id: "prt_01", text: "edited" });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "PATCH",
+        path: "/session/sess_01/message/msg_02/part/prt_01",
+        body: part,
+      },
+    });
+  });
+
+  it("removePart DELETEs the part path", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createMessageService(makeClient()).removePart(
+      "sess_01",
+      "msg_02",
+      "prt_01",
+    );
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "DELETE", path: "/session/sess_01/message/msg_02/part/prt_01" },
+    });
+  });
+
+  it("updatePart passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: {} }));
+    const part: Part = {
+      id: "prt_01",
+      sessionID: "sess_01",
+      messageID: "msg_02",
+      type: "text",
+      text: "x",
+    };
+    await createMessageService(makeClient()).updatePart(
+      "sess_01",
+      "msg_02",
+      "prt_01",
+      part,
+      "/project/alpha",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "PATCH",
+        path: "/session/sess_01/message/msg_02/part/prt_01",
+        body: part,
+        query: { directory: "/project/alpha" },
+      },
+    });
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -122,5 +198,32 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
     const message = await service.get("sess_01", "msg_02");
     expect(message.info.id).toBe("msg_02");
     expect(message.parts.length).toBeGreaterThan(0);
+  });
+
+  it("remove deletes the message and resolves true", async () => {
+    const result = await service.remove("sess_01", "msg_02");
+    expect(result).toBe(true);
+  });
+
+  it("updatePart patches the part and returns the updated part", async () => {
+    const original = await service.get("sess_01", "msg_02");
+    const target = original.parts.find((part) => part.type === "text");
+    expect(target).toBeDefined();
+    const updated = await service.updatePart("sess_01", "msg_02", target!.id, {
+      ...target!,
+      text: "edited contract text",
+    } as Part);
+    expect(updated.id).toBe(target!.id);
+    expect(updated.type).toBe("text");
+    expect(updated).toMatchObject({
+      text: "edited contract text",
+      sessionID: "sess_01",
+      messageID: "msg_02",
+    });
+  });
+
+  it("removePart deletes the part and resolves true", async () => {
+    const result = await service.removePart("sess_01", "msg_02", "part_02");
+    expect(result).toBe(true);
   });
 });

@@ -531,6 +531,40 @@ export function removeMessage(serverId: string, sessionId: string): void {
   });
 }
 
+/**
+ * Re-inserts a deleted message's info and parts at their recorded order
+ * position (TASK-M3-06 optimistic-delete rollback). `orderIndex` is the
+ * index of the message's FIRST part in the order array BEFORE the removal;
+ * it is clamped into range, so a concurrent append during the failed
+ * round-trip shifts the restored message to the end at worst. The
+ * most-recent info slot is restored when it pointed at this message.
+ */
+export function restoreMessage(
+  serverId: string,
+  sessionId: string,
+  info: Message,
+  parts: Part[],
+  orderIndex: number,
+): void {
+  updateServer(serverId, (bucket) => {
+    const entry = bucket[sessionId] ?? freshSessionMessages();
+    if (parts.length > 0) {
+      const partIds = parts.map((part) => part.id);
+      const at = Math.max(0, Math.min(orderIndex, entry.order.length));
+      entry.order.splice(at, 0, ...partIds);
+      for (const part of parts) entry.parts[part.id] = part;
+      const rest = { ...entry.messageParts };
+      rest[info.id] = [...(rest[info.id] ?? []), ...partIds].filter(
+        (id, index, all) => all.indexOf(id) === index,
+      );
+      entry.messageParts = rest;
+    }
+    entry.infos[info.id] = info;
+    if (entry.info === null || entry.info?.id === info.id) entry.info = info;
+    bucket[sessionId] = entry;
+  });
+}
+
 /** Clears all messages for a server (drop before full re-sync). */
 export function resetServer(serverId: string): void {
   const prefix = `${serverId}:`;

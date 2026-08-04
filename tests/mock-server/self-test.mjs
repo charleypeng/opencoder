@@ -274,6 +274,41 @@ try {
       expect(Array.isArray(body.parts), "parts must be an array");
     });
 
+    await test("message delete returns true", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message/msg_02", {
+        method: "DELETE",
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("part patch echoes the part with path ids", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/session/sess_01/message/msg_02/part/part_02",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: "part_02", type: "text", text: "edited" }),
+        },
+      );
+      expect(status === 200, `status ${status}`);
+      expect(body.text === "edited", `text ${JSON.stringify(body.text)}`);
+      expect(body.id === "part_02", `id ${JSON.stringify(body.id)}`);
+      expect(body.sessionID === "sess_01", `sessionID ${JSON.stringify(body.sessionID)}`);
+      expect(body.messageID === "msg_02", `messageID ${JSON.stringify(body.messageID)}`);
+    });
+
+    await test("part delete returns true", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/session/sess_01/message/msg_02/part/part_02",
+        { method: "DELETE" },
+      );
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
     await test("path returns the instance path info", async () => {
       const { status, body } = await request(baseUrl, "/path");
       expect(status === 200, `status ${status}`);
