@@ -161,6 +161,24 @@ describe("AddServer probe flow", () => {
     });
   });
 
+  it("classifies a 401 probe rejection with a credentials hint (TASK-M1-09)", async () => {
+    invokeMock.mockRejectedValue({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    render(() => <AddServer />);
+    typeUrl("localhost:14096");
+    fireEvent.click(screen.getByTestId("test-connection"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("probe-failure")).toHaveTextContent("Authentication required");
+    });
+    expect(screen.getByTestId("probe-failure")).toHaveTextContent("unauthorized");
+    expect(screen.getByTestId("probe-failure")).toHaveTextContent("Check your credentials");
+  });
+
   it("passes credentials along when provided", async () => {
     invokeMock.mockResolvedValue({
       serverId: "probe",

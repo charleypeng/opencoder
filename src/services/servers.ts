@@ -65,12 +65,26 @@ export async function removeServer(id: string): Promise<void> {
   });
 }
 
-/** One-shot health probe against an arbitrary server URL (Add Server flow). */
+/**
+ * One-shot health probe against an arbitrary server URL (Add Server flow).
+ * The resolved payload is validated: a server that answers with a non-health
+ * body (e.g. an HTML error page or a proxy banner) must not count as a
+ * healthy OpenCode server, so the wrapper rejects with an `invalid_response`
+ * ApiError instead (TASK-M1-09 defense).
+ */
 export async function probeServer(url: string, auth?: AuthCredentials): Promise<ServerHealth> {
   const args = auth ? { url, auth } : { url };
-  return invoke<ServerHealth>("probe_server", args).catch((err: unknown) => {
+  const payload = await invoke<ServerHealth>("probe_server", args).catch((err: unknown) => {
     throw ApiError.fromUnknown(err);
   });
+  return validateProbePayload(payload);
+}
+
+function validateProbePayload(payload: ServerHealth): ServerHealth {
+  if (typeof payload !== "object" || payload === null || typeof payload.healthy !== "boolean") {
+    throw new ApiError(undefined, "invalid_response", "Unexpected response format", false);
+  }
+  return payload;
 }
 
 /** (Re)starts the 15s health polling loop for a saved server (reconnect flow). */

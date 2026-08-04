@@ -1,5 +1,8 @@
 // Unified API error type (ADR-002): Rust serializes `ApiError` from the
 // transport channel; the dev-only fetch transport produces the same shape.
+//
+// `errorTitle` / `errorDetail` centralize the classified user-facing copy
+// (TASK-M1-09); the strings are English for now and move to i18n in M9.
 
 export interface ApiErrorPayload {
   status?: number | null;
@@ -41,4 +44,54 @@ function messageOf(err: unknown): string {
   if (err instanceof Error) return err.message;
   if (typeof err === "string") return err;
   return String(err);
+}
+
+/** True when the server rejected the request as unauthorized. */
+export function isAuthError(err: ApiError): boolean {
+  return err.status === 401;
+}
+
+/**
+ * Classified short headline for a connection failure. Status/code driven so
+ * the copy stays stable while the underlying message varies by server.
+ */
+export function errorTitle(err: ApiError): string {
+  if (err.status === 401) return "Authentication required";
+  switch (err.code) {
+    case "network":
+      return "Cannot reach server";
+    case "timeout":
+      return "Request timed out";
+    case "invalid_url":
+      return "Invalid server URL";
+    case "cancelled":
+      return "Request cancelled";
+    case "invalid_response":
+      return "Unexpected response format";
+    case "http":
+      return err.status !== undefined && err.status >= 500 ? "Server error" : "Request failed";
+    default:
+      return "Request failed";
+  }
+}
+
+/**
+ * Detail line under the title: the raw message when present (a JSON body
+ * from the transport is reduced to its `error`/`message` field), otherwise
+ * the title itself.
+ */
+export function errorDetail(err: ApiError): string {
+  return err.message ? detailMessage(err.message) : errorTitle(err);
+}
+
+/** Extracts the human-readable part of a raw transport message. */
+function detailMessage(message: string): string {
+  if (!message.startsWith("{")) return message;
+  try {
+    const parsed = JSON.parse(message) as { error?: unknown; message?: unknown };
+    const value = typeof parsed.error === "string" ? parsed.error : parsed.message;
+    return typeof value === "string" && value.length > 0 ? value : message;
+  } catch {
+    return message;
+  }
 }

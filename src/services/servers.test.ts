@@ -107,3 +107,85 @@ describe("error mapping", () => {
     });
   });
 });
+
+describe("probe response validation (TASK-M1-09 defense)", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("accepts a well-formed health payload", async () => {
+    invokeMock.mockResolvedValue({ serverId: "probe", healthy: true, status: "ok" });
+    await expect(probeServer("http://localhost:14096")).resolves.toMatchObject({ healthy: true });
+  });
+
+  it("rejects a payload without the healthy field as invalid_response", async () => {
+    invokeMock.mockResolvedValue({ serverId: "probe", status: "ok" });
+    await expect(probeServer("http://localhost:14096")).rejects.toMatchObject({
+      code: "invalid_response",
+      message: "Unexpected response format",
+      retriable: false,
+    });
+  });
+
+  it("rejects a non-object payload as invalid_response", async () => {
+    invokeMock.mockResolvedValue(null);
+    await expect(probeServer("http://localhost:14096")).rejects.toMatchObject({
+      code: "invalid_response",
+    });
+  });
+
+  it("rejects a non-boolean healthy field as invalid_response", async () => {
+    invokeMock.mockResolvedValue({ serverId: "probe", healthy: "yes", status: "ok" });
+    await expect(probeServer("http://localhost:14096")).rejects.toMatchObject({
+      code: "invalid_response",
+    });
+  });
+});
+
+describe("L3 contract: 401 matrix (TASK-M1-09)", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("maps a 401 with wrong credentials to a non-retriable ApiError", async () => {
+    invokeMock.mockRejectedValue({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    await expect(
+      probeServer("http://localhost:14096", { username: "admin", password: "wrong" }),
+    ).rejects.toBeInstanceOf(ApiError);
+    await expect(
+      probeServer("http://localhost:14096", { username: "admin", password: "wrong" }),
+    ).rejects.toMatchObject({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    expect(invokeMock).toHaveBeenCalledWith("probe_server", {
+      url: "http://localhost:14096",
+      auth: { username: "admin", password: "wrong" },
+    });
+  });
+
+  it("probes with the correct credentials and resolves healthy", async () => {
+    invokeMock.mockResolvedValue({
+      serverId: "probe",
+      healthy: true,
+      version: "1.18.11-mock",
+      latencyMs: 7,
+      failCount: 0,
+      status: "ok",
+    });
+    await expect(
+      probeServer("http://localhost:14096", { username: "admin", password: "right" }),
+    ).resolves.toMatchObject({ healthy: true, status: "ok" });
+    expect(invokeMock).toHaveBeenCalledWith("probe_server", {
+      url: "http://localhost:14096",
+      auth: { username: "admin", password: "right" },
+    });
+  });
+});

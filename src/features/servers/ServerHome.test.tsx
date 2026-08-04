@@ -343,3 +343,173 @@ describe("ServerHome Add Server wizard", () => {
     await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());
   });
 });
+
+describe("ServerHome re-auth flow (TASK-M1-09)", () => {
+  const health = {
+    serverId: "probe",
+    healthy: true,
+    version: "1.2.3",
+    latencyMs: 9,
+    status: "ok" as const,
+    failCount: 0,
+  };
+
+  function renderWithServer(entry: ServerEntry): void {
+    invokeMock.mockResolvedValueOnce([entry]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+  }
+
+  async function openReauthDialog(entry: ServerEntry): Promise<void> {
+    renderWithServer(entry);
+    const card = await waitFor(() => screen.getByTestId(`server-card-${entry.id}`));
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Reconnect" })).toBeInTheDocument(),
+    );
+    invokeMock.mockRejectedValueOnce({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    fireEvent.pointerUp(screen.getByRole("menuitem", { name: "Reconnect" }), {
+      pointerType: "mouse",
+    });
+    await waitFor(() => expect(screen.getByTestId("reauth-dialog")).toBeInTheDocument());
+  }
+
+  it("opens the re-auth dialog prefilled when reconnect answers 401", async () => {
+    const entry = server({ id: "srv-401", name: "Alpha", username: "admin", password: "secret" });
+    await openReauthDialog(entry);
+
+    expect(screen.getByTestId("reauth-username")).toHaveValue("admin");
+    expect(screen.getByTestId("reauth-password")).toHaveValue("");
+    expect(screen.getByText("Alpha")).toBeInTheDocument();
+    // The failed probe must not start the health monitor.
+    expect(invokeMock).not.toHaveBeenCalledWith("start_health_monitoring", expect.anything());
+  });
+
+  it("Save & Retry verifies via probe, persists and closes on success", async () => {
+    const entry = server({
+      id: "srv-401-ok",
+      name: "Alpha",
+      username: "admin",
+      password: "secret",
+    });
+    await openReauthDialog(entry);
+
+    invokeMock.mockResolvedValueOnce(health);
+    invokeMock.mockResolvedValueOnce(server({ ...entry, password: "newpw" }));
+    fireEvent.input(screen.getByTestId("reauth-password"), { target: { value: "newpw" } });
+    fireEvent.click(screen.getByTestId("reauth-save"));
+
+    // The new credentials are verified with a probe before persisting.
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("probe_server", {
+        url: "http://localhost:14096",
+        auth: { username: "admin", password: "newpw" },
+      }),
+    );
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("update_server", {
+        id: "srv-401-ok",
+        entry: {
+          name: "Alpha",
+          url: "http://localhost:14096",
+          username: "admin",
+          password: "newpw",
+        },
+      }),
+    );
+    // The dialog closes and the monitor restarts with the verified entry.
+    await waitFor(() => expect(screen.queryByTestId("reauth-dialog")).toBeNull());
+    expect(invokeMock).toHaveBeenCalledWith("start_health_monitoring", {
+      serverId: "srv-401-ok",
+    });
+  });
+
+  it("keeps the dialog open with an error when the retried probe fails", async () => {
+    const entry = server({ id: "srv-401-fail", name: "Alpha", username: "admin" });
+    await openReauthDialog(entry);
+
+    invokeMock.mockRejectedValueOnce({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    fireEvent.input(screen.getByTestId("reauth-password"), { target: { value: "wrong" } });
+    fireEvent.click(screen.getByTestId("reauth-save"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("reauth-error")).toHaveTextContent("Authentication required"),
+    );
+    expect(screen.getByTestId("reauth-dialog")).toBeInTheDocument();
+    // The rejected credentials must never reach the registry store.
+    expect(invokeMock).not.toHaveBeenCalledWith("update_server", expect.anything());
+  });
+
+  it("Cancel closes the dialog without persisting anything", async () => {
+    const entry = server({ id: "srv-401-cancel", name: "Alpha", username: "admin" });
+    await openReauthDialog(entry);
+
+    fireEvent.click(screen.getByTestId("reauth-cancel"));
+    await waitFor(() => expect(screen.queryByTestId("reauth-dialog")).toBeNull());
+    expect(invokeMock).not.toHaveBeenCalledWith("update_server", expect.anything());
+  });
+});
+
+describe("ServerHome error banner (TASK-M1-09)", () => {
+  it("shows a classified banner when the registry load fails", async () => {
+    invokeMock.mockRejectedValueOnce({
+      code: "network",
+      message: "connection refused",
+      retriable: true,
+    });
+    render(() => <ServerHome onSelect={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("error-banner-title")).toHaveTextContent("Cannot reach server");
+    expect(screen.getByTestId("error-banner-detail")).toHaveTextContent("connection refused");
+  });
+
+  it("shows a classified banner when reconnect fails with a network error", async () => {
+    const entry = server({ id: "srv-net", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([entry]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    const card = await waitFor(() => screen.getByTestId("server-card-srv-net"));
+
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Reconnect" })).toBeInTheDocument(),
+    );
+    invokeMock.mockRejectedValueOnce({
+      code: "timeout",
+      message: "timed out after 5s",
+      retriable: true,
+    });
+    fireEvent.pointerUp(screen.getByRole("menuitem", { name: "Reconnect" }), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("error-banner-title")).toHaveTextContent("Request timed out");
+    expect(screen.getByTestId("error-banner-detail")).toHaveTextContent("timed out after 5s");
+    // A non-401 failure must not open the re-auth dialog.
+    expect(screen.queryByTestId("reauth-dialog")).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalledWith("start_health_monitoring", expect.anything());
+  });
+
+  it("dismisses the banner", async () => {
+    invokeMock.mockRejectedValueOnce({
+      code: "network",
+      message: "connection refused",
+      retriable: true,
+    });
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("error-banner-dismiss"));
+    await waitFor(() => expect(screen.queryByTestId("error-banner")).toBeNull());
+  });
+});

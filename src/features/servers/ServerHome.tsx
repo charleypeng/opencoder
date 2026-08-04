@@ -9,16 +9,19 @@ import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { ContextMenu, Dialog, DropdownMenu } from "@kobalte/core";
 import AddServer from "./AddServer";
+import ReauthDialog from "./ReauthDialog";
+import ErrorBanner from "../../components/ErrorBanner";
 import { formatRelativeTime } from "./relativeTime";
-import { ApiError } from "../../services/errors";
+import { ApiError, isAuthError } from "../../services/errors";
 import { subscribeToServersChanged } from "../../services/events";
 import {
   listServers,
   probeServer,
   removeServer,
   startHealthMonitoring,
+  updateServer,
 } from "../../services/servers";
-import type { ServerEntry } from "../../services/servers";
+import type { AuthCredentials, ServerEntry } from "../../services/servers";
 import { applyServerHealth, connections, subscribeToServerHealth } from "../../stores/connection";
 
 export interface ServerHomeProps {
@@ -128,18 +131,21 @@ const cardActionClass =
 
 function ServerHome(props: ServerHomeProps) {
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
-  const [loadError, setLoadError] = createSignal<string | null>(null);
+  const [loadError, setLoadError] = createSignal<ApiError | null>(null);
+  const [bannerError, setBannerError] = createSignal<ApiError | null>(null);
   const [adding, setAdding] = createSignal(false);
   const [editing, setEditing] = createSignal<ServerEntry | null>(null);
   const [deleting, setDeleting] = createSignal<ServerEntry | null>(null);
   const [deleteError, setDeleteError] = createSignal<string | null>(null);
+  const [reauthServer, setReauthServer] = createSignal<ServerEntry | null>(null);
+  const [reauthReason, setReauthReason] = createSignal<ApiError | null>(null);
 
   async function refresh() {
     try {
       setServers(await listServers());
       setLoadError(null);
     } catch (err) {
-      setLoadError(ApiError.fromUnknown(err).message);
+      setLoadError(ApiError.fromUnknown(err));
     }
   }
 
@@ -166,14 +172,52 @@ function ServerHome(props: ServerHomeProps) {
     try {
       const health = await probeServer(server.url, auth);
       applyServerHealth({ ...health, serverId: server.id });
-    } catch {
-      // The health monitor reports the real state on its next poll.
+      setBannerError(null);
+    } catch (err) {
+      const apiErr = ApiError.fromUnknown(err);
+      if (isAuthError(apiErr)) {
+        // A 401 means the saved credentials were rejected: ask for new ones
+        // instead of surfacing a plain banner.
+        setReauthReason(apiErr);
+        setReauthServer(server);
+        return;
+      }
+      setBannerError(apiErr);
+      return;
     }
     try {
       await startHealthMonitoring(server.id);
     } catch {
       // The monitor may already be running; nothing to do.
     }
+  }
+
+  /**
+   * Re-auth retry (TASK-M1-09): verifies the entered credentials with a
+   * probe first and only persists them (update_server) once the probe
+   * succeeded — rejected credentials never touch the store. Rejects with
+   * the probe's ApiError when verification fails.
+   */
+  async function retryAuth(credentials: AuthCredentials) {
+    const server = reauthServer();
+    if (!server) return;
+    const health = await probeServer(server.url, credentials);
+    await updateServer(server.id, {
+      name: server.name,
+      url: server.url,
+      username: credentials.username,
+      password: credentials.password,
+    });
+    applyServerHealth({ ...health, serverId: server.id });
+    try {
+      await startHealthMonitoring(server.id);
+    } catch {
+      // The monitor may already be running; nothing to do.
+    }
+    setReauthServer(null);
+    setReauthReason(null);
+    setBannerError(null);
+    void refresh();
   }
 
   async function confirmDelete() {
@@ -302,9 +346,10 @@ function ServerHome(props: ServerHomeProps) {
 
       <main class="mx-auto max-w-5xl px-6 py-8">
         <Show when={loadError()}>
-          <p class="mb-4 text-sm text-danger" data-testid="load-error">
-            {loadError()}
-          </p>
+          <ErrorBanner error={loadError()} onDismiss={() => setLoadError(null)} />
+        </Show>
+        <Show when={bannerError()}>
+          <ErrorBanner error={bannerError()} onDismiss={() => setBannerError(null)} />
         </Show>
         <Show
           when={adding() || editing()}
@@ -387,6 +432,20 @@ function ServerHome(props: ServerHomeProps) {
           </Dialog.Content>
         </Dialog.Portal>
       </Dialog.Root>
+
+      <Show when={reauthServer()} keyed>
+        {(reauthEntry) => (
+          <ReauthDialog
+            server={reauthEntry}
+            reason={reauthReason()}
+            onSubmit={(credentials) => retryAuth(credentials)}
+            onCancel={() => {
+              setReauthServer(null);
+              setReauthReason(null);
+            }}
+          />
+        )}
+      </Show>
     </div>
   );
 }

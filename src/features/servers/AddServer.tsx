@@ -3,7 +3,7 @@
 // normalization, a plain-HTTP risk warning and save via add_server.
 
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { ApiError } from "../../services/errors";
+import { ApiError, errorDetail, errorTitle } from "../../services/errors";
 import {
   getDiscoveredServers,
   startMdnsDiscovery,
@@ -142,7 +142,7 @@ function AddServer(props: AddServerProps) {
         });
       }
     } catch (err) {
-      setProbe({ kind: "failure", message: ApiError.fromUnknown(err).message });
+      setProbe({ kind: "failure", message: probeFailureMessage(ApiError.fromUnknown(err)) });
     }
   }
 
@@ -379,6 +379,17 @@ function probeSuccessText(probe: ProbeState): string {
 
 function probeFailureText(probe: ProbeState): string {
   return probe.kind === "failure" ? probe.message : "";
+}
+
+/**
+ * Classified probe failure copy (TASK-M1-09): "Title: detail", plus a
+ * credentials hint on 401 — the auth fields are right there in the form.
+ */
+function probeFailureMessage(err: ApiError): string {
+  const title = errorTitle(err);
+  const detail = errorDetail(err);
+  const base = detail === title ? title : `${title}: ${detail}`;
+  return err.status === 401 ? `${base} Check your credentials and retry.` : base;
 }
 
 export default AddServer;
