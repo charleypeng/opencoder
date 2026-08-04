@@ -202,6 +202,10 @@ function ServerHome(props: ServerHomeProps) {
     const server = reauthServer();
     if (!server) return;
     const health = await probeServer(server.url, credentials);
+    // The dialog may have been dismissed (Esc / overlay) while the probe
+    // was in flight: Cancel is authoritative, so a stale continuation must
+    // not persist credentials or refresh behind the closed dialog.
+    if (reauthServer() !== server) return;
     await updateServer(server.id, {
       name: server.name,
       url: server.url,

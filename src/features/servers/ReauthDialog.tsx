@@ -71,7 +71,10 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
     <Dialog.Root
       open={props.server !== null}
       onOpenChange={(open) => {
-        if (!open) props.onCancel();
+        // Block Esc / overlay dismiss while verifying so a closed dialog
+        // cannot orphan an in-flight retry; the guard in the parent's
+        // onSubmit continuation is the authoritative backstop.
+        if (!open && !verifying()) props.onCancel();
       }}
     >
       <Dialog.Portal>
