@@ -10,15 +10,21 @@ import {
   subscribeToServerDiscovered,
 } from "../../services/discovery";
 import type { DiscoveredServer } from "../../services/discovery";
+import { canScan, scanQrCode } from "../../services/scanner";
 import { addServer, probeServer, updateServer } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
+import { parseConnectUrl } from "./qrConnect";
 
 export interface AddServerProps {
   /** Called with the saved entry (password stripped) after a successful save. */
   onAdded?: (server: ServerEntry) => void;
   /** Existing entry to edit; when set the form saves via update_server. */
   server?: ServerEntry;
+  /** Mobile entry (TASK-M7-08): show the QR scan button next to the URL
+   *  field; a scanned `opencode://connect` payload prefills name+url and
+   *  auto-runs the probe. Never shows in edit mode. */
+  scanEnabled?: boolean;
 }
 
 type ProbeState =
@@ -54,6 +60,10 @@ function AddServer(props: AddServerProps) {
   const [probe, setProbe] = createSignal<ProbeState>({ kind: "idle" });
   const [saving, setSaving] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
+  const [qrScanning, setQrScanning] = createSignal(false);
+  const [qrScanError, setQrScanError] = createSignal<string | null>(null);
+
+  const scanVisible = () => !!props.scanEnabled && !props.server && canScan();
 
   const normalizedUrl = () => normalizeServerUrl(url());
   const urlValid = () => normalizedUrl() !== null;
@@ -127,6 +137,32 @@ function AddServer(props: AddServerProps) {
     props.onAdded?.(server);
   }
 
+  /**
+   * QR scan entry (TASK-M7-08): runs the native camera scanner, parses the
+   * `opencode://connect` payload and prefills name+url, then auto-probes so
+   * the user only confirms the save (spec: scan → prefill → probe → save).
+   */
+  async function onScanQr() {
+    if (qrScanning()) return;
+    setQrScanning(true);
+    setQrScanError(null);
+    try {
+      const text = await scanQrCode();
+      const parsed = parseConnectUrl(text);
+      if (!parsed) {
+        setQrScanError("That QR code is not an OpenCode server link.");
+        return;
+      }
+      setName(parsed.name);
+      setUrl(parsed.url);
+      void onTestConnection();
+    } catch {
+      setQrScanError("Could not start the camera. Check the camera permission and try again.");
+    } finally {
+      setQrScanning(false);
+    }
+  }
+
   async function onTestConnection() {
     const normalized = normalizedUrl();
     if (!normalized || !canProbe()) return;
@@ -179,6 +215,7 @@ function AddServer(props: AddServerProps) {
         setPassword("");
         setShowPassword(false);
         setProbe({ kind: "idle" });
+        setQrScanError(null);
       }
     } catch (err) {
       setSaveError(ApiError.fromUnknown(err).message);
@@ -215,15 +252,28 @@ function AddServer(props: AddServerProps) {
 
         <label class="block">
           <span class="text-sm font-medium text-fg-secondary">URL</span>
-          <input
-            data-testid="url-input"
-            class={inputClass}
-            type="text"
-            inputmode="url"
-            placeholder="http://localhost:14096"
-            value={url()}
-            onInput={(event) => setUrl(event.currentTarget.value)}
-          />
+          <span class="flex gap-2">
+            <input
+              data-testid="url-input"
+              class={inputClass}
+              type="text"
+              inputmode="url"
+              placeholder="http://localhost:14096"
+              value={url()}
+              onInput={(event) => setUrl(event.currentTarget.value)}
+            />
+            <Show when={scanVisible()}>
+              <button
+                data-testid="scan-qr-button"
+                type="button"
+                class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 text-sm text-fg-secondary hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+                disabled={qrScanning()}
+                onClick={() => void onScanQr()}
+              >
+                {qrScanning() ? "Scanning…" : "Scan QR"}
+              </button>
+            </Show>
+          </span>
           <Show when={remotePlainHttp()}>
             <div
               class="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
@@ -311,6 +361,11 @@ function AddServer(props: AddServerProps) {
           <Show when={saveError()}>
             <p class="text-danger" data-testid="save-error">
               {saveError()}
+            </p>
+          </Show>
+          <Show when={qrScanError()}>
+            <p class="text-danger" data-testid="scan-error">
+              {qrScanError()}
             </p>
           </Show>
         </div>

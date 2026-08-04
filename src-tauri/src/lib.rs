@@ -15,11 +15,17 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    tauri::Builder::default()
+    let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_glass::init())
         .plugin(tauri_plugin_haptics::init())
-        .plugin(tauri_plugin_store::Builder::default().build())
+        .plugin(tauri_plugin_store::Builder::default().build());
+    // The barcode-scanner crate is `#![cfg(mobile)]` — on desktop it compiles
+    // to an empty crate, so registration must be mobile-only (TASK-M7-08);
+    // the frontend facade refuses to call it on desktop.
+    #[cfg(mobile)]
+    let builder = builder.plugin(tauri_plugin_barcode_scanner::init());
+    builder
         .setup(|app| {
             let registry = connections::ServerRegistry::load(app.handle())?;
             let monitor = HealthMonitor::new(app.handle());

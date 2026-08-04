@@ -8,15 +8,21 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import AddServer from "./AddServer";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
+import { refreshPlatform } from "../../platform/index.js";
 import type { DiscoveredServer } from "../../services/discovery";
 import type { ServerEntry } from "../../services/servers";
 
-const { invokeMock, listenMock } = vi.hoisted(() => ({
+const { invokeMock, listenMock, scanMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   listenMock: vi.fn(),
+  scanMock: vi.fn(),
 }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+vi.mock("@tauri-apps/plugin-barcode-scanner", () => ({
+  scan: scanMock,
+  Format: { QRCode: "QR_CODE" },
+}));
 
 function typeUrl(value: string): void {
   fireEvent.input(screen.getByTestId("url-input"), { target: { value } });
@@ -526,5 +532,127 @@ describe("AddServer nearby servers", () => {
       />
     ));
     expect(screen.queryByTestId("nearby-servers")).toBeNull();
+  });
+});
+
+// ---- QR scan entry (TASK-M7-08) ----
+
+const IPHONE_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+const ORIGINAL_UA = window.navigator.userAgent;
+
+function withMobilePlatform(): void {
+  Object.defineProperty(window.navigator, "userAgent", { value: IPHONE_UA, configurable: true });
+  refreshPlatform();
+}
+
+describe("AddServer QR scan (TASK-M7-08)", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    withoutTauri();
+    Object.defineProperty(window.navigator, "userAgent", {
+      value: ORIGINAL_UA,
+      configurable: true,
+    });
+    refreshPlatform();
+  });
+
+  it("hides the scan button without scanEnabled", () => {
+    withTauri();
+    withMobilePlatform();
+    render(() => <AddServer />);
+    expect(screen.queryByTestId("scan-qr-button")).toBeNull();
+  });
+
+  it("shows the scan button only on Tauri mobile with scanEnabled", () => {
+    withTauri();
+    withMobilePlatform();
+    const { unmount } = render(() => <AddServer scanEnabled />);
+    expect(screen.getByTestId("scan-qr-button")).toBeInTheDocument();
+    unmount();
+
+    withoutTauri();
+    render(() => <AddServer scanEnabled />);
+    expect(screen.queryByTestId("scan-qr-button")).toBeNull();
+  });
+
+  it("never shows the scan button in edit mode", () => {
+    withTauri();
+    withMobilePlatform();
+    render(() => (
+      <AddServer
+        scanEnabled
+        server={{ id: "srv-1", name: "Local", url: "http://localhost:14096", createdAt: 1 }}
+      />
+    ));
+    expect(screen.queryByTestId("scan-qr-button")).toBeNull();
+  });
+
+  it("prefills the form from a scanned connect URL and auto-probes", async () => {
+    withTauri();
+    withMobilePlatform();
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "probe_server") {
+        return Promise.resolve({
+          serverId: "probe",
+          healthy: true,
+          version: "1.18.11-mock",
+          latencyMs: 12,
+          failCount: 0,
+          status: "ok",
+        });
+      }
+      return Promise.resolve([]);
+    });
+    render(() => <AddServer scanEnabled />);
+
+    scanMock.mockResolvedValue({
+      content: "opencode://connect?url=http%3A%2F%2F192.168.1.5%3A14096&name=Home",
+      format: "QR_CODE",
+      bounds: null,
+    });
+    fireEvent.click(screen.getByTestId("scan-qr-button"));
+
+    await waitFor(() => expect(screen.getByTestId("name-input")).toHaveValue("Home"));
+    expect(screen.getByTestId("url-input")).toHaveValue("http://192.168.1.5:14096");
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("probe_server", {
+        url: "http://192.168.1.5:14096",
+      }),
+    );
+    await waitFor(() => expect(screen.getByTestId("probe-success")).toBeInTheDocument());
+  });
+
+  it("rejects a scanned payload that is not a connect URL", async () => {
+    withTauri();
+    withMobilePlatform();
+    render(() => <AddServer scanEnabled />);
+
+    scanMock.mockResolvedValue({ content: "https://example.com", format: "QR_CODE", bounds: null });
+    fireEvent.click(screen.getByTestId("scan-qr-button"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("scan-error")).toHaveTextContent(
+        "That QR code is not an OpenCode server link.",
+      ),
+    );
+    expect(screen.getByTestId("name-input")).toHaveValue("");
+    expect(screen.getByTestId("url-input")).toHaveValue("");
+    expect(invokeMock).not.toHaveBeenCalledWith("probe_server", expect.anything());
+  });
+
+  it("shows a camera error when the scan fails", async () => {
+    withTauri();
+    withMobilePlatform();
+    render(() => <AddServer scanEnabled />);
+
+    scanMock.mockRejectedValue(new Error("camera permission denied"));
+    fireEvent.click(screen.getByTestId("scan-qr-button"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("scan-error")).toHaveTextContent(
+        "Could not start the camera. Check the camera permission and try again.",
+      ),
+    );
   });
 });

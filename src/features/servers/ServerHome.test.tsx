@@ -6,18 +6,20 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import ServerHome from "./ServerHome";
+import { refreshPlatform } from "../../platform/index.js";
 import type { ServerEntry } from "../../services/servers";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
 
-const { invokeMock, listenMock } = vi.hoisted(() => {
+const { invokeMock, listenMock, qrToDataURLMock } = vi.hoisted(() => {
   const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
-  return { invokeMock: vi.fn(), listenMock };
+  return { invokeMock: vi.fn(), listenMock, qrToDataURLMock: vi.fn() };
 });
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+vi.mock("qrcode", () => ({ default: { toDataURL: qrToDataURLMock } }));
 
 function server(overrides: Partial<ServerEntry>): ServerEntry {
   return {
@@ -42,6 +44,7 @@ beforeEach(() => {
   // Default: an empty registry; tests override with mockResolvedValueOnce.
   invokeMock.mockImplementation(() => Promise.resolve([]));
   listenMock.mockClear();
+  qrToDataURLMock.mockReset().mockResolvedValue("data:image/png;base64,QRDATA");
 });
 
 afterEach(() => {
@@ -456,6 +459,96 @@ describe("ServerHome re-auth flow (TASK-M1-09)", () => {
     fireEvent.click(screen.getByTestId("reauth-cancel"));
     await waitFor(() => expect(screen.queryByTestId("reauth-dialog")).toBeNull());
     expect(invokeMock).not.toHaveBeenCalledWith("update_server", expect.anything());
+  });
+});
+
+describe("ServerHome QR share (TASK-M7-08)", () => {
+  const entry = server({
+    id: "srv-qr",
+    name: "Alpha",
+    username: "admin",
+    password: "secret",
+  });
+
+  async function openQrDialog(): Promise<void> {
+    invokeMock.mockResolvedValueOnce([entry]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    const card = await waitFor(() => screen.getByTestId("server-card-srv-qr"));
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Show QR code" })).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByRole("menuitem", { name: "Show QR code" }), {
+      pointerType: "mouse",
+    });
+    await waitFor(() => expect(screen.getByTestId("server-qr-dialog")).toBeInTheDocument());
+  }
+
+  it("opens the connect QR dialog from the card menu with a QR image", async () => {
+    await openQrDialog();
+
+    expect(screen.getByTestId("server-qr-connect-url")).toHaveValue(
+      `opencode://connect?url=${encodeURIComponent("http://localhost:14096")}&name=Alpha`,
+    );
+    // The payload encodes url + name only — never credentials.
+    expect(qrToDataURLMock).toHaveBeenCalledWith(
+      expect.not.stringContaining("secret"),
+      expect.anything(),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("server-qr-img")).toHaveAttribute(
+        "src",
+        "data:image/png;base64,QRDATA",
+      ),
+    );
+    expect(screen.getByText(/never credentials/i)).toBeInTheDocument();
+  });
+
+  it("copies the connect URL with Copied feedback", async () => {
+    await openQrDialog();
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    fireEvent.click(screen.getByTestId("server-qr-copy"));
+
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(
+        `opencode://connect?url=${encodeURIComponent("http://localhost:14096")}&name=Alpha`,
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId("server-qr-copy")).toHaveTextContent("Copied"));
+  });
+
+  it("closes the dialog via Esc", async () => {
+    await openQrDialog();
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByTestId("server-qr-dialog")).toBeNull());
+  });
+
+  it("offers the scan button in the Add Server wizard on a mobile platform", async () => {
+    const IPHONE_UA =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+    const ORIGINAL_UA = window.navigator.userAgent;
+    Object.defineProperty(window.navigator, "userAgent", { value: IPHONE_UA, configurable: true });
+    refreshPlatform();
+    try {
+      render(() => <ServerHome onSelect={vi.fn()} />);
+      await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());
+      fireEvent.click(screen.getByTestId("add-first-server"));
+      await waitFor(() => expect(screen.getByTestId("add-server")).toBeInTheDocument());
+      expect(screen.getByTestId("scan-qr-button")).toBeInTheDocument();
+    } finally {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: ORIGINAL_UA,
+        configurable: true,
+      });
+      refreshPlatform();
+    }
   });
 });
 

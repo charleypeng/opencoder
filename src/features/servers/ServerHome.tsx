@@ -10,6 +10,7 @@ import type { Component, JSX } from "solid-js";
 import { ContextMenu, Dialog, DropdownMenu } from "@kobalte/core";
 import AddServer from "./AddServer";
 import ReauthDialog from "./ReauthDialog";
+import ServerQrDialog from "./ServerQrDialog";
 import ErrorBanner from "../../components/ErrorBanner";
 import { formatRelativeTime } from "./relativeTime";
 import { ApiError, isAuthError } from "../../services/errors";
@@ -23,6 +24,7 @@ import {
 } from "../../services/servers";
 import type { AuthCredentials, ServerEntry } from "../../services/servers";
 import { applyServerHealth, connections, subscribeToServerHealth } from "../../stores/connection";
+import { platform } from "../../platform/index.js";
 
 export interface ServerHomeProps {
   /** Called when a server card is opened; the workspace lands in M1-08. */
@@ -46,6 +48,7 @@ const statusLabel: Record<HealthKind, string> = {
 };
 
 interface MenuActions {
+  onShowQr: (server: ServerEntry) => void;
   onEdit: (server: ServerEntry) => void;
   onReconnect: (server: ServerEntry) => void;
   onDelete: (server: ServerEntry) => void;
@@ -81,6 +84,12 @@ function serverMenuItems(
 ): JSX.Element {
   return (
     <>
+      <Item
+        class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
+        onSelect={() => actions.onShowQr(server)}
+      >
+        Show QR code
+      </Item>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onEdit(server)}
@@ -139,6 +148,7 @@ function ServerHome(props: ServerHomeProps) {
   const [deleteError, setDeleteError] = createSignal<string | null>(null);
   const [reauthServer, setReauthServer] = createSignal<ServerEntry | null>(null);
   const [reauthReason, setReauthReason] = createSignal<ApiError | null>(null);
+  const [qrServer, setQrServer] = createSignal<ServerEntry | null>(null);
 
   async function refresh() {
     try {
@@ -237,6 +247,7 @@ function ServerHome(props: ServerHomeProps) {
   }
 
   const menuActions = (): MenuActions => ({
+    onShowQr: (entry) => setQrServer(entry),
     onEdit: (entry) => {
       setAdding(false);
       setEditing(entry);
@@ -382,6 +393,7 @@ function ServerHome(props: ServerHomeProps) {
             </Show>
             <Show when={adding() && !editing()}>
               <AddServer
+                scanEnabled={platform.kind === "mobile"}
                 onAdded={() => {
                   setAdding(false);
                   void refresh();
@@ -454,6 +466,10 @@ function ServerHome(props: ServerHomeProps) {
             }}
           />
         )}
+      </Show>
+
+      <Show when={qrServer()} keyed>
+        {(entry) => <ServerQrDialog server={entry} onClose={() => setQrServer(null)} />}
       </Show>
     </div>
   );
