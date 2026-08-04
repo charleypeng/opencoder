@@ -14,7 +14,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             greet,
             commands::http_request,
-            commands::http_cancel
+            commands::http_cancel,
+            commands::sse_subscribe,
+            commands::sse_unsubscribe
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

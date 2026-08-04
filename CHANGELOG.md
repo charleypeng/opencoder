@@ -18,3 +18,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CI pipelines and the `pnpm verify` quality gate, with husky + lint-staged pre-commit hooks (TASK-M0-07)
 - Bilingual engineering docs skeleton: README / CHANGELOG (en + zh) and CONTRIBUTING (TASK-M0-08)
 - Rust REST transport channel (reqwest/rustls, Basic Auth, timeouts, cancellation, error classification) and a TS ApiClient facade with dual invoke/fetch transports (TASK-M1-01)
+- Rust SSE subscription manager (line parsing across chunk boundaries, `tui.*`/`workspace.*` event filtering, 16ms batched Channel pushes, exponential-backoff reconnect, heartbeat timeout) with a TS subscription facade over tauri Channels (TASK-M1-02)

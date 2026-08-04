@@ -67,7 +67,7 @@ impl ApiError {
         Self::new("timeout", None, message, true)
     }
 
-    fn invalid_url(message: impl Into<String>) -> Self {
+    pub(crate) fn invalid_url(message: impl Into<String>) -> Self {
         Self::new("invalid_url", None, message, false)
     }
 
@@ -101,6 +101,12 @@ static BASE_URL_REGISTRY: LazyLock<Mutex<HashMap<String, String>>> =
 static CANCEL_REGISTRY: LazyLock<Mutex<HashMap<String, CancellationToken>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
+/// Resolves the registered base URL for a server id; shared with the SSE
+/// manager (sse.rs) so both transports hit the same placeholder registry.
+pub(crate) fn resolve_server_base_url(server_id: &str) -> Option<String> {
+    BASE_URL_REGISTRY.lock().unwrap().get(server_id).cloned()
+}
+
 fn resolve_base_url(request: &HttpRequest) -> Option<String> {
     if let Some(url) = &request.url {
         return Some(url.clone());
@@ -108,13 +114,13 @@ fn resolve_base_url(request: &HttpRequest) -> Option<String> {
     request
         .server_id
         .as_deref()
-        .and_then(|id| BASE_URL_REGISTRY.lock().unwrap().get(id).cloned())
+        .and_then(resolve_server_base_url)
 }
 
 /// Registers a base URL for a server id. Only used by tests today; the real
 /// registry lands in M1-03.
 #[cfg(test)]
-fn register_server_base_url(server_id: &str, url: &str) {
+pub(crate) fn register_server_base_url(server_id: &str, url: &str) {
     BASE_URL_REGISTRY
         .lock()
         .unwrap()
