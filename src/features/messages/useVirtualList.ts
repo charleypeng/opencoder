@@ -7,6 +7,14 @@
 // rows). In environments without layout or ResizeObserver (jsdom tests) the
 // estimates are used unchanged, which keeps the tests deterministic.
 //
+// Measured heights are keyed by ROW IDENTITY (the getRowKey accessor), not
+// by position: when the caller PREPENDS rows (history pagination, M3-05),
+// the new rows start at the estimate while the rows that shift down keep
+// their measured heights, so the delta in totalHeight is exactly the height
+// of the inserted rows and the scroll re-anchor never jumps. An index-keyed
+// cache would instead attribute stale heights to the new indices, making
+// the delta hundreds of px off in real browsers.
+//
 // The hook owns the scroll position as a signal (scroll events, programmatic
 // scrollTo/scrollToIndex and follow-at-bottom all go through it), so the
 // visible range always matches where the content actually is.
@@ -42,8 +50,10 @@ export interface VirtualList {
   onScroll: (el: HTMLDivElement) => void;
   /** Re-read viewport/scrollTop from the container (mount, resize). */
   measure: () => void;
-  /** Ref callback for a row element; measures the row once laid out. */
-  measureRow: (index: number, el: HTMLElement | undefined) => void;
+  /** Ref callback for a row element; measures the row once laid out. The
+   * key is the row's identity (from getRowKey), so heights survive the
+   * caller prepending rows that shift every index. */
+  measureRow: (key: string, el: HTMLElement | undefined) => void;
   /** Programmatic scroll (keeps the internal position in sync). */
   scrollTo: (top: number, behavior?: ScrollBehavior) => void;
   /** Scrolls so the row's bottom edge sits at the viewport bottom. */
@@ -53,6 +63,10 @@ export interface VirtualList {
 export function createVirtualList(
   getScrollEl: () => HTMLDivElement | undefined,
   count: () => number,
+  /** Maps a row position to the row's identity (message id); measured
+   * heights are cached per identity so index shifts never misattribute
+   * a measurement to a different row. */
+  getRowKey: (index: number) => string,
   options: VirtualListOptions = {},
 ): VirtualList {
   const estimate = options.estimate ?? 96;
@@ -61,13 +75,14 @@ export function createVirtualList(
   const [viewport, setViewport] = createSignal(0);
   // Bumped whenever a measurement lands so rows/totalHeight re-derive.
   const [heightVersion, setHeightVersion] = createSignal(0);
-  const measured = new Map<number, number>();
-  // Row observers keyed by index; replaced when a row is re-created, so the
-  // set stays bounded by the number of distinct rows ever mounted.
-  const observers = new Map<number, ResizeObserver>();
+  // Measured heights keyed by row identity (see createVirtualList doc).
+  const measured = new Map<string, number>();
+  // Row observers keyed by row identity; replaced when a row is re-created,
+  // so the set stays bounded by the number of distinct rows ever mounted.
+  const observers = new Map<string, ResizeObserver>();
 
   function rowHeight(index: number): number {
-    return measured.get(index) ?? estimate;
+    return measured.get(getRowKey(index)) ?? estimate;
   }
 
   /** Height of every row, prefix-summed (sums[i] = height of rows 0..i-1). */
@@ -127,32 +142,32 @@ export function createVirtualList(
     measure();
   }
 
-  function measureRow(index: number, el: HTMLElement | undefined): void {
+  function measureRow(key: string, el: HTMLElement | undefined): void {
     if (el === undefined) {
       // Row unmounted: release the observer so the map doesn't retain a
-      // disconnected observer and a detached DOM element per row index.
-      observers.get(index)?.disconnect();
-      observers.delete(index);
+      // disconnected observer and a detached DOM element per row identity.
+      observers.get(key)?.disconnect();
+      observers.delete(key);
       return;
     }
     const rowEl = el;
     // Streaming rows grow while mounted (their height is unknown until the
     // next ResizeObserver pass); without one (jsdom, old WebViews) the
     // estimate stands and the overscan hides the difference.
-    observers.get(index)?.disconnect();
-    observers.delete(index);
+    observers.get(key)?.disconnect();
+    observers.delete(key);
     function apply(): void {
       if (!rowEl.isConnected) return;
       const h = rowEl.offsetHeight;
-      if (h > 0 && measured.get(index) !== h) {
-        measured.set(index, h);
+      if (h > 0 && measured.get(key) !== h) {
+        measured.set(key, h);
         setHeightVersion((v) => v + 1);
       }
     }
     queueMicrotask(apply);
     if (typeof ResizeObserver !== "undefined") {
       const observer = new ResizeObserver(apply);
-      observers.set(index, observer);
+      observers.set(key, observer);
       observer.observe(rowEl);
     }
   }

@@ -86,6 +86,7 @@ describe("perf benchmarks (TASK-M2-09)", () => {
       const list = createVirtualList(
         () => scrollEl,
         () => 1000,
+        (index) => `msg-${index}`,
         {},
       );
       const start = performance.now();

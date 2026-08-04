@@ -115,6 +115,12 @@ const MessageList: Component<MessageListProps> = (props) => {
   const list = createVirtualList(
     () => scrollRef,
     () => groups().length,
+    // Rows are measured by MESSAGE ID, so a page PREPENDED by pagination
+    // leaves the shifted-down rows with their measured heights and the new
+    // rows start at the estimate: the re-anchor delta is exactly the height
+    // of the inserted rows (index-keyed measurements would attribute stale
+    // heights to the new indices and make the delta hundreds of px off).
+    (index) => groups()[index]?.messageID ?? `row-${index}`,
     {
       estimate: ROW_ESTIMATE_PX,
     },
@@ -210,9 +216,11 @@ const MessageList: Component<MessageListProps> = (props) => {
   // visible content: rows are PREPENDED, so the content below the insertion
   // point shifts down by exactly the inserted height — restoring the saved
   // scrollTop plus that height keeps the transcript visually still. The
-  // height delta comes from the virtualizer's (measured) total height, so
-  // real row heights are honored. Earlier-load failures stay silent: the
-  // next top-reach simply retries.
+  // height delta comes from the virtualizer's (measured) total height, and
+  // because measurements are keyed by message id the delta is exactly the
+  // inserted rows' heights (real ones once they mount and measure, the
+  // estimate otherwise) — never stale heights of the shifted rows.
+  // Earlier-load failures stay silent: the next top-reach simply retries.
   async function loadEarlier() {
     if (pagination.loadingEarlier() || !pagination.hasMore()) return;
     const el = scrollRef;
@@ -225,6 +233,9 @@ const MessageList: Component<MessageListProps> = (props) => {
       // Solid flushes effects on a microtask; wait one macrotask so the new
       // rows are mounted (and measured) before the total height is read.
       await new Promise((resolve) => setTimeout(resolve, 0));
+      // Skip the correction if the user scrolled while the page was in
+      // flight: the saved anchor no longer matches the viewport, so applying
+      // the delta would yank the list against the user's scroll (flicker).
       if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return;
       list.measure();
       const delta = list.totalHeight() - beforeTotal;
@@ -346,7 +357,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                   <For each={rows()}>
                     {(row) => (
                       <div
-                        ref={(el) => list.measureRow(row.index, el)}
+                        ref={(el) => list.measureRow(row.messageID, el)}
                         data-virtual-row={row.index}
                         class={`absolute left-0 right-0 px-4 pb-4 ${row.index === 0 ? "pt-4" : ""}`}
                         style={{ top: `${row.start}px` }}
