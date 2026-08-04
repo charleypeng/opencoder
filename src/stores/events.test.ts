@@ -1,0 +1,244 @@
+// L1 tests for the event router (TASK-M2-02): the happy-chat mock scenario
+// drives the stores to the expected final state, `server.connected` triggers
+// a full re-sync, unknown events are ignored, and subscribeToServerEvents
+// wires the SSE stream to the router with per-server resets.
+
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { SseEvent } from "../services/sse.js";
+import { scenarios } from "../../tests/mock-server/scenarios/index.js";
+import { applyEvent, subscribeToServerEvents, syncAll } from "./events.js";
+import { sessions, resetServer as resetSessions } from "./session.js";
+import { messages, resetServer as resetMessages } from "./messages.js";
+import { projects, resetServer as resetProjects } from "./project.js";
+import type { Session } from "../services/session.js";
+import type { Project } from "../services/project.js";
+
+const { sseSubscribeMock } = vi.hoisted(() => {
+  const sseSubscribeMock = vi.fn();
+  return { sseSubscribeMock };
+});
+
+vi.mock("../services/sse.js", () => ({
+  sseSubscribe: sseSubscribeMock,
+}));
+
+const SERVER = "srv-evt";
+
+function session(id: string): Session {
+  return {
+    id,
+    slug: id,
+    projectID: "project-mock-1",
+    directory: "/mock/projects/opencode-demo",
+    title: id,
+    version: "1.18.11",
+    time: { created: 1, updated: 1 },
+  } as Session;
+}
+
+function project(id: string, worktree: string): Project {
+  return { id, worktree, time: { created: 1, updated: 1 }, sandboxes: [] } as Project;
+}
+
+function mockServices() {
+  return {
+    session: {
+      list: vi.fn().mockResolvedValue([session("ses_synced")]),
+      statusAll: vi.fn().mockResolvedValue({ ses_synced: { type: "busy" } }),
+    },
+    project: {
+      list: vi.fn().mockResolvedValue([project("p1", "/sync/proj")]),
+      current: vi.fn().mockResolvedValue(project("p1", "/sync/proj")),
+    },
+  };
+}
+
+afterEach(() => {
+  resetSessions(SERVER);
+  resetMessages(SERVER);
+  resetProjects(SERVER);
+  sseSubscribeMock.mockReset();
+});
+
+describe("applyEvent — happy-chat scenario", () => {
+  it("drives session/message/part stores to the scenario's final state", () => {
+    const happyChat = scenarios["happy-chat"];
+    for (const step of happyChat) {
+      if (step.event) applyEvent(SERVER, step.event as SseEvent);
+    }
+
+    const store = sessions[SERVER];
+    expect(store.sessions["ses_abc123"]).toMatchObject({
+      id: "ses_abc123",
+      title: "Happy chat",
+      agent: "build",
+      directory: "/mock/projects/opencode-demo",
+    });
+    expect(store.statuses["ses_abc123"]).toEqual({ type: "idle" });
+
+    const entry = messages[SERVER]["ses_abc123"];
+    expect(entry.info).toMatchObject({ id: "msg_user_001", role: "user" });
+    expect(entry.order).toEqual(["prt_text_001", "prt_tool_001"]);
+    expect(entry.parts["prt_text_001"]).toMatchObject({
+      id: "prt_text_001",
+      type: "text",
+      text: "Hello! I can help with that. Let me look at the repo structure first. Found 3 files. I will summarize them for you.",
+    });
+    expect(entry.parts["prt_tool_001"]).toMatchObject({
+      id: "prt_tool_001",
+      type: "tool",
+      state: { status: "completed", output: "src/\ndocs/\n" },
+    });
+  });
+});
+
+describe("applyEvent — edge routes", () => {
+  it("maps session.deleted to removeSession + removeMessage", () => {
+    applyEvent(SERVER, {
+      type: "session.created",
+      properties: { sessionID: "ses_x", info: session("ses_x") },
+    });
+    applyEvent(SERVER, {
+      type: "message.updated",
+      properties: {
+        sessionID: "ses_x",
+        info: { id: "m1", sessionID: "ses_x", role: "user", time: { created: 1 } },
+      },
+    });
+    applyEvent(SERVER, {
+      type: "session.deleted",
+      properties: { sessionID: "ses_x", info: session("ses_x") },
+    });
+    expect(sessions[SERVER].sessions["ses_x"]).toBeUndefined();
+    expect(messages[SERVER]["ses_x"]).toBeUndefined();
+  });
+
+  it("maps message.removed to part cleanup for that message", () => {
+    applyEvent(SERVER, {
+      type: "message.part.updated",
+      properties: {
+        sessionID: "ses_y",
+        time: 1,
+        part: {
+          id: "prt_1",
+          sessionID: "ses_y",
+          messageID: "msg_1",
+          type: "text",
+          text: "hello",
+        },
+      },
+    });
+    applyEvent(SERVER, {
+      type: "message.removed",
+      properties: { sessionID: "ses_y", messageID: "msg_1" },
+    });
+    expect(messages[SERVER]["ses_y"].order).toEqual([]);
+  });
+
+  it("maps session.error to an error status with a message", () => {
+    applyEvent(SERVER, {
+      type: "session.created",
+      properties: { sessionID: "ses_z", info: session("ses_z") },
+    });
+    applyEvent(SERVER, {
+      type: "session.error",
+      properties: {
+        sessionID: "ses_z",
+        error: { name: "UnknownError", data: { message: "boom" } },
+      },
+    });
+    expect(sessions[SERVER].statuses["ses_z"]).toEqual({ type: "error", message: "boom" });
+  });
+
+  it("ignores unknown and deferred event types", () => {
+    applyEvent(SERVER, { type: "project.updated", properties: {} });
+    applyEvent(SERVER, { type: "todo.updated", properties: {} });
+    applyEvent(SERVER, { type: "server.connected", properties: {} });
+    expect(sessions[SERVER]).toBeUndefined();
+    expect(messages[SERVER]).toBeUndefined();
+    expect(projects[SERVER]).toBeUndefined();
+  });
+});
+
+describe("syncAll", () => {
+  it("pulls and applies session list, status map, projects and current directory", async () => {
+    const services = mockServices();
+    const result = await syncAll(SERVER, "/sync/proj", services);
+
+    expect(services.session.list).toHaveBeenCalledWith("/sync/proj");
+    expect(services.project.current).toHaveBeenCalledWith("/sync/proj");
+    expect(result).toEqual({
+      sessions: [session("ses_synced")],
+      statuses: { ses_synced: { type: "busy" } },
+      projects: [project("p1", "/sync/proj")],
+      current: "/sync/proj",
+    });
+
+    expect(sessions[SERVER].order).toEqual(["ses_synced"]);
+    expect(sessions[SERVER].statuses).toEqual({ ses_synced: { type: "busy" } });
+    expect(projects[SERVER].projects).toEqual([project("p1", "/sync/proj")]);
+    expect(projects[SERVER].current).toBe("/sync/proj");
+  });
+});
+
+describe("subscribeToServerEvents", () => {
+  it("subscribes, resets per-server state and re-syncs on server.connected", async () => {
+    let onEvent: ((event: SseEvent) => void) | undefined;
+    sseSubscribeMock.mockImplementation(
+      async (_id: string, _dir: string | undefined, handler: (event: SseEvent) => void) => {
+        onEvent = handler;
+        return async () => {};
+      },
+    );
+
+    const services = mockServices();
+    const result = await subscribeToServerEvents(SERVER, () => "/sync/proj", { services });
+
+    expect(sseSubscribeMock).toHaveBeenCalledWith(SERVER, "/sync/proj", expect.any(Function));
+    expect(onEvent).toBeDefined();
+
+    // Stale per-server state exists before the re-connect.
+    applyEvent(SERVER, {
+      type: "session.created",
+      properties: { sessionID: "ses_stale", info: session("ses_stale") },
+    });
+    expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
+
+    onEvent?.({ type: "server.connected", properties: {} });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Reset cleared the stale bucket, then syncAll applied the fresh list.
+    expect(sessions[SERVER].order).toEqual(["ses_synced"]);
+    expect("ses_stale" in sessions[SERVER].sessions).toBe(false);
+    expect(projects[SERVER].current).toBe("/sync/proj");
+
+    // Events keep flowing after the re-sync.
+    onEvent?.({
+      type: "message.part.delta",
+      properties: {
+        sessionID: "ses_synced",
+        messageID: "m1",
+        partID: "p1",
+        field: "text",
+        delta: "hi",
+      },
+    });
+    expect((messages[SERVER]["ses_synced"].parts["p1"] as { text: string }).text).toBe("hi");
+
+    // Manual sync is exposed.
+    await result.sync();
+    expect(services.session.list).toHaveBeenCalledTimes(2);
+
+    await result.unsubscribe();
+  });
+
+  it("returns a working unsubscribe", async () => {
+    const unsubscribe = vi.fn(async () => {});
+    sseSubscribeMock.mockResolvedValue(unsubscribe);
+    const result = await subscribeToServerEvents(SERVER, () => undefined, {
+      services: mockServices(),
+    });
+    await result.unsubscribe();
+    expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
