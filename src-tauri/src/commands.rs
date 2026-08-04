@@ -16,7 +16,7 @@ use crate::transport::sse::{sse_subscribe as subscribe, sse_unsubscribe as unsub
 #[tauri::command]
 pub async fn http_request(
     mut request: HttpRequest,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<HttpResponse, ApiError> {
     resolve_request_url(&mut request, &registry)?;
     do_request(request).await
@@ -36,7 +36,7 @@ pub fn sse_subscribe(
     directory: Option<String>,
     channel: tauri::ipc::Channel<serde_json::Value>,
     auth: Option<Auth>,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<u64, ApiError> {
     let base_url = lookup_server_base_url(&server_id, &registry)?;
     subscribe(base_url, directory, channel, auth)
@@ -50,7 +50,7 @@ pub fn sse_unsubscribe(subscription_id: u64) {
 
 /// Lists all saved servers.
 #[tauri::command]
-pub fn list_servers(registry: tauri::State<'_, ServerRegistry>) -> Vec<ServerEntry> {
+pub fn list_servers(registry: tauri::State<'_, ServerRegistry<tauri::Wry>>) -> Vec<ServerEntry> {
     registry.list()
 }
 
@@ -58,7 +58,7 @@ pub fn list_servers(registry: tauri::State<'_, ServerRegistry>) -> Vec<ServerEnt
 #[tauri::command]
 pub fn add_server(
     entry: ServerEntryInput,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<ServerEntry, ApiError> {
     registry.add(entry).map_err(map_registry_error)
 }
@@ -68,7 +68,7 @@ pub fn add_server(
 pub fn update_server(
     id: String,
     entry: ServerEntryInput,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<ServerEntry, ApiError> {
     registry.update(id, entry).map_err(map_registry_error)
 }
@@ -77,7 +77,7 @@ pub fn update_server(
 #[tauri::command]
 pub fn remove_server(
     id: String,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<(), ApiError> {
     registry.remove(id).map_err(map_registry_error)
 }
@@ -86,7 +86,7 @@ pub fn remove_server(
 #[tauri::command]
 pub fn resolve_server_base_url(
     server_id: String,
-    registry: tauri::State<'_, ServerRegistry>,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
 ) -> Result<String, ApiError> {
     lookup_server_base_url(&server_id, &registry)
 }
@@ -94,7 +94,7 @@ pub fn resolve_server_base_url(
 /// Fills in `request.url` from the registry when only `serverID` is given.
 fn resolve_request_url(
     request: &mut HttpRequest,
-    registry: &ServerRegistry,
+    registry: &ServerRegistry<tauri::Wry>,
 ) -> Result<(), ApiError> {
     if request.url.is_none() {
         if let Some(server_id) = &request.server_id {
@@ -104,7 +104,10 @@ fn resolve_request_url(
     Ok(())
 }
 
-fn lookup_server_base_url(server_id: &str, registry: &ServerRegistry) -> Result<String, ApiError> {
+fn lookup_server_base_url(
+    server_id: &str,
+    registry: &ServerRegistry<tauri::Wry>,
+) -> Result<String, ApiError> {
     registry
         .resolve_base_url(server_id)
         .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))

@@ -28,3 +28,6 @@ tokio-util = { version = "0.7", features = ["rt"] }
 futures-util = "0.3"
 tauri-plugin-store = "2"
 
+[dev-dependencies]
+tauri = { version = "2", features = ["test"] }
+
