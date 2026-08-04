@@ -1,8 +1,10 @@
 import { createSignal, onMount, Show } from "solid-js";
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import ServerHome from "./features/servers/ServerHome";
 import DesktopShell from "./shells/desktop/DesktopShell";
 import MobileShell from "./shells/mobile/MobileShell";
 import TitleBar from "./shells/desktop/TitleBar";
+import PetShell from "./features/pet/PetShell";
 import { setGlassBarHidden } from "./shells/mobile/glassControl.js";
 import { platform } from "./platform";
 import type { ServerEntry } from "./services/servers";
@@ -23,29 +25,52 @@ import type { ServerEntry } from "./services/servers";
 // is mounted above the content so every desktop screen keeps its window
 // controls — the content wrapper absorbs the remaining height, and the
 // shells' roots use percentage heights (h-full / min-h-full) to fill it.
+//
+// TASK-M8-07: the pet window (label "pet", created Rust-side) loads the
+// same app and renders the PetShell page instead of the workspace — the
+// window label is the only route signal (no router is installed). The
+// check is guarded (outside Tauri / IPC-less web builds never touch the
+// window API), so the pet window and the main window share one bundle.
 
 function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
+  const [petWindow, setPetWindow] = createSignal(false);
 
   onMount(() => {
+    if (window.__TAURI_INTERNALS__ !== undefined) {
+      try {
+        setPetWindow(getCurrentWindow().label === "pet");
+      } catch {
+        // Window metadata unavailable: treat as the main window.
+      }
+    }
     if (platform.kind === "mobile") setGlassBarHidden();
   });
 
   return (
-    <div class="flex h-dvh flex-col">
-      <Show when={platform.kind === "desktop"}>
-        <TitleBar />
-      </Show>
-      <div class="min-h-0 flex-1">
-        <Show when={selected()} fallback={<ServerHome onSelect={setSelected} />}>
-          {platform.kind === "mobile" ? (
-            <MobileShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
-          ) : (
-            <DesktopShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
-          )}
+    <Show
+      when={!petWindow()}
+      fallback={
+        <div class="h-dvh w-full">
+          <PetShell />
+        </div>
+      }
+    >
+      <div class="flex h-dvh flex-col">
+        <Show when={platform.kind === "desktop"}>
+          <TitleBar />
         </Show>
+        <div class="min-h-0 flex-1">
+          <Show when={selected()} fallback={<ServerHome onSelect={setSelected} />}>
+            {platform.kind === "mobile" ? (
+              <MobileShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+            ) : (
+              <DesktopShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+            )}
+          </Show>
+        </div>
       </div>
-    </div>
+    </Show>
   );
 }
 

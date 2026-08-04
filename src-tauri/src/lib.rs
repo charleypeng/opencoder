@@ -4,6 +4,8 @@ pub mod connections;
 #[cfg(desktop)]
 mod desktop;
 pub mod discovery;
+#[cfg(desktop)]
+mod pet;
 pub mod transport;
 
 use connections::health::HealthMonitor;
@@ -90,6 +92,12 @@ pub fn run() {
             // shortcut is logged, never fatal).
             #[cfg(desktop)]
             desktop::setup(app);
+            // Pet window infrastructure (TASK-M8-07): the pet window's
+            // display settings live in this managed state (defaults 160px
+            // / full opacity / topmost / dock enabled); the pet window's
+            // own localStorage re-applies the persisted values at mount.
+            #[cfg(desktop)]
+            app.manage(pet::PetState::default());
             // Start per-server health polling for every persisted server.
             let monitor = app.state::<HealthMonitor<tauri::Wry>>();
             monitor.start_all(&app.state::<connections::ServerRegistry<tauri::Wry>>());
@@ -125,7 +133,27 @@ pub fn run() {
             #[cfg(desktop)]
             desktop::get_global_shortcut,
             #[cfg(desktop)]
-            desktop::tray_set_badge
+            desktop::tray_set_badge,
+            #[cfg(desktop)]
+            pet::pet_show,
+            #[cfg(desktop)]
+            pet::pet_hide,
+            #[cfg(desktop)]
+            pet::pet_is_visible,
+            #[cfg(desktop)]
+            pet::pet_set_state,
+            #[cfg(desktop)]
+            pet::pet_set_ignore_mouse,
+            #[cfg(desktop)]
+            pet::pet_set_size,
+            #[cfg(desktop)]
+            pet::pet_set_opacity,
+            #[cfg(desktop)]
+            pet::pet_set_topmost,
+            #[cfg(desktop)]
+            pet::pet_set_mute,
+            #[cfg(desktop)]
+            pet::pet_set_dock
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

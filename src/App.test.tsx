@@ -13,11 +13,18 @@ import { fireEvent, render, screen } from "@solidjs/testing-library";
 import App from "./App";
 import { refreshPlatform } from "./platform";
 
-const { glassHide } = vi.hoisted(() => ({ glassHide: vi.fn() }));
+const { glassHide, getCurrentWindowMock } = vi.hoisted(() => ({
+  glassHide: vi.fn(),
+  getCurrentWindowMock: vi.fn(),
+}));
 
 vi.mock("./shells/mobile/glassControl.js", () => ({
   setGlassBarHidden: glassHide,
   setGlassBarShown: vi.fn(),
+}));
+vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: getCurrentWindowMock }));
+vi.mock("./features/pet/PetShell", () => ({
+  default: () => <div data-testid="pet-shell-mock" />,
 }));
 vi.mock("./features/servers/ServerHome", () => ({
   default: (props: { onSelect: (server: { id: string }) => void }) => (
@@ -41,7 +48,9 @@ const ORIGINAL_UA = window.navigator.userAgent;
 afterEach(() => {
   Object.defineProperty(window.navigator, "userAgent", { value: ORIGINAL_UA, configurable: true });
   delete window.webkit;
+  delete (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__;
   glassHide.mockClear();
+  getCurrentWindowMock.mockReset();
   refreshPlatform();
 });
 
@@ -78,5 +87,27 @@ describe("App platform switch", () => {
     fireEvent.click(home);
     await screen.findByTestId("mobile-shell-mock");
     expect(screen.queryByTestId("desktop-shell-mock")).not.toBeInTheDocument();
+  });
+});
+
+describe("App pet window route (TASK-M8-07)", () => {
+  it("renders the PetShell page instead of the workspace in the pet window", async () => {
+    (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = { mock: true };
+    getCurrentWindowMock.mockReturnValue({ label: "pet" });
+    refreshPlatform();
+    render(() => <App />);
+    await screen.findByTestId("pet-shell-mock");
+    expect(screen.queryByTestId("server-home")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("titlebar-mock")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("desktop-shell-mock")).not.toBeInTheDocument();
+  });
+
+  it("renders the normal app when the window label is not pet", async () => {
+    (window as { __TAURI_INTERNALS__?: unknown }).__TAURI_INTERNALS__ = { mock: true };
+    getCurrentWindowMock.mockReturnValue({ label: "main" });
+    refreshPlatform();
+    render(() => <App />);
+    expect(await screen.findByTestId("server-home")).toBeInTheDocument();
+    expect(screen.queryByTestId("pet-shell-mock")).not.toBeInTheDocument();
   });
 });

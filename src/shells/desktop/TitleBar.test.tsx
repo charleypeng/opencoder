@@ -11,17 +11,26 @@
 // handler; the attribute presence is the contract under test here.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import TitleBar from "./TitleBar";
 import { refreshPlatform } from "../../platform/index.js";
 
-const { isTauriMock, getCurrentWindowMock } = vi.hoisted(() => ({
-  isTauriMock: vi.fn<() => boolean>(() => false),
-  getCurrentWindowMock: vi.fn(),
-}));
+const { isTauriMock, getCurrentWindowMock, showPetMock, hidePetMock, isPetVisibleMock } =
+  vi.hoisted(() => ({
+    isTauriMock: vi.fn<() => boolean>(() => false),
+    getCurrentWindowMock: vi.fn(),
+    showPetMock: vi.fn(async () => {}),
+    hidePetMock: vi.fn(async () => {}),
+    isPetVisibleMock: vi.fn(async () => false),
+  }));
 
 vi.mock("@tauri-apps/api/core", () => ({ isTauri: isTauriMock }));
 vi.mock("@tauri-apps/api/window", () => ({ getCurrentWindow: getCurrentWindowMock }));
+vi.mock("../../services/pet.js", () => ({
+  showPet: showPetMock,
+  hidePet: hidePetMock,
+  isPetVisible: isPetVisibleMock,
+}));
 
 const ORIGINAL_UA = window.navigator.userAgent;
 
@@ -60,6 +69,10 @@ function setUserAgent(ua: string) {
 beforeEach(() => {
   isTauriMock.mockReturnValue(false);
   getCurrentWindowMock.mockReset();
+  showPetMock.mockClear();
+  hidePetMock.mockClear();
+  isPetVisibleMock.mockClear();
+  isPetVisibleMock.mockResolvedValue(false);
 });
 
 afterEach(() => {
@@ -164,5 +177,54 @@ describe("TitleBar Linux", () => {
     expect(screen.getByTestId("titlebar-minimize")).toBeInTheDocument();
     expect(screen.getByTestId("titlebar-maximize")).toBeInTheDocument();
     expect(screen.getByTestId("titlebar-close")).toBeInTheDocument();
+  });
+});
+
+describe("TitleBar pet toggle (TASK-M8-07)", () => {
+  it("renders the pet button on every platform and summons the pet", async () => {
+    render(() => <TitleBar />);
+    const button = screen.getByTestId("titlebar-pet");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(button);
+    await waitFor(() => expect(showPetMock).toHaveBeenCalledTimes(1));
+    expect(hidePetMock).not.toHaveBeenCalled();
+    await waitFor(() => expect(button).toHaveAttribute("aria-pressed", "true"));
+  });
+
+  it("mirrors the pet's actual visibility at mount", async () => {
+    isTauriMock.mockReturnValue(true);
+    setUserAgent(ORIGINAL_UA);
+    const { win } = fakeWindow();
+    getCurrentWindowMock.mockReturnValue(win);
+    isPetVisibleMock.mockResolvedValue(true);
+    render(() => <TitleBar />);
+    await vi.waitFor(() => expect(isPetVisibleMock).toHaveBeenCalled());
+    expect(screen.getByTestId("titlebar-pet")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("hides the pet when already visible", async () => {
+    isTauriMock.mockReturnValue(true);
+    setUserAgent(ORIGINAL_UA);
+    const { win } = fakeWindow();
+    getCurrentWindowMock.mockReturnValue(win);
+    isPetVisibleMock.mockResolvedValue(true);
+    render(() => <TitleBar />);
+    await vi.waitFor(() => expect(isPetVisibleMock).toHaveBeenCalled());
+    fireEvent.click(screen.getByTestId("titlebar-pet"));
+    await waitFor(() => expect(hidePetMock).toHaveBeenCalledTimes(1));
+    expect(showPetMock).not.toHaveBeenCalled();
+    await waitFor(() =>
+      expect(screen.getByTestId("titlebar-pet")).toHaveAttribute("aria-pressed", "false"),
+    );
+  });
+
+  it("keeps the pet button on macOS (no custom window controls)", async () => {
+    isTauriMock.mockReturnValue(true);
+    setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
+    const { win } = fakeWindow();
+    getCurrentWindowMock.mockReturnValue(win);
+    render(() => <TitleBar />);
+    expect(screen.getByTestId("titlebar-pet")).toBeInTheDocument();
+    expect(screen.queryByTestId("titlebar-minimize")).not.toBeInTheDocument();
   });
 });

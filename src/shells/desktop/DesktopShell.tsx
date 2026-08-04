@@ -103,7 +103,8 @@ import TerminalPanel from "../../features/terminal/TerminalPanel";
 import CommandPalette from "./CommandPalette";
 import { subscribeToGlobalSummon, subscribeToTrayNewSession } from "../../services/tray.js";
 import { startTrayBadgeSync } from "../../services/trayBadge.js";
-import { applyDesktopPrefs } from "../../features/settings/desktopPrefs.js";
+import { applyDesktopPrefs, petEnabled } from "../../features/settings/desktopPrefs.js";
+import { showPet } from "../../services/pet.js";
 import { startNotifications } from "../../services/notificationEvents.js";
 import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
 
@@ -603,6 +604,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       // unhandled rejection; the stored prefs stay un-applied until the
       // next run (the Rust defaults remain in effect).
     });
+    // Pet companion (TASK-M8-07): show the pet when the pref is not
+    // explicitly off (default on). The 🐾 title-bar button and the
+    // Desktop settings switch override it any time.
+    if (petEnabled()) {
+      void showPet().catch(() => {
+        // The pet is a best-effort companion: a failed IPC at mount never
+        // blocks the workspace.
+      });
+    }
     onCleanup(() => {
       stopHealth();
       stopChanged();

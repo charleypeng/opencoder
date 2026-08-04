@@ -119,6 +119,53 @@ describe("DesktopSection", () => {
     expect(screen.getByTestId("desktop-shortcut-input")).toHaveValue("Space");
   });
 
+  it("renders the Show pet switch on by default", async () => {
+    render(() => <DesktopSection />);
+    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
+    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("hides the pet and persists the pref when the switch is toggled off", async () => {
+    render(() => <DesktopSection />);
+    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("desktop-show-pet"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("pet_hide"));
+    await waitFor(() =>
+      expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false"),
+    );
+    expect(JSON.parse(localStorage.getItem("oc-desktop") ?? "{}").petEnabled).toBe(false);
+  });
+
+  it("shows the pet again and persists the pref when toggled back on", async () => {
+    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: false }));
+    render(() => <DesktopSection />);
+    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
+    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(screen.getByTestId("desktop-show-pet"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("pet_show"));
+    await waitFor(() =>
+      expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "true"),
+    );
+    expect(JSON.parse(localStorage.getItem("oc-desktop") ?? "{}").petEnabled).toBe(true);
+  });
+
+  it("keeps the switch off and shows an error when showing the pet fails", async () => {
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "get_close_to_tray") return Promise.resolve(false);
+      if (cmd === "get_global_shortcut") return Promise.resolve("Alt+Space");
+      if (cmd === "pet_show") return Promise.reject("pet unavailable");
+      return Promise.resolve(undefined);
+    });
+    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: false }));
+    render(() => <DesktopSection />);
+    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("desktop-show-pet"));
+    await waitFor(() =>
+      expect(screen.getByTestId("desktop-error")).toHaveTextContent("pet unavailable"),
+    );
+    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false");
+  });
+
   it("disables the save button for an empty accelerator", async () => {
     render(() => <DesktopSection />);
     await waitFor(() => expect(screen.getByTestId("desktop-shortcut-input")).toBeInTheDocument());

@@ -5,17 +5,29 @@
 // accelerator and anything that failed to parse).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyDesktopPrefs, loadDesktopPrefs, saveDesktopPrefs } from "./desktopPrefs.js";
+import {
+  applyDesktopPrefs,
+  loadDesktopPrefs,
+  petEnabled,
+  saveDesktopPrefs,
+  setPetEnabled,
+} from "./desktopPrefs.js";
 import { DEFAULT_SUMMON_SHORTCUT } from "../../services/tray.js";
 
-const { setCloseToTrayMock, setGlobalShortcutMock } = vi.hoisted(() => ({
+const { setCloseToTrayMock, setGlobalShortcutMock, showPetMock, hidePetMock } = vi.hoisted(() => ({
   setCloseToTrayMock: vi.fn(async () => undefined),
   setGlobalShortcutMock: vi.fn(async (accelerator: string) => accelerator),
+  showPetMock: vi.fn(async () => undefined),
+  hidePetMock: vi.fn(async () => undefined),
 }));
 vi.mock("../../services/tray.js", () => ({
   setCloseToTray: setCloseToTrayMock,
   setGlobalShortcut: setGlobalShortcutMock,
   DEFAULT_SUMMON_SHORTCUT: "Alt+Space",
+}));
+vi.mock("../../services/pet.js", () => ({
+  showPet: showPetMock,
+  hidePet: hidePetMock,
 }));
 
 beforeEach(() => {
@@ -78,5 +90,42 @@ describe("applyDesktopPrefs", () => {
     await applyDesktopPrefs();
     expect(setCloseToTrayMock).not.toHaveBeenCalled();
     expect(setGlobalShortcutMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("petEnabled / setPetEnabled (TASK-M8-07)", () => {
+  it("defaults the pet to enabled", () => {
+    expect(petEnabled()).toBe(true);
+  });
+
+  it("is off only when the pref explicitly says so", () => {
+    saveDesktopPrefs({ petEnabled: false });
+    expect(petEnabled()).toBe(false);
+    saveDesktopPrefs({ petEnabled: true });
+    expect(petEnabled()).toBe(true);
+  });
+
+  it("round-trips the petEnabled field through the store", () => {
+    saveDesktopPrefs({ petEnabled: false });
+    expect(loadDesktopPrefs()).toEqual({ petEnabled: false });
+    // Invalid shapes are dropped at load.
+    saveDesktopPrefs({ petEnabled: "yes" } as unknown as { petEnabled: boolean });
+    expect(loadDesktopPrefs()).toEqual({});
+  });
+
+  it("shows the pet and persists the pref when enabled", async () => {
+    await setPetEnabled(true);
+    expect(showPetMock).toHaveBeenCalledTimes(1);
+    expect(hidePetMock).not.toHaveBeenCalled();
+    expect(loadDesktopPrefs().petEnabled).toBe(true);
+    expect(petEnabled()).toBe(true);
+  });
+
+  it("hides the pet and persists the pref when disabled", async () => {
+    await setPetEnabled(false);
+    expect(hidePetMock).toHaveBeenCalledTimes(1);
+    expect(showPetMock).not.toHaveBeenCalled();
+    expect(loadDesktopPrefs().petEnabled).toBe(false);
+    expect(petEnabled()).toBe(false);
   });
 });

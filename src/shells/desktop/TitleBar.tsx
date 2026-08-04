@@ -18,11 +18,19 @@ import type { Component } from "solid-js";
 import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "../../platform/index.js";
+import { hidePet, isPetVisible, showPet } from "../../services/pet.js";
 
 const TitleBar: Component = () => {
   const tauri = isTauri();
   const mac = platform.kind === "desktop" && platform.os === "macos";
   const [maximized, setMaximized] = createSignal(false);
+  // Pet companion toggle (TASK-M8-07): the 🐾 icon summons/hides the pet
+  // window from anywhere (the title bar is on every desktop screen,
+  // ServerHome included, so the pet can be turned off from the welcome
+  // page too). The pressed state mirrors the pet window's actual
+  // visibility (queried at mount — the DesktopShell mount replay may have
+  // already shown it).
+  const [petVisible, setPetVisible] = createSignal(false);
 
   // Lazily bound window API; only non-null inside Tauri. `onResized` keeps
   // the maximize/restore icon truthful when the state changes from outside
@@ -40,9 +48,22 @@ const TitleBar: Component = () => {
       .then((unlisten) => {
         unlistenResized = unlisten;
       });
+    void isPetVisible().then(setPetVisible);
   });
 
   onCleanup(() => unlistenResized?.());
+
+  /** Summons or hides the pet window (one-way actions; the signal follows
+   *  the action — the pet is only visible through these controls). */
+  async function togglePet() {
+    if (petVisible()) {
+      await hidePet();
+      setPetVisible(false);
+    } else {
+      await showPet();
+      setPetVisible(true);
+    }
+  }
 
   async function handleToggleMaximize() {
     if (windowApi === null) return;
@@ -77,6 +98,33 @@ const TitleBar: Component = () => {
         </span>
       </span>
       <div class="min-w-0 flex-1" />
+      <button
+        type="button"
+        data-testid="titlebar-pet"
+        aria-pressed={petVisible() ? "true" : "false"}
+        aria-label={petVisible() ? "Hide the pet" : "Show the pet"}
+        title={petVisible() ? "Hide the pet" : "Show the pet"}
+        class={`mr-2 flex h-6 w-6 items-center justify-center rounded-md outline-none transition-colors hover:bg-bg-sunken ${
+          petVisible() ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
+        }`}
+        onClick={() => void togglePet()}
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.7"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-4 w-4"
+          aria-hidden="true"
+        >
+          <circle cx="5.5" cy="9.5" r="2.1" />
+          <circle cx="11" cy="5.6" r="2.1" />
+          <circle cx="17" cy="9.5" r="2.1" />
+          <path d="M12 13.2c1.5 0 2.8-.4 3.9-.1 1.7.5 2.6 2.2 2.2 3.9-.5 2.3-3 4-6.1 4s-5.6-1.7-6.1-4c-.4-1.7.5-3.4 2.2-3.9 1.1-.3 2.4.1 3.9.1z" />
+        </svg>
+      </button>
       <Show when={!mac && tauri}>
         <div class="flex h-full items-stretch">
           <button

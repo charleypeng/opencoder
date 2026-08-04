@@ -53,6 +53,7 @@ const {
   startNotificationsMock,
   subscribeToNotificationClickMock,
   focusWindowMock,
+  showPetMock,
 } = vi.hoisted(() => {
   const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
   return {
@@ -64,6 +65,7 @@ const {
     startNotificationsMock: vi.fn(() => vi.fn()),
     subscribeToNotificationClickMock: vi.fn<(cb: () => void) => () => void>(() => vi.fn()),
     focusWindowMock: vi.fn(async () => {}),
+    showPetMock: vi.fn(async () => {}),
   };
 });
 
@@ -78,6 +80,19 @@ vi.mock("../../services/notificationEvents.js", () => ({
 vi.mock("../../services/notifications.js", () => ({
   subscribeToNotificationClick: subscribeToNotificationClickMock,
   focusWindow: focusWindowMock,
+}));
+vi.mock("../../services/pet.js", () => ({
+  showPet: showPetMock,
+  hidePet: vi.fn(async () => {}),
+  isPetVisible: vi.fn(async () => false),
+  setPetState: vi.fn(async () => {}),
+  setPetIgnoreMouse: vi.fn(async () => {}),
+  setPetSize: vi.fn(async () => {}),
+  setPetOpacity: vi.fn(async () => {}),
+  setPetTopmost: vi.fn(async () => {}),
+  setPetMute: vi.fn(async () => {}),
+  setPetDock: vi.fn(async () => {}),
+  subscribeToPetState: vi.fn(() => vi.fn()),
 }));
 // The Files viewer highlights through Shiki; a stub keeps the shell tests
 // free of language-pack loading (the viewer tests cover the real contract).
@@ -1974,6 +1989,38 @@ describe("DesktopShell tray & global summon (TASK-M8-05)", () => {
         accelerator: "Ctrl+Shift+O",
       }),
     );
+    localStorage.removeItem("oc-desktop");
+  });
+});
+
+describe("DesktopShell pet companion (TASK-M8-07)", () => {
+  beforeEach(() => {
+    showPetMock.mockClear();
+  });
+
+  it("shows the pet on mount when the pref is unset (default on)", async () => {
+    const alpha = server({ id: "srv-m8pet1", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(showPetMock).toHaveBeenCalledTimes(1));
+  });
+
+  it("shows the pet on mount when the pref is enabled", async () => {
+    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: true }));
+    const alpha = server({ id: "srv-m8pet2", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(showPetMock).toHaveBeenCalledTimes(1));
+    localStorage.removeItem("oc-desktop");
+  });
+
+  it("does not show the pet on mount when the pref is disabled", async () => {
+    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: false }));
+    const alpha = server({ id: "srv-m8pet3", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    expect(showPetMock).not.toHaveBeenCalled();
     localStorage.removeItem("oc-desktop");
   });
 });
