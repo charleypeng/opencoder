@@ -193,11 +193,15 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
         if (seq !== fetchSeq) return; // stale response; a newer query owns the list
         setSymbols(items.map((symbol) => symbolHitOf(symbol, getActiveDirectory())));
         setSelected(0);
+        // New result set: jump the list back to the top.
+        if (listRef) listRef.scrollTop = 0;
       } else {
         const items = await find.files(value);
         if (seq !== fetchSeq) return; // stale response; a newer query owns the list
         setResults(rankResults(value, items, recent()));
         setSelected(0);
+        // New result set: jump the list back to the top.
+        if (listRef) listRef.scrollTop = 0;
       }
     } catch {
       if (seq !== fetchSeq) return;
@@ -229,6 +233,9 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
     setResults([]);
     setSymbols([]);
     setSelected(0);
+    // Show "Searching…" while the debounce window and fetch run, instead
+    // of a stale "No matches" from the cleared list.
+    setLoading(true);
     timer = setTimeout(() => {
       timer = undefined;
       void search(value.trim());

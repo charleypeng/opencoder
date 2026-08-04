@@ -20,7 +20,8 @@
 // TASK-M4-08 adds the VCS changes view (a git button in the Files tab bar
 // opens it; its own Back header returns to Files) and a bottom status bar
 // whose branch chip follows the vcs store (one GET /vcs per server on
-// mount; `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
+// mount and after each re-sync that clears the store bucket;
+// `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
 // M9-07 extends the bar with LSP/MCP/tokens).
 // This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
@@ -97,15 +98,19 @@ function StatusBarBranch(props: { serverId: string }) {
   createEffect(() => {
     const serverId = props.serverId;
     const bucket = vcs[serverId];
-    if (fetched.has(serverId) || (bucket !== undefined && bucket.branch !== null)) return;
+    // Fetch when the bucket is missing — never fetched on mount or dropped
+    // by a re-sync (resetServer clears it). The fetched guard only applies
+    // once a bucket exists: a successful fetch leaves one behind (null
+    // branch = non-git), so the chip never refetches; a failed fetch drops
+    // the guard so the next bucket change / context rebuild retries.
+    if (fetched.has(serverId) && bucket !== undefined) return;
     fetched.add(serverId);
     void createVcsService(getApiClient())
       .info()
       .then((info) => applyVcs(serverId, info))
       .catch(() => {
         // Unreachable server: the chip stays hidden until an event or a
-        // later re-mount (the fetch guard is cleared for retries on the
-        // next version bump / bucket change).
+        // later bucket change / context rebuild retries the fetch.
         fetched.delete(serverId);
       });
   });

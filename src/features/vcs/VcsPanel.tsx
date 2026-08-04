@@ -135,6 +135,9 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
 
   /** Applies the pasted patch; success refreshes status and diff. */
   async function runApply(): Promise<void> {
+    // Defense-in-depth: the confirm dialog already guards the destructive
+    // path; never POST an empty patch.
+    if (patchText().trim() === "") return;
     setApplying(true);
     setApplyError(null);
     setApplyDone(false);
