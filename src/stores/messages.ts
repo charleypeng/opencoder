@@ -6,6 +6,13 @@
 // `message.part.updated` carries the FULL part state and therefore replaces
 // the stored part wholesale; `message.part.delta` appends to string fields
 // ("text"/"output") and replaces anything else.
+//
+// TASK-M2-08 optimistic reconciliation: a local-* message inserted by the
+// prompt box is tracked here until its server echo arrives; the first real
+// server message for the session rolls it over onto the echoed message (see
+// upsertMessage). A prompt the server never echoes keeps its optimistic
+// bubble and marker until the next send replaces it — same as a silent
+// server.
 
 import { createStore, produce } from "solid-js/store";
 import type { components } from "../services/api/schema.js";
@@ -42,6 +49,33 @@ function freshSessionMessages(): SessionMessages {
   return { info: null, infos: {}, parts: {}, order: [] };
 }
 
+// Pending optimistic local message ids per (server, session), registered by
+// PromptBox on send and consumed by the first real server message after it.
+function pendingKey(serverId: string, sessionId: string): string {
+  return `${serverId}:${sessionId}`;
+}
+
+const pendingLocalMessages = new Map<string, string>();
+
+/**
+ * Registers a local-* message awaiting its server echo (TASK-M2-08). Only
+ * the most recent send is tracked per session; a prompt the server never
+ * echoes keeps its optimistic bubble and the marker is replaced by the next
+ * send or dropped by untrackPendingLocalMessage.
+ */
+export function trackPendingLocalMessage(
+  serverId: string,
+  sessionId: string,
+  localMessageId: string,
+): void {
+  pendingLocalMessages.set(pendingKey(serverId, sessionId), localMessageId);
+}
+
+/** Drops a session's pending marker (rollback, session switch, unmount). */
+export function untrackPendingLocalMessage(serverId: string, sessionId: string): void {
+  pendingLocalMessages.delete(pendingKey(serverId, sessionId));
+}
+
 function updateServer(
   serverId: string,
   update: (bucket: Record<string, SessionMessages>) => void,
@@ -69,6 +103,14 @@ function putPart(bucket: Record<string, SessionMessages>, sessionId: string, par
  * most-recent slot and the per-message table) and normalizes any parts
  * carried on the info payload (recorded session messages use a
  * { info, parts } shape; the event schema itself has no parts).
+ *
+ * TASK-M2-08: while a pending local message is tracked for the session, the
+ * first real server message is the echo of the optimistic prompt. The local
+ * parts are re-issued under prt-* ids of the echoed message (the server echo
+ * carries message metadata only, so the prompt text would be lost otherwise)
+ * and the local info is dropped — the echo replaces the optimistic bubble
+ * instead of duplicating it. The marker is cleared so later messages never
+ * re-trigger.
  */
 export function upsertMessage(serverId: string, sessionId: string, info: Message): void {
   updateServer(serverId, (bucket) => {
@@ -80,6 +122,23 @@ export function upsertMessage(serverId: string, sessionId: string, info: Message
     if (Array.isArray(carried)) {
       for (const part of carried) putPart(bucket, sessionId, part as Part);
     }
+    const pendingId = pendingLocalMessages.get(pendingKey(serverId, sessionId));
+    if (pendingId === undefined || pendingId === info.id) return;
+    const renames = new Map<string, string>();
+    for (const partId of [...entry.order]) {
+      const part = entry.parts[partId];
+      if (part === undefined || part.messageID !== pendingId) continue;
+      renames.set(partId, renames.size === 0 ? `prt-${info.id}` : `prt-${info.id}-${renames.size}`);
+    }
+    for (const [from, to] of renames) {
+      const part = entry.parts[from];
+      if (part === undefined) continue;
+      delete entry.parts[from];
+      entry.parts[to] = { ...part, id: to, messageID: info.id };
+    }
+    if (renames.size > 0) entry.order = entry.order.map((id) => renames.get(id) ?? id);
+    delete entry.infos[pendingId];
+    pendingLocalMessages.delete(pendingKey(serverId, sessionId));
   });
 }
 
@@ -169,6 +228,7 @@ export function removePartsForMessage(
 
 /** Drops every message of one session (session.deleted cleanup). */
 export function removeMessage(serverId: string, sessionId: string): void {
+  pendingLocalMessages.delete(pendingKey(serverId, sessionId));
   updateServer(serverId, (bucket) => {
     delete bucket[sessionId];
   });
@@ -176,6 +236,10 @@ export function removeMessage(serverId: string, sessionId: string): void {
 
 /** Clears all messages for a server (drop before full re-sync). */
 export function resetServer(serverId: string): void {
+  const prefix = `${serverId}:`;
+  for (const key of [...pendingLocalMessages.keys()]) {
+    if (key.startsWith(prefix)) pendingLocalMessages.delete(key);
+  }
   setMessages(
     produce((draft) => {
       delete draft[serverId];

@@ -5,19 +5,29 @@
 // message is inserted into the messages store immediately, the textarea is
 // cleared, and the POST /session/{id}/prompt_async round-trip happens in the
 // background — on failure the optimistic message is rolled back and an
-// inline banner shows the error. While the session is generating (busy/retry
+// inline banner shows the error. The server echo (message.updated under a
+// real id) reconciles the local bubble onto the echoed message instead of
+// leaving a duplicate (see trackPendingLocalMessage in the messages store);
+// a prompt the server never echoes keeps its optimistic bubble, same as a
+// silent server. While the session is generating (busy/retry
 // status from the store) the input is locked with a "Generating…" placeholder
 // and a thin progress bar; the Esc abort and stop button land in M2-10. The
 // attachment button is a disabled placeholder for M3 (file parts).
 
-import { createMemo, createSignal, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createSessionService } from "../../services/session.js";
 import type { Message, Part } from "../../stores/messages.js";
-import { applyPartDelta, removePartsForMessage, upsertMessage } from "../../stores/messages.js";
+import {
+  applyPartDelta,
+  removePartsForMessage,
+  trackPendingLocalMessage,
+  untrackPendingLocalMessage,
+  upsertMessage,
+} from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
 import { promptAt, pushPrompt } from "./promptHistory.js";
 
@@ -68,6 +78,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const busy = createMemo(() => status()?.type === "busy" || status()?.type === "retry");
   const disabled = () => props.disabled === true || busy() || sending();
   const canSend = () => !disabled() && text().trim() !== "";
+
+  // TASK-M2-08: a prompt the server never echoes keeps its optimistic bubble;
+  // the pending marker is dropped when the composed session changes or the
+  // box unmounts so another session's events never reconcile against it.
+  createEffect(() => {
+    const sessionId = props.sessionId;
+    onCleanup(() => untrackPendingLocalMessage(props.serverId, sessionId));
+  });
 
   function applyHeight(el: HTMLTextAreaElement): void {
     // Browsing fills the value programmatically; resize so the textarea
@@ -163,7 +181,8 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     const session = getServerSessionState(props.serverId).sessions[props.sessionId];
 
     // Optimistic local insert so the bubble appears before the server echoes
-    // it back through SSE; the server's message.updated replaces this info.
+    // it back through SSE; the tracked pending id lets the first real
+    // message.updated roll this local message over onto the echo.
     // The session's model uses { id, providerID } while a user message
     // expects { providerID, modelID }, so the fields are mapped.
     const optimistic: Message = {
@@ -186,6 +205,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     };
     upsertMessage(props.serverId, props.sessionId, optimistic);
     applyPartDelta(props.serverId, props.sessionId, part);
+    trackPendingLocalMessage(props.serverId, props.sessionId, localMessageId);
 
     setText("");
     const el = textareaRef;
@@ -203,9 +223,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         parts: [{ type: "text", text: message }],
       });
     } catch (err) {
-      // Roll the optimistic message back; the SSE echo would have replaced
-      // it with the server-issued ids on success.
+      // Roll the optimistic message back; on success the SSE echo would
+      // have reconciled it. The pending marker is dropped either way.
       removePartsForMessage(props.serverId, props.sessionId, localMessageId);
+      untrackPendingLocalMessage(props.serverId, props.sessionId);
       setSendError(ApiError.fromUnknown(err));
     } finally {
       setSending(false);

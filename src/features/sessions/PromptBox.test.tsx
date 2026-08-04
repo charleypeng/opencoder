@@ -6,8 +6,10 @@
 // ↑ on an empty input recalls and cycles the per-server prompt history, the
 // attachment button is a disabled M3 placeholder, and an integration-style
 // chain (optimistic send -> happy-chat SSE events through applyEvent ->
-// store/render) ends with the sent prompt and the assistant reply on screen
-// (full-chain E2E E03 itself lands with the M10 infra).
+// store/render) ends with the sent prompt and the assistant reply on screen,
+// with the optimistic bubble reconciled onto the server-issued user message
+// (no local-* duplicates; full-chain E2E E03 itself lands with the M10
+// infra).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -266,6 +268,15 @@ describe("PromptBox", () => {
     );
     expect(screen.getByText("Explain the SSE stream")).toBeInTheDocument();
     expect(screen.getByText(/Found 3 files. I will summarize them for you/)).toBeInTheDocument();
+    // TASK-M2-08: the optimistic bubble was reconciled onto the echoed user
+    // message — exactly one user bubble carries the prompt text and no
+    // local-* ids survive in the store.
+    expect(screen.getAllByText("Explain the SSE stream")).toHaveLength(1);
+    const entry = messages[SERVER]?.["ses_abc123"];
+    expect(Object.keys(entry?.infos ?? {})).toEqual(["msg_user_001"]);
+    for (const id of [...Object.keys(entry?.parts ?? {}), ...(entry?.order ?? [])]) {
+      expect(id.startsWith("local-")).toBe(false);
+    }
     // The stream ended idle, so the input is unlocked again.
     expect(input()).not.toBeDisabled();
   });

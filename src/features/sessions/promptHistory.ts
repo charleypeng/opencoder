@@ -12,7 +12,7 @@ export function readPrompts(serverId: string): string[] {
   return history.get(serverId) ?? [];
 }
 
-/** Records a sent prompt: dedupes immediate repeats and caps the list. */
+/** Records a sent prompt: dedupes repeats and caps the list. */
 export function pushPrompt(serverId: string, text: string): string[] {
   const current = history.get(serverId) ?? [];
   const next = [text, ...current.filter((entry) => entry !== text)].slice(0, HISTORY_CAP);

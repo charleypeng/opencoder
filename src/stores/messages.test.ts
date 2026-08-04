@@ -1,7 +1,8 @@
 // L1 tests for the messages store (TASK-M2-02): normalization (dedupe by id,
 // stable order), delta appends with O(1) single-part updates, stub creation
 // when a delta arrives before its part, part/message removal and per-server
-// reset.
+// reset. TASK-M2-08: optimistic local messages reconcile onto their server
+// echo through upsertMessage.
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { Message, Part } from "./messages.js";
@@ -14,6 +15,8 @@ import {
   removePart,
   removePartsForMessage,
   resetServer,
+  trackPendingLocalMessage,
+  untrackPendingLocalMessage,
   upsertMessage,
 } from "./messages.js";
 
@@ -215,5 +218,58 @@ describe("messages store", () => {
     resetServer("srv-msg");
     expect(messages["srv-msg"]).toBeUndefined();
     expect(messages["srv-msg-b"][SESSION].order).toEqual(["prt_b"]);
+  });
+
+  it("upsertMessage rolls a tracked local message over onto its server echo", () => {
+    // TASK-M2-08: the optimistic local-* insert is followed by the server
+    // echo (message.updated with a real id, metadata only). The first real
+    // server message reconciles: the local part is re-issued under the
+    // echoed message id so the prompt text survives, the local info is
+    // dropped, and the marker is cleared.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    upsertMessage("srv-msg", SESSION, userMessage("msg_echo_1"));
+
+    const entry = messages["srv-msg"][SESSION];
+    expect("local-1" in entry.infos).toBe(false);
+    expect(entry.order).toEqual(["prt-msg_echo_1"]);
+    expect(entry.parts["prt-msg_echo_1"]).toMatchObject({
+      id: "prt-msg_echo_1",
+      messageID: "msg_echo_1",
+      type: "text",
+      text: "hello",
+    });
+
+    // Reconciliation is one-shot: later messages upsert normally and the
+    // migrated part stays put.
+    upsertMessage("srv-msg", SESSION, userMessage("msg_echo_2"));
+    expect(Object.keys(entry.infos)).toEqual(["msg_echo_1", "msg_echo_2"]);
+    expect(entry.order).toEqual(["prt-msg_echo_1"]);
+  });
+
+  it("untrackPendingLocalMessage keeps the local message until its echo", () => {
+    upsertMessage("srv-msg", SESSION, userMessage("local-2"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-2",
+      sessionID: SESSION,
+      messageID: "local-2",
+      type: "text",
+      text: "stays",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-2");
+    untrackPendingLocalMessage("srv-msg", SESSION);
+
+    upsertMessage("srv-msg", SESSION, userMessage("msg_other"));
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.infos["local-2"]).toBeDefined();
+    expect(entry.order).toEqual(["local-part-2"]);
   });
 });
