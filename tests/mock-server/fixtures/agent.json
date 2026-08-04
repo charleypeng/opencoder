@@ -1,0 +1,29 @@
+[
+  {
+    "name": "build",
+    "description": "General-purpose coding agent that writes and fixes code",
+    "mode": "primary",
+    "color": "#E5B83C",
+    "hidden": false,
+    "permission": [],
+    "options": {}
+  },
+  {
+    "name": "plan",
+    "description": "Read-only planning agent that designs the approach first",
+    "mode": "primary",
+    "color": "#84C1FF",
+    "hidden": false,
+    "permission": [],
+    "options": {}
+  },
+  {
+    "name": "architect",
+    "description": "Background architecture review agent (hidden from the picker)",
+    "mode": "subagent",
+    "color": "#8A9B68",
+    "hidden": true,
+    "permission": [],
+    "options": {}
+  }
+]

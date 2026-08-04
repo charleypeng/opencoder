@@ -30,13 +30,17 @@ import { pushPrompt } from "./promptHistory.js";
  * back), or null when the round-trip succeeded. Attachments (TASK-M3-08)
  * are appended as FilePartInput parts after the text part; the optimistic
  * store insert and the prompt history only cover the text part — attachment
- * parts appear once the server echoes them.
+ * parts appear once the server echoes them. The optional agent name
+ * (TASK-M5-04) rides in the prompt_async body so the server processes the
+ * message with the selected agent (the optimistic message carries it too);
+ * omitting it keeps the server-side default.
  */
 export async function sendPrompt(
   serverId: string,
   sessionId: string,
   text: string,
   attachments: Attachment[] = [],
+  agent?: string,
 ): Promise<ApiError | null> {
   const message = text.trim();
   if (message === "" && attachments.length === 0) return null;
@@ -57,7 +61,7 @@ export async function sendPrompt(
       sessionID: sessionId,
       role: "user",
       time: { created: now },
-      agent: session?.agent ?? "",
+      agent: agent ?? session?.agent ?? "",
       model: {
         providerID: session?.model?.providerID ?? "",
         modelID: session?.model?.id ?? "",
@@ -82,7 +86,10 @@ export async function sendPrompt(
     for (const attachment of attachments) {
       parts.push(attachmentToPart(attachment));
     }
-    await createSessionService(getApiClient()).promptAsync(sessionId, { parts });
+    await createSessionService(getApiClient()).promptAsync(sessionId, {
+      parts,
+      ...(agent === undefined ? {} : { agent }),
+    });
     return null;
   } catch (err) {
     // Roll the optimistic message back; on success the SSE echo would

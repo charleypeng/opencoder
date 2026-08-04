@@ -17,7 +17,13 @@
 // files become removable chips (cleared on a successful send, kept for
 // retry on failure), the M7 image-pick button is a disabled placeholder,
 // and `@` at a word start opens a debounced /find/file reference menu with
-// ↑↓/Enter/Esc keyboard navigation inserting the chosen path.
+// ↑↓/Enter/Esc keyboard navigation inserting the chosen path. M5-04
+// additions: the agent chip (toolbar row above the textarea) shows the
+// effective agent with its color dot, opens a menu of the visible agents
+// (name/mode/description, hidden agents filtered out, check on the
+// current), records per-session choices in the agents store, Tab in the
+// textarea cycles the visible agents, and the send POST carries the
+// selected agent in the prompt_async body.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -33,6 +39,7 @@ import {
   setSessionStatus,
 } from "../../stores/session";
 import { messages, resetServer as resetMessages } from "../../stores/messages";
+import { agentNameFor, resetServer as resetAgents } from "../../stores/agents";
 import { applyEvent } from "../../stores/events";
 import type { SseEvent } from "../../services/sse";
 import { scenarios } from "../../../tests/mock-server/scenarios/index.js";
@@ -79,6 +86,7 @@ let client: ReturnType<typeof mockClient>;
 beforeEach(() => {
   resetSessions(SERVER);
   resetMessages(SERVER);
+  resetAgents(SERVER);
   clearPrompts(SERVER);
   getApiClientMock.mockReset();
   client = mockClient();
@@ -87,6 +95,7 @@ beforeEach(() => {
 afterEach(() => {
   resetSessions(SERVER);
   resetMessages(SERVER);
+  resetAgents(SERVER);
   clearPrompts(SERVER);
 });
 
@@ -457,8 +466,11 @@ describe("PromptBox", () => {
     fireEvent.input(input(), { target: { value: "@x" } });
     fireEvent.input(input(), { target: { value: "@xy" } });
 
-    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(1));
-    expect(client.get).toHaveBeenCalledWith("/find/file", { query: { query: "xy" } });
+    await waitFor(() =>
+      expect(client.get).toHaveBeenCalledWith("/find/file", { query: { query: "xy" } }),
+    );
+    const findCalls = client.get.mock.calls.filter(([path]) => path === "/find/file");
+    expect(findCalls).toHaveLength(1);
   });
 
   it("Esc closes the @ menu without inserting anything", async () => {
@@ -610,10 +622,12 @@ describe("PromptBox slash commands", () => {
     expect(screen.getByText(/Initialize a CLAUDE\.md file/)).toBeInTheDocument();
     expect(screen.getByText("A summary of the codebase")).toBeInTheDocument();
 
-    // The command list is cached per mount: more typing does not refetch.
+    // The command list is cached per mount: more typing does not refetch
+    // (the mount-time /agent fetch is the only other GET).
     fireEvent.input(input(), { target: { value: "/i" } });
     await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(2));
-    expect(client.get).toHaveBeenCalledTimes(1);
+    const commandCalls = client.get.mock.calls.filter(([path]) => path === "/command");
+    expect(commandCalls).toHaveLength(1);
   });
 
   it("filters the menu by the query after `/`", async () => {
@@ -787,5 +801,125 @@ describe("PromptBox slash commands", () => {
       expect(screen.getByText(/Hello! I can help with that/)).toBeInTheDocument(),
     );
     expect(input()).not.toBeDisabled();
+  });
+});
+
+describe("PromptBox agent selector", () => {
+  const AGENTS = [
+    {
+      name: "build",
+      description: "General-purpose coding agent",
+      mode: "primary",
+      color: "#E5B83C",
+      permission: [],
+      options: {},
+    },
+    {
+      name: "plan",
+      description: "Read-only planning agent",
+      mode: "primary",
+      color: "#84C1FF",
+      permission: [],
+      options: {},
+    },
+    {
+      name: "architect",
+      description: "Background review agent",
+      mode: "subagent",
+      color: "#8A9B68",
+      hidden: true,
+      permission: [],
+      options: {},
+    },
+  ];
+
+  beforeEach(() => {
+    client.get.mockImplementation(async (path: string) => (path === "/agent" ? AGENTS : []));
+  });
+
+  it("shows the effective agent with its color dot and fetches the catalog once per server", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+    expect(client.get).toHaveBeenCalledWith("/agent", undefined);
+    expect(screen.getByTestId("agent-chip-dot")).toHaveStyle({ background: "#E5B83C" });
+  });
+
+  it("the chip opens a menu of visible agents with description and mode; hidden agents stay out", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.click(screen.getByTestId("agent-chip"));
+
+    const items = screen.getAllByTestId("agent-menu-item");
+    expect(items).toHaveLength(2);
+    expect(items.map((item) => item.textContent)).not.toContain("architect");
+    expect(screen.getByText("Read-only planning agent")).toBeInTheDocument();
+    expect(screen.getAllByText("primary").length).toBeGreaterThanOrEqual(1);
+    expect(items[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("selecting an agent records the per-session choice and updates the chip", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.click(screen.getByTestId("agent-chip"));
+    fireEvent.click(screen.getByText("plan"));
+
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("plan"));
+    expect(screen.queryByTestId("agent-menu")).not.toBeInTheDocument();
+    expect(agentNameFor(SERVER, SESSION)).toBe("plan");
+  });
+
+  it("remembers the agent per session across remounts", async () => {
+    const { unmount } = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+    fireEvent.click(screen.getByTestId("agent-chip"));
+    fireEvent.click(screen.getByText("plan"));
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("plan"));
+    unmount();
+
+    const second = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("plan"));
+    second.unmount();
+
+    // A session without a recorded choice falls back to the default.
+    render(() => <PromptBox serverId={SERVER} sessionId="ses_other" />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+  });
+
+  it("Tab cycles the visible agents in the textarea and skips hidden ones", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.keyDown(input(), { key: "Tab" });
+    expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("plan");
+    fireEvent.keyDown(input(), { key: "Tab" });
+    expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build");
+  });
+
+  it("sends the selected agent in the prompt_async body", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+    fireEvent.keyDown(input(), { key: "Tab" });
+
+    fireEvent.input(input(), { target: { value: "draft the plan" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: { parts: [{ type: "text", text: "draft the plan" }], agent: "plan" },
+      }),
+    );
+  });
+
+  it("Escape closes the agent menu", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.click(screen.getByTestId("agent-chip"));
+    expect(screen.getByTestId("agent-menu")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("agent-chip"), { key: "Escape" });
+    expect(screen.queryByTestId("agent-menu")).not.toBeInTheDocument();
   });
 });

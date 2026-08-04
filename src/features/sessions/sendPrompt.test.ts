@@ -184,4 +184,16 @@ describe("sendPrompt", () => {
       },
     });
   });
+
+  it("carries the selected agent in the prompt body and the optimistic message", async () => {
+    const err = await sendPrompt(SERVER, SESSION, "plan the migration", [], "plan");
+
+    expect(err).toBeNull();
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+      body: { parts: [{ type: "text", text: "plan the migration" }], agent: "plan" },
+    });
+    const entry = messages[SERVER]?.[SESSION];
+    const part = entry?.parts[entry.order[0]];
+    expect(entry?.infos[part?.messageID as string]).toMatchObject({ agent: "plan" });
+  });
 });

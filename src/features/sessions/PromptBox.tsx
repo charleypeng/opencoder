@@ -33,10 +33,24 @@
 // the prompt path, and the reply renders through the normal SSE flow; an
 // unmatched `/…` message stays a plain prompt. The two input-triggered
 // menus are mutually exclusive: the @ condition wins while it holds.
+//
+// TASK-M5-04 (agent selector): a toolbar row above the textarea holds the
+// agent chip — the effective agent name with its color dot (color field,
+// fallback gray). The agent catalog is fetched once per mount via GET
+// /agent (reused across mounts through the store's loaded flag; a failed
+// fetch leaves the flag off so a later mount retries). Clicking the chip
+// opens a menu of the visible (non-hidden) agents — name, mode and
+// description, with a check on the current one; selecting records the
+// choice per session in the agents store, so each session remembers its
+// agent. Tab in the textarea cycles the visible agents while no input
+// menu owns the keys (with a menu open it keeps its default focus
+// behavior). The send pipeline carries the effective agent in the
+// prompt_async body.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import { createAgentService } from "../../services/agent.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createCommandService, type Command } from "../../services/command.js";
@@ -44,6 +58,13 @@ import { createFindService } from "../../services/find.js";
 import { createSessionService } from "../../services/session.js";
 import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
+import { agentColor, cycleAgentName, visibleAgents } from "../models/agents.js";
+import {
+  agentNameFor,
+  getServerAgentState,
+  setAgentForSession,
+  setAgents,
+} from "../../stores/agents.js";
 import { type Attachment, fileToAttachment } from "./attachments.js";
 import { commandTemplate, matchCommand, type CommandMatch } from "../commands/commands.js";
 import { promptAt } from "./promptHistory.js";
@@ -157,6 +178,40 @@ function SquareIcon() {
   );
 }
 
+function ChevronDownIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-3 w-3"
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function CheckIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-3.5 w-3.5 shrink-0 text-accent"
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 /** Grows the textarea to its content, capped at the max box height. */
 function resizeToContent(el: HTMLTextAreaElement): void {
   el.style.height = "auto";
@@ -206,12 +261,45 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // Suppresses one refresh after a command insert so the filled template
   // (e.g. `/init`) does not immediately reopen the menu.
   let suppressSlashRefresh = false;
+  // Agent chip (TASK-M5-04): the catalog fetch is in-flight guarded and
+  // reused across mounts via the store's loaded flag.
+  const [agentMenuOpen, setAgentMenuOpen] = createSignal(false);
+  let agentFetch: Promise<void> | null = null;
 
   // Store-driven generating lock: busy/retry means the session is streaming.
   const status = createMemo(() => getServerSessionState(props.serverId).statuses[props.sessionId]);
   const busy = createMemo(() => status()?.type === "busy" || status()?.type === "retry");
   const disabled = () => props.disabled === true || busy() || sending();
   const canSend = () => !disabled() && (text().trim() !== "" || attachments().length > 0);
+
+  // Agent catalog (TASK-M5-04): fetched once per mount unless the store
+  // already holds the server's agents; a failed fetch keeps loaded=false so
+  // a later mount retries. The effective agent resolves per session
+  // (recorded selection -> session agent when visible -> first visible).
+  createEffect(() => {
+    const serverId = props.serverId;
+    if (getServerAgentState(serverId).loaded || agentFetch !== null) return;
+    agentFetch = createAgentService(getApiClient())
+      .list()
+      .then((agents) => setAgents(serverId, agents))
+      .catch(() => {
+        // Catalog failures degrade to the fallback agent; retried on mount.
+      })
+      .finally(() => {
+        agentFetch = null;
+      });
+  });
+
+  const sessionAgent = createMemo(
+    () => getServerSessionState(props.serverId).sessions[props.sessionId]?.agent,
+  );
+  const agentName = createMemo(() => agentNameFor(props.serverId, props.sessionId, sessionAgent()));
+  const currentAgent = createMemo(() => {
+    const name = agentName();
+    if (name === null) return undefined;
+    return getServerAgentState(props.serverId).agents.find((agent) => agent.name === name);
+  });
+  const menuAgents = createMemo(() => visibleAgents(getServerAgentState(props.serverId).agents));
 
   // TASK-M2-08: a prompt the server never echoes keeps its optimistic bubble;
   // the pending marker is dropped when the composed session changes or the
@@ -517,6 +605,16 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         return;
       }
     }
+    // Tab cycles the agent (TASK-M5-04) while no input menu owns the keys;
+    // with a menu open Tab keeps its default focus behavior.
+    if (event.key === "Tab") {
+      const next = cycleAgentName(getServerAgentState(props.serverId).agents, agentName());
+      if (next !== null) {
+        event.preventDefault();
+        setAgentForSession(props.serverId, props.sessionId, next);
+        return;
+      }
+    }
     // Esc exits prompt history browsing (the browser default, e.g. closing
     // overlays, is kept when not browsing).
     if (event.key === "Escape") {
@@ -637,10 +735,22 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         const match = matchCommand(message, commands);
         err =
           match === null
-            ? await sendPrompt(props.serverId, props.sessionId, message, atts)
+            ? await sendPrompt(
+                props.serverId,
+                props.sessionId,
+                message,
+                atts,
+                agentName() ?? undefined,
+              )
             : await runCommand(match, message);
       } else {
-        err = await sendPrompt(props.serverId, props.sessionId, message, atts);
+        err = await sendPrompt(
+          props.serverId,
+          props.sessionId,
+          message,
+          atts,
+          agentName() ?? undefined,
+        );
       }
       // Chips clear on success only; a failed send keeps them for retry.
       if (err === null) setAttachments([]);
@@ -682,7 +792,94 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       <div class="flex items-end gap-2 px-4 py-3">
         <div class="min-w-0 flex-1">
           <ErrorBanner error={inlineError()} onDismiss={() => setInlineError(null)} />
-          <div class="relative flex items-end gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">
+          <div class="relative flex flex-col gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">
+            {/* Agent selector (TASK-M5-04): the toolbar row above the input
+              holds the agent chip; the menu lists the visible agents and
+              records the per-session choice in the store. */}
+            <div class="flex items-center" data-testid="prompt-toolbar">
+              <div class="relative">
+                <button
+                  type="button"
+                  data-testid="agent-chip"
+                  aria-label={`Agent: ${agentName() ?? "none"}`}
+                  aria-haspopup="listbox"
+                  aria-expanded={agentMenuOpen() ? "true" : "false"}
+                  disabled={disabled()}
+                  onClick={() => setAgentMenuOpen((open) => !open)}
+                  onBlur={() => setAgentMenuOpen(false)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setAgentMenuOpen(false);
+                    }
+                  }}
+                  class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <span
+                    data-testid="agent-chip-dot"
+                    aria-hidden="true"
+                    class="h-2 w-2 shrink-0 rounded-full"
+                    style={{ background: agentColor(currentAgent()) }}
+                  />
+                  <span data-testid="agent-chip-name" class="max-w-28 truncate font-mono">
+                    {agentName() ?? "agent"}
+                  </span>
+                  <ChevronDownIcon />
+                </button>
+                <Show when={agentMenuOpen()}>
+                  <div
+                    data-testid="agent-menu"
+                    role="listbox"
+                    aria-label="Agents"
+                    class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
+                  >
+                    <Show
+                      when={menuAgents().length > 0}
+                      fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No agents</div>}
+                    >
+                      <For each={menuAgents()}>
+                        {(agent) => (
+                          <button
+                            type="button"
+                            data-testid="agent-menu-item"
+                            role="option"
+                            aria-selected={agent.name === agentName()}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => {
+                              setAgentForSession(props.serverId, props.sessionId, agent.name);
+                              setAgentMenuOpen(false);
+                            }}
+                            class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                              agent.name === agentName() ? "bg-bg-sunken" : ""
+                            }`}
+                          >
+                            <span
+                              aria-hidden="true"
+                              class="h-2 w-2 shrink-0 rounded-full"
+                              style={{ background: agentColor(agent) }}
+                            />
+                            <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                              <span class="flex w-full items-baseline gap-2">
+                                <span class="shrink-0 font-mono text-fg-default">{agent.name}</span>
+                                <span class="shrink-0 text-fg-faint">{agent.mode}</span>
+                              </span>
+                              <Show when={agent.description !== undefined}>
+                                <span class="w-full truncate text-fg-faint">
+                                  {agent.description}
+                                </span>
+                              </Show>
+                            </span>
+                            <Show when={agent.name === agentName()}>
+                              <CheckIcon />
+                            </Show>
+                          </button>
+                        )}
+                      </For>
+                    </Show>
+                  </div>
+                </Show>
+              </div>
+            </div>
             <Show when={menu()} fallback={null}>
               {(m) => (
                 <div
@@ -792,82 +989,84 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 </Show>
               </div>
             </Show>
-            <div class="flex items-center gap-1">
-              <button
-                type="button"
-                data-testid="prompt-attach"
-                aria-label="Attachments"
-                title="Add files"
+            <div class="flex items-end gap-1">
+              <div class="flex items-center gap-1">
+                <button
+                  type="button"
+                  data-testid="prompt-attach"
+                  aria-label="Attachments"
+                  title="Add files"
+                  disabled={disabled()}
+                  onClick={() => fileInputRef?.click()}
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bg-base hover:text-fg-default disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <PaperclipIcon />
+                </button>
+                <button
+                  type="button"
+                  data-testid="prompt-pick-image"
+                  aria-label="Pick image"
+                  // M7 wires the mobile system image picker (dialog plugin)
+                  // plus platform detection; until then the picker is inert.
+                  title="Image picker — M7"
+                  disabled
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint"
+                >
+                  <ImageIcon />
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  data-testid="prompt-file-input"
+                  aria-hidden="true"
+                  tabIndex={-1}
+                  class="hidden"
+                  onChange={onFileInputChange}
+                />
+              </div>
+              <textarea
+                ref={textareaRef}
+                data-testid="prompt-input"
+                rows={1}
+                value={text()}
+                placeholder={busy() ? "Generating…" : "Message"}
                 disabled={disabled()}
-                onClick={() => fileInputRef?.click()}
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bg-base hover:text-fg-default disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <PaperclipIcon />
-              </button>
-              <button
-                type="button"
-                data-testid="prompt-pick-image"
-                aria-label="Pick image"
-                // M7 wires the mobile system image picker (dialog plugin)
-                // plus platform detection; until then the picker is inert.
-                title="Image picker — M7"
-                disabled
-                class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint"
-              >
-                <ImageIcon />
-              </button>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                data-testid="prompt-file-input"
-                aria-hidden="true"
-                tabIndex={-1}
-                class="hidden"
-                onChange={onFileInputChange}
+                aria-label="Message"
+                onInput={onInput}
+                onKeyDown={onKeyDown}
+                onPaste={onPaste}
+                onBlur={() => {
+                  closeAtMenu();
+                  closeSlashMenu();
+                }}
+                class="max-h-[220px] min-h-[2rem] flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 outline-none placeholder:text-fg-faint disabled:cursor-not-allowed"
               />
+              {busy() ? (
+                <button
+                  type="button"
+                  data-testid="prompt-stop"
+                  aria-label="Stop generating"
+                  title="Stop (Esc)"
+                  disabled={aborting()}
+                  onClick={() => void stopGeneration()}
+                  class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  <SquareIcon />
+                  Stop
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="prompt-send"
+                  disabled={!canSend()}
+                  onClick={() => void send()}
+                  class="mb-0.5 shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Send
+                </button>
+              )}
             </div>
-            <textarea
-              ref={textareaRef}
-              data-testid="prompt-input"
-              rows={1}
-              value={text()}
-              placeholder={busy() ? "Generating…" : "Message"}
-              disabled={disabled()}
-              aria-label="Message"
-              onInput={onInput}
-              onKeyDown={onKeyDown}
-              onPaste={onPaste}
-              onBlur={() => {
-                closeAtMenu();
-                closeSlashMenu();
-              }}
-              class="max-h-[220px] min-h-[2rem] flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 outline-none placeholder:text-fg-faint disabled:cursor-not-allowed"
-            />
-            {busy() ? (
-              <button
-                type="button"
-                data-testid="prompt-stop"
-                aria-label="Stop generating"
-                title="Stop (Esc)"
-                disabled={aborting()}
-                onClick={() => void stopGeneration()}
-                class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                <SquareIcon />
-                Stop
-              </button>
-            ) : (
-              <button
-                type="button"
-                data-testid="prompt-send"
-                disabled={!canSend()}
-                onClick={() => void send()}
-                class="mb-0.5 shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Send
-              </button>
-            )}
           </div>
           <p class="mt-1 px-1 text-xs text-fg-faint">
             {busy() ? "Generating — Esc to stop" : "⌘/Ctrl+Enter to send"}

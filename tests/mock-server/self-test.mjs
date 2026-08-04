@@ -873,8 +873,30 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
-    await test("unimplemented endpoint returns 501", async () => {
+    // TASK-M5-04: /agent family.
+    await test("agent list returns the agent catalog", async () => {
       const { status, body } = await request(baseUrl, "/agent");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 3, "body must have >= 3 agents");
+      const build = body.find((a) => a?.name === "build");
+      expect(build !== undefined, "fixture must include the build agent");
+      expect(typeof build?.description === "string", "agent must carry a description");
+      expect(
+        ["primary", "subagent", "all"].includes(build?.mode),
+        `mode ${JSON.stringify(build?.mode)}`,
+      );
+      expect(
+        typeof build?.color === "string" && build.color.startsWith("#"),
+        "agent must carry a hex color",
+      );
+      expect(Array.isArray(build?.permission), "agent must carry a permission ruleset");
+      // The fixture covers the hidden-filter contract: architect is hidden.
+      const architect = body.find((a) => a?.name === "architect");
+      expect(architect?.hidden === true, "fixture must include a hidden agent");
+    });
+
+    await test("unimplemented endpoint returns 501", async () => {
+      const { status, body } = await request(baseUrl, "/model");
       expect(status === 501, `status ${status}`);
       expect(body.error === "not implemented", `error ${JSON.stringify(body.error)}`);
     });

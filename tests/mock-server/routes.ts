@@ -98,6 +98,12 @@ const COMMAND_ROUTES: Route[] = [
   { method: "get", path: "/command", operation: "command.list", fixture: "command" },
 ];
 
+// P3 — models (M5): the agent catalog is a static fixture (build/plan plus
+// a hidden architect, TASK-M5-04).
+const AGENT_ROUTES: Route[] = [
+  { method: "get", path: "/agent", operation: "app.agents", fixture: "agent" },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
@@ -106,6 +112,7 @@ const ROUTES: Route[] = [
   ...PERMISSION_ROUTES,
   ...QUESTION_ROUTES,
   ...COMMAND_ROUTES,
+  ...AGENT_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.

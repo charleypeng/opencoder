@@ -23,5 +23,6 @@
   "session.diff": "session.diff.json",
   "permission": "permission.json",
   "question": "question.json",
-  "command": "command.json"
+  "command": "command.json",
+  "agent": "agent.json"
 }
