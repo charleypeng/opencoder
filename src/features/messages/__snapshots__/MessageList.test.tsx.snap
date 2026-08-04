@@ -1,0 +1,218 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`MessageList > matches the fixture history snapshot 1`] = `
+<div>
+  <div
+    class="flex min-h-0 min-w-0 flex-1 flex-col"
+    data-testid="message-list"
+  >
+    <div
+      class="min-h-0 flex-1 overflow-y-auto"
+      data-testid="message-list-scroll"
+    >
+      <div
+        class="flex flex-col gap-4 px-4 py-4"
+      >
+        <div
+          class="flex flex-col gap-1 items-end"
+          data-role="user"
+          data-testid="message-msg_m1"
+        >
+          <div
+            class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
+          >
+            <div
+              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+              data-testid="text-part"
+            >
+              Add a login flow with password-based auth.
+            </div>
+          </div>
+          <span
+            class="px-1 text-xs text-fg-faint"
+            data-testid="message-time"
+          >
+            10:26
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-1 items-start"
+          data-role="assistant"
+          data-testid="message-msg_m2"
+        >
+          <div
+            class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
+          >
+            <div
+              class="my-1 rounded-md border border-bg-sunken bg-bg-sunken/60"
+              data-testid="reasoning-part"
+            >
+              <button
+                aria-expanded="false"
+                class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                data-testid="reasoning-toggle"
+                type="button"
+              >
+                <span
+                  aria-hidden=""
+                  class="inline-block shrink-0 text-fg-faint transition-transform "
+                >
+                  ▸
+                </span>
+                <span
+                  class="shrink-0 font-medium text-fg-secondary"
+                >
+                  Reasoning
+                </span>
+                <span
+                  class="truncate text-fg-faint"
+                >
+                  The client needs a login form, a session store, and an auth …
+                </span>
+              </button>
+              
+            </div>
+            <div
+              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+              data-testid="text-part"
+            >
+              Let me check the existing project structure first.
+            </div>
+            <div
+              class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+              data-status="running"
+              data-testid="tool-part"
+            >
+              <button
+                aria-expanded="false"
+                class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                data-testid="tool-toggle"
+                type="button"
+              >
+                <span
+                  aria-hidden=""
+                  class="inline-block shrink-0 text-fg-faint transition-transform "
+                >
+                  ▸
+                </span>
+                <span
+                  aria-hidden=""
+                  class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
+                />
+                <span
+                  class="truncate font-code font-medium text-fg-primary"
+                >
+                  bash
+                </span>
+                <span
+                  class="ml-auto shrink-0 text-fg-faint"
+                  data-testid="tool-status-label"
+                >
+                  Running…
+                </span>
+              </button>
+              
+            </div>
+            <div
+              class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+              data-status="completed"
+              data-testid="tool-part"
+            >
+              <button
+                aria-expanded="false"
+                class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                data-testid="tool-toggle"
+                type="button"
+              >
+                <span
+                  aria-hidden=""
+                  class="inline-block shrink-0 text-fg-faint transition-transform "
+                >
+                  ▸
+                </span>
+                <svg
+                  aria-hidden=""
+                  class="h-3.5 w-3.5 shrink-0 text-success"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  viewBox="0 0 16 16"
+                >
+                  <path
+                    d="M3 8.5l3.5 3.5L13 5"
+                  />
+                </svg>
+                <span
+                  class="truncate font-code font-medium text-fg-primary"
+                >
+                  bash
+                </span>
+                <span
+                  class="ml-auto shrink-0 text-fg-faint"
+                  data-testid="tool-status-label"
+                >
+                  Completed
+                </span>
+              </button>
+              
+            </div>
+          </div>
+          <span
+            class="px-1 text-xs text-fg-faint"
+            data-testid="message-time"
+          >
+            10:26
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-1 items-end"
+          data-role="user"
+          data-testid="message-msg_m3"
+        >
+          <div
+            class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
+          >
+            <div
+              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+              data-testid="text-part"
+            >
+              Also add a logout button to the sidebar.
+            </div>
+          </div>
+          <span
+            class="px-1 text-xs text-fg-faint"
+            data-testid="message-time"
+          >
+            10:26
+          </span>
+        </div>
+        <div
+          class="flex flex-col gap-1 items-start"
+          data-role="assistant"
+          data-testid="message-msg_m4"
+        >
+          <div
+            class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
+          >
+            <div
+              class="whitespace-pre-wrap break-words text-sm leading-relaxed"
+              data-testid="text-part"
+            >
+              Done. The sidebar now shows a logout button in the account section.
+            </div>
+          </div>
+          <span
+            class="px-1 text-xs text-fg-faint"
+            data-testid="message-time"
+          >
+            10:26
+          </span>
+        </div>
+      </div>
+      
+    </div>
+  </div>
+</div>
+`;

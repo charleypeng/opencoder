@@ -61,6 +61,7 @@ describe("messages store", () => {
     const info = userMessage("msg_user_001");
     upsertMessage("srv-msg", SESSION, info);
     expect(messages["srv-msg"][SESSION].info).toEqual(info);
+    expect(messages["srv-msg"][SESSION].infos).toEqual({ msg_user_001: info });
     expect(messages["srv-msg"][SESSION].order).toEqual([]);
 
     // Defensive: an info payload carrying parts normalizes them.
@@ -71,6 +72,17 @@ describe("messages store", () => {
     );
     expect(messages["srv-msg"][SESSION].parts["prt_1"]).toEqual(textPart("prt_1", "hi"));
     expect(messages["srv-msg"][SESSION].order).toEqual(["prt_1"]);
+  });
+
+  it("upsertMessage keeps per-message infos for history rendering", () => {
+    const first = userMessage("msg_1");
+    const second = userMessage("msg_2");
+    upsertMessage("srv-msg", SESSION, first);
+    upsertMessage("srv-msg", SESSION, second);
+    const entry = messages["srv-msg"][SESSION];
+    expect(entry.infos).toEqual({ msg_1: first, msg_2: second });
+    // The legacy single-info slot reflects the most recent message.
+    expect(entry.info).toEqual(second);
   });
 
   it("applyPartDelta upserts by id without duplicate order entries", () => {
@@ -187,6 +199,7 @@ describe("messages store", () => {
     expect(entry.order).toEqual(["prt_c"]);
     expect("prt_a" in entry.parts).toBe(false);
     expect(entry.info).toBeNull();
+    expect(entry.infos[MSG_ASSISTANT]).toBeUndefined();
     expect(entry.parts["prt_c"].messageID).toBe("msg_other");
   });
 

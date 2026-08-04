@@ -5,11 +5,12 @@
 // (listServers + servers-changed) with a health dot per server and offers
 // ⌘/Ctrl+1..9 switching in list order. The sidebar holds the project/folder
 // switcher (TASK-M2-03) on top and the session list (TASK-M2-04) below; the
-// main pane echoes the store's active session id (set by row selection and
-// by the "New session" flow, TASK-M2-05) until the chat view lands in
-// M2-06/08. This shell owns the per-directory SSE subscription and rebuilds
-// it whenever the active server or the active directory changes, re-syncing
-// the stores so sessions and messages never mix across contexts.
+// main pane shows the chat transcript (TASK-M2-06) for the store's active
+// session id (set by row selection and by the "New session" flow,
+// TASK-M2-05), keeping a placeholder only while no session is open. This
+// shell owns the per-directory SSE subscription and rebuilds it whenever the
+// active server or the active directory changes, re-syncing the stores so
+// sessions and messages never mix across contexts.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -26,6 +27,7 @@ import { resetServer as resetMessages } from "../../stores/messages";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
 import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
 import SessionList from "../../features/sessions/SessionList";
+import MessageList from "../../features/messages/MessageList";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -233,14 +235,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             </div>
           }
         >
-          <div class="flex flex-1 items-center justify-center p-4">
-            <p
-              data-testid="main-selected-session"
-              class="truncate font-code text-sm text-fg-secondary"
-            >
-              {activeSessionId()}
-            </p>
-          </div>
+          <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
         </Show>
       </main>
     </div>

@@ -14,8 +14,10 @@ export type Message = components["schemas"]["Message"];
 export type Part = components["schemas"]["Part"];
 
 export interface SessionMessages {
-  /** Message metadata (role, timestamps, tokens, ...); null until known. */
+  /** Most recent message metadata; null until known. */
   info: Message | null;
+  /** All known message metadata keyed by message id (history rendering). */
+  infos: Record<string, Message>;
   /** Parts keyed by part id (delta updates hit one node, O(1)). */
   parts: Record<string, Part>;
   /** Render order of part ids. */
@@ -37,7 +39,7 @@ export function getServerMessages(serverId: string): Record<string, SessionMessa
 // Fresh nested containers per update: the produce draft must never share
 // (and thereby mutate) the module-level EMPTY_* constants.
 function freshSessionMessages(): SessionMessages {
-  return { info: null, parts: {}, order: [] };
+  return { info: null, infos: {}, parts: {}, order: [] };
 }
 
 function updateServer(
@@ -63,14 +65,16 @@ function putPart(bucket: Record<string, SessionMessages>, sessionId: string, par
 }
 
 /**
- * Upserts a message (message.updated): replaces the info and normalizes any
- * parts carried on the info payload (recorded session messages use a
+ * Upserts a message (message.updated): replaces the info (both the
+ * most-recent slot and the per-message table) and normalizes any parts
+ * carried on the info payload (recorded session messages use a
  * { info, parts } shape; the event schema itself has no parts).
  */
 export function upsertMessage(serverId: string, sessionId: string, info: Message): void {
   updateServer(serverId, (bucket) => {
     const entry = bucket[sessionId] ?? freshSessionMessages();
     entry.info = info;
+    entry.infos[info.id] = info;
     bucket[sessionId] = entry;
     const carried = (info as Message & { parts?: unknown }).parts;
     if (Array.isArray(carried)) {
@@ -158,6 +162,7 @@ export function removePartsForMessage(
     }
     entry.order = entry.order.filter((id) => id in entry.parts);
     if (entry.info?.id === messageId) entry.info = null;
+    delete entry.infos[messageId];
     bucket[sessionId] = entry;
   });
 }
