@@ -34,4 +34,13 @@ describe("routeKey", () => {
     expect(routeKey({ page: "chat", params: { sessionId: "s1" } })).toBe("chat:s1");
     expect(routeKey({ page: "chat", params: { sessionId: "s2" } })).toBe("chat:s2");
   });
+
+  it("keys file-view pushes by their path param (TASK-M7-09)", () => {
+    expect(routeKey({ page: "file-view", params: { path: "src/a.ts" } })).toBe(
+      "file-view:src/a.ts",
+    );
+    expect(routeKey({ page: "file-view", params: { path: "src/b.ts" } })).toBe(
+      "file-view:src/b.ts",
+    );
+  });
 });

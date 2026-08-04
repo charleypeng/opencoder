@@ -29,7 +29,9 @@ import { rowKindOf, type DiffLineKind } from "../vcs/diffLines.js";
 export interface FileViewerProps {
   /** The server whose open tabs are shown. */
   serverId: string;
-  /** Reserved for the M7 mobile fullscreen page; desktop renders inline. */
+  /** Mobile fullscreen page (TASK-M7-09): enables the double-tap code
+   *  zoom toggle (100% / 150%) and pan-able touch scrolling. Desktop
+   *  renders inline and never wires the zoom. */
   fullscreen?: boolean;
   /** When false the viewer stays mounted but hidden (Files search mode);
    *  a pending hit-line target (TASK-M4-05) is only consumed while
@@ -273,8 +275,14 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   const state = createMemo(() => viewer[props.serverId]);
   const tabs = createMemo(() => state()?.tabs ?? []);
   const activePath = createMemo(() => state()?.activePath ?? null);
+  // eslint-disable-next-line solid/reactivity -- one-time capture, mobile form factor is fixed per mount
+  const fullscreen = props.fullscreen;
   const [loadingPath, setLoadingPath] = createSignal<string | null>(null);
   const [loadError, setLoadError] = createSignal<{ path: string; error: ApiError } | null>(null);
+  // Mobile double-tap zoom (TASK-M7-09): a documented simplification of the
+  // spec's pinch-zoom — a double tap (or the chip) toggles 100% / 150%.
+  // Real two-pointer pinch is L5-pending (see docs/tasks/M7.md appendix).
+  const [zoomed, setZoomed] = createSignal(false);
   // The active tab's rendered code element (set by ViewerCode after the
   // highlighted HTML is injected, so hit-line targeting runs only when the
   // line elements actually exist).
@@ -282,6 +290,13 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   // Guards stale async fetches: a newer activation (or a retry) drops any
   // in-flight result for an older one.
   let fetchSeq = 0;
+
+  // The zoom is per-file: switching tabs (or closing down to no tab)
+  // resets it to 100%.
+  createEffect(() => {
+    activePath();
+    setZoomed(false);
+  });
 
   async function loadContent(
     serverId: string,
@@ -402,7 +417,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
         <div
           role="tablist"
           aria-label="Open files"
-          class="flex shrink-0 gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
+          class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
         >
           <For each={tabs()}>
             {(tab) => {
@@ -439,8 +454,24 @@ const FileViewer: Component<FileViewerProps> = (props) => {
               );
             }}
           </For>
+          {/* Mobile zoom toggle (TASK-M7-09): doubles as the visible state
+              chip; double-tapping the code area toggles the same state. */}
+          <Show when={fullscreen}>
+            <button
+              type="button"
+              data-testid="viewer-zoom-toggle"
+              aria-label="Toggle code zoom"
+              class="ml-auto shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none active:bg-accent-soft"
+              onClick={() => setZoomed((value) => !value)}
+            >
+              {zoomed() ? "150%" : "100%"}
+            </button>
+          </Show>
         </div>
-        <div class="min-h-0 flex-1 overflow-auto">
+        <div
+          class="min-h-0 flex-1 overflow-auto"
+          style={fullscreen ? { "touch-action": "pan-x pan-y" } : undefined}
+        >
           <Show when={viewState()?.kind === "loading"}>
             <p data-testid="viewer-loading" class="px-4 py-4 text-sm text-fg-secondary">
               Loading file…
@@ -460,11 +491,22 @@ const FileViewer: Component<FileViewerProps> = (props) => {
             </div>
           </Show>
           <Show when={readyContent() !== null && activePath() !== null}>
-            <ContentView
-              content={readyContent() as FileContent}
-              path={activePath() as string}
-              onRendered={setCodeEl}
-            />
+            <div
+              data-testid="viewer-zoom-wrap"
+              data-zoom={zoomed() ? "150" : "100"}
+              style={
+                fullscreen && zoomed()
+                  ? { transform: "scale(1.5)", "transform-origin": "top left" }
+                  : undefined
+              }
+              onDblClick={fullscreen ? () => setZoomed((value) => !value) : undefined}
+            >
+              <ContentView
+                content={readyContent() as FileContent}
+                path={activePath() as string}
+                onRendered={setCodeEl}
+              />
+            </div>
           </Show>
         </div>
       </Show>

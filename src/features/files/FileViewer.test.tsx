@@ -548,3 +548,78 @@ describe("FileViewer line targeting (TASK-M4-05)", () => {
     expect(viewer[serverId]?.activeLine).toBeNull();
   });
 });
+
+describe("FileViewer mobile zoom (TASK-M7-09)", () => {
+  it("offers the zoom chip and double-tap toggle only in fullscreen mode", async () => {
+    const serverId = freshServer();
+    mountViewer(serverId, { "src/a.ts": textContent("const x = 1;") });
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+
+    // Desktop (no fullscreen): no chip, no zoom wrapper behavior.
+    expect(screen.queryByTestId("viewer-zoom-toggle")).not.toBeInTheDocument();
+    expect(screen.getByTestId("viewer-zoom-wrap")).toHaveAttribute("data-zoom", "100");
+
+    const wrap = screen.getByTestId("viewer-zoom-wrap");
+    fireEvent.dblClick(wrap);
+    expect(screen.getByTestId("viewer-zoom-wrap")).toHaveAttribute("data-zoom", "100");
+  });
+
+  it("toggles to 150% on double-tap and back, scaling the code container", async () => {
+    const serverId = freshServer();
+    mountViewer(serverId, { "src/a.ts": textContent("const x = 1;") }, { fullscreen: true });
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+
+    const wrap = screen.getByTestId("viewer-zoom-wrap");
+    expect(wrap).toHaveAttribute("data-zoom", "100");
+    expect(wrap.style.transform).toBe("");
+
+    fireEvent.dblClick(wrap);
+    await waitFor(() => expect(wrap).toHaveAttribute("data-zoom", "150"));
+    expect(wrap.style.transform).toBe("scale(1.5)");
+    expect(wrap.style.transformOrigin).toBe("top left");
+    // The chip mirrors the state.
+    expect(screen.getByTestId("viewer-zoom-toggle")).toHaveTextContent("150%");
+
+    // Tapping the chip (or a second double-tap) returns to 100%.
+    fireEvent.click(screen.getByTestId("viewer-zoom-toggle"));
+    expect(wrap).toHaveAttribute("data-zoom", "100");
+    expect(wrap.style.transform).toBe("");
+  });
+
+  it("enables pan-able touch scrolling in fullscreen mode", async () => {
+    const serverId = freshServer();
+    mountViewer(serverId, { "src/a.ts": textContent("const x = 1;") }, { fullscreen: true });
+    openTab(serverId, "src/a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+
+    const scroll = screen.getByTestId("viewer-zoom-wrap").parentElement as HTMLElement;
+    expect(scroll.style.touchAction).toBe("pan-x pan-y");
+  });
+
+  it("resets the zoom when the active file changes", async () => {
+    const serverId = freshServer();
+    mountViewer(
+      serverId,
+      { "src/a.ts": textContent("const a = 1;"), "src/b.ts": textContent("const b = 2;") },
+      { fullscreen: true },
+    );
+    openTab(serverId, "src/a.ts");
+    // Prime a's cache first: opening b supersedes a's in-flight fetch (the
+    // viewer drops the stale result), so a must be fully cached before the
+    // switch-back below.
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+    openTab(serverId, "src/b.ts");
+    await waitFor(() =>
+      expect(screen.getByTestId("viewer-code")).toHaveTextContent("const b = 2;"),
+    );
+
+    const wrap = screen.getByTestId("viewer-zoom-wrap");
+    fireEvent.dblClick(wrap);
+    await waitFor(() => expect(wrap).toHaveAttribute("data-zoom", "150"));
+
+    fireEvent.click(screen.getByTestId("viewer-tab-src/a.ts"));
+    await waitFor(() => expect(wrap).toHaveAttribute("data-zoom", "100"));
+  });
+});

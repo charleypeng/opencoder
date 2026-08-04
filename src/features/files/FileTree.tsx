@@ -16,12 +16,17 @@ import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createFileService } from "../../services/file.js";
-import { applyStatuses, collapse, expand, files, setTree } from "../../stores/files.js";
+import { applyStatuses, collapse, expand, files, findNode, setTree } from "../../stores/files.js";
 import type { TreeNode } from "../../stores/files.js";
 
 export interface FileTreeProps {
   /** The server whose workspace is shown. */
   serverId: string;
+  /** Mobile file-browser variant (TASK-M7-09): single-level navigation
+   *  with a breadcrumb back bar and full-row touch targets; the desktop
+   *  context menu is not attached (long-press menus are deferred to the
+   *  M8 menu task). */
+  variant?: "desktop" | "mobile";
   /** Opens a file in the viewer (wired by M4-03); dirs expand in-tree. */
   onOpenFile?: (path: string) => void;
   /** Inserts a `@path` reference into the composer; defaults to copying it
@@ -153,11 +158,16 @@ const menuItemClass =
 // --- panel ------------------------------------------------------------------
 
 const FileTree: Component<FileTreeProps> = (props) => {
+  const isMobile = () => props.variant === "mobile";
   const state = createMemo(() => files[props.serverId]);
   const [loading, setLoading] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
   const [menu, setMenu] = createSignal<{ node: TreeNode; x: number; y: number } | null>(null);
   const [copiedKind, setCopiedKind] = createSignal<"path" | "reference" | null>(null);
+  // Mobile current-directory navigation: "" = the workspace root; the
+  // breadcrumb bar jumps to any ancestor (TASK-M7-09).
+  const [currentPath, setCurrentPath] = createSignal("");
+  const [dirLoading, setDirLoading] = createSignal(false);
 
   // Guards stale async work across refetches and rapid expand toggles. Root
   // loads share one sequence (a newer root refetch supersedes older ones);
@@ -207,6 +217,54 @@ const FileTree: Component<FileTreeProps> = (props) => {
     if (node.children !== undefined) return; // loaded already
     await loadChildren(node.path);
   }
+
+  // --- mobile navigation (TASK-M7-09) -------------------------------------
+
+  /** Children of the current mobile directory (the workspace root for "").
+   *  While the dir's subtree fetch is in flight the children are still
+   *  undefined, so the rows stay empty and the loading row shows. */
+  const mobileChildren = createMemo(() => {
+    const tree = state()?.tree ?? [];
+    if (currentPath() === "") return tree;
+    return findNode(tree, currentPath())?.children ?? [];
+  });
+
+  /** Descends into a directory: marks it expanded (so a watcher refetch's
+   *  refill keeps its subtree grafted), switches the current path and
+   *  fetches the subtree when it is not loaded yet. */
+  async function navigateInto(path: string): Promise<void> {
+    const node = findNode(state()?.tree ?? [], path);
+    if (node?.type !== "directory") return;
+    expand(props.serverId, path);
+    setCurrentPath(path);
+    if (node.children !== undefined) return;
+    setDirLoading(true);
+    try {
+      await loadChildren(path);
+    } finally {
+      setDirLoading(false);
+    }
+  }
+
+  /** Jumps to a breadcrumb ancestor ("" = the workspace root). */
+  function navigateTo(path: string): void {
+    if (path === currentPath()) return;
+    setCurrentPath(path);
+  }
+
+  /** Breadcrumb trail of the current directory: root + each path segment,
+   *  the last one being the current (non-interactive) location. */
+  const breadcrumbs = createMemo(() => {
+    const crumbs: { label: string; path: string }[] = [{ label: "Workspace", path: "" }];
+    let acc = "";
+    for (const segment of currentPath()
+      .split("/")
+      .filter((s) => s !== "")) {
+      acc = acc === "" ? segment : `${acc}/${segment}`;
+      crumbs.push({ label: segment, path: acc });
+    }
+    return crumbs;
+  });
 
   /** Paths of expanded directories whose children are not loaded yet. */
   function missingExpanded(): string[] {
@@ -259,8 +317,10 @@ const FileTree: Component<FileTreeProps> = (props) => {
   }
 
   function onRowClick(node: TreeNode): void {
-    if (node.type === "directory") void toggleDir(node);
-    else props.onOpenFile?.(node.path);
+    if (node.type === "directory") {
+      if (isMobile()) void navigateInto(node.path);
+      else void toggleDir(node);
+    } else props.onOpenFile?.(node.path);
   }
 
   function onRowContextMenu(node: TreeNode, event: MouseEvent): void {
@@ -313,12 +373,28 @@ const FileTree: Component<FileTreeProps> = (props) => {
     return out;
   });
 
-  const isEmpty = createMemo(
-    () => !loading() && error() === null && (state()?.tree.length ?? 0) === 0,
+  /** Rows to render: mobile renders the current directory's children at a
+   *  flat depth, desktop renders the expanded visible tree. */
+  const rows = createMemo(() =>
+    isMobile() ? mobileChildren().map((node) => ({ node, depth: 0 })) : visibleRows(),
+  );
+
+  const isEmpty = createMemo(() => {
+    if (loading() || error() !== null) return false;
+    if (isMobile()) return rows().length === 0 && !dirLoading();
+    return (state()?.tree.length ?? 0) === 0;
+  });
+
+  const emptyTitle = createMemo(() =>
+    isMobile() && currentPath() !== "" ? "Empty folder" : "No files",
   );
 
   return (
-    <div data-testid="file-tree" class="flex h-full min-h-0 flex-col">
+    <div
+      data-testid="file-tree"
+      data-mobile={isMobile() ? "true" : "false"}
+      class="flex h-full min-h-0 flex-col"
+    >
       <Show when={loading() && (state()?.tree.length ?? 0) === 0 && error() === null}>
         <p data-testid="file-tree-loading" class="px-3 py-4 text-sm text-fg-secondary">
           Loading files…
@@ -337,8 +413,51 @@ const FileTree: Component<FileTreeProps> = (props) => {
           </button>
         </div>
       </Show>
+      {/* Mobile breadcrumb back bar (TASK-M7-09): each ancestor segment
+          jumps back to that directory; the current one is a plain label. */}
+      <Show when={isMobile()}>
+        <nav
+          data-testid="file-breadcrumb-bar"
+          aria-label="Current folder"
+          class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
+        >
+          <For each={breadcrumbs()}>
+            {(crumb, index) => {
+              const last = () => index() === breadcrumbs().length - 1;
+              return (
+                <Show
+                  when={!last()}
+                  fallback={
+                    <span
+                      data-testid={`file-breadcrumb-${crumb.path || "root"}`}
+                      data-current="true"
+                      class="shrink-0 rounded-md px-2 py-1 text-sm font-medium text-fg-primary"
+                    >
+                      {crumb.label}
+                    </span>
+                  }
+                >
+                  <button
+                    type="button"
+                    data-testid={`file-breadcrumb-${crumb.path || "root"}`}
+                    class="shrink-0 rounded-md px-2 py-1 text-sm text-fg-secondary outline-none active:bg-accent-soft"
+                    onClick={() => navigateTo(crumb.path)}
+                  >
+                    {crumb.label} ›
+                  </button>
+                </Show>
+              );
+            }}
+          </For>
+        </nav>
+      </Show>
       <div class="min-h-0 flex-1 overflow-y-auto py-1">
-        <For each={visibleRows()}>
+        <Show when={isMobile() && dirLoading()}>
+          <p data-testid="file-tree-dir-loading" class="px-3 py-3 text-sm text-fg-secondary">
+            Loading folder…
+          </p>
+        </Show>
+        <For each={rows()}>
           {(row) => {
             const node = row.node;
             const status = () => state()?.statuses[node.path];
@@ -352,10 +471,12 @@ const FileTree: Component<FileTreeProps> = (props) => {
                 data-type={node.type}
                 data-ignored={node.ignored ? "true" : "false"}
                 title={node.path}
-                class={`group flex w-full cursor-pointer items-center gap-1.5 py-1 pr-3 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
-                  node.ignored ? "text-fg-faint" : "text-fg-primary"
-                }`}
-                style={{ "padding-left": `${row.depth * 14 + 8}px` }}
+                class={`group flex w-full cursor-pointer items-center gap-1.5 pr-3 outline-none ${
+                  isMobile()
+                    ? "min-h-11 px-3 py-2"
+                    : "py-1 hover:bg-accent-soft focus:bg-accent-soft"
+                } ${node.ignored ? "text-fg-faint" : "text-fg-primary"}`}
+                style={isMobile() ? undefined : { "padding-left": `${row.depth * 14 + 8}px` }}
                 onClick={() => onRowClick(node)}
                 onKeyDown={(event) => {
                   if (event.key === "Enter" || event.key === " ") {
@@ -363,21 +484,25 @@ const FileTree: Component<FileTreeProps> = (props) => {
                     onRowClick(node);
                   }
                 }}
-                onContextMenu={(event) => onRowContextMenu(node, event)}
+                onContextMenu={(event) => {
+                  if (!isMobile()) onRowContextMenu(node, event);
+                }}
               >
-                <Show when={isDir}>
-                  <span
-                    data-testid="file-chevron"
-                    data-expanded={expandedFlag() ? "true" : "false"}
-                    class={`w-3 shrink-0 text-center text-xs transition-transform ${
-                      expandedFlag() ? "rotate-90" : ""
-                    }`}
-                  >
-                    ▶
-                  </span>
-                </Show>
-                <Show when={!isDir}>
-                  <span class="w-3 shrink-0" />
+                <Show when={!isMobile()}>
+                  <Show when={isDir}>
+                    <span
+                      data-testid="file-chevron"
+                      data-expanded={expandedFlag() ? "true" : "false"}
+                      class={`w-3 shrink-0 text-center text-xs transition-transform ${
+                        expandedFlag() ? "rotate-90" : ""
+                      }`}
+                    >
+                      ▶
+                    </span>
+                  </Show>
+                  <Show when={!isDir}>
+                    <span class="w-3 shrink-0" />
+                  </Show>
                 </Show>
                 <FileTypeIcon node={node} />
                 <span
@@ -395,14 +520,19 @@ const FileTree: Component<FileTreeProps> = (props) => {
         </For>
         <Show when={isEmpty()}>
           <div data-testid="file-tree-empty" class="px-3 py-6 text-center">
-            <p class="text-sm text-fg-secondary">No files</p>
-            <p class="mt-1 text-xs text-fg-faint">The workspace is empty.</p>
+            <p class="text-sm text-fg-secondary">{emptyTitle()}</p>
+            <p class="mt-1 text-xs text-fg-faint">
+              {isMobile() && currentPath() !== ""
+                ? "Nothing in this folder."
+                : "The workspace is empty."}
+            </p>
           </div>
         </Show>
       </div>
 
-      {/* Right-click popover at the cursor (same pattern as MessageActions). */}
-      <Show when={menu() !== null}>
+      {/* Right-click popover at the cursor (same pattern as MessageActions).
+          Mobile never opens it (no context-menu handler is attached). */}
+      <Show when={!isMobile() && menu() !== null}>
         <div
           data-testid="file-context-backdrop"
           class="fixed inset-0 z-40"

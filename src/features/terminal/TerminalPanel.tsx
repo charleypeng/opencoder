@@ -14,14 +14,20 @@ import type { Component } from "solid-js";
 import { getApiClient } from "../../services/client.js";
 import { createPtyService, type PtyShell } from "../../services/pty.js";
 import { getServerPtyState, removePty, upsertPty } from "../../stores/ptys.js";
-import TerminalInstance from "./TerminalInstance.js";
+import TerminalInstance, { type TerminalInstanceApi } from "./TerminalInstance.js";
+import TerminalKeyStrip from "./TerminalKeyStrip.js";
 
 export interface TerminalPanelProps {
   /** The server whose terminals are shown. */
   serverId: string;
+  /** Mobile variant (TASK-M7-09): renders the aux key strip under the
+   *  instances and enables the double-tap font zoom on them. Desktop
+   *  stays untouched. */
+  variant?: "desktop" | "mobile";
 }
 
 const TerminalPanel: Component<TerminalPanelProps> = (props) => {
+  const isMobile = () => props.variant === "mobile";
   const ptyService = createPtyService(getApiClient());
   // Reactive per-server bucket: tab order + entries track the store
   // (SessionList pattern).
@@ -33,6 +39,10 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
   const [shellsError, setShellsError] = createSignal(false);
   const [creating, setCreating] = createSignal(false);
   const [createError, setCreateError] = createSignal(false);
+
+  // Per-pty input APIs (TASK-M7-09): each mounted instance registers its
+  // sendInput handle here; the aux key strip routes to the active one.
+  const instanceApis = new Map<string, TerminalInstanceApi>();
 
   // Active tab: the recorded choice while it still exists in the store,
   // otherwise the first tab (covers closing the active tab and server
@@ -176,6 +186,8 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
                     ptyId={ptyId}
                     status={pty().status}
                     exitCode={pty().exitCode}
+                    mobile={isMobile()}
+                    onApi={(api) => instanceApis.set(ptyId, api)}
                     onClose={() => closeTab(ptyId)}
                   />
                 </div>
@@ -183,6 +195,17 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
             }}
           </For>
         </div>
+      </Show>
+
+      {/* Mobile aux key strip (TASK-M7-09): feeds raw key sequences into
+          the ACTIVE instance's input channel. */}
+      <Show when={isMobile() && activeTabId() !== null}>
+        <TerminalKeyStrip
+          onKey={(data) => {
+            const api = instanceApis.get(activeTabId() as string);
+            api?.sendInput(data);
+          }}
+        />
       </Show>
 
       {/* Shell picker: rendered under the tab bar (not inside the

@@ -1,8 +1,8 @@
 // Mobile page registry (TASK-M7-03): maps navigation page keys (navigation.ts
 // Route.page) to components. Pages receive the server id, the shell exit
-// callback and their route (params). Only the Sessions root and the pushed
-// Chat page are real today; Files/Terminal/Settings roots and the Diff
-// push are placeholders until later M7/M9 tasks compose them.
+// callback and their route (params). Sessions/Chat/Files/FileView/Terminal
+// are real; Settings and the Diff push are placeholders until later M7/M9
+// tasks compose them.
 
 import type { Component } from "solid-js";
 import { back } from "./navigation.js";
@@ -10,6 +10,9 @@ import type { Route } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import { ChatPage } from "./ChatPage.js";
 import { SessionsPage } from "./SessionsPage.js";
+import { FilesPage } from "./FilesPage.js";
+import { FileViewPage } from "./FileViewPage.js";
+import { TerminalPage } from "./TerminalPage.js";
 
 export interface MobilePageProps {
   serverId: string;
@@ -48,8 +51,9 @@ function placeholderPage(title: string, rootClass = ""): MobilePage {
 export const pageRegistry: Record<string, MobilePage> = {
   sessions: SessionsPage,
   chat: ChatPage,
-  files: placeholderPage("Files"),
-  terminal: placeholderPage("Terminal", "landscape-terminal"),
+  files: FilesPage,
+  "file-view": FileViewPage,
+  terminal: TerminalPage,
   settings: placeholderPage("Settings"),
   diff: placeholderPage("Diff"),
 };

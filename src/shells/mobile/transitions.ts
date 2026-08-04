@@ -36,5 +36,6 @@ export function pageEnterClass(dir: PageEnterDir): string {
 export function routeKey(route: Route): string {
   const params = route.params;
   if (params === undefined || Object.keys(params).length === 0) return route.page;
-  return `${route.page}:${params.sessionId ?? ""}`;
+  const id = params.sessionId ?? params.path ?? "";
+  return `${route.page}:${id}`;
 }

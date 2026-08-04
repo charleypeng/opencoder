@@ -51,14 +51,22 @@
 }
 
 /*
- * M7-04 landscape layout: the terminal view goes fullscreen (100dvh) in
- * landscape so the chat/terminal chrome does not compete with the small
- * horizontal viewport. The mobile Terminal page lands in M7-09; the class
- * is applied to the placeholder so the mechanism is exercised now.
+ * M7-04/M7-09 landscape layout: the terminal view goes fullscreen in
+ * landscape so the small horizontal viewport is not split between chrome
+ * and terminal. The page root carries `landscape-terminal`: it grows to
+ * the full viewport height, its own page header hides, and it overlays
+ * the bottom navigation (the terminal owns the screen; on iOS the native
+ * glass tab bar floats above and stays tappable).
  */
 @media (orientation: landscape) {
   .landscape-terminal {
     height: 100dvh;
+    position: relative;
+    z-index: 10;
+  }
+
+  .landscape-terminal [data-testid="mobile-page-header"] {
+    display: none;
   }
 }
 

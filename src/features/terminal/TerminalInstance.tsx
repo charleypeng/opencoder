@@ -20,6 +20,12 @@ import { createPtyService } from "../../services/pty.js";
 import { ptyConnect, ptySend } from "../../services/ptyWs.js";
 import { markPtyExited } from "../../stores/ptys.js";
 
+export interface TerminalInstanceApi {
+  /** Writes a raw key sequence into the terminal AND sends it over the
+   *  PTY channel (the aux key strip's input path, TASK-M7-09). */
+  sendInput: (data: string) => void;
+}
+
 export interface TerminalInstanceProps {
   /** The server the PTY lives on. */
   serverId: string;
@@ -31,9 +37,19 @@ export interface TerminalInstanceProps {
   exitCode?: number;
   /** Called by the exited note's close button to drop the tab. */
   onClose: () => void;
+  /** Mobile variant (TASK-M7-09): enables the double-tap font zoom toggle
+   *  (13px / 16px; a documented simplification of the spec's pinch zoom). */
+  mobile?: boolean;
+  /** Receives the instance's input API on mount; the aux key strip (and
+   *  anything else) sends key sequences through it. */
+  onApi?: (api: TerminalInstanceApi) => void;
 }
 
 const encoder = new TextEncoder();
+
+/** Mobile font-zoom sizes (TASK-M7-09): a double tap toggles 13px /
+ *  16px — the documented simplification of the spec's pinch zoom. */
+const FONT_SIZES = [13, 16] as const;
 
 /** Reads a design token, falling back to the dark-theme value when the
  *  token is missing (jsdom, or a non-theme context). */
@@ -61,6 +77,8 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
   const serverId = props.serverId;
   // eslint-disable-next-line solid/reactivity -- one-time capture, keyed remounts
   const ptyId = props.ptyId;
+  // eslint-disable-next-line solid/reactivity -- one-time capture, mobile form factor is fixed per mount
+  const mobile = props.mobile;
   let container: HTMLDivElement | undefined;
   let term: Terminal | undefined;
   let fit: FitAddon | undefined;
@@ -79,6 +97,24 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
     if (!container || !fit) return;
     if (container.offsetWidth === 0 && container.offsetHeight === 0) return;
     fit.fit();
+  }
+
+  /** Writes a key sequence into the terminal (local echo) and sends it over
+   *  the PTY channel when one is connected (the aux key strip's path). */
+  function sendInput(data: string): void {
+    if (disposed) return;
+    term?.write(data);
+    const current = connection;
+    if (current) void ptySend(current.connectionId, encoder.encode(data));
+  }
+
+  /** Mobile double-tap font zoom: 13 <-> 16, then refit so the new
+   *  cols/rows flow through the REST resize channel. */
+  function toggleFontZoom(): void {
+    if (!term) return;
+    const current = term.options.fontSize;
+    term.options.fontSize = current === FONT_SIZES[0] ? FONT_SIZES[1] : FONT_SIZES[0];
+    fitIfVisible();
   }
 
   onMount(() => {
@@ -121,6 +157,10 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
       observer.observe(container as HTMLDivElement);
     }
 
+    // Expose the input API (aux key strip wiring, TASK-M7-09). Called even
+    // for exited ptys so the strip can still type into the frozen screen.
+    props.onApi?.({ sendInput });
+
     // Exited ptys need no channel; the note renders instead.
     if (props.status === "exited") return;
     void ptyConnect(serverId, ptyId, {
@@ -154,7 +194,12 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
 
   return (
     <div class="relative h-full min-h-0">
-      <div ref={container} data-testid="terminal-container" class="h-full w-full" />
+      <div
+        ref={container}
+        data-testid="terminal-container"
+        class="h-full w-full"
+        onDblClick={mobile ? toggleFontZoom : undefined}
+      />
       <Show when={props.status === "exited"}>
         <div
           data-testid="terminal-exited"

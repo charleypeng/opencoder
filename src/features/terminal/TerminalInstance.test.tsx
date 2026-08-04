@@ -360,3 +360,105 @@ describe("TerminalInstance", () => {
     expect(client.put).not.toHaveBeenCalled();
   });
 });
+
+describe("TerminalInstance mobile input API and font zoom (TASK-M7-09)", () => {
+  it("exposes sendInput that echoes locally and sends over the channel", async () => {
+    connectFixture();
+    let inputApi: { sendInput: (data: string) => void } | undefined;
+    render(() => (
+      <TerminalInstance
+        serverId={SERVER}
+        ptyId="pty_1"
+        status="running"
+        mobile
+        onClose={vi.fn()}
+        onApi={(api) => {
+          inputApi = api;
+        }}
+      />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+    expect(inputApi).toBeDefined();
+    inputApi?.sendInput("ls\n");
+
+    // Local echo into xterm plus the UTF-8 bytes over the channel.
+    expect(term().written).toEqual(["ls\n"]);
+    await waitFor(() => expect(ptySendMock).toHaveBeenCalledTimes(1));
+    expect(ptySendMock.mock.calls[0][0]).toBe(7);
+    expect(Array.from(ptySendMock.mock.calls[0][1] as Uint8Array)).toEqual([108, 115, 10]);
+  });
+
+  it("sendInput on an exited pty writes locally without opening a channel", () => {
+    let api: { sendInput: (data: string) => void } | undefined;
+    render(() => (
+      <TerminalInstance
+        serverId={SERVER}
+        ptyId="pty_1"
+        status="exited"
+        onClose={vi.fn()}
+        onApi={(inputApi) => {
+          api = inputApi;
+        }}
+      />
+    ));
+    expect(api).toBeDefined();
+    expect(ptyConnectMock).not.toHaveBeenCalled();
+
+    api?.sendInput("x");
+    expect(term().written).toEqual(["x"]);
+    expect(ptySendMock).not.toHaveBeenCalled();
+  });
+
+  it("sendInput is a no-op after dispose", async () => {
+    connectFixture();
+    let api: { sendInput: (data: string) => void } | undefined;
+    const { unmount } = render(() => (
+      <TerminalInstance
+        serverId={SERVER}
+        ptyId="pty_1"
+        status="running"
+        onClose={vi.fn()}
+        onApi={(inputApi) => {
+          api = inputApi;
+        }}
+      />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+    unmount();
+    await waitFor(() => expect(term().dispose).toHaveBeenCalledTimes(1));
+
+    api?.sendInput("x");
+    expect(term().written).toHaveLength(0);
+    expect(ptySendMock).not.toHaveBeenCalled();
+  });
+
+  it("mobile double-tap toggles the font size 13 <-> 16 and refits", async () => {
+    connectFixture();
+    render(() => (
+      <TerminalInstance serverId={SERVER} ptyId="pty_1" status="running" mobile onClose={vi.fn()} />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+    makeVisible();
+    expect(term().options.fontSize).toBe(13);
+
+    const container = screen.getByTestId("terminal-container");
+    fireEvent.dblClick(container);
+    expect(term().options.fontSize).toBe(16);
+    const fitsAfterFirst = fit().fit.mock.calls.length;
+    expect(fitsAfterFirst).toBeGreaterThan(0);
+
+    fireEvent.dblClick(container);
+    expect(term().options.fontSize).toBe(13);
+  });
+
+  it("desktop instances ignore double-taps", async () => {
+    connectFixture();
+    render(() => (
+      <TerminalInstance serverId={SERVER} ptyId="pty_1" status="running" onClose={vi.fn()} />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+
+    fireEvent.dblClick(screen.getByTestId("terminal-container"));
+    expect(term().options.fontSize).toBe(13);
+  });
+});

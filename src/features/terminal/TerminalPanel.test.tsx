@@ -286,3 +286,39 @@ describe("TerminalPanel tabs", () => {
     expect(screen.getByTestId("terminal-empty")).toBeInTheDocument();
   });
 });
+
+describe("TerminalPanel mobile variant (TASK-M7-09)", () => {
+  it("renders the key strip wired to the ACTIVE instance's channel", async () => {
+    connectFixture();
+    upsertPty(SERVER, pty("pty_1"));
+    upsertPty(SERVER, pty("pty_2"));
+    render(() => <TerminalPanel serverId={SERVER} variant="mobile" />);
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalledTimes(2));
+    // Let the connect promises' .then callbacks (connection assignment) land.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(screen.getByTestId("terminal-key-strip")).toBeInTheDocument();
+    expect(terminalInstances).toHaveLength(2);
+
+    // Esc routes into the active tab's instance (pty_1, connectionId 1).
+    fireEvent.click(screen.getByTestId("key-esc"));
+    await waitFor(() => expect(ptySendMock).toHaveBeenCalledTimes(1));
+    expect(ptySendMock.mock.calls[0][0]).toBe(1);
+    expect(Array.from(ptySendMock.mock.calls[0][1] as Uint8Array)).toEqual([27]);
+
+    // Switching the active tab reroutes the strip (pty_2, connectionId 2).
+    fireEvent.click(screen.getByTestId("terminal-tab-pty_2"));
+    fireEvent.click(screen.getByTestId("key-pipe"));
+    await waitFor(() => expect(ptySendMock).toHaveBeenCalledTimes(2));
+    expect(ptySendMock.mock.calls[1][0]).toBe(2);
+    expect(Array.from(ptySendMock.mock.calls[1][1] as Uint8Array)).toEqual([124]);
+  });
+
+  it("never renders the strip on desktop", async () => {
+    connectFixture();
+    upsertPty(SERVER, pty("pty_1"));
+    render(() => <TerminalPanel serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("terminal-tab-pty_1")).toBeInTheDocument());
+    expect(screen.queryByTestId("terminal-key-strip")).not.toBeInTheDocument();
+  });
+});

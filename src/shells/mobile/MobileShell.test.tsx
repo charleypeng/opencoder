@@ -325,6 +325,29 @@ describe("MobileShell", () => {
     expect(screen.getByTestId("sessions-empty")).toHaveTextContent("No sessions yet");
   });
 
+  it("renders the real Files and Terminal tabs (TASK-M7-09)", async () => {
+    stubAndroid();
+    renderShell();
+    await waitFor(() => screen.getByTestId("mobile-shell"));
+
+    // Files tab: the mobile file tree (empty store -> empty state).
+    fireEvent.click(screen.getByTestId("mobile-tab-files"));
+    await waitFor(() =>
+      expect(screen.getByTestId("mobile-page-files")).toHaveAttribute("data-active", "true"),
+    );
+    await waitFor(() => expect(screen.getByTestId("file-tree-empty")).toBeInTheDocument());
+    expect(screen.getByTestId("file-breadcrumb-root")).toBeInTheDocument();
+
+    // Terminal tab: the terminal panel with the aux key strip (no pty yet,
+    // so only the panel's empty state shows).
+    fireEvent.click(screen.getByTestId("mobile-tab-terminal"));
+    await waitFor(() =>
+      expect(screen.getByTestId("mobile-page-terminal")).toHaveAttribute("data-active", "true"),
+    );
+    expect(screen.getByTestId("terminal-empty")).toBeInTheDocument();
+    expect(screen.getByTestId("mobile-page-terminal-root")).toHaveClass("landscape-terminal");
+  });
+
   it("routes native glass tab taps through selectTab (iOS + bridge)", async () => {
     stubIOS(true);
     renderShell();
