@@ -355,6 +355,65 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     });
   });
 
+  // Session summarize (TASK-M6-06): accepts the schema's { providerID,
+  // modelID, auto? } body — both strings required, and the pair must be a
+  // known provider/model from the catalog fixture (anything else is a 400
+  // BadRequestError) — and reports success as a plain boolean.
+  app.post("/session/:sessionID/summarize", (req, res) => {
+    const { providerID, modelID } = (req.body ?? {}) as { providerID?: unknown; modelID?: unknown };
+    if (typeof providerID !== "string" || typeof modelID !== "string") {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid summarize payload" });
+      return;
+    }
+    const catalog = fixtures["provider"] as Record<string, unknown> | undefined;
+    const providers = Array.isArray(catalog?.all) ? (catalog.all as Record<string, unknown>[]) : [];
+    const known = providers.some((provider) => {
+      if (provider?.id !== providerID) return false;
+      const models = provider.models;
+      return (
+        typeof models === "object" &&
+        models !== null &&
+        (models as Record<string, unknown>)[modelID] !== undefined
+      );
+    });
+    if (!known) {
+      res
+        .status(400)
+        .json({ _tag: "BadRequestError", message: `unknown model: ${providerID}/${modelID}` });
+      return;
+    }
+    res.json(true);
+  });
+
+  // Session init (TASK-M6-06): accepts the schema's { modelID, providerID,
+  // messageID } body — all three required; the provider/model must be a
+  // known catalog pair and the messageID a known fixture message (anything
+  // else is a 400 BadRequestError) — and reports success as a plain boolean.
+  app.post("/session/:sessionID/init", (req, res) => {
+    const { providerID, modelID, messageID } = (req.body ?? {}) as {
+      providerID?: unknown;
+      modelID?: unknown;
+      messageID?: unknown;
+    };
+    if (
+      typeof providerID !== "string" ||
+      typeof modelID !== "string" ||
+      typeof messageID !== "string"
+    ) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid init payload" });
+      return;
+    }
+    const messages = Array.isArray(fixtures["session.messages"])
+      ? fixtures["session.messages"]
+      : [];
+    const knownMessage = messages.some((m) => m?.info?.id === messageID);
+    if (!knownMessage) {
+      res.status(400).json({ _tag: "BadRequestError", message: `unknown messageID: ${messageID}` });
+      return;
+    }
+    res.json(true);
+  });
+
   // Prompt send (TASK-M2-08): always 204. TASK-M5-08 validates the part
   // array shape so the `@skillName` reference flow is exercised — accepted
   // types are the ones the composer actually sends: text (with a string

@@ -14,6 +14,8 @@ import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-lib
 import SessionList from "./SessionList";
 import { ApiError } from "../../services/errors";
 import type { Session } from "../../services/session";
+import type { Model } from "../../services/provider";
+import { resetServer as resetModels, setProviders } from "../../stores/models";
 import {
   applySessionList,
   getServerSessionState,
@@ -71,6 +73,7 @@ function mockClient() {
 
 beforeEach(() => {
   resetServer(SERVER);
+  resetModels(SERVER);
   getApiClientMock.mockReset();
   qrToDataURLMock.mockReset().mockResolvedValue("data:image/png;base64,QRDATA");
   openUrlMock.mockReset().mockResolvedValue(undefined);
@@ -572,5 +575,52 @@ describe("SessionList share (TASK-M6-05)", () => {
         within(screen.getByTestId("session-item-a")).getByTestId("session-shared-badge"),
       ).toBeInTheDocument(),
     );
+  });
+});
+
+describe("SessionList summarize/init (TASK-M6-06)", () => {
+  // Seed the models store so the dialogs' compact select finds connected
+  // providers without a catalog fetch against the mock client.
+  beforeEach(() => {
+    setProviders(SERVER, {
+      all: [
+        {
+          id: "openai",
+          name: "OpenAI",
+          source: "env",
+          env: [],
+          options: {},
+          models: {
+            "gpt-5": { id: "gpt-5", providerID: "openai", name: "gpt-5" } as Model,
+          },
+        },
+      ],
+      default: { openai: "gpt-5" },
+      connected: ["openai"],
+    });
+  });
+
+  it("opens the summarize dialog from the row menu", async () => {
+    applySessionList(SERVER, [session("a", TODAY, "Session A")]);
+    renderList();
+
+    await openActionsMenu("a");
+    await pickMenuAction("session-menu-summarize");
+
+    const dialog = await screen.findByTestId("summarize-dialog");
+    expect(dialog).toHaveTextContent("Session A");
+    expect(dialog).toHaveTextContent("Compress context");
+  });
+
+  it("opens the init dialog from the row menu", async () => {
+    applySessionList(SERVER, [session("a", TODAY, "Session A")]);
+    renderList();
+
+    await openActionsMenu("a");
+    await pickMenuAction("session-menu-init");
+
+    const dialog = await screen.findByTestId("init-dialog");
+    expect(dialog).toHaveTextContent("Session A");
+    expect(dialog).toHaveTextContent("Generate AGENTS.md");
   });
 });

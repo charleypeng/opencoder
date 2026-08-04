@@ -38,6 +38,7 @@ import type { ServerEntry } from "../../services/servers";
 import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import Toasts from "../../components/Toast.js";
 import { createProjectService } from "../../services/project";
 import { createSessionService, type Session } from "../../services/session";
 import { createVcsService } from "../../services/vcs";
@@ -1033,6 +1034,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           />
         )}
       </Show>
+
+      {/* Toast host (TASK-M6-06): global result feedback (summarize/init
+          successes), auto-dismissed by the toast store. */}
+      <Toasts />
     </div>
   );
 };

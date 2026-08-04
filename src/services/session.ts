@@ -34,6 +34,14 @@ export type SessionForkInput = NonNullable<
 export type SessionRevertInput = NonNullable<
   operations["session.revert"]["requestBody"]
 >["content"]["application/json"];
+/** Request body of `POST /session/{id}/summarize` (provider/model + auto). */
+export type SessionSummarizeInput = NonNullable<
+  operations["session.summarize"]["requestBody"]
+>["content"]["application/json"];
+/** Request body of `POST /session/{id}/init` (provider/model + messageID). */
+export type SessionInitInput = NonNullable<
+  operations["session.init"]["requestBody"]
+>["content"]["application/json"];
 
 // Explicit directory only when provided; the client's global directory
 // injection handles the rest (TASK-M2-03 wires it up).
@@ -122,6 +130,29 @@ export function createSessionService(client: ApiClient) {
      */
     unshare: (sessionID: string, dir?: string) =>
       client.delete<Session>(sessionPath(sessionID, "/share"), dirQuery(dir)),
+    /**
+     * Summarize (compact) the session's context (POST /session/{id}/
+     * summarize). The body carries the provider/model pair the server
+     * summarizes with, plus the optional `auto` flag; the response is a
+     * plain success boolean (the compacted context arrives as the
+     * session's `summary` via SSE/parts, not in this response).
+     */
+    summarize: (sessionID: string, body: SessionSummarizeInput, dir?: string) =>
+      client.post<boolean>(sessionPath(sessionID, "/summarize"), {
+        body: body satisfies SessionSummarizeInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
+    /**
+     * Generate an AGENTS.md for the project (POST /session/{id}/init).
+     * The contract requires the provider/model pair AND the messageID of
+     * the analysis request the file is generated from; the response is a
+     * plain success boolean.
+     */
+    init: (sessionID: string, body: SessionInitInput, dir?: string) =>
+      client.post<boolean>(sessionPath(sessionID, "/init"), {
+        body: body satisfies SessionInitInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
   };
 }
 

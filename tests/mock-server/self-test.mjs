@@ -765,6 +765,77 @@ try {
       expect(body?.share === undefined, `share ${JSON.stringify(body?.share)}`);
     });
 
+    // TASK-M6-06: session summarize/init family.
+    await test("session summarize reports success with a known provider/model", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("session summarize accepts the optional auto flag", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5", auto: true }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("session summarize rejects an unknown provider/model", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-nope" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("session summarize requires providerID and modelID", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/summarize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("session init reports success with the full body", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5", messageID: "msg_02" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("session init rejects an unknown messageID", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5", messageID: "msg_nope" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("session init requires the full provider/model/messageID body", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/init", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ providerID: "openai", modelID: "gpt-5" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("session messages honors the limit pagination param", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
       expect(status === 200, `status ${status}`);

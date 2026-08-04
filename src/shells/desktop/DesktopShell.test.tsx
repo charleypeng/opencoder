@@ -35,6 +35,7 @@ import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
 import { readRecentFiles } from "../../features/files/recentFiles";
+import { clearToasts, createToast } from "../../stores/toasts";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
@@ -501,6 +502,18 @@ describe("DesktopShell workspace", () => {
     expect(screen.getByTestId("session-list")).toBeInTheDocument();
     expect(screen.getByText("No sessions yet")).toBeInTheDocument();
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+  });
+
+  it("renders toasts from the toast store (TASK-M6-06)", () => {
+    const alpha = server({ id: "srv-alpha", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    createToast("Context compressed", "success");
+    const toast = screen.getByTestId("toast");
+    expect(toast).toHaveAttribute("data-kind", "success");
+    expect(toast).toHaveTextContent("Context compressed");
+    clearToasts();
   });
 
   it("renders a rail icon per server with initial and health dot", async () => {

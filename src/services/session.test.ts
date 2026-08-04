@@ -303,6 +303,73 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("summarize POSTs the providerID/modelID body to /session/{id}/summarize", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createSessionService(makeClient()).summarize("sess_01", {
+      providerID: "openai",
+      modelID: "gpt-5",
+    });
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/summarize",
+        body: { providerID: "openai", modelID: "gpt-5" },
+      },
+    });
+  });
+
+  it("summarize carries the optional auto flag and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createSessionService(makeClient()).summarize(
+      "sess_01",
+      { providerID: "openai", modelID: "gpt-5", auto: true },
+      "/mock/projects/opencode-demo",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/summarize",
+        body: { providerID: "openai", modelID: "gpt-5", auto: true },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
+  it("init POSTs the modelID/providerID/messageID body to /session/{id}/init", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    const result = await createSessionService(makeClient()).init("sess_01", {
+      providerID: "openai",
+      modelID: "gpt-5",
+      messageID: "msg_02",
+    });
+    expect(result).toBe(true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/init",
+        body: { providerID: "openai", modelID: "gpt-5", messageID: "msg_02" },
+      },
+    });
+  });
+
+  it("init carries an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createSessionService(makeClient()).init(
+      "sess_01",
+      { providerID: "openai", modelID: "gpt-5", messageID: "msg_02" },
+      "/mock/projects/opencode-demo",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/init",
+        body: { providerID: "openai", modelID: "gpt-5", messageID: "msg_02" },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -433,5 +500,35 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
     const updated = await service.unshare("sess_01");
     expect(updated.id).toBe("sess_01");
     expect(updated.share).toBeUndefined();
+  });
+
+  it("summarize reports success for a known provider/model", async () => {
+    const ok = await service.summarize("sess_01", { providerID: "openai", modelID: "gpt-5" });
+    expect(ok).toBe(true);
+  });
+
+  it("summarize rejects an unknown model with a 400", async () => {
+    await expect(
+      service.summarize("sess_01", { providerID: "openai", modelID: "gpt-nope" }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("init reports success for the full provider/model/messageID body", async () => {
+    const ok = await service.init("sess_01", {
+      providerID: "openai",
+      modelID: "gpt-5",
+      messageID: "msg_02",
+    });
+    expect(ok).toBe(true);
+  });
+
+  it("init rejects an unknown messageID with a 400", async () => {
+    await expect(
+      service.init("sess_01", {
+        providerID: "openai",
+        modelID: "gpt-5",
+        messageID: "msg_nope",
+      }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });

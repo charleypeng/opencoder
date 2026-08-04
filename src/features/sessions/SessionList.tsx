@@ -30,6 +30,8 @@ import { createSession, forkSession } from "./sessionActions.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
 import ShareSessionDialog from "./ShareSessionDialog.js";
+import SummarizeDialog from "./SummarizeDialog.js";
+import InitDialog from "./InitDialog.js";
 
 export interface SessionListProps {
   /** The server whose sessions are shown. */
@@ -98,6 +100,8 @@ function SessionRowMenu(props: {
   onDelete: () => void;
   onFork: () => void;
   onShare: () => void;
+  onSummarize: () => void;
+  onInit: () => void;
 }) {
   return (
     <DropdownMenu.Root>
@@ -127,6 +131,20 @@ function SessionRowMenu(props: {
             onSelect={props.onShare}
           >
             Share
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            data-testid="session-menu-summarize"
+            class={menuItemClass}
+            onSelect={props.onSummarize}
+          >
+            Compress context
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            data-testid="session-menu-init"
+            class={menuItemClass}
+            onSelect={props.onInit}
+          >
+            Generate AGENTS.md
           </DropdownMenu.Item>
           <DropdownMenu.Item
             data-testid="session-menu-rename"
@@ -164,6 +182,8 @@ function SessionRow(props: {
   onDelete: (session: Session) => void;
   onFork: (session: Session) => void;
   onShare: (session: Session) => void;
+  onSummarize: (session: Session) => void;
+  onInit: (session: Session) => void;
 }) {
   const forked = () => props.session.parentID !== undefined;
   // Shared state derives from the contract's Session.share marker
@@ -218,6 +238,8 @@ function SessionRow(props: {
         onDelete={() => props.onDelete(props.session)}
         onFork={() => props.onFork(props.session)}
         onShare={() => props.onShare(props.session)}
+        onSummarize={() => props.onSummarize(props.session)}
+        onInit={() => props.onInit(props.session)}
       />
     </div>
   );
@@ -236,6 +258,8 @@ function SessionNode(props: {
   onDelete: (session: Session) => void;
   onFork: (session: Session) => void;
   onShare: (session: Session) => void;
+  onSummarize: (session: Session) => void;
+  onInit: (session: Session) => void;
   parentTitleOf: (session: Session) => string | undefined;
 }) {
   return (
@@ -251,6 +275,8 @@ function SessionNode(props: {
         onDelete={props.onDelete}
         onFork={props.onFork}
         onShare={props.onShare}
+        onSummarize={props.onSummarize}
+        onInit={props.onInit}
       />
       <For each={props.childrenOf.get(props.session.id) ?? []}>
         {(child) => (
@@ -264,6 +290,8 @@ function SessionNode(props: {
             onDelete={props.onDelete}
             onFork={props.onFork}
             onShare={props.onShare}
+            onSummarize={props.onSummarize}
+            onInit={props.onInit}
             parentTitleOf={props.parentTitleOf}
           />
         )}
@@ -284,6 +312,10 @@ const SessionList: Component<SessionListProps> = (props) => {
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
   // Share dialog target (TASK-M6-05): set from the row menu's Share item.
   const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
+  // Summarize/init dialog targets (TASK-M6-06): set from the row menu's
+  // "Compress context" and "Generate AGENTS.md" items.
+  const [summarizeTarget, setSummarizeTarget] = createSignal<Session | null>(null);
+  const [initTarget, setInitTarget] = createSignal<Session | null>(null);
 
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
@@ -442,6 +474,8 @@ const SessionList: Component<SessionListProps> = (props) => {
                       onDelete={setDeleteTarget}
                       onFork={handleFork}
                       onShare={setShareTarget}
+                      onSummarize={setSummarizeTarget}
+                      onInit={setInitTarget}
                       parentTitleOf={parentTitleOf}
                     />
                   )}
@@ -475,6 +509,24 @@ const SessionList: Component<SessionListProps> = (props) => {
             serverId={props.serverId}
             session={target}
             onClose={() => setShareTarget(null)}
+          />
+        )}
+      </Show>
+      <Show when={summarizeTarget()} keyed>
+        {(target) => (
+          <SummarizeDialog
+            serverId={props.serverId}
+            session={target}
+            onClose={() => setSummarizeTarget(null)}
+          />
+        )}
+      </Show>
+      <Show when={initTarget()} keyed>
+        {(target) => (
+          <InitDialog
+            serverId={props.serverId}
+            session={target}
+            onClose={() => setInitTarget(null)}
           />
         )}
       </Show>
