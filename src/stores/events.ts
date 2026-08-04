@@ -1,5 +1,6 @@
-// Event routing (TASK-M2-02): the SSE -> store dispatch table (architecture
-// §5 "事件 → store 归一化入口"). `applyEvent` is a pure-ish reducer over
+// Event routing (TASK-M2-02): the SSE -> store dispatch table. Single entry
+// point for all SSE event types into the normalized stores (architecture.md §5).
+// `applyEvent` is a pure-ish reducer over
 // injected store modules so tests can drive it directly; `syncAll` performs
 // the full re-sync that `server.connected` triggers (session list + status
 // map + projects + current directory); `subscribeToServerEvents` wires the
@@ -108,6 +109,12 @@ export function applyEvent(
       return;
     case "message.removed":
       messages.removePartsForMessage(serverId, p.sessionID as string, p.messageID as string);
+      return;
+    case "session.compacted":
+      // No-op for now: M6 handles compaction parts.
+      return;
+    case "session.diff":
+      // No-op for now: M4 wires the diff view.
       return;
     default:
       if (import.meta.env.DEV) {

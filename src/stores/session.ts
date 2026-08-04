@@ -88,7 +88,7 @@ export function upsertSession(serverId: string, session: Session): void {
   });
 }
 
-/** Removes a session and its status; leaves activeSessionId clearing to the UI. */
+/** Removes a session, its status, and clears activeSessionId when it is the active one. */
 export function removeSession(serverId: string, sessionId: string): void {
   updateServer(serverId, (state) => {
     if (!(sessionId in state.sessions)) return;
