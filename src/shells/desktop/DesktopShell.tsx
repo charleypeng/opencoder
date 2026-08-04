@@ -29,14 +29,14 @@
 // TASK-M8-01: every key-driven action below lives in the shortcut
 // registry (features/settings/shortcuts.ts + useShortcuts), which owns
 // the full ui-design §3.3 default table and the user customizations. This
-// shell registers the actions whose features exist here (quick open,
-// full-text search, session diff, terminal, new session, server digits,
-// session stepping, sidebar toggle, settings); ⌘K (command palette) is
-// wired by M8-02, and the input locals (⌘Enter send, Tab agent cycle, ↑
-// last prompt, Esc interrupt/close) stay inside PromptBox and the sheets
-// — the registry lists them but the shell intentionally does not register
-// them. The active-scope signal follows the focused main area (chat /
-// list / global) for the registry's scope gating.
+// shell registers the actions whose features exist here (command palette,
+// quick open, full-text search, session diff, terminal, new session,
+// server digits, session stepping, sidebar toggle, settings); the input
+// locals (⌘Enter send, Tab agent cycle, ↑ last prompt, Esc
+// interrupt/close) stay inside PromptBox and the sheets — the registry
+// lists them but the shell intentionally does not register them. The
+// active-scope signal follows the focused main area (chat / list /
+// global) for the registry's scope gating.
 // This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
@@ -52,6 +52,7 @@ import ErrorBanner from "../../components/ErrorBanner.js";
 import Toasts from "../../components/Toast.js";
 import { createProjectService } from "../../services/project";
 import { createSessionService, type Session } from "../../services/session";
+import { createCommandService } from "../../services/command";
 import { createVcsService } from "../../services/vcs";
 import {
   createSession,
@@ -90,10 +91,12 @@ import VcsPanel from "../../features/vcs/VcsPanel";
 import { resetServer as resetDiffs } from "../../stores/diff";
 import { applyVcs, vcs } from "../../stores/vcs";
 import { resetServer as resetPermissions } from "../../stores/permission";
+import { createToast } from "../../stores/toasts";
 import PermissionSheet from "../../features/permissions/PermissionSheet";
 import QuestionSheet from "../../features/questions/QuestionSheet";
 import SettingsPage from "../../features/settings/SettingsPage";
 import TerminalPanel from "../../features/terminal/TerminalPanel";
+import CommandPalette from "./CommandPalette";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -224,6 +227,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Quick open dialog (TASK-M4-04): toggled by the ⌘/Ctrl+P registry
   // action (TASK-M8-01), wired by useShortcuts below.
   const [quickOpen, setQuickOpen] = createSignal(false);
+  // Command palette dialog (TASK-M8-02): toggled by the ⌘/Ctrl+K registry
+  // action; the palette aggregates sessions/files/symbols/commands/
+  // settings/servers and delegates every execution back to the handlers
+  // below (this signal + the actions prop).
+  const [commandPalette, setCommandPalette] = createSignal(false);
   // Sidebar visibility (TASK-M8-01): ⌘/Ctrl+B collapses and restores the
   // sidebar aside; the rail stays put as the toggle affordance.
   const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
@@ -361,11 +369,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // this shell owns, dispatched by useShortcuts through the registry. The
   // previous provisional ⌘P/⌘⇧F/⌘D/⌘J hooks and the ⌘1..9 digit switch
   // moved here verbatim (the input guard and the digit range live in the
-  // registry now); ⌘K (command palette) lands with M8-02 and the input
-  // locals (⌘Enter, Tab, ↑, Esc) stay inside PromptBox / the sheets.
+  // registry now); ⌘K (command palette) joined in TASK-M8-02, and the
+  // input locals (⌘Enter, Tab, ↑, Esc) stay inside PromptBox / the sheets.
   useShortcuts({
     activeScope,
     actions: {
+      commandPalette: () => setCommandPalette(true),
       newSession: () => void handleNewSession(),
       quickOpen: () => setQuickOpen(true),
       fullTextSearch: () => {
@@ -1055,6 +1064,44 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         open={quickOpen()}
         onClose={() => setQuickOpen(false)}
         onOpenFile={() => setMainView("files")}
+      />
+
+      {/* Command palette (TASK-M8-02): ⌘/Ctrl+K aggregates sessions /
+          files / symbols / commands / settings / servers. The palette
+          owns the file/symbol store side effects (viewer tab + active
+          line + recent memory, like QuickOpen) and delegates the shell
+          state transitions to these handlers — the same ones the ⌘
+          shortcuts use, so palette picks and shortcuts stay equivalent. */}
+      <CommandPalette
+        serverId={activeServerId()}
+        servers={servers()}
+        open={commandPalette()}
+        hasActiveSession={activeSessionId() !== null}
+        onClose={() => setCommandPalette(false)}
+        actions={{
+          onNewSession: () => void handleNewSession(),
+          onOpenSettings: () => setMainView("settings"),
+          onToggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
+          onOpenTerminal: () => setMainView("terminal"),
+          onOpenDiff: () => {
+            if (activeSessionId()) openDiff();
+          },
+          onSwitchServer: (id) => setActiveServer(id),
+          onOpenSession: (id) => setActiveSession(activeServerId(), id),
+          onRunCommand: (name) => {
+            const sessionId = activeSessionId();
+            if (sessionId === null) return;
+            void createCommandService(getApiClient())
+              .run(sessionId, { command: name, arguments: "" })
+              .catch(() => {
+                // A failed run surfaces as a global toast (the composer's
+                // slash path restores its input text instead).
+                createToast("Command failed to run", "error");
+              });
+          },
+          onOpenFile: () => setMainView("files"),
+          onOpenSymbol: () => setMainView("files"),
+        }}
       />
 
       {/* Permission sheet (TASK-M5-01): global overlay for the active

@@ -1726,13 +1726,26 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "list");
   });
 
-  it("⌘K is not wired yet (the command palette lands with TASK-M8-02)", async () => {
+  it("⌘K opens the command palette; Esc closes it (TASK-M8-02)", async () => {
     const alpha = server({ id: "srv-m8palette", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     fireEvent.keyDown(window, { key: "k", metaKey: true });
+    expect(screen.getByTestId("command-palette-dialog")).toBeInTheDocument();
+    expect(screen.getByTestId("command-palette-input")).toHaveFocus();
+    // The palette is the only dialog: QuickOpen stays inert.
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
+
+    // Esc closes the palette without executing anything.
+    fireEvent.keyDown(screen.getByTestId("command-palette-input"), { key: "Escape" });
+    expect(screen.queryByTestId("command-palette-dialog")).not.toBeInTheDocument();
+
+    // ⌘P still opens QuickOpen, not the palette (conflict-free pair).
+    fireEvent.keyDown(window, { key: "p", metaKey: true });
+    expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
+    expect(screen.queryByTestId("command-palette-dialog")).not.toBeInTheDocument();
+    fireEvent.keyDown(screen.getByTestId("quick-open-input"), { key: "Escape" });
   });
 });
