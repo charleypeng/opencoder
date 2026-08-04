@@ -212,6 +212,51 @@ describe("MobileShell", () => {
     await waitFor(() => expect(screen.getByTestId("session-row-sess_1")).toBeInTheDocument());
   });
 
+  it("pops the chat page with an edge right-swipe (TASK-M7-06)", async () => {
+    stubAndroid();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    const sessionsTab = screen.getByTestId("mobile-page-sessions");
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+
+    // A rightward drag from the left edge (~24px zone) past ~40px pops.
+    const chat = within(sessionsTab).getByTestId("mobile-page-chat");
+    fireEvent.pointerDown(chat, { clientX: 10, clientY: 200, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 90, clientY: 200 });
+    fireEvent.pointerUp(window, { clientX: 90, clientY: 200 });
+    await waitFor(() =>
+      expect(within(sessionsTab).queryByTestId("mobile-page-chat")).not.toBeInTheDocument(),
+    );
+    // The sessions list is back.
+    expect(screen.getByTestId("session-row-sess_1")).toBeInTheDocument();
+  });
+
+  it("an edge swipe starting outside the zone does not pop (TASK-M7-06)", async () => {
+    stubAndroid();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    const sessionsTab = screen.getByTestId("mobile-page-sessions");
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+
+    const chat = within(sessionsTab).getByTestId("mobile-page-chat");
+    fireEvent.pointerDown(chat, { clientX: 200, clientY: 200, button: 0 });
+    fireEvent.pointerMove(window, { clientX: 300, clientY: 200 });
+    fireEvent.pointerUp(window, { clientX: 300, clientY: 200 });
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+  });
+
   it("lists sessions with empty state", async () => {
     stubAndroid();
     renderShell();

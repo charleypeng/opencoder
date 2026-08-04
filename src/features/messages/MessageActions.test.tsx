@@ -516,3 +516,162 @@ describe("MessageActions context menu", () => {
     );
   });
 });
+
+describe("MessageActions mobile long-press (TASK-M7-06)", () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Flushes pending microtasks (Solid updates + resolved request mocks). */
+  async function flush(): Promise<void> {
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+  }
+
+  /** Long-presses the message column and waits for the hold to fire. */
+  function longPressColumn(clientX = 30, clientY = 40): void {
+    fireEvent.pointerDown(screen.getByTestId("message-msg_user"), {
+      clientX,
+      clientY,
+      button: 0,
+    });
+    vi.advanceTimersByTime(500);
+  }
+
+  it("opens the touch menu with the mobile subset on a hold", () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions({ mobile: true });
+    longPressColumn();
+
+    expect(screen.getByTestId("message-context-menu")).toBeInTheDocument();
+    expect(screen.getByTestId("message-context-copy-text")).toBeInTheDocument();
+    expect(screen.getByTestId("message-context-copy-code")).toBeInTheDocument();
+    expect(screen.getByTestId("message-context-delete")).toBeInTheDocument();
+    // Desktop-only items stay out of the touch menu.
+    expect(screen.queryByTestId("message-context-edit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-context-view-diff")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-context-fork")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-context-revert")).not.toBeInTheDocument();
+  });
+
+  it("copy text from the touch menu writes the joined parts", () => {
+    mountWithClient();
+    seedUser([
+      ["prt_1", "part one"],
+      ["prt_2", "part two"],
+    ]);
+    mountActions({ mobile: true, partIds: ["prt_1", "prt_2"] });
+    longPressColumn();
+
+    // Releasing the held finger fires a click on the backdrop, which the
+    // post-hold guard swallows (the menu must not close on release)...
+    fireEvent.pointerUp(window, { clientX: 30, clientY: 40 });
+    fireEvent.click(screen.getByTestId("message-context-backdrop"));
+    expect(screen.getByTestId("message-context-menu")).toBeInTheDocument();
+
+    // ...then the menu item tap goes through.
+    fireEvent.click(screen.getByTestId("message-context-copy-text"));
+    expect(writeTextMock).toHaveBeenCalledWith("part one\npart two");
+    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+  });
+
+  it("copy code is disabled in the touch menu when the message has no fences", () => {
+    mountWithClient();
+    seedUser([["prt_1", "no code here"]]);
+    mountActions({ mobile: true });
+    longPressColumn();
+
+    expect(screen.getByTestId("message-context-copy-code")).toBeDisabled();
+  });
+
+  it("delete opens the shared delete dialog for a user message", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions({ mobile: true });
+    longPressColumn();
+
+    // Release click (swallowed by the post-hold guard), then the menu tap.
+    fireEvent.pointerUp(window, { clientX: 30, clientY: 40 });
+    fireEvent.click(screen.getByTestId("message-context-backdrop"));
+    fireEvent.click(screen.getByTestId("message-context-delete"));
+    await flush();
+    expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("delete-message-confirm"));
+    await flush();
+    expect(screen.queryByTestId("delete-message-dialog")).not.toBeInTheDocument();
+    expect(request).toHaveBeenCalledWith({
+      method: "DELETE",
+      path: "/session/ses_actions_ui_1/message/msg_user",
+    });
+  });
+
+  it("delete is disabled in the touch menu for assistant messages", () => {
+    mountWithClient();
+    seedAssistant("a reply");
+    mountActions({ mobile: true, messageID: "msg_asst", partIds: ["prt_asst"] });
+
+    fireEvent.pointerDown(screen.getByTestId("message-msg_asst"), {
+      clientX: 30,
+      clientY: 40,
+      button: 0,
+    });
+    vi.advanceTimersByTime(500);
+    expect(screen.getByTestId("message-context-delete")).toBeDisabled();
+  });
+
+  it("movement past the slop cancels the hold (scrolling never opens it)", () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions({ mobile: true });
+
+    fireEvent.pointerDown(screen.getByTestId("message-msg_user"), {
+      clientX: 30,
+      clientY: 40,
+      button: 0,
+    });
+    fireEvent.pointerMove(window, { clientX: 50, clientY: 40 });
+    vi.advanceTimersByTime(500);
+    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+  });
+
+  it("the release click after a hold is swallowed (no button underneath fires)", () => {
+    const onInnerClick = vi.fn();
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    render(() => (
+      <MessageActions
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_user"
+        partIds={["prt_1"]}
+        mobile
+      >
+        <button type="button" data-testid="msg-inner" onClick={onInnerClick}>
+          Inner
+        </button>
+      </MessageActions>
+    ));
+    longPressColumn();
+
+    fireEvent.pointerUp(window, { clientX: 30, clientY: 40 });
+    fireEvent.click(screen.getByTestId("msg-inner"));
+    expect(onInnerClick).not.toHaveBeenCalled();
+  });
+
+  it("desktop rendering keeps the hover menu and gains no long-press behavior", () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions();
+    fireEvent.pointerDown(screen.getByTestId("message-msg_user"), {
+      clientX: 30,
+      clientY: 40,
+      button: 0,
+    });
+    vi.advanceTimersByTime(500);
+    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+  });
+});

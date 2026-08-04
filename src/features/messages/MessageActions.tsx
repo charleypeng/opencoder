@@ -22,6 +22,13 @@
 //     dialog lives with the caller that wires onRevert (DesktopShell), so
 //     the item is disabled while no onRevert callback is provided.
 //
+// TASK-M7-06: with `mobile` the column gains a LONG-PRESS action menu —
+// holding still for 500ms opens the same fixed popover with the touch-
+// appropriate subset (copy text / copy code / delete), the release click
+// is swallowed so a button under the finger never activates, and the iOS
+// text-selection callout is suppressed (the menu replaces it). Long-press
+// cancels on any drift past the slop, so scrolling never triggers it.
+//
 // The component owns the bubble column (MessageBubble passes its body as
 // children), so hover state, the context menu and the store-driven role
 // alignment live in one place.
@@ -36,6 +43,7 @@ import { messages, applyPartDelta } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import { sendPrompt } from "../sessions/sendPrompt.js";
 import { deleteMessage } from "./deleteMessage.js";
+import { useLongPress } from "../../shells/mobile/gestures.js";
 
 export interface MessageActionsProps {
   /** The server whose session is shown. */
@@ -58,6 +66,9 @@ export interface MessageActionsProps {
   onRevert?: (messageID: string) => void;
   /** Bubble body (bubble + timestamp). */
   children?: JSX.Element;
+  /** Mobile presentation (TASK-M7-06): the column long-presses open the
+   *  touch menu (copy text / copy code / delete). */
+  mobile?: boolean;
 }
 
 type TextPart = Extract<Part, { type: "text" }>;
@@ -446,6 +457,14 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     },
   ]);
 
+  // TASK-M7-06: the touch menu keeps the copy/delete essentials only (the
+  // edit dialog and the shell-side actions stay desktop paths).
+  const mobileActions = createMemo<MenuAction[]>(() => {
+    const allowed = new Set(["copy-text", "copy-code", "delete"]);
+    return actions().filter((action) => allowed.has(action.id));
+  });
+  const menuActions = () => (props.mobile ? mobileActions() : actions());
+
   function handleContextMenu(event: MouseEvent) {
     event.preventDefault();
     setContextPos({ x: event.clientX, y: event.clientY });
@@ -458,12 +477,20 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     "group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary " +
     "focus:bg-accent-soft";
 
+  // TASK-M7-06: the mobile column long-presses open the touch menu at the
+  // press position (the hook is created unconditionally, its handlers are
+  // spread only in the mobile presentation).
+  const longPress = useLongPress((position) => setContextPos(position));
+
   return (
     <div
       data-testid={`message-${props.messageID}`}
       data-role={role()}
-      class={`group relative flex flex-col gap-1 ${user() ? "items-end" : "items-start"}`}
+      class={`group relative flex flex-col gap-1 ${user() ? "items-end" : "items-start"}${
+        props.mobile ? " [-webkit-touch-callout:none]" : ""
+      }`}
       onContextMenu={handleContextMenu}
+      {...(props.mobile ? longPress : {})}
     >
       {props.children}
 
@@ -495,7 +522,8 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
 
-      {/* Right-click popover: fixed at the cursor, same item set. */}
+      {/* Right-click (desktop) / long-press (mobile) popover: fixed at the
+          press position; the item set depends on the presentation. */}
       <Show when={contextPos() !== null}>
         <div
           data-testid="message-context-backdrop"
@@ -511,7 +539,7 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
             top: `${Math.min(contextPos()!.y, window.innerHeight - 200)}px`,
           }}
         >
-          <For each={actions()}>
+          <For each={menuActions()}>
             {(action) => (
               <button
                 data-testid={`message-context-${action.id}`}

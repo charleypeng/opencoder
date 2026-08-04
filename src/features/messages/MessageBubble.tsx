@@ -51,6 +51,8 @@ export interface MessageBubbleProps {
   /** Opens the child session of the session containing a subtask part
    *  (wired by M6-07); while absent the part's button stays hidden. */
   onOpenChild?: (sessionId: string) => void;
+  /** Mobile presentation (TASK-M7-06): long-press action menu. */
+  mobile?: boolean;
 }
 
 type RenderablePart = Extract<
@@ -179,6 +181,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
         sessionId={props.sessionId}
         messageID={props.messageID}
         partIds={props.partIds}
+        mobile={props.mobile}
         onViewDiff={props.onViewDiff}
         onFork={props.onFork}
         onRevert={props.onRevert}

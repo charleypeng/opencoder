@@ -221,4 +221,48 @@ describe("Sheet", () => {
     fireEvent.click(inner);
     expect(onInnerClick).not.toHaveBeenCalled();
   });
+
+  it("settles to the nearest snap on pointercancel and never closes (TASK-M7-06)", async () => {
+    render(() => <Harness snap="mid" />);
+    fireEvent.click(screen.getByTestId("sheet-trigger"));
+    const panel = screen.getByTestId("sheet");
+    await waitFor(() => expect(panel.style.transform).toBe(`translateY(${snapPx(60)}px)`));
+
+    // Drag up from mid by ~200px (nearest snap would be high), then the
+    // browser steals the gesture: the sheet settles but does not close.
+    fireEvent.pointerDown(panel, { clientY: 300, button: 0 });
+    fireEvent.pointerMove(window, { clientY: 100 });
+    fireEvent.pointerCancel(window, { clientY: 100 });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(panel.style.transform).toBe(`translateY(${snapPx(95)}px)`));
+  });
+
+  it("pointercancel after a downward drag past the close threshold does not close (TASK-M7-06)", async () => {
+    render(() => <Harness snap="high" />);
+    fireEvent.click(screen.getByTestId("sheet-trigger"));
+    const panel = screen.getByTestId("sheet");
+    await waitFor(() => expect(panel.style.transform).toBe(`translateY(${snapPx(95)}px)`));
+
+    // 200px of downward drag would close on release — but a cancel never
+    // closes: the sheet settles to the NEAREST snap (mid here) instead.
+    fireEvent.pointerDown(panel, { clientY: 100, button: 0 });
+    fireEvent.pointerMove(window, { clientY: 300 });
+    fireEvent.pointerCancel(window, { clientY: 300 });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    await waitFor(() => expect(panel.style.transform).toBe(`translateY(${snapPx(60)}px)`));
+  });
+
+  it("pointercancel releases the gesture listeners", async () => {
+    render(() => <Harness snap="high" />);
+    fireEvent.click(screen.getByTestId("sheet-trigger"));
+    const panel = screen.getByTestId("sheet");
+    await waitFor(() => expect(panel.style.transform).toBe(`translateY(${snapPx(95)}px)`));
+
+    fireEvent.pointerDown(panel, { clientY: 100, button: 0 });
+    fireEvent.pointerCancel(window, { clientY: 120 });
+    // The listeners are gone: a stray move after the cancel changes nothing.
+    fireEvent.pointerMove(window, { clientY: 400 });
+    expect(panel.style.transform).toBe(`translateY(${snapPx(95)}px)`);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
 });

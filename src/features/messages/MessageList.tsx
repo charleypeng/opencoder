@@ -57,6 +57,9 @@ export interface MessageListProps {
   /** Opens the child session of a session owning a subtask part (wired by
    *  M6-07). */
   onOpenChild?: (sessionId: string) => void;
+  /** Mobile presentation (TASK-M7-06): bubbles gain the long-press action
+   *  menu and native text-selection callout is suppressed. */
+  mobile?: boolean;
 }
 
 interface MessageGroup {
@@ -431,6 +434,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                           messageID={row.messageID}
                           partIds={row.partIds}
                           typing={row.typing}
+                          mobile={props.mobile}
                           onViewDiff={props.onViewDiff}
                           onFork={props.onFork}
                           onRevert={props.onRevert}

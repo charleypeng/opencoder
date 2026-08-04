@@ -5,7 +5,9 @@
 // A downward drag past the threshold (~120px) or a fast downward flick
 // closes the sheet; any other release settles to the NEAREST snap with the
 // --ease-spring timing curve (the panel height is the high snap's 95vh, so
-// geometry stays fixed and settling is a pure translate). While dragging
+// geometry stays fixed and settling is a pure translate). A pointercancel
+// (the browser stole the drag — scroll steal, system gesture) settles to
+// the nearest snap too but never closes (TASK-M7-06). While dragging
 // the transition is disabled so the panel follows the pointer 1:1.
 // prefers-reduced-motion degrades both layers: the tokens media query
 // zeroes --dur-med (any CSS var() consumer) and the JS uses a 0ms linear
@@ -167,6 +169,7 @@ const Sheet: Component<SheetProps> = (props) => {
   onCleanup(() => {
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
     clearClickSuppression();
   });
 
@@ -180,6 +183,7 @@ const Sheet: Component<SheetProps> = (props) => {
     setDragging(true);
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
+    window.addEventListener("pointercancel", onPointerCancel);
     // Keep the browser from starting text selection / native drags.
     event.preventDefault();
   }
@@ -197,6 +201,7 @@ const Sheet: Component<SheetProps> = (props) => {
   function onPointerUp(): void {
     window.removeEventListener("pointermove", onPointerMove);
     window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
     const delta = offset() - startOffset;
     // A drag that moved past the slop must not click what is underneath:
     // swallow the click that immediately follows the gesture. Panel-scoped
@@ -235,6 +240,17 @@ const Sheet: Component<SheetProps> = (props) => {
     setOffset(best);
     // The settle-effect must not re-snap to the prop after a gesture.
     gestureSettled = true;
+  }
+
+  function onPointerCancel(): void {
+    // The browser stole the drag (scroll steal, system gesture, double-tap
+    // zoom): settle to the nearest snap and release the listeners — a
+    // cancelled gesture never closes the sheet (TASK-M7-06).
+    window.removeEventListener("pointermove", onPointerMove);
+    window.removeEventListener("pointerup", onPointerUp);
+    window.removeEventListener("pointercancel", onPointerCancel);
+    settle();
+    setDragging(false);
   }
 
   const transitionStyle = (): string =>
