@@ -81,7 +81,7 @@ const MobileShell: Component = () => {
 
   return (
     // pb-44 keeps the demo content above the native tab bar (content padding
-    // pattern from docs/ui-design.md §5, 档位 A).
+    // pattern from docs/ui-design.md §5, tier A).
     <div class="min-h-screen bg-bg-base pb-44 text-fg-primary" data-testid="mobile-shell">
       <div class="flex min-h-screen flex-col items-center justify-center gap-3">
         <p class="text-sm text-fg-secondary">Mobile shell — M7 (M7-02 glass spike)</p>
