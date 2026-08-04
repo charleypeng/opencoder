@@ -1,5 +1,5 @@
 // Bottom sheet base component (TASK-M7-05, docs/ui-design.md §4.1 "Sheet
-// 体系"): a fixed scrim plus a bottom-anchored panel with three snap
+// system"): a fixed scrim plus a bottom-anchored panel with three snap
 // positions — 25% (low) / 60% (mid) / 95% (high) of the viewport height —
 // driven by pointer gestures on the drag handle and the panel itself.
 // A downward drag past the threshold (~120px) or a fast downward flick
