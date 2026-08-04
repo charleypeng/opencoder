@@ -24,3 +24,4 @@
 - 添加服务器向导：名称/URL/可选认证表单，URL 规范化、实时「测试连接」探测（显示版本/延迟）、明文 HTTP 风险提示，保存走注册表 commands；并为注册表 commands 新增类型化 TS 封装 (TASK-M1-05)
 - 服务器导航首页：App 启动落点，响应式服务器卡片网格（名称/URL/状态灯/版本/延迟/最近连接），经 `servers-changed` 与 `server-health` 事件实时更新；卡片右键菜单（含菜单按钮）提供编辑/重连/删除（二次确认）；添加服务器向导支持编辑模式（`update_server`）；空状态引导页 (TASK-M1-06)
 - mDNS 局域网自动发现：Rust 扫描 `_opencode._tcp`（及 `opencode serve --mdns` 发布的 `_http._tcp` 广播），按实例去重并 emit `server-discovered` 事件，提供幂等的 `start_mdns_discovery` / `stop_mdns_discovery` / `get_discovered_servers` commands，局域网不可达时静默降级；添加服务器向导新增「附近的服务器」区块，支持一键填充与自动探测 (TASK-M1-07)
+- 服务器工作区壳：三栏桌面骨架（服务器图标 Rail 含每服务器健康状态点与 ⌘/Ctrl+1..9 快速切换、侧栏、主区）替换占位视图；新增激活服务器 registry store 为各 per-server store 注入上下文（切换不串数据）；离开时预留 SSE 断开挂载点（M2 接入）；移动端壳占位（M7）(TASK-M1-08)
