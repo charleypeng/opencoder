@@ -110,6 +110,7 @@ import {
 import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
+import { haptic } from "../../services/haptics.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -886,6 +887,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setInlineError(null);
     setAttachError(null);
     setCommandAttachNote(false);
+    // TASK-M7-07: light impact on send (fire-and-forget; a no-op outside
+    // Tauri mobile).
+    void haptic("send");
     try {
       let err: ApiError | null;
       // Whether the input ran through the command endpoint, whose body

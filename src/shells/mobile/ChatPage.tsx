@@ -28,7 +28,7 @@ export const ChatPage: Component<MobilePageProps> = (props) => {
   // own clientX, so a pointerdown on any child bubbles in and is evaluated.
   const edge = useEdgeSwipeBack(() => back());
   return (
-    <div class="flex h-full flex-col" data-testid="mobile-page-chat" {...edge}>
+    <div class="page-enter-zoom flex h-full flex-col" data-testid="mobile-page-chat" {...edge}>
       <PageHeader title={title()} onBack={() => back()} />
       <Show
         when={sessionId()}

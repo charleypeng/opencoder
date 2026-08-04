@@ -63,6 +63,65 @@
 }
 
 /*
+ * M7-07 page push transitions: the incoming page slides+fades in at the
+ * navigation level (MobileShell's keyed page wrapper) — forward pushes
+ * slide in from the right, pops slide in from the left. Durations ride
+ * the --dur-* tokens, which collapse to 0ms under prefers-reduced-motion
+ * (tokens.css), so reduced-motion users see an instant swap.
+ */
+.page-enter-forward {
+  animation: page-enter-forward var(--dur-med) var(--ease-spring);
+}
+
+@keyframes page-enter-forward {
+  from {
+    opacity: 0;
+    transform: translateX(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.page-enter-back {
+  animation: page-enter-back var(--dur-med) var(--ease-spring);
+}
+
+@keyframes page-enter-back {
+  from {
+    opacity: 0;
+    transform: translateX(-16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/*
+ * M7-07 shared-element transition, SIMPLIFIED: the session row -> chat
+ * header FLIP (ui-design §4.1) is rendered as a scale-fade on the Chat
+ * page root (it mounts exactly when a session row is tapped, so the
+ * animation plays at push time). A full FLIP shared element is deferred
+ * (docs/tasks/M7.md appendix); same reduced-motion behavior as above.
+ */
+.page-enter-zoom {
+  animation: page-enter-zoom var(--dur-med) var(--ease-spring);
+}
+
+@keyframes page-enter-zoom {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/*
  * Bridge design tokens (tokens.css) into Tailwind v4 utilities.
  * `inline` emits var() references so utilities stay live on theme switch,
  * e.g. bg-bg-base, text-fg-secondary, rounded-r-lg, text-text-sm, font-code.

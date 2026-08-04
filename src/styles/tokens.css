@@ -69,7 +69,13 @@
   --glass-blur: 24px;
 }
 
-/* Glass panel, ui-design.md §5 tier B */
+/* Glass panel, ui-design.md §5 tier B.
+ * PERFORMANCE GUARD (M7-07): backdrop-filter is expensive on mobile GPUs.
+ * Keep elements carrying this class to ≤4 ON SCREEN simultaneously
+ * (one modal/dropdown at a time already satisfies this on desktop; the
+ * mobile Sheet variant of permission/question cards replaces the .glass
+ * overlay with a solid-elevated panel, so mobile stays within budget too).
+ * Never animate the blur radius and keep glass elements fixed-size. */
 .glass {
   background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur)) saturate(1.6);

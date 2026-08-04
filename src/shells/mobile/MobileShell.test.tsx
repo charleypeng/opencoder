@@ -7,13 +7,21 @@
 // visibility lifecycle: the shell shows the bar on mount and hides it on
 // unmount through the glass bridge's setHidden message. TASK-M7-05 mounts
 // the permission and question sheets in their mobile presentation.
+// TASK-M7-07: the keyed page wrapper carries the enter transition class
+// (push = forward, pop = back, mount = none) and the shell mounts the
+// haptic watcher (a generating session turning idle fires the complete
+// haptic through the mocked facade).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import MobileShell from "./MobileShell";
 import { refreshPlatform } from "../../platform";
 import { resetNav } from "./navigation";
-import { applySessionList, resetServer as resetSessions } from "../../stores/session";
+import {
+  applySessionList,
+  resetServer as resetSessions,
+  setSessionStatus,
+} from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
 import {
   dequeue as dequeuePermission,
@@ -28,9 +36,16 @@ import {
 import type { Session } from "../../services/session";
 import type { ServerEntry } from "../../services/servers";
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+const { invokeMock, hapticMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  hapticMock: vi.fn(),
+}));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+// TASK-M7-07: the haptic facade is mocked so the shell-level watcher mount
+// can be asserted (the facade's own guard/dispatch is covered in
+// src/services/haptics.test.ts).
+vi.mock("../../services/haptics.js", () => ({ haptic: hapticMock }));
 // MessageBubble renders through Shiki; the stub keeps the shell tests free
 // of language-pack loading (the viewer tests cover the real contract).
 vi.mock("../../features/messages/markdown/highlighter.js", () => ({
@@ -115,6 +130,7 @@ afterEach(() => {
   resetMessages(SERVER.id);
   resetPermissionStore(SERVER.id);
   resetQuestionStore(SERVER.id);
+  vi.clearAllMocks();
 });
 
 function renderShell() {
@@ -210,6 +226,51 @@ describe("MobileShell", () => {
     // Back on the root page is a no-op: sessions rows still render.
     fireEvent.click(within(sessionsTab).getByTestId("page-back"));
     await waitFor(() => expect(screen.getByTestId("session-row-sess_1")).toBeInTheDocument());
+  });
+
+  it("applies the enter transition classes on push and pop (TASK-M7-07)", async () => {
+    stubAndroid();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    // Initial mount: no enter animation class.
+    const sessionsTab = screen.getByTestId("mobile-page-sessions");
+    expect(within(sessionsTab).getByTestId("mobile-page-route-sessions")).not.toHaveClass(
+      "page-enter-forward",
+    );
+    expect(within(sessionsTab).getByTestId("mobile-page-route-sessions")).not.toHaveClass(
+      "page-enter-back",
+    );
+
+    // Push: the incoming page wrapper slides in from the right.
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+    expect(within(sessionsTab).getByTestId("mobile-page-route-sessions")).toHaveClass(
+      "page-enter-forward",
+    );
+
+    // Pop: the incoming page wrapper slides in from the left.
+    fireEvent.click(within(sessionsTab).getByTestId("page-back"));
+    await waitFor(() =>
+      expect(within(sessionsTab).queryByTestId("mobile-page-chat")).not.toBeInTheDocument(),
+    );
+    expect(within(sessionsTab).getByTestId("mobile-page-route-sessions")).toHaveClass(
+      "page-enter-back",
+    );
+  });
+
+  it("mounts the haptic watcher: completion of a generating session fires the complete haptic (TASK-M7-07)", async () => {
+    stubAndroid();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    setSessionStatus(SERVER.id, "sess_1", { type: "busy" });
+    setSessionStatus(SERVER.id, "sess_1", { type: "idle" });
+    await waitFor(() => expect(hapticMock).toHaveBeenCalledWith("complete"));
   });
 
   it("pops the chat page with an edge right-swipe (TASK-M7-06)", async () => {

@@ -45,11 +45,18 @@ import { applyEvent } from "../../stores/events";
 import type { SseEvent } from "../../services/sse";
 import { scenarios } from "../../../tests/mock-server/scenarios/index.js";
 
-const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+const { getApiClientMock, hapticMock } = vi.hoisted(() => ({
+  getApiClientMock: vi.fn(),
+  hapticMock: vi.fn(),
+}));
 
 vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
 // events.ts pulls in the SSE facade (tauri Channel); not needed in tests.
 vi.mock("../../services/sse.js", () => ({ sseSubscribe: vi.fn() }));
+// TASK-M7-07: the haptic facade is mocked so the send call site can be
+// asserted (the facade's own guard/dispatch is covered in
+// src/services/haptics.test.ts).
+vi.mock("../../services/haptics.js", () => ({ haptic: hapticMock }));
 
 const SERVER = "srv-prompt";
 const SESSION = "ses_prompt_01";
@@ -150,6 +157,15 @@ describe("PromptBox", () => {
     // flow, so the re-enable is awaited).
     expect(input().value).toBe("");
     await waitFor(() => expect(input()).not.toBeDisabled());
+  });
+
+  it("fires the send haptic when sending (TASK-M7-07)", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "hello" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(hapticMock).toHaveBeenCalledWith("send"));
   });
 
   it("sends with Ctrl+Enter as well", async () => {

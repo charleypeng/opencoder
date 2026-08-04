@@ -21,9 +21,10 @@
 // resizes-content in index.html) leaves the bottom chrome visible above
 // it, and the web nav pads the home-indicator inset (pb-safe).
 
-import { For, onCleanup, onMount } from "solid-js";
+import { For, onCleanup, onMount, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ServerEntry } from "../../services/servers";
+import { startHapticEvents } from "../../services/hapticEvents.js";
 import { capabilitiesOf } from "../../platform/capabilities";
 import { platform } from "../../platform";
 import { hasGlassBridge, installGlassTabHandler, postGlassMessage } from "./glass.js";
@@ -32,6 +33,7 @@ import { nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
 import type { TabId } from "./navigation.js";
 import { pageRegistry, NotFoundPage } from "./pages.js";
 import type { MobilePage } from "./pages.js";
+import { pageEnterClass, pageEnterDir, routeKey } from "./transitions.js";
 import PermissionSheet from "../../features/permissions/PermissionSheet.js";
 import QuestionSheet from "../../features/questions/QuestionSheet.js";
 
@@ -114,6 +116,12 @@ const MobileShell: Component<MobileShellProps> = (props) => {
   // Resolved once per mount (the platform never changes at runtime).
   const nativeGlass = capabilitiesOf(platform).supportsNativeGlass && hasGlassBridge();
 
+  // M7-07 page transitions: the last rendered stack depth per tab decides
+  // the enter animation of the next page (push slides in from the right,
+  // pop from the left). Initialized to 1 — every stack starts at its root
+  // page — so the first render animates nothing.
+  const prevDepth: Record<TabId, number> = { sessions: 1, files: 1, terminal: 1, settings: 1 };
+
   onMount(() => {
     // Native -> web: route native bar taps through the same selectTab
     // action the web nav uses; cleanup restores any previous handler.
@@ -127,13 +135,33 @@ const MobileShell: Component<MobileShellProps> = (props) => {
     // again when the workspace unmounts (back to home).
     setGlassBarShown();
     onCleanup(() => setGlassBarHidden());
+    // TASK-M7-07: haptic events (session complete / error, permission
+    // asked) — the facade itself no-ops outside Tauri mobile.
+    onCleanup(startHapticEvents(props.server.id));
   });
 
-  /** Renders the top route of one tab through the page registry. */
+  /** Renders the top route of one tab through the page registry. The
+   *  wrapper div is keyed by the route identity, so a route change
+   *  remounts it and replays the M7-07 enter animation. */
   function renderTop(tab: TabId) {
     const route = topOf(tab);
     const Page: MobilePage = pageRegistry[route.page] ?? NotFoundPage;
-    return <Page serverId={props.server.id} onExit={props.onExit} route={route} />;
+    const depth = nav.stacks[tab].length;
+    const dir = pageEnterDir(prevDepth[tab], depth);
+    prevDepth[tab] = depth;
+    return (
+      <Show keyed when={routeKey(route)}>
+        {(routeId) => (
+          <div
+            data-testid={`mobile-page-route-${tab}`}
+            data-route-key={routeId}
+            class={`h-full ${pageEnterClass(dir)}`}
+          >
+            <Page serverId={props.server.id} onExit={props.onExit} route={route} />
+          </div>
+        )}
+      </Show>
+    );
   }
 
   return (

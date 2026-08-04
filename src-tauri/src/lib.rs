@@ -18,6 +18,7 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_glass::init())
+        .plugin(tauri_plugin_haptics::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             let registry = connections::ServerRegistry::load(app.handle())?;
