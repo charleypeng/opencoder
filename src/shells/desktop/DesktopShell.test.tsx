@@ -38,6 +38,8 @@ import { readRecentFiles } from "../../features/files/recentFiles";
 import { clearToasts, createToast } from "../../stores/toasts";
 import { combo } from "../../features/settings/shortcuts";
 import { resetAllShortcuts, saveShortcutCombo } from "../../features/settings/shortcutStore";
+import { enqueue, resetServer as resetPermissions } from "../../stores/permission";
+import type { PermissionRequest } from "../../services/permission";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
@@ -1887,5 +1889,71 @@ describe("DesktopShell file reference in chat (TASK-M8-03)", () => {
 
     const input = screen.getByTestId("prompt-input") as HTMLTextAreaElement;
     await waitFor(() => expect(input.value).toBe("@README.md"));
+  });
+});
+
+describe("DesktopShell tray & global summon (TASK-M8-05)", () => {
+  function permissionRequest(id: string): PermissionRequest {
+    return { id, sessionID: "s1", permission: "shell", patterns: [], metadata: {}, always: [] };
+  }
+
+  it("the tray menu's new-session event creates a session", async () => {
+    const alpha = server({ id: "srv-m8tray", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sessions["srv-m8tray"]?.order).toEqual(["sess_demo_01"]));
+
+    handlerFor("tray-new-session")(null);
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-m8tray").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(sessions["srv-m8tray"]?.order).toContain("sess_new_01");
+  });
+
+  it("subscribes to the global summon event (the window is shown by Rust)", async () => {
+    const alpha = server({ id: "srv-m8summon", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // The listener exists; firing it is safe and leaves the shell mounted.
+    handlerFor("global-summon")(null);
+    expect(screen.getByTestId("desktop-shell")).toBeInTheDocument();
+  });
+
+  it("syncs the pending permission count to the tray badge", async () => {
+    const alpha = server({ id: "srv-m8badge", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // A zero count at mount is a no-op (setTrayBadge drops non-positive
+    // counts; the badge is gone on restart anyway).
+    expect(invokeMock).not.toHaveBeenCalledWith("tray_set_badge", { count: 0 });
+    enqueue("srv-m8badge", permissionRequest("p1"));
+    enqueue("srv-m8badge", permissionRequest("p2"));
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("tray_set_badge", { count: 2 }));
+    resetPermissions("srv-m8badge");
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("tray_set_badge", { count: 2 }));
+  });
+
+  it("re-applies persisted desktop prefs on mount", async () => {
+    localStorage.setItem(
+      "oc-desktop",
+      JSON.stringify({ closeToTray: true, globalShortcut: "Ctrl+Shift+O" }),
+    );
+    const alpha = server({ id: "srv-m8prefs", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_close_to_tray", { enabled: true }),
+    );
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("set_global_shortcut", {
+        accelerator: "Ctrl+Shift+O",
+      }),
+    );
+    localStorage.removeItem("oc-desktop");
   });
 });

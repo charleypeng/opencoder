@@ -1,6 +1,8 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod commands;
 pub mod connections;
+#[cfg(desktop)]
+mod desktop;
 pub mod discovery;
 pub mod transport;
 
@@ -30,6 +32,8 @@ pub fn run() {
         .plugin(tauri_plugin_haptics::init())
         .plugin(tauri_plugin_store::Builder::default().build())
         .plugin(tauri_plugin_window_state::Builder::default().build());
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     // The barcode-scanner crate is `#![cfg(mobile)]` — on desktop it compiles
     // to an empty crate, so registration must be mobile-only (TASK-M7-08);
     // the frontend facade refuses to call it on desktop. The single-instance
@@ -45,6 +49,19 @@ pub fn run() {
             let _ = window.set_focus();
         }
     }));
+    // Close-to-tray (TASK-M8-05): while the setting is on, closing the main
+    // window hides it to the tray instead of quitting; the tray menu's Quit
+    // and the app's own lifecycle stay the real exit paths.
+    #[cfg(desktop)]
+    let builder = builder.on_window_event(|window, event| {
+        if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+            let state = window.state::<desktop::DesktopState>();
+            if state.close_to_tray() {
+                api.prevent_close();
+                let _ = window.hide();
+            }
+        }
+    });
     builder
         .setup(|app| {
             // macOS window glass (TASK-M8-04): liquid glass on macOS 26+,
@@ -67,6 +84,11 @@ pub fn run() {
             app.manage(registry);
             app.manage(monitor);
             app.manage(discovery);
+            // System tray + global summon (TASK-M8-05): desktop-only, both
+            // best-effort (a missing Linux tray host or an OS-rejected
+            // shortcut is logged, never fatal).
+            #[cfg(desktop)]
+            desktop::setup(app);
             // Start per-server health polling for every persisted server.
             let monitor = app.state::<HealthMonitor<tauri::Wry>>();
             monitor.start_all(&app.state::<connections::ServerRegistry<tauri::Wry>>());
@@ -92,7 +114,17 @@ pub fn run() {
             commands::stop_health_monitoring,
             commands::start_mdns_discovery,
             commands::stop_mdns_discovery,
-            commands::get_discovered_servers
+            commands::get_discovered_servers,
+            #[cfg(desktop)]
+            desktop::set_close_to_tray,
+            #[cfg(desktop)]
+            desktop::get_close_to_tray,
+            #[cfg(desktop)]
+            desktop::set_global_shortcut,
+            #[cfg(desktop)]
+            desktop::get_global_shortcut,
+            #[cfg(desktop)]
+            desktop::tray_set_badge
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

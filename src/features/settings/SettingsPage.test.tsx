@@ -91,4 +91,17 @@ describe("SettingsPage", () => {
     await screen.findByTestId("provider-key-row-openai");
     expect(screen.queryByTestId("shortcuts-section")).not.toBeInTheDocument();
   });
+
+  it("switches to the Desktop section", () => {
+    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+
+    const desktopNav = screen.getByTestId("settings-section-desktop");
+    expect(desktopNav).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(desktopNav);
+    expect(desktopNav).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("desktop-section")).toBeInTheDocument();
+    expect(screen.getByTestId("desktop-close-to-tray")).toBeInTheDocument();
+    expect(screen.getByTestId("desktop-shortcut-input")).toBeInTheDocument();
+    expect(screen.queryByTestId("shortcuts-section")).not.toBeInTheDocument();
+  });
 });

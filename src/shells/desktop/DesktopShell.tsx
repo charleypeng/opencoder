@@ -101,6 +101,9 @@ import QuestionSheet from "../../features/questions/QuestionSheet";
 import SettingsPage from "../../features/settings/SettingsPage";
 import TerminalPanel from "../../features/terminal/TerminalPanel";
 import CommandPalette from "./CommandPalette";
+import { subscribeToGlobalSummon, subscribeToTrayNewSession } from "../../services/tray.js";
+import { startTrayBadgeSync } from "../../services/trayBadge.js";
+import { applyDesktopPrefs } from "../../features/settings/desktopPrefs.js";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -563,9 +566,24 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     void refresh();
     const stopHealth = subscribeToServerHealth();
     const stopChanged = subscribeToServersChanged((entries) => setServers(entries));
+    // Tray & global summon (TASK-M8-05): the tray menu's New session uses
+    // the same handler as ⌘N; the global-summon event needs no frontend
+    // reaction (Rust shows and focuses the window), the badge sync keeps
+    // the tray in step with the pending-permission load, and the persisted
+    // desktop prefs are re-applied so close-to-tray and a custom summon
+    // accelerator survive restarts.
+    const stopTrayNewSession = subscribeToTrayNewSession(() => void handleNewSession());
+    const stopGlobalSummon = subscribeToGlobalSummon(() => {
+      // The window is shown and focused Rust-side; nothing to do here.
+    });
+    const disposeBadgeSync = startTrayBadgeSync();
+    void applyDesktopPrefs();
     onCleanup(() => {
       stopHealth();
       stopChanged();
+      stopTrayNewSession();
+      stopGlobalSummon();
+      disposeBadgeSync();
       setActiveServer(null);
     });
   });

@@ -9,6 +9,7 @@ import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ProviderKeys from "./providers/ProviderKeys.js";
 import ShortcutsSection from "./ShortcutsSection.js";
+import DesktopSection from "./DesktopSection.js";
 
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
@@ -17,7 +18,7 @@ export interface SettingsPageProps {
   onBack: () => void;
 }
 
-type SettingsSection = "providers" | "shortcuts";
+type SettingsSection = "providers" | "shortcuts" | "desktop";
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
   const [section, setSection] = createSignal<SettingsSection>("providers");
@@ -69,6 +70,20 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           >
             Shortcuts
           </button>
+          <button
+            type="button"
+            data-testid="settings-section-desktop"
+            data-active={section() === "desktop" ? "true" : "false"}
+            aria-selected={section() === "desktop" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "desktop"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("desktop")}
+          >
+            Desktop
+          </button>
           <span
             data-testid="settings-section-more"
             class="rounded-md px-3 py-1.5 text-xs text-fg-faint"
@@ -76,7 +91,14 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
             More sections — M9-04
           </span>
         </nav>
-        <Show when={section() === "providers"} fallback={<ShortcutsSection />}>
+        <Show
+          when={section() === "providers"}
+          fallback={
+            <Show when={section() === "shortcuts"} fallback={<DesktopSection />}>
+              <ShortcutsSection />
+            </Show>
+          }
+        >
           <ProviderKeys serverId={props.serverId} />
         </Show>
       </div>
