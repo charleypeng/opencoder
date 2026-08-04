@@ -240,6 +240,21 @@ describe("TerminalInstance", () => {
     expect(term().written).toEqual(["hi\n", "é!"]);
   });
 
+  it("streams a UTF-8 sequence split across frames without U+FFFD", async () => {
+    const { options } = connectFixture();
+    render(() => (
+      <TerminalInstance serverId={SERVER} ptyId="pty_1" status="running" onClose={vi.fn()} />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+
+    // "hi" + the first byte of "é" (0xC3) arrive alone in one frame, the
+    // second byte (0xA9) with "!" in the next. A non-streaming decode would
+    // emit U+FFFD for each half; stream-mode must buffer the trailing byte.
+    options().onData(new Uint8Array([104, 105, 195]).buffer);
+    options().onData(new Uint8Array([169, 33]).buffer);
+    expect(term().written).toEqual(["hi", "é!"]);
+  });
+
   it("syncs terminal size changes through PUT /pty/{id}", async () => {
     const client = mockClient();
     connectFixture();
@@ -318,5 +333,30 @@ describe("TerminalInstance", () => {
     unmount();
     await waitFor(() => expect(close).toHaveBeenCalledTimes(1));
     expect(term().dispose).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores frames, keystrokes, and resizes after dispose", async () => {
+    const client = mockClient();
+    const { options } = connectFixture();
+    const { unmount } = render(() => (
+      <TerminalInstance serverId={SERVER} ptyId="pty_1" status="running" onClose={vi.fn()} />
+    ));
+    await waitFor(() => expect(ptyConnectMock).toHaveBeenCalled());
+
+    unmount();
+    await waitFor(() => expect(term().dispose).toHaveBeenCalledTimes(1));
+
+    // A frame landing between the async connection.close() and the Rust-side
+    // termination must not write into the disposed terminal.
+    expect(() => {
+      options().onData(new Uint8Array([104, 105, 10]).buffer);
+    }).not.toThrow();
+    expect(term().written).toHaveLength(0);
+
+    term().onDataHandler?.("ls");
+    expect(ptySendMock).not.toHaveBeenCalled();
+
+    term().onResizeHandler?.({ cols: 80, rows: 24 });
+    expect(client.put).not.toHaveBeenCalled();
   });
 });

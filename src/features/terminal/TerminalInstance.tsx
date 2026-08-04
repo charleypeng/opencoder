@@ -34,7 +34,6 @@ export interface TerminalInstanceProps {
 }
 
 const encoder = new TextEncoder();
-const decoder = new TextDecoder();
 
 /** Reads a design token, falling back to the dark-theme value when the
  *  token is missing (jsdom, or a non-theme context). */
@@ -67,6 +66,12 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
   let fit: FitAddon | undefined;
   let connection: { connectionId: number; close: () => Promise<void> } | undefined;
   let observer: ResizeObserver | undefined;
+  // Set in the dispose path: guards the frame/keystroke/resize handlers
+  // against running after the terminal is gone. connection.close() is async,
+  // so frames can land between the close() call and the Rust-side
+  // termination — without this flag they would write into a disposed
+  // terminal.
+  let disposed = false;
 
   /** Fits only while the container is actually visible: fitting a hidden
    *  tab would resize its PTY to 1 row × 2 cols and PUT that to the server. */
@@ -77,6 +82,12 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
   }
 
   onMount(() => {
+    // Streaming decoder, one per mounted instance: PTY frames may split a
+    // UTF-8 sequence across WebSocket messages, and only stream-mode decode
+    // buffers an incomplete trailing byte until the next frame. It must not
+    // live at module level — concurrent tabs would interleave partial
+    // sequences.
+    const streamDecoder = new TextDecoder();
     const terminal = new Terminal({
       fontSize: 13,
       fontFamily: cssVar("--font-code", "ui-monospace, SFMono-Regular, Menlo, monospace"),
@@ -93,10 +104,12 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
     // Terminal size changes (fit included) sync through the REST resize
     // channel — the contract routes resize over PUT, not WebSocket frames.
     terminal.onResize(({ cols, rows }) => {
+      if (disposed) return;
       void createPtyService(getApiClient()).update(ptyId, { size: { rows, cols } });
     });
 
     terminal.onData((data) => {
+      if (disposed) return;
       const current = connection;
       if (current) void ptySend(current.connectionId, encoder.encode(data));
     });
@@ -111,7 +124,10 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
     // Exited ptys need no channel; the note renders instead.
     if (props.status === "exited") return;
     void ptyConnect(serverId, ptyId, {
-      onData: (bytes) => terminal.write(decoder.decode(bytes)),
+      onData: (bytes) => {
+        if (disposed) return;
+        terminal.write(streamDecoder.decode(bytes, { stream: true }));
+      },
       onClose: () => markPtyExited(serverId, ptyId),
     })
       .then((conn) => {
@@ -125,6 +141,7 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
   });
 
   onCleanup(() => {
+    disposed = true;
     observer?.disconnect();
     observer = undefined;
     const current = connection;
