@@ -196,4 +196,24 @@ describe("sendPrompt", () => {
     const part = entry?.parts[entry.order[0]];
     expect(entry?.infos[part?.messageID as string]).toMatchObject({ agent: "plan" });
   });
+
+  it("carries the selected model in the prompt body and the optimistic message", async () => {
+    const err = await sendPrompt(SERVER, SESSION, "draft with gpt-5", [], undefined, {
+      providerID: "openai",
+      modelID: "gpt-5",
+    });
+
+    expect(err).toBeNull();
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+      body: {
+        parts: [{ type: "text", text: "draft with gpt-5" }],
+        model: { providerID: "openai", modelID: "gpt-5" },
+      },
+    });
+    const entry = messages[SERVER]?.[SESSION];
+    const part = entry?.parts[entry.order[0]];
+    expect(entry?.infos[part?.messageID as string]).toMatchObject({
+      model: { providerID: "openai", modelID: "gpt-5" },
+    });
+  });
 });

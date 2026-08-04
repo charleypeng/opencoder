@@ -33,7 +33,10 @@ import { pushPrompt } from "./promptHistory.js";
  * parts appear once the server echoes them. The optional agent name
  * (TASK-M5-04) rides in the prompt_async body so the server processes the
  * message with the selected agent (the optimistic message carries it too);
- * omitting it keeps the server-side default.
+ * omitting it keeps the server-side default. The optional model reference
+ * (TASK-M5-05) does the same for the model ({ providerID, modelID } in the
+ * body, verified against the 1.18.11 contract) and is mapped onto the
+ * optimistic user message.
  */
 export async function sendPrompt(
   serverId: string,
@@ -41,6 +44,7 @@ export async function sendPrompt(
   text: string,
   attachments: Attachment[] = [],
   agent?: string,
+  model?: { providerID: string; modelID: string },
 ): Promise<ApiError | null> {
   const message = text.trim();
   if (message === "" && attachments.length === 0) return null;
@@ -63,8 +67,8 @@ export async function sendPrompt(
       time: { created: now },
       agent: agent ?? session?.agent ?? "",
       model: {
-        providerID: session?.model?.providerID ?? "",
-        modelID: session?.model?.id ?? "",
+        providerID: model?.providerID ?? session?.model?.providerID ?? "",
+        modelID: model?.modelID ?? session?.model?.id ?? "",
       },
     };
     const part: Part = {
@@ -89,6 +93,7 @@ export async function sendPrompt(
     await createSessionService(getApiClient()).promptAsync(sessionId, {
       parts,
       ...(agent === undefined ? {} : { agent }),
+      ...(model === undefined ? {} : { model }),
     });
     return null;
   } catch (err) {

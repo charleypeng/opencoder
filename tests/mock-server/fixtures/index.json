@@ -24,5 +24,7 @@
   "permission": "permission.json",
   "question": "question.json",
   "command": "command.json",
-  "agent": "agent.json"
+  "agent": "agent.json",
+  "provider": "provider.json",
+  "config.providers": "config.providers.json"
 }

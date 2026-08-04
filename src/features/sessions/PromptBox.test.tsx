@@ -40,6 +40,7 @@ import {
 } from "../../stores/session";
 import { messages, resetServer as resetMessages } from "../../stores/messages";
 import { agentNameFor, resetServer as resetAgents } from "../../stores/agents";
+import { activeModelFor, resetServer as resetModels } from "../../stores/models";
 import { applyEvent } from "../../stores/events";
 import type { SseEvent } from "../../services/sse";
 import { scenarios } from "../../../tests/mock-server/scenarios/index.js";
@@ -87,7 +88,9 @@ beforeEach(() => {
   resetSessions(SERVER);
   resetMessages(SERVER);
   resetAgents(SERVER);
+  resetModels(SERVER);
   clearPrompts(SERVER);
+  window.localStorage.clear();
   getApiClientMock.mockReset();
   client = mockClient();
   applySessionList(SERVER, [sessionFixture()]);
@@ -96,7 +99,9 @@ afterEach(() => {
   resetSessions(SERVER);
   resetMessages(SERVER);
   resetAgents(SERVER);
+  resetModels(SERVER);
   clearPrompts(SERVER);
+  window.localStorage.clear();
 });
 
 function input(): HTMLTextAreaElement {
@@ -921,5 +926,218 @@ describe("PromptBox agent selector", () => {
     expect(screen.getByTestId("agent-menu")).toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId("agent-chip"), { key: "Escape" });
     expect(screen.queryByTestId("agent-menu")).not.toBeInTheDocument();
+  });
+});
+
+describe("PromptBox model selector", () => {
+  const AGENTS = [
+    {
+      name: "build",
+      description: "General-purpose coding agent",
+      mode: "primary",
+      color: "#E5B83C",
+      permission: [],
+      options: {},
+    },
+  ];
+  const MODELS = {
+    gpt5: {
+      id: "gpt-5",
+      providerID: "openai",
+      name: "GPT-5",
+      api: { id: "gpt-5", url: "https://example.com/v1", npm: "@ai-sdk/openai" },
+      capabilities: {
+        temperature: true,
+        reasoning: true,
+        attachment: true,
+        toolcall: true,
+        input: { text: true, audio: false, image: true, video: false, pdf: false },
+        output: { text: true, audio: false, image: false, video: false, pdf: false },
+        interleaved: false,
+      },
+      cost: { input: 1.25, output: 10, cache: { read: 0.625, write: 1.25 } },
+      limit: { context: 400000, output: 128000 },
+      status: "active",
+      options: {},
+      headers: {},
+      release_date: "2025-08-07",
+    },
+    gpt41: {
+      id: "gpt-4.1",
+      providerID: "openai",
+      name: "GPT-4.1",
+      api: { id: "gpt-4.1", url: "https://example.com/v1", npm: "@ai-sdk/openai" },
+      capabilities: {
+        temperature: true,
+        reasoning: false,
+        attachment: true,
+        toolcall: true,
+        input: { text: true, audio: false, image: false, video: false, pdf: false },
+        output: { text: true, audio: false, image: false, video: false, pdf: false },
+        interleaved: false,
+      },
+      cost: { input: 0.2, output: 1.2, cache: { read: 0.1, write: 0.2 } },
+      limit: { context: 400000, output: 64000 },
+      status: "active",
+      options: {},
+      headers: {},
+      release_date: "2025-08-07",
+    },
+    sonnet: {
+      id: "claude-sonnet-4-5",
+      providerID: "anthropic",
+      name: "Claude Sonnet 4.5",
+      api: { id: "claude-sonnet-4-5", url: "https://example.com/v1", npm: "@ai-sdk/anthropic" },
+      capabilities: {
+        temperature: true,
+        reasoning: true,
+        attachment: true,
+        toolcall: true,
+        input: { text: true, audio: false, image: false, video: false, pdf: false },
+        output: { text: true, audio: false, image: false, video: false, pdf: false },
+        interleaved: false,
+      },
+      cost: { input: 3, output: 15, cache: { read: 1.5, write: 3 } },
+      limit: { context: 200000, output: 64000 },
+      status: "active",
+      options: {},
+      headers: {},
+      release_date: "2025-09-29",
+    },
+  };
+  const PROVIDERS = [
+    {
+      id: "openai",
+      name: "OpenAI",
+      source: "env",
+      env: [],
+      options: {},
+      models: { "gpt-5": MODELS.gpt5, "gpt-4.1": MODELS.gpt41 },
+    },
+    {
+      id: "anthropic",
+      name: "Anthropic",
+      source: "env",
+      env: [],
+      options: {},
+      models: { "claude-sonnet-4-5": MODELS.sonnet },
+    },
+  ];
+  const LIST = {
+    all: PROVIDERS,
+    default: { openai: "gpt-5" },
+    connected: ["openai", "anthropic"],
+  };
+  const CONFIG = { providers: PROVIDERS, default: { openai: "gpt-5" } };
+
+  beforeEach(() => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/provider") return LIST;
+      if (path === "/config/providers") return CONFIG;
+      if (path === "/agent") return AGENTS;
+      return [];
+    });
+  });
+
+  it("shows the effective model name with its provider and fetches the catalog once per server", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+    expect(screen.getByTestId("model-chip-provider")).toHaveTextContent("OpenAI");
+    expect(client.get).toHaveBeenCalledWith("/provider", undefined);
+    expect(client.get).toHaveBeenCalledWith("/config/providers", undefined);
+  });
+
+  it("the chip opens the picker listing models grouped by provider", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+
+    fireEvent.click(screen.getByTestId("model-chip"));
+
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
+    expect(screen.getByTestId("model-picker")).toHaveTextContent("OpenAI");
+    expect(screen.getByTestId("model-picker")).toHaveTextContent("Anthropic");
+    expect(screen.getByTestId("model-picker-search")).toBeInTheDocument();
+  });
+
+  it("selecting a model in the picker updates the chip and records the session choice", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+
+    fireEvent.click(screen.getByTestId("model-chip"));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
+    const sonnetRow = screen
+      .getAllByTestId("model-item")
+      .find((item) => item.getAttribute("data-model") === "claude-sonnet-4-5");
+    fireEvent.click(sonnetRow!.querySelector("[data-testid='model-item-select']")!);
+
+    await waitFor(() =>
+      expect(screen.getByTestId("model-chip-name")).toHaveTextContent("Claude Sonnet 4.5"),
+    );
+    expect(screen.queryByTestId("model-picker")).not.toBeInTheDocument();
+    expect(activeModelFor(SERVER, SESSION)).toEqual({
+      providerID: "anthropic",
+      modelID: "claude-sonnet-4-5",
+    });
+  });
+
+  it("remembers the model per session across remounts", async () => {
+    const { unmount } = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+    fireEvent.click(screen.getByTestId("model-chip"));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
+    const gpt41Row = screen
+      .getAllByTestId("model-item")
+      .find((item) => item.getAttribute("data-model") === "gpt-4.1");
+    fireEvent.click(gpt41Row!.querySelector("[data-testid='model-item-select']")!);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-4.1"));
+    unmount();
+
+    const second = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-4.1"));
+    second.unmount();
+
+    // A session without a recorded choice falls back to the default.
+    render(() => <PromptBox serverId={SERVER} sessionId="ses_other" />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+  });
+
+  it("sends the selected model in the prompt_async body", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+    fireEvent.click(screen.getByTestId("model-chip"));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
+    const sonnetRow = screen
+      .getAllByTestId("model-item")
+      .find((item) => item.getAttribute("data-model") === "claude-sonnet-4-5");
+    fireEvent.click(sonnetRow!.querySelector("[data-testid='model-item-select']")!);
+    await waitFor(() =>
+      expect(screen.getByTestId("model-chip-name")).toHaveTextContent("Claude Sonnet 4.5"),
+    );
+
+    fireEvent.input(input(), { target: { value: "draft the plan" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: {
+          parts: [{ type: "text", text: "draft the plan" }],
+          agent: "build",
+          model: { providerID: "anthropic", modelID: "claude-sonnet-4-5" },
+        },
+      }),
+    );
+  });
+
+  it("Esc closes the picker without changing the model", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+
+    fireEvent.click(screen.getByTestId("model-chip"));
+    await waitFor(() => expect(screen.getByTestId("model-picker")).toBeInTheDocument());
+    fireEvent.keyDown(screen.getByTestId("model-picker-close"), { key: "Escape" });
+
+    await waitFor(() => expect(screen.queryByTestId("model-picker")).not.toBeInTheDocument());
+    expect(activeModelFor(SERVER, SESSION)).toEqual({ providerID: "openai", modelID: "gpt-5" });
   });
 });

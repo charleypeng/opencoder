@@ -895,6 +895,71 @@ try {
       expect(architect?.hidden === true, "fixture must include a hidden agent");
     });
 
+    // TASK-M5-05: /provider family.
+    await test("provider list returns catalog, defaults and connected ids", async () => {
+      const { status, body } = await request(baseUrl, "/provider");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body?.all) && body.all.length >= 3, "all must have >= 3 providers");
+      const openai = body.all.find((p) => p?.id === "openai");
+      expect(openai !== undefined, "fixture must include openai");
+      expect(typeof openai?.name === "string" && openai.name !== "", "provider must carry a name");
+      expect(
+        typeof openai?.models === "object" && openai.models !== null,
+        "provider must carry a models record",
+      );
+      const gpt5 = openai?.models?.["gpt-5"];
+      expect(typeof gpt5?.name === "string", "model must carry a name");
+      expect(typeof gpt5?.capabilities?.toolcall === "boolean", "model must carry toolcall");
+      expect(typeof gpt5?.capabilities?.reasoning === "boolean", "model must carry reasoning");
+      expect(
+        typeof gpt5?.capabilities?.input?.image === "boolean",
+        "model must carry image input capability",
+      );
+      expect(
+        typeof gpt5?.cost?.input === "number" && typeof gpt5?.cost?.output === "number",
+        "model must carry numeric cost",
+      );
+      expect(typeof gpt5?.limit?.context === "number", "model must carry a context limit");
+      expect(
+        typeof body?.default === "object" && body.default.openai === "gpt-5",
+        `default must map openai -> gpt-5; got ${JSON.stringify(body?.default)}`,
+      );
+      for (const [providerID, modelID] of Object.entries(body?.default ?? {})) {
+        const provider = body.all.find((p) => p?.id === providerID);
+        expect(
+          provider !== undefined && provider?.models?.[modelID] !== undefined,
+          `default ${providerID}/${modelID} must reference a real model`,
+        );
+      }
+      expect(Array.isArray(body?.connected), "connected must be an array");
+      expect(body?.connected?.includes("openai") === true, "openai must be connected");
+      expect(body?.connected?.includes("azure") === false, "azure must stay unconnected");
+      // The fixture covers the unconnected-provider contract for the picker.
+      const azure = body.all.find((p) => p?.id === "azure");
+      expect(
+        azure !== undefined && Object.keys(azure?.models ?? {}).length > 0,
+        "fixture must include an unconnected provider with models",
+      );
+    });
+
+    await test("config providers returns the catalog and the same default record", async () => {
+      const { status, body } = await request(baseUrl, "/config/providers");
+      expect(status === 200, `status ${status}`);
+      expect(
+        Array.isArray(body?.providers) && body.providers.length >= 3,
+        "providers must have >= 3 entries",
+      );
+      expect(
+        typeof body?.default === "object" && body.default.openai === "gpt-5",
+        `default must map openai -> gpt-5; got ${JSON.stringify(body?.default)}`,
+      );
+      const providerList = await request(baseUrl, "/provider");
+      expect(
+        JSON.stringify(body?.default) === JSON.stringify(providerList.body?.default),
+        "config default must match the /provider default record (picker acceptance)",
+      );
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/model");
       expect(status === 501, `status ${status}`);
@@ -1124,6 +1189,18 @@ try {
     expect(
       question.body[0]?.id === "que_abc123",
       `recorded question id ${JSON.stringify(question.body[0]?.id)}`,
+    );
+
+    // The recorded root carries no provider fixtures, so /provider falls
+    // back to the built-in catalog (TASK-M5-05).
+    const provider = await request(fixtureUrl, "/provider");
+    expect(
+      Array.isArray(provider.body?.all) && provider.body.all.length > 0,
+      "provider catalog must serve in fixture mode",
+    );
+    expect(
+      provider.body?.connected?.includes("openai") === true,
+      "fixture-mode provider list must mark openai connected",
     );
   });
 

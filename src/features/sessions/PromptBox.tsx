@@ -46,11 +46,21 @@
 // menu owns the keys (with a menu open it keeps its default focus
 // behavior). The send pipeline carries the effective agent in the
 // prompt_async body.
+//
+// TASK-M5-05 (model selector): the toolbar row gains a model chip next to
+// the agent chip — the effective model name (id fallback) with its
+// provider name. The provider catalog is fetched once per mount via GET
+// /provider + GET /config/providers (store loaded flag, same pattern as
+// the agents). Clicking the chip opens the ModelPicker dialog; selecting
+// a model records the choice per session in the models store, so each
+// session remembers its model, and the send pipeline carries the
+// effective model ({ providerID, modelID }) in the prompt_async body.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { createAgentService } from "../../services/agent.js";
+import { createProviderService } from "../../services/provider.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createCommandService, type Command } from "../../services/command.js";
@@ -65,6 +75,14 @@ import {
   setAgentForSession,
   setAgents,
 } from "../../stores/agents.js";
+import {
+  activeModelFor,
+  getServerModelState,
+  setConfigDefault,
+  setProviders,
+} from "../../stores/models.js";
+import { modelName } from "../models/models.js";
+import ModelPicker from "../models/ModelPicker.js";
 import { type Attachment, fileToAttachment } from "./attachments.js";
 import { commandTemplate, matchCommand, type CommandMatch } from "../commands/commands.js";
 import { promptAt } from "./promptHistory.js";
@@ -265,6 +283,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // reused across mounts via the store's loaded flag.
   const [agentMenuOpen, setAgentMenuOpen] = createSignal(false);
   let agentFetch: Promise<void> | null = null;
+  // Model chip (TASK-M5-05): the ModelPicker dialog's open state plus the
+  // provider catalog fetch (store loaded flag, same pattern as agents).
+  const [modelPickerOpen, setModelPickerOpen] = createSignal(false);
+  let modelFetch: Promise<void> | null = null;
 
   // Store-driven generating lock: busy/retry means the session is streaming.
   const status = createMemo(() => getServerSessionState(props.serverId).statuses[props.sessionId]);
@@ -300,6 +322,56 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     return getServerAgentState(props.serverId).agents.find((agent) => agent.name === name);
   });
   const menuAgents = createMemo(() => visibleAgents(getServerAgentState(props.serverId).agents));
+
+  // Provider catalog (TASK-M5-05): fetched once per mount unless the store
+  // already holds the server's providers; a failed fetch keeps loaded=false
+  // so a later mount retries. The effective model resolves per session
+  // (recorded selection -> session model -> config default -> first
+  // connected) and the picker reads the same store.
+  createEffect(() => {
+    const serverId = props.serverId;
+    if (getServerModelState(serverId).loaded || modelFetch !== null) return;
+    modelFetch = Promise.all([
+      createProviderService(getApiClient()).list(),
+      createProviderService(getApiClient()).configProviders(),
+    ])
+      .then(([list, config]) => {
+        setProviders(serverId, list);
+        setConfigDefault(serverId, config.default);
+      })
+      .catch(() => {
+        // Catalog failures degrade to the session model; retried on mount.
+      })
+      .finally(() => {
+        modelFetch = null;
+      });
+  });
+
+  const sessionModel = createMemo(
+    () => getServerSessionState(props.serverId).sessions[props.sessionId]?.model,
+  );
+  const modelRef = createMemo(() =>
+    activeModelFor(props.serverId, props.sessionId, sessionModel()),
+  );
+  const currentModel = createMemo(() => {
+    const ref = modelRef();
+    if (ref === null) return undefined;
+    return getServerModelState(props.serverId).providers.find(
+      (provider) => provider.id === ref.providerID,
+    )?.models[ref.modelID];
+  });
+  const currentProvider = createMemo(() => {
+    const ref = modelRef();
+    if (ref === null) return undefined;
+    return getServerModelState(props.serverId).providers.find(
+      (provider) => provider.id === ref.providerID,
+    );
+  });
+  const modelChipName = createMemo(() => {
+    const model = currentModel();
+    if (model !== undefined) return modelName(model);
+    return modelRef()?.modelID ?? "model";
+  });
 
   // TASK-M2-08: a prompt the server never echoes keeps its optimistic bubble;
   // the pending marker is dropped when the composed session changes or the
@@ -741,6 +813,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 message,
                 atts,
                 agentName() ?? undefined,
+                modelRef() ?? undefined,
               )
             : await runCommand(match, message);
       } else {
@@ -750,6 +823,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           message,
           atts,
           agentName() ?? undefined,
+          modelRef() ?? undefined,
         );
       }
       // Chips clear on success only; a failed send keeps them for retry.
@@ -795,8 +869,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           <div class="relative flex flex-col gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">
             {/* Agent selector (TASK-M5-04): the toolbar row above the input
               holds the agent chip; the menu lists the visible agents and
-              records the per-session choice in the store. */}
-            <div class="flex items-center" data-testid="prompt-toolbar">
+              records the per-session choice in the store. The model chip
+              (TASK-M5-05) sits next to it and opens the ModelPicker. */}
+            <div class="flex flex-wrap items-center gap-1.5" data-testid="prompt-toolbar">
               <div class="relative">
                 <button
                   type="button"
@@ -879,6 +954,24 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   </div>
                 </Show>
               </div>
+              <button
+                type="button"
+                data-testid="model-chip"
+                aria-label={`Model: ${modelChipName()}`}
+                disabled={disabled()}
+                onClick={() => setModelPickerOpen(true)}
+                class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <span data-testid="model-chip-name" class="max-w-28 truncate font-mono">
+                  {modelChipName()}
+                </span>
+                <Show when={currentProvider() !== undefined}>
+                  <span data-testid="model-chip-provider" class="max-w-20 truncate text-fg-faint">
+                    {currentProvider()!.name}
+                  </span>
+                </Show>
+                <ChevronDownIcon />
+              </button>
             </div>
             <Show when={menu()} fallback={null}>
               {(m) => (
@@ -1073,6 +1166,12 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           </p>
         </div>
       </div>
+      <ModelPicker
+        serverId={props.serverId}
+        sessionId={props.sessionId}
+        open={modelPickerOpen()}
+        onOpenChange={(open) => setModelPickerOpen(open)}
+      />
     </div>
   );
 };

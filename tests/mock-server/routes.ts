@@ -104,6 +104,19 @@ const AGENT_ROUTES: Route[] = [
   { method: "get", path: "/agent", operation: "app.agents", fixture: "agent" },
 ];
 
+// P3 — models (M5): the provider catalog with per-provider default models
+// and connected ids (TASK-M5-05); /config/providers carries the config
+// default record the picker's Default marker follows.
+const PROVIDER_ROUTES: Route[] = [
+  { method: "get", path: "/provider", operation: "provider.list", fixture: "provider" },
+  {
+    method: "get",
+    path: "/config/providers",
+    operation: "config.providers",
+    fixture: "config.providers",
+  },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
@@ -113,6 +126,7 @@ const ROUTES: Route[] = [
   ...QUESTION_ROUTES,
   ...COMMAND_ROUTES,
   ...AGENT_ROUTES,
+  ...PROVIDER_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.
