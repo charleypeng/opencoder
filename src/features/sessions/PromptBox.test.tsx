@@ -26,6 +26,7 @@ import MessageList from "../messages/MessageList";
 import { clearPrompts } from "./promptHistory";
 import { ApiError } from "../../services/errors";
 import type { Session } from "../../services/session";
+import { MAX_ATTACHMENT_BYTES } from "./attachments";
 import {
   applySessionList,
   resetServer as resetSessions,
@@ -404,6 +405,18 @@ describe("PromptBox", () => {
     expect(screen.getByText("notes.txt")).toBeInTheDocument();
   });
 
+  it("rejects an oversized file and shows the error near the chips", async () => {
+    const huge = new Uint8Array(MAX_ATTACHMENT_BYTES + 1);
+    const file = new File([huge], "huge.bin", { type: "application/octet-stream" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.drop(screen.getByTestId("prompt-box"), { dataTransfer: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByTestId("attachment-error")).toBeInTheDocument());
+    expect(screen.getByTestId("attachment-error")).toHaveTextContent(/too large/i);
+    expect(screen.queryByText("huge.bin")).not.toBeInTheDocument();
+  });
+
   it("@ opens the file reference menu; ↑↓ + Enter inserts the path", async () => {
     client.get.mockImplementation(async (path: string) => {
       if (path === "/find/file") {
@@ -466,6 +479,48 @@ describe("PromptBox", () => {
     fireEvent.input(input(), { target: { value: "mail@example.com" } });
 
     expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+  });
+
+  it("inserts @ references at the caret when it moved off the query", async () => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/find/file") return ["src/services/find.ts"];
+      return [];
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "see @find" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(1));
+
+    // The caret moved to the start while the menu stayed open: the path is
+    // inserted at the caret instead of splicing at the stale @ position.
+    input().setSelectionRange(0, 0);
+    fireEvent.keyDown(input(), { key: "Enter" });
+
+    expect(input().value).toBe("@src/services/find.tssee @find");
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+  });
+
+  it("keeps the keyboard-selected @ option in view while navigating", async () => {
+    const scrolled: HTMLElement[] = [];
+    const scrollIntoView = vi.fn(function (this: HTMLElement) {
+      scrolled.push(this);
+    });
+    Element.prototype.scrollIntoView = scrollIntoView;
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/find/file") return ["a.ts", "b.ts", "c.ts", "d.ts"];
+      return [];
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@x" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(4));
+
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+
+    await waitFor(() => expect(scrolled.length).toBeGreaterThanOrEqual(3));
+    expect(scrolled[scrolled.length - 1]).toHaveAttribute("aria-selected", "true");
+    expect(scrolled[scrolled.length - 1]).toHaveTextContent("c.ts");
   });
 
   it("full chain: optimistic send plus SSE happy-chat events render user and assistant", async () => {

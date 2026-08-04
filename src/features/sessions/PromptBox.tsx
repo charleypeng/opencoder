@@ -159,6 +159,8 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const [attachments, setAttachments] = createSignal<Attachment[]>([]);
   const [sending, setSending] = createSignal(false);
   const [inlineError, setInlineError] = createSignal<ApiError | null>(null);
+  // Rejected-drop message (e.g. an oversized file) shown next to the chips.
+  const [attachError, setAttachError] = createSignal<string | null>(null);
   // Local lock while an abort request is in flight (no double stops).
   const [aborting, setAborting] = createSignal(false);
   // -1 = not browsing; >= 0 = index into the history list (0 is most recent).
@@ -166,6 +168,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const [atMenu, setAtMenu] = createSignal<AtMenuState | null>(null);
   let textareaRef: HTMLTextAreaElement | undefined;
   let fileInputRef: HTMLInputElement | undefined;
+  let atListRef: HTMLDivElement | undefined;
   // Debounce timer + request sequence for the @-reference search: the
   // sequence invalidates in-flight responses so a stale reply never lands.
   let atTimer: ReturnType<typeof setTimeout> | undefined;
@@ -263,6 +266,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setAtMenu(null);
   }
 
+  // Keeps the keyboard-selected option visible inside the scrollable list.
+  createEffect(() => {
+    if (atMenu() === null) return;
+    const selected = atListRef?.querySelector<HTMLElement>('[aria-selected="true"]');
+    // Optional call: jsdom lacks scrollIntoView; the WebView supports it.
+    selected?.scrollIntoView?.({ block: "nearest" });
+  });
+
   async function fetchAtResults(query: string): Promise<void> {
     const seq = ++atFetchSeq;
     try {
@@ -303,13 +314,26 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   function insertAtReference(path: string): void {
     const el = textareaRef;
     if (el !== undefined) {
+      const caret = el.selectionStart;
       const hit = atQueryAt(el);
-      const start = hit?.atIndex ?? el.value.lastIndexOf("@");
-      const next = `${el.value.slice(0, start)}@${path}${el.value.slice(el.selectionStart)}`;
-      el.value = next;
-      setText(next);
-      el.selectionStart = el.selectionEnd = next.length;
-      applyHeight(el);
+      if (hit !== null) {
+        // Caret still on the `@query` word: replace the query up to the
+        // caret and keep the rest of the text.
+        const next = `${el.value.slice(0, hit.atIndex)}@${path}${el.value.slice(caret)}`;
+        el.value = next;
+        setText(next);
+        el.selectionStart = el.selectionEnd = next.length;
+        applyHeight(el);
+      } else {
+        // The caret moved off the query while the menu stayed open: insert
+        // at the caret instead of splicing at a stale position (which could
+        // duplicate the text before the old `@`).
+        const next = `${el.value.slice(0, caret)}@${path}${el.value.slice(caret)}`;
+        el.value = next;
+        setText(next);
+        el.selectionStart = el.selectionEnd = next.length;
+        applyHeight(el);
+      }
     }
     suppressAtRefresh = true;
     closeAtMenu();
@@ -318,9 +342,11 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   async function addFileAttachment(file: File): Promise<void> {
     try {
       const attachment = await fileToAttachment(file);
+      setAttachError(null);
       setAttachments((prev) => [...prev, attachment]);
-    } catch {
-      // Unreadable file: skip silently.
+    } catch (err) {
+      // Oversized or unreadable file: surface the failure next to the chips.
+      setAttachError(err instanceof Error ? err.message : "File too large");
     }
   }
 
@@ -432,6 +458,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     exitBrowse();
     setSending(true);
     setInlineError(null);
+    setAttachError(null);
     try {
       const err = await sendPrompt(props.serverId, props.sessionId, message, atts);
       // Chips clear on success only; a failed send keeps them for retry.
@@ -480,6 +507,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   data-testid="prompt-at-menu"
                   role="listbox"
                   aria-label="File references"
+                  ref={atListRef}
                   class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-full overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
                 >
                   <Show
@@ -507,7 +535,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 </div>
               )}
             </Show>
-            <Show when={atts().length > 0}>
+            <Show when={atts().length > 0 || attachError() !== null}>
               <div class="flex flex-wrap gap-1.5 pb-1.5" data-testid="attachment-chips">
                 <For each={atts()}>
                   {(attachment) => (
@@ -515,7 +543,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                       data-testid="attachment-chip"
                       class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1 text-xs text-fg-default"
                     >
-                      {attachment.kind === "image" ? <ImageIcon /> : <FileIcon />}
+                      {attachment.category === "image" ? <ImageIcon /> : <FileIcon />}
                       <span class="max-w-40 truncate" title={attachment.name}>
                         {attachment.name}
                       </span>
@@ -531,6 +559,11 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                     </span>
                   )}
                 </For>
+                <Show when={attachError() !== null}>
+                  <span data-testid="attachment-error" role="alert" class="text-xs text-danger">
+                    {attachError()}
+                  </span>
+                </Show>
               </div>
             </Show>
             <div class="flex items-center gap-1">

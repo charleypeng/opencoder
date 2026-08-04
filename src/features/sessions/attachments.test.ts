@@ -3,16 +3,20 @@
 // base64 data URLs, small text-like files as plain text, anything else as a
 // data URL), and `attachmentToPart` maps an attachment onto the schema's
 // FilePartInput — data URLs pass through as the `url`, plain text is
-// encoded into one, and an optional on-disk path becomes a FileSource.
+// encoded into one, and an optional on-disk path becomes a FileSource. The
+// `kind` flag ("data-url" | "text") records the content format explicitly so
+// a text file whose content starts with "data:" is never mistaken for an
+// already-encoded data URL. Files over `MAX_ATTACHMENT_BYTES` are rejected.
 
 import { describe, expect, it } from "vitest";
-import { attachmentToPart, fileToAttachment } from "./attachments.js";
+import { attachmentToPart, fileToAttachment, MAX_ATTACHMENT_BYTES } from "./attachments.js";
 
 describe("attachmentToPart", () => {
   it("maps an image attachment onto a FilePartInput with its data URL", () => {
     const part = attachmentToPart({
       id: "att-1",
-      kind: "image",
+      category: "image",
+      kind: "data-url",
       name: "clip.png",
       mimeType: "image/png",
       content: "data:image/png;base64,aGVsbG8=",
@@ -29,7 +33,8 @@ describe("attachmentToPart", () => {
   it("encodes plain text file content into a utf-8 data URL", () => {
     const part = attachmentToPart({
       id: "att-2",
-      kind: "file",
+      category: "file",
+      kind: "text",
       name: "notes.txt",
       mimeType: "text/plain",
       content: "hello\nworld",
@@ -41,10 +46,24 @@ describe("attachmentToPart", () => {
     expect(part.url).toBe("data:text/plain;charset=utf-8,hello%0Aworld");
   });
 
+  it("encodes text content starting with `data:` instead of passing it through", () => {
+    const part = attachmentToPart({
+      id: "att-4",
+      category: "file",
+      kind: "text",
+      name: "odd.txt",
+      mimeType: "text/plain",
+      content: "data:not-a-url",
+    });
+
+    expect(part.url).toBe("data:text/plain;charset=utf-8,data%3Anot-a-url");
+  });
+
   it("attaches the FileSource when the attachment carries an on-disk path", () => {
     const part = attachmentToPart({
       id: "att-3",
-      kind: "file",
+      category: "file",
+      kind: "text",
       name: "main.ts",
       mimeType: "text/typescript",
       content: "export {}",
@@ -65,7 +84,12 @@ describe("fileToAttachment", () => {
 
     const attachment = await fileToAttachment(file);
 
-    expect(attachment).toMatchObject({ kind: "image", name: "clip.png", mimeType: "image/png" });
+    expect(attachment).toMatchObject({
+      category: "image",
+      kind: "data-url",
+      name: "clip.png",
+      mimeType: "image/png",
+    });
     expect(attachment.content.startsWith("data:image/png;base64,")).toBe(true);
   });
 
@@ -74,8 +98,22 @@ describe("fileToAttachment", () => {
 
     const attachment = await fileToAttachment(file);
 
-    expect(attachment).toMatchObject({ kind: "file", name: "notes.txt", mimeType: "text/plain" });
+    expect(attachment).toMatchObject({
+      category: "file",
+      kind: "text",
+      name: "notes.txt",
+      mimeType: "text/plain",
+    });
     expect(attachment.content).toBe("line one\nline two");
+  });
+
+  it("keeps a text file whose content starts with `data:` as plain text", async () => {
+    const file = new File(["data:not-a-url"], "odd.txt", { type: "text/plain" });
+
+    const attachment = await fileToAttachment(file);
+
+    expect(attachment.kind).toBe("text");
+    expect(attachmentToPart(attachment).url).toBe("data:text/plain;charset=utf-8,data%3Anot-a-url");
   });
 
   it("reads a large binary file as a data URL without choking on text decoding", async () => {
@@ -84,7 +122,14 @@ describe("fileToAttachment", () => {
 
     const attachment = await fileToAttachment(file);
 
-    expect(attachment).toMatchObject({ kind: "file", name: "blob.bin" });
+    expect(attachment).toMatchObject({ category: "file", kind: "data-url", name: "blob.bin" });
     expect(attachment.content.startsWith("data:application/octet-stream;base64,")).toBe(true);
+  });
+
+  it("rejects a file over the attachment size limit", async () => {
+    const huge = new Uint8Array(MAX_ATTACHMENT_BYTES + 1);
+    const file = new File([huge], "huge.bin", { type: "application/octet-stream" });
+
+    await expect(fileToAttachment(file)).rejects.toThrow(/too large/i);
   });
 });

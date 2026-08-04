@@ -129,7 +129,8 @@ describe("sendPrompt", () => {
     const err = await sendPrompt(SERVER, SESSION, "check this", [
       {
         id: "att-1",
-        kind: "image",
+        category: "image",
+        kind: "data-url",
         name: "clip.png",
         mimeType: "image/png",
         content: "data:image/png;base64,aGVsbG8=",
@@ -161,7 +162,8 @@ describe("sendPrompt", () => {
     const err = await sendPrompt(SERVER, SESSION, "", [
       {
         id: "att-2",
-        kind: "file",
+        category: "file",
+        kind: "text",
         name: "notes.txt",
         mimeType: "text/plain",
         content: "hello",

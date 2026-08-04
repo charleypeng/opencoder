@@ -3,17 +3,27 @@
 // dropped/pasted File into an attachment — images and large/binary files as
 // base64 data URLs (the FilePartInput `url` carries the content), small
 // text-like files as plain text (encoded into a data URL at part mapping
-// time). `attachmentToPart` is pure so the send pipeline and its tests stay
-// free of FileReader plumbing.
+// time). Files over `MAX_ATTACHMENT_BYTES` are rejected before any read so a
+// huge drop never becomes an unbounded in-memory data URL or request body.
+// The `kind` flag records the content format explicitly (a raw text file
+// starting with "data:" is never mistaken for an already-encoded data URL).
+// `attachmentToPart` is pure so the send pipeline and its tests stay free
+// of FileReader plumbing.
 
 import type { components } from "../../services/api/schema.js";
 
 export type FilePartInput = components["schemas"]["FilePartInput"];
 
+/** Largest accepted attachment: 50MB (base64 in memory + request body). */
+export const MAX_ATTACHMENT_BYTES = 50 * 1024 * 1024;
+
 /** Composer attachment: inline content (data URL or plain text) plus meta. */
 export interface Attachment {
   id: string;
-  kind: "file" | "image";
+  /** Visual category: image chip vs plain file chip. */
+  category: "file" | "image";
+  /** Content format: base64 data URL or raw text (encoded at part mapping). */
+  kind: "data-url" | "text";
   name: string;
   mimeType: string;
   /** Base64 data URL for images/binary, raw text for small text files. */
@@ -40,11 +50,12 @@ export function attachmentToPart(attachment: Attachment): FilePartInput {
     type: "file",
     mime: attachment.mimeType,
     filename: attachment.name,
-    url: attachment.content.startsWith("data:")
-      ? attachment.content
-      : `data:${attachment.mimeType || "text/plain"};charset=utf-8,${encodeURIComponent(
-          attachment.content,
-        )}`,
+    url:
+      attachment.kind === "data-url"
+        ? attachment.content
+        : `data:${attachment.mimeType || "text/plain"};charset=utf-8,${encodeURIComponent(
+            attachment.content,
+          )}`,
   };
   if (attachment.path !== undefined) {
     part.source = {
@@ -56,13 +67,22 @@ export function attachmentToPart(attachment: Attachment): FilePartInput {
   return part;
 }
 
-/** Reads a File into an attachment (see module doc for content formats). */
-export function fileToAttachment(file: File): Promise<Attachment> {
+/**
+ * Reads a File into an attachment (see module doc for content formats).
+ * Rejects files over `MAX_ATTACHMENT_BYTES`.
+ */
+export async function fileToAttachment(file: File): Promise<Attachment> {
+  if (file.size > MAX_ATTACHMENT_BYTES) {
+    throw new Error(
+      `File too large: ${file.name} exceeds the ${MAX_ATTACHMENT_BYTES / (1024 * 1024)}MB limit`,
+    );
+  }
   const id = `att-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   if (file.type.startsWith("image/")) {
     return readAsDataURL(file).then((content) => ({
       id,
-      kind: "image" as const,
+      category: "image" as const,
+      kind: "data-url" as const,
       name: file.name || "pasted-image",
       mimeType: file.type || "image/png",
       content,
@@ -71,7 +91,8 @@ export function fileToAttachment(file: File): Promise<Attachment> {
   if (file.size <= TEXT_SIZE_LIMIT && isTextLike(file.type)) {
     return readAsText(file).then((content) => ({
       id,
-      kind: "file" as const,
+      category: "file" as const,
+      kind: "text" as const,
       name: file.name,
       mimeType: file.type || "text/plain",
       content,
@@ -79,7 +100,8 @@ export function fileToAttachment(file: File): Promise<Attachment> {
   }
   return readAsDataURL(file).then((content) => ({
     id,
-    kind: "file" as const,
+    category: "file" as const,
+    kind: "data-url" as const,
     name: file.name,
     mimeType: file.type || "application/octet-stream",
     content,
