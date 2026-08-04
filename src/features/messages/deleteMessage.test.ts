@@ -1,6 +1,7 @@
-// L2 tests for the message delete action (TASK-M3-06): optimistic per-
-// message removal and rollback restoring info + parts at their original
-// order position when the DELETE round-trip fails.
+// L2 tests for the message delete action (TASK-M3-06): the DELETE round-trip
+// runs BEFORE the store removal — the message stays in the store on failure
+// (so the caller's dialog stays mounted and can surface the inline error)
+// and is removed only after the server confirms.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../services/errors.js";
@@ -43,7 +44,7 @@ afterEach(() => {
 });
 
 describe("deleteMessage", () => {
-  it("removes the message optimistically and resolves on success", async () => {
+  it("removes the message from the store only after the DELETE succeeds", async () => {
     seedTranscript();
     const service = { remove: vi.fn().mockResolvedValue(true) };
 
@@ -56,7 +57,7 @@ describe("deleteMessage", () => {
     expect(entry.messageParts["msg_asst"]).toBeUndefined();
   });
 
-  it("rolls the message back at its original position on failure", async () => {
+  it("keeps the message in the store when the DELETE fails", async () => {
     seedTranscript();
     const service = { remove: vi.fn().mockRejectedValue({ status: 409, code: "http" }) };
 
@@ -64,19 +65,12 @@ describe("deleteMessage", () => {
       deleteMessage(SERVER, SESSION, "msg_asst", service as never),
     ).rejects.toBeInstanceOf(ApiError);
 
+    // The row never left, so there is nothing to roll back: the transcript
+    // is untouched and the caller's dialog can still surface the error.
     const entry = messages[SERVER][SESSION];
     expect(entry.order).toEqual(["prt_1", "prt_2", "prt_3"]);
     expect((entry.parts["prt_2"] as { text?: string }).text).toBe("reply a");
     expect(entry.infos["msg_asst"].id).toBe("msg_asst");
-  });
-
-  it("restores the latest-message slot when the deleted message was the latest", async () => {
-    seedTranscript();
-    const service = { remove: vi.fn().mockRejectedValue(new Error("boom")) };
-
-    await expect(deleteMessage(SERVER, SESSION, "msg_asst", service as never)).rejects.toBeTruthy();
-
-    const entry = messages[SERVER][SESSION];
     expect(entry.info?.id).toBe("msg_asst");
   });
 });

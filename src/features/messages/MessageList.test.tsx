@@ -6,8 +6,9 @@
 // retry states, the streaming fallback for parts without message info,
 // auto-scroll pause with the "New messages" jump button, the M2-09 streaming
 // pipeline (virtualization of long transcripts, the thin top progress bar,
-// the breathing typing caret driven by the streaming indicator), and a
-// fixture snapshot.
+// the breathing typing caret driven by the streaming indicator), a
+// fixture snapshot, and the TASK-M3-06 delete failure path through the real
+// list -> bubble -> actions chain (row kept, inline error in the dialog).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -217,6 +218,40 @@ describe("MessageList", () => {
     expect(screen.queryByTestId("error-banner")).not.toBeInTheDocument();
   });
 
+  it("keeps the row and shows the inline error when a message delete fails (TASK-M3-06)", async () => {
+    // Through the real list -> bubble -> actions chain: the standalone
+    // MessageActions test cannot see this path, where the DELETE failure
+    // must surface while the message row stays in the transcript.
+    const client = mockClient(historyFixture);
+    client.delete.mockRejectedValueOnce({
+      status: 409,
+      code: "http",
+      message: "busy",
+      retriable: false,
+    });
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-msg_m1")).toBeInTheDocument());
+
+    const user = screen.getByTestId("message-msg_m1");
+    fireEvent.pointerDown(within(user).getByTestId("message-actions"), { pointerType: "mouse" });
+    await waitFor(() => expect(screen.getByTestId("message-action-delete")).toBeInTheDocument());
+    fireEvent.pointerUp(screen.getByTestId("message-action-delete"), { pointerType: "mouse" });
+    await waitFor(() => expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("delete-message-confirm"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("delete-message-error")).toHaveTextContent("busy"),
+    );
+    // The row survived the failed round-trip (no silent rollback) and the
+    // dialog is still open so the user can retry or cancel.
+    expect(screen.getByTestId("message-msg_m1")).toHaveTextContent(
+      "Add a login flow with password-based auth.",
+    );
+    expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument();
+    expect(screen.getAllByTestId("message-time")).toHaveLength(4);
+  });
+
   it("renders streamed parts without message info as an assistant fallback", async () => {
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
@@ -360,6 +395,12 @@ describe("MessageList", () => {
     mockClient(historyFixture);
     const { container } = renderList();
     await waitFor(() => expect(screen.getByTestId("message-msg_m4")).toBeInTheDocument());
+    // Kobalte assigns global counter-based ids to dropdown triggers; strip
+    // them so the snapshot stays stable no matter which tests mounted a menu
+    // before this one.
+    container
+      .querySelectorAll<HTMLElement>("[id^='dropdownmenu-cl-']")
+      .forEach((el) => el.removeAttribute("id"));
     expect(container).toMatchSnapshot();
     timeSpy.mockRestore();
     nowSpy.mockRestore();

@@ -10,8 +10,9 @@
 //     pipeline (spec: PATCH + re-prompt). The dialog stays open with the
 //     inline error when either leg fails.
 //   - Delete (user messages only; deleting an assistant message would break
-//     the server's parentID chain): confirmation dialog, optimistic removal
-//     through deleteMessage with rollback on failure.
+//     the server's parentID chain): confirmation dialog; the DELETE round-trip
+//     runs before the store removal (deleteMessage), so a failure surfaces
+//     inline in the still-mounted dialog instead of a silent rollback.
 //   - View diff: placeholder until M4-07 wires the diff view; disabled while
 //     no onViewDiff callback is provided.
 //
@@ -19,7 +20,7 @@
 // children), so hover state, the context menu and the store-driven role
 // alignment live in one place.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { Dialog, DropdownMenu } from "@kobalte/core";
 import { getApiClient } from "../../services/client.js";
@@ -240,8 +241,9 @@ export interface DeleteMessageDialogProps {
   onClose: () => void;
 }
 
-/** Confirms the message delete; the optimistic removal happens through
- *  deleteMessage (store rollback on failure). */
+/** Confirms the message delete; the row stays mounted while the DELETE is
+ *  in flight (deleteMessage removes the store entry only on success), so a
+ *  failure surfaces as the inline error instead of a silent rollback. */
 function DeleteMessageDialog(props: DeleteMessageDialogProps) {
   const [deleting, setDeleting] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
@@ -361,9 +363,18 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     return () => window.removeEventListener("keydown", onKey);
   });
 
+  // The "✓ Copied" flash timer: cleared on re-flash so a rapid copy click
+  // can't let a stale timer eat the newer feedback, and on unmount so the
+  // row's disappearance never leaves a dangling setState.
+  let copyTimer: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => {
+    clearTimeout(copyTimer);
+  });
+
   function flashCopy(kind: "text" | "code") {
     setCopied(kind);
-    setTimeout(() => setCopied(null), COPY_FEEDBACK_MS);
+    clearTimeout(copyTimer);
+    copyTimer = setTimeout(() => setCopied(null), COPY_FEEDBACK_MS);
   }
 
   async function copyText() {

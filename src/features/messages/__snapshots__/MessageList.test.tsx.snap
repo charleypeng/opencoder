@@ -58,7 +58,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
               data-closed=""
               data-testid="message-actions"
-              id="dropdownmenu-cl-206-trigger"
               type="button"
             >
               ⋯
@@ -264,7 +263,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
               data-closed=""
               data-testid="message-actions"
-              id="dropdownmenu-cl-208-trigger"
               type="button"
             >
               ⋯
@@ -316,7 +314,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
               data-closed=""
               data-testid="message-actions"
-              id="dropdownmenu-cl-210-trigger"
               type="button"
             >
               ⋯
@@ -368,7 +365,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
               data-closed=""
               data-testid="message-actions"
-              id="dropdownmenu-cl-212-trigger"
               type="button"
             >
               ⋯

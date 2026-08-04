@@ -1,8 +1,9 @@
 // L2 tests for the message actions menu (TASK-M3-06): hover-triggered "⋯"
 // menu and right-click context menu — copy text / copy code (mocked
 // clipboard), the edit dialog (prefill, PATCH payload, resend through
-// sendPrompt, cancel), the delete dialog (optimistic removal + rollback),
-// the view-diff placeholder and the assistant-message item gating.
+// sendPrompt, cancel), the delete dialog (row stays mounted while the DELETE
+// is in flight; inline error on failure), the view-diff placeholder and the
+// assistant-message item gating.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -275,8 +276,18 @@ describe("MessageActions edit", () => {
 });
 
 describe("MessageActions delete", () => {
-  it("confirms, deletes optimistically and calls the DELETE endpoint", async () => {
-    mountWithClient(true);
+  it("keeps the row and dialog mounted while the DELETE is in flight, then removes the message", async () => {
+    let resolveDelete: (() => void) | undefined;
+    const transport: Transport = {
+      request: vi.fn().mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveDelete = () => resolve({ status: 200, headers: {}, body: true });
+          }),
+      ),
+    };
+    request = transport.request as ReturnType<typeof vi.fn>;
+    getApiClientMock.mockReturnValue(new ApiClient(transport));
     seedUser([["prt_1", "hello world"]]);
     mountActions();
     await openMenu();
@@ -284,8 +295,16 @@ describe("MessageActions delete", () => {
     pickMenuAction("message-action-delete");
     await waitFor(() => expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument());
 
-    // Optimistic removal happened already at confirm.
+    // In flight: no store removal yet, so the row (and the dialog that
+    // lives in it) stays mounted and the button shows the pending state.
     fireEvent.click(screen.getByTestId("delete-message-confirm"));
+    await waitFor(() =>
+      expect(screen.getByTestId("delete-message-confirm")).toHaveTextContent("Deleting…"),
+    );
+    expect(messages[SERVER][SESSION].infos["msg_user"]).toBeDefined();
+    expect(messages[SERVER][SESSION].order).toEqual(["prt_1"]);
+
+    resolveDelete?.();
     await waitFor(() =>
       expect(screen.queryByTestId("delete-message-dialog")).not.toBeInTheDocument(),
     );
@@ -297,7 +316,7 @@ describe("MessageActions delete", () => {
     expect(messages[SERVER][SESSION].order).toEqual([]);
   });
 
-  it("rolls the message back and shows the error when the DELETE fails", async () => {
+  it("keeps the row and shows the inline error when the DELETE fails", async () => {
     const transport: Transport = {
       request: vi
         .fn()
@@ -316,6 +335,9 @@ describe("MessageActions delete", () => {
     await waitFor(() =>
       expect(screen.getByTestId("delete-message-error")).toHaveTextContent("busy"),
     );
+    // The row never left the store, so the dialog that reports the failure
+    // is still mounted and the message is fully intact.
+    expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument();
     const entry = messages[SERVER][SESSION];
     expect(entry.infos["msg_user"].id).toBe("msg_user");
     expect(entry.parts["prt_1"]).toMatchObject({ text: "hello world" });
