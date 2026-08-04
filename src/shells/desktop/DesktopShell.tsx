@@ -26,6 +26,7 @@ import { getServerSessionState, resetServer as resetSessions } from "../../store
 import { resetServer as resetMessages } from "../../stores/messages";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
 import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
+import PromptBox from "../../features/sessions/PromptBox";
 import SessionList from "../../features/sessions/SessionList";
 import MessageList from "../../features/messages/MessageList";
 
@@ -236,6 +237,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           }
         >
           <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
+          <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
         </Show>
       </main>
     </div>

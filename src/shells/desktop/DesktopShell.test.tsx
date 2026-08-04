@@ -172,6 +172,8 @@ afterEach(() => {
   resetSessions("srv-rail-b");
   resetSessions("srv-sel");
   resetSessions("srv-new");
+  resetSessions("srv-prompt");
+  resetSessions("srv-noprompt");
   resetMessages("srv-switch");
   resetProjects("srv-sse");
   resetProjects("srv-switch");
@@ -410,5 +412,29 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     );
     expect(screen.getByTestId("message-list")).toBeInTheDocument();
     expect(sessions["srv-new"]?.order).toContain("sess_new_01");
+  });
+
+  it("mounts the prompt box below the message list for the active session (TASK-M2-08)", async () => {
+    const alpha = server({ id: "srv-prompt", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-prompt", [session("sess_prompt_01", DEMO_DIR)]);
+
+    fireEvent.click(await screen.findByTestId("session-item-sess_prompt_01"));
+
+    expect(screen.getByTestId("message-list")).toBeInTheDocument();
+    expect(screen.getByTestId("prompt-box")).toBeInTheDocument();
+    expect(screen.getByTestId("prompt-input")).toBeInTheDocument();
+  });
+
+  it("hides the prompt box while no session is active (TASK-M2-08)", async () => {
+    const alpha = server({ id: "srv-noprompt", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    expect(screen.queryByTestId("prompt-box")).not.toBeInTheDocument();
+    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
 });
