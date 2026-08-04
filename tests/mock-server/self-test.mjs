@@ -426,6 +426,55 @@ try {
       expect(typeof body[0]?.path?.text === "string", "match must carry path.text");
       expect(typeof body[0]?.line_number === "number", "match must carry line_number");
       expect(Array.isArray(body[0]?.submatches), "match must carry submatches");
+      expect(
+        body[0]?.lines?.text?.slice(
+          body[0]?.submatches?.[0]?.start,
+          body[0]?.submatches?.[0]?.end,
+        ) === body[0]?.submatches?.[0]?.match?.text,
+        "submatch offsets must align with the line text",
+      );
+    });
+
+    await test("find filters matches by pattern", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=createSignal");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 2, `expected >= 2; got ${JSON.stringify(body)}`);
+      for (const match of body) {
+        expect(
+          typeof match?.lines?.text === "string" && match.lines.text.includes("createSignal"),
+          `line must contain the pattern; got ${JSON.stringify(match?.lines)}`,
+        );
+      }
+    });
+
+    await test("find with no matches returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=zzz_no_match");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find with an empty pattern returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find regex mode matches regular expressions", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=create%5Cw%2B&regex=true");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 2, `expected >= 2; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find without the regex flag treats the pattern as a literal", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=create%5Cw%2B");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find with an invalid regex returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find?pattern=%28&regex=true");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
     });
 
     await test("find/symbol returns workspace symbols", async () => {

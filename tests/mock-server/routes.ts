@@ -56,12 +56,10 @@ const P0_CORE_LOOP: Route[] = [
   },
 ];
 
-// P2 — efficiency tools (M4): /find family. `/find` and `/find/symbol`
-// serve their fixtures declaratively; `/find/file` is handled dynamically
-// (query filtering, TASK-M3-08) so the composer's `@` reference menu and
-// M4-04 QuickOpen can share it.
+// P2 — efficiency tools (M4): /find family. `/find` is handled dynamically
+// (pattern filtering, TASK-M4-05) and `/find/file` filters by query
+// (TASK-M3-08); `/find/symbol` serves its fixture declaratively.
 const FIND_ROUTES: Route[] = [
-  { method: "get", path: "/find", operation: "find.text", fixture: "find" },
   { method: "get", path: "/find/symbol", operation: "find.symbols", fixture: "find.symbol" },
 ];
 
@@ -127,6 +125,11 @@ function slugify(title: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
   return slug || "untitled";
+}
+
+/** Escapes regex metacharacters so a literal pattern never miscompiles. */
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 // Endpoints whose responses depend on the request body / params are handled
@@ -208,6 +211,37 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     }
     const needle = query.toLowerCase();
     res.json(files.filter((path) => path.toLowerCase().includes(needle)));
+  });
+
+  // Full-text search (TASK-M4-05): the fixture match list is filtered by
+  // the `pattern` query — a case-insensitive substring match, or a
+  // regular expression when `regex=true`. The regex flag is a mock-only
+  // extension: the 1.18.11 contract has no regex parameter, so a real
+  // server always matches literally. An empty pattern or an invalid
+  // regex yields an empty array (the "unknown id -> empty array"
+  // convention).
+  app.get("/find", (req, res) => {
+    const pattern = queryString(req, "pattern");
+    const matches = Array.isArray(fixtures["find"]) ? fixtures["find"] : [];
+    if (pattern === undefined || pattern === "") {
+      res.json([]);
+      return;
+    }
+    let matcher: RegExp;
+    try {
+      matcher = new RegExp(
+        queryString(req, "regex") === "true" ? pattern : escapeRegExp(pattern),
+        "i",
+      );
+    } catch {
+      res.json([]);
+      return;
+    }
+    res.json(
+      matches.filter((match) =>
+        matcher.test(String((match as { lines?: { text?: unknown } }).lines?.text ?? "")),
+      ),
+    );
   });
 
   app.post("/session/:sessionID/abort", (_req, res) => {

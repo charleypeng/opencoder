@@ -1,20 +1,115 @@
 [
   {
     "path": {
+      "text": "src/features/files/FileTree.tsx"
+    },
+    "lines": {
+      "text": "  const [expanded, setExpanded] = createSignal(new Set<string>());"
+    },
+    "line_number": 12,
+    "absolute_offset": 0,
+    "submatches": [
+      {
+        "match": {
+          "text": "createSignal"
+        },
+        "start": 34,
+        "end": 46
+      }
+    ]
+  },
+  {
+    "path": {
+      "text": "src/features/files/FileTree.tsx"
+    },
+    "lines": {
+      "text": "  function toggleExpand(path: string): void {"
+    },
+    "line_number": 46,
+    "absolute_offset": 67,
+    "submatches": [
+      {
+        "match": {
+          "text": "toggleExpand"
+        },
+        "start": 11,
+        "end": 23
+      }
+    ]
+  },
+  {
+    "path": {
+      "text": "src/features/files/QuickOpen.tsx"
+    },
+    "lines": {
+      "text": "const SEARCH_DEBOUNCE_MS = 150;"
+    },
+    "line_number": 35,
+    "absolute_offset": 113,
+    "submatches": [
+      {
+        "match": {
+          "text": "SEARCH_DEBOUNCE_MS"
+        },
+        "start": 6,
+        "end": 24
+      }
+    ]
+  },
+  {
+    "path": {
+      "text": "src/features/files/QuickOpen.tsx"
+    },
+    "lines": {
+      "text": "const QuickOpen: Component<QuickOpenProps> = (props) => {"
+    },
+    "line_number": 89,
+    "absolute_offset": 145,
+    "submatches": [
+      {
+        "match": {
+          "text": "QuickOpen"
+        },
+        "start": 6,
+        "end": 15
+      }
+    ]
+  },
+  {
+    "path": {
+      "text": "src/features/sessions/PromptBox.tsx"
+    },
+    "lines": {
+      "text": "  // Prompt composer (TASK-M2-08)"
+    },
+    "line_number": 12,
+    "absolute_offset": 203,
+    "submatches": [
+      {
+        "match": {
+          "text": "Prompt"
+        },
+        "start": 5,
+        "end": 11
+      }
+    ]
+  },
+  {
+    "path": {
       "text": "src/features/sessions/PromptBox.tsx"
     },
     "lines": {
       "text": "  const [inlineError, setInlineError] = createSignal<ApiError | null>(null);"
     },
     "line_number": 71,
-    "absolute_offset": 2100,
+    "absolute_offset": 237,
     "submatches": [
       {
         "match": {
           "text": "inlineError"
         },
-        "start": 17,
-        "end": 28
+        "start": 9,
+        "end": 20
       }
     ]
   },
@@ -26,14 +121,14 @@
       "text": "export type Part = components[\"schemas\"][\"Part\"];"
     },
     "line_number": 40,
-    "absolute_offset": 1240,
+    "absolute_offset": 314,
     "submatches": [
       {
         "match": {
           "text": "Part"
         },
-        "start": 15,
-        "end": 19
+        "start": 12,
+        "end": 16
       }
     ]
   }

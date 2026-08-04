@@ -21,6 +21,10 @@ export interface ViewerServerState {
   tabs: ViewerTab[];
   /** Currently viewed tab path; null while no tab is open. */
   activePath: string | null;
+  /** Pending hit-line target (TASK-M4-05): set by the search panel before
+   *  switching to the viewer; FileViewer scrolls the line into view,
+   *  flashes it briefly, then clears the target. */
+  activeLine: { path: string; line: number } | null;
 }
 
 export type ViewerMap = Record<string, ViewerServerState>;
@@ -49,7 +53,7 @@ export function openTab(serverId: string, path: string, name?: string): void {
   if (path === "") return;
   setViewer(
     produce((draft) => {
-      const server = draft[serverId] ?? { tabs: [], activePath: null };
+      const server = draft[serverId] ?? { tabs: [], activePath: null, activeLine: null };
       if (!server.tabs.some((tab) => tab.path === path)) {
         server.tabs.push({ path, name: name ?? tabNameOf(path) });
       }
@@ -100,6 +104,25 @@ export function resetServer(serverId: string): void {
   setViewer(
     produce((draft) => {
       delete draft[serverId];
+    }),
+  );
+}
+
+/**
+ * Sets or clears the pending hit-line target (TASK-M4-05). A non-null
+ * path must be an open tab; unknown paths are ignored. Pass null to
+ * clear a consumed target.
+ */
+export function setActiveLine(serverId: string, path: string | null, line?: number): void {
+  setViewer(
+    produce((draft) => {
+      const server = draft[serverId];
+      if (server === undefined) return;
+      if (path === null || !server.tabs.some((tab) => tab.path === path)) {
+        server.activeLine = null;
+        return;
+      }
+      server.activeLine = { path, line: line ?? 0 };
     }),
   );
 }

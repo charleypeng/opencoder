@@ -12,8 +12,9 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import { ApiClient, type Transport } from "../../services/client";
-import { resetServer, openTab, setActive } from "../../stores/viewer";
+import { resetServer, openTab, setActive, setActiveLine, viewer } from "../../stores/viewer";
 import { setCurrent, resetServer as resetProjects } from "../../stores/project";
 import { setActiveServer } from "../../stores/registry";
 import FileViewer, { type FileViewerProps } from "./FileViewer";
@@ -96,6 +97,9 @@ afterEach(() => {
     resetProjects(`srv-viewer-${i}`);
   }
   setActiveServer(null);
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+  delete (Element.prototype as { scrollIntoView?: unknown }).scrollIntoView;
 });
 
 describe("FileViewer tab bar", () => {
@@ -441,5 +445,106 @@ describe("FileViewer fetch states", () => {
       expect(screen.getByTestId("viewer-code")).toHaveTextContent("content of /proj/beta"),
     );
     expect(contentCalls(requestMock, "README.md")).toBe(2);
+  });
+});
+
+describe("FileViewer line targeting (TASK-M4-05)", () => {
+  /** Three `.line` spans so data-line tags land on 1..3. */
+  const THREE_LINES = `<pre><code><span class="line">const a = 1;</span><span class="line">const b = 2;</span><span class="line">const c = 3;</span></code></pre>`;
+
+  function scrollSpy(): ReturnType<typeof vi.fn> {
+    // jsdom lacks scrollIntoView; define it as a spy on Element.prototype
+    // (removed in afterEach so later tests keep the optional-call path).
+    const spy = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      writable: true,
+      value: spy,
+    });
+    return spy;
+  }
+
+  it("scrolls to and flashes the pending hit line, then clears it", async () => {
+    const serverId = freshServer();
+    const scroll = scrollSpy();
+    vi.useFakeTimers();
+    highlightMock.mockResolvedValue(THREE_LINES);
+    mountViewer(serverId, {
+      "src/a.ts": textContent("const a = 1;\nconst b = 2;\nconst c = 3;\n"),
+    });
+    openTab(serverId, "src/a.ts");
+    setActiveLine(serverId, "src/a.ts", 2);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(scroll).toHaveBeenCalledWith({ block: "center" });
+    const lineEl = document.querySelector('[data-line="2"]');
+    expect(lineEl).not.toBeNull();
+    expect(lineEl).toHaveClass("viewer-line-flash");
+    // Consumed immediately so re-renders never re-trigger.
+    expect(viewer[serverId]?.activeLine).toBeNull();
+
+    // The flash class is removed after the flash window.
+    await vi.advanceTimersByTimeAsync(1600);
+    expect(lineEl).not.toHaveClass("viewer-line-flash");
+  });
+
+  it("tags every highlighted line with its number", async () => {
+    const serverId = freshServer();
+    vi.useFakeTimers();
+    highlightMock.mockResolvedValue(THREE_LINES);
+    mountViewer(serverId, {
+      "src/a.ts": textContent("const a = 1;\nconst b = 2;\nconst c = 3;\n"),
+    });
+    openTab(serverId, "src/a.ts");
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(document.querySelectorAll("[data-line]")).toHaveLength(3);
+    expect(document.querySelector('[data-line="3"]')?.textContent).toBe("const c = 3;");
+  });
+
+  it("keeps a pending line while hidden and consumes it when shown", async () => {
+    const serverId = freshServer();
+    const scroll = scrollSpy();
+    vi.useFakeTimers();
+    highlightMock.mockResolvedValue(THREE_LINES);
+    // Mounted with a reactive visible binding (the spread-based mountViewer
+    // would freeze the value).
+    const requestMock = vi
+      .fn()
+      .mockImplementation(() =>
+        Promise.resolve(httpResponse(textContent("const a = 1;\nconst b = 2;\nconst c = 3;\n"))),
+      );
+    const transport: Transport = { request: requestMock as unknown as Transport["request"] };
+    getApiClientMock.mockReturnValue(new ApiClient(transport));
+    const [visible, setVisible] = createSignal(false);
+    render(() => <FileViewer serverId={serverId} visible={visible()} />);
+    openTab(serverId, "src/a.ts");
+    setActiveLine(serverId, "src/a.ts", 2);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(scroll).not.toHaveBeenCalled();
+    expect(viewer[serverId]?.activeLine).toEqual({ path: "src/a.ts", line: 2 });
+
+    // Flipping the viewer visible consumes the target.
+    setVisible(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(scroll).toHaveBeenCalledWith({ block: "center" });
+    expect(viewer[serverId]?.activeLine).toBeNull();
+  });
+
+  it("clears a pending line that is out of range", async () => {
+    const serverId = freshServer();
+    const scroll = scrollSpy();
+    vi.useFakeTimers();
+    highlightMock.mockResolvedValue(THREE_LINES);
+    mountViewer(serverId, {
+      "src/a.ts": textContent("const a = 1;\nconst b = 2;\nconst c = 3;\n"),
+    });
+    openTab(serverId, "src/a.ts");
+    setActiveLine(serverId, "src/a.ts", 99);
+
+    await vi.advanceTimersByTimeAsync(0);
+    expect(scroll).not.toHaveBeenCalled();
+    expect(viewer[serverId]?.activeLine).toBeNull();
   });
 });

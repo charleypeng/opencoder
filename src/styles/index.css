@@ -133,6 +133,17 @@
   }
 }
 
+/*
+ * M4-05 search-hit affordance: the brief background flash on the viewer
+ * line a full-text search result jumped to. The transition fades the
+ * flash out when the class is removed after LINE_FLASH_MS.
+ */
+
+.viewer-line-flash {
+  background-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: background-color 0.6s ease-out;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing-cursor {
     animation: none;
@@ -148,5 +159,9 @@
   .tool-shimmer {
     animation: none;
     background: transparent;
+  }
+
+  .viewer-line-flash {
+    background: none;
   }
 }

@@ -107,6 +107,19 @@ describe("createFindService", () => {
     });
   });
 
+  it("search sends the mock-only regex flag when enabled", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createFindService(makeClient()).search("create\\w+Signal", { regex: true });
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "GET",
+        path: "/find",
+        query: { pattern: "create\\w+Signal", regex: "true" },
+      },
+    });
+  });
+
   it("propagates the returned text matches", async () => {
     const matches = [
       {

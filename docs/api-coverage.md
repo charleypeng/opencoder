@@ -53,6 +53,11 @@
 | `GET /find/file?query=` | 模糊找文件（⌘P 快速打开） | M4 |
 | `GET /find/symbol?query=` | 符号搜索 | M4 |
 | `GET /session/{id}/diff` | 会话/消息级 diff 视图 | M4 |
+
+> `GET /find` 正则说明（TASK-M4-05）：1.18.11 契约仅暴露 `pattern`（无正则开关）。
+> 搜索面板的正则模式额外发送 `regex=true` 查询参数 —— 该参数为 Mock Server
+> 扩展（fixture 匹配按正则解释），**真实服务端会忽略它并按字面匹配**；客户端在
+> 正则模式下仍会在请求前校验模式合法性（非法模式不请求、提示错误）。
 | `GET /vcs` / `GET /vcs/status` | 分支与变更概览 | M4 |
 | `GET /vcs/diff` / `GET /vcs/diff/raw` | 工作区 diff | M4 |
 | `POST /vcs/apply` | 应用 patch | M4 |

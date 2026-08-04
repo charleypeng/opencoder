@@ -162,6 +162,33 @@ function mockHttpRoutes(servers: ServerEntry[]) {
         );
       }
       if (request?.path === "/file/status") return Promise.resolve(httpResponse([]));
+      if (request?.path === "/find") {
+        return Promise.resolve(
+          httpResponse([
+            {
+              path: { text: "src/app.ts" },
+              lines: { text: 'export const greeting = "hello";' },
+              line_number: 3,
+              absolute_offset: 24,
+              submatches: [{ match: { text: "greeting" }, start: 18, end: 26 }],
+            },
+            {
+              path: { text: "src/app.ts" },
+              lines: { text: "console.log(greeting);" },
+              line_number: 8,
+              absolute_offset: 88,
+              submatches: [{ match: { text: "greeting" }, start: 13, end: 21 }],
+            },
+            {
+              path: { text: "README.md" },
+              lines: { text: "# Demo project" },
+              line_number: 1,
+              absolute_offset: 0,
+              submatches: [{ match: { text: "Demo" }, start: 2, end: 6 }],
+            },
+          ]),
+        );
+      }
       if (request?.path === "/file/content") {
         return Promise.resolve(
           httpResponse(
@@ -228,6 +255,11 @@ afterEach(() => {
   resetViewer("srv-m4quick");
   resetMessages("srv-m4quick");
   resetTodos("srv-m4quick");
+  resetViewer("srv-m4search");
+  resetSessions("srv-m4search");
+  resetProjects("srv-m4search");
+  resetMessages("srv-m4search");
+  resetTodos("srv-m4search");
   localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
@@ -711,5 +743,92 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     // The same shortcut on the window (no text target) opens the dialog.
     fireEvent.keyDown(window, { key: "p", metaKey: true });
     expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
+  });
+});
+
+describe("DesktopShell full-text search (TASK-M4-05)", () => {
+  it("⌘⇧F switches Main to Files and opens the search panel; a hit opens the tab and targets its line", async () => {
+    const alpha = server({ id: "srv-m4search", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // ⌘⇧F from the chat view jumps to Files + search mode.
+    fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
+    expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "false");
+    expect(screen.getByTestId("search-input")).toBeInTheDocument();
+
+    fireEvent.input(screen.getByTestId("search-input"), { target: { value: "greeting" } });
+    await waitFor(() => expect(screen.getByTestId("search-hit-src/app.ts-3")).toBeInTheDocument());
+    // Grouped by file with both hits in one group.
+    expect(screen.getByTestId("search-group-src/app.ts")).toBeInTheDocument();
+    expect(screen.getByTestId("search-group-README.md")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("search-hit-src/app.ts-3"));
+    expect(viewer["srv-m4search"]?.tabs.map((tab) => tab.path)).toEqual(["src/app.ts"]);
+    expect(viewer["srv-m4search"]?.activePath).toBe("src/app.ts");
+    expect(viewer["srv-m4search"]?.activeLine).toEqual({ path: "src/app.ts", line: 3 });
+    // The hit returns to the viewer mode; the panel stays mounted.
+    await waitFor(() =>
+      expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true"),
+    );
+    expect(screen.getByTestId("search-input")).toBeInTheDocument();
+  });
+
+  it("repeated ⌘⇧F cycles between the search panel and the viewer", async () => {
+    const alpha = server({ id: "srv-m4search", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.keyDown(window, { key: "F", shiftKey: true, ctrlKey: true });
+    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
+
+    fireEvent.keyDown(window, { key: "f", shiftKey: true, ctrlKey: true });
+    expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
+    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "false");
+  });
+
+  it("the search toggle button in the Files tab switches modes and shows its state", async () => {
+    const alpha = server({ id: "srv-m4search", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // The toggle only exists while the Files tab is active.
+    expect(screen.queryByTestId("files-search-toggle")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("main-tab-files"));
+    const button = screen.getByTestId("files-search-toggle");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
+
+    fireEvent.click(button);
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
+  });
+
+  it("ignores ⌘⇧F while typing in a text control", async () => {
+    const alpha = server({ id: "srv-m4search", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m4search", [session("sess_sf_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_sf_01"));
+
+    fireEvent.keyDown(screen.getByTestId("prompt-input"), {
+      key: "F",
+      shiftKey: true,
+      metaKey: true,
+    });
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+
+    // The same shortcut on the window (no text target) opens search.
+    fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
+    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
   });
 });

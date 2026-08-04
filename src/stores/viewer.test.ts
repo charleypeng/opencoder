@@ -3,6 +3,8 @@
 // basename, closing the active tab activates the left neighbor (or the
 // tab that slid into its place), activation only touches open tabs, and
 // servers stay isolated with resetServer dropping only its own bucket.
+// TASK-M4-05 adds the pending hit-line target (setActiveLine) the full-text
+// search panel uses to jump the viewer to a matched line.
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
@@ -11,6 +13,7 @@ import {
   openTab,
   resetServer,
   setActive,
+  setActiveLine,
   tabNameOf,
   viewer,
 } from "./viewer.js";
@@ -125,5 +128,43 @@ describe("viewer store actions", () => {
     resetServer(SERVER);
     expect(viewer[SERVER]).toBeUndefined();
     expect(viewer[OTHER].tabs.map((t) => t.path)).toEqual(["b.ts"]);
+  });
+});
+
+describe("viewer store activeLine (TASK-M4-05)", () => {
+  it("starts without a pending line", () => {
+    openTab(SERVER, "a.ts");
+    expect(viewer[SERVER].activeLine).toBeNull();
+  });
+
+  it("setActiveLine records the hit target for an open tab", () => {
+    openTab(SERVER, "a.ts");
+    setActiveLine(SERVER, "a.ts", 12);
+    expect(viewer[SERVER].activeLine).toEqual({ path: "a.ts", line: 12 });
+  });
+
+  it("setActiveLine ignores unknown paths", () => {
+    openTab(SERVER, "a.ts");
+    setActiveLine(SERVER, "nope.ts", 4);
+    expect(viewer[SERVER].activeLine).toBeNull();
+  });
+
+  it("setActiveLine(null) clears a pending target", () => {
+    openTab(SERVER, "a.ts");
+    setActiveLine(SERVER, "a.ts", 12);
+    setActiveLine(SERVER, null);
+    expect(viewer[SERVER].activeLine).toBeNull();
+  });
+
+  it("setActiveLine on an unknown server is a no-op", () => {
+    setActiveLine("srv-nowhere", "a.ts", 1);
+    expect(viewer["srv-nowhere"]).toBeUndefined();
+  });
+
+  it("resetServer drops the pending line with the bucket", () => {
+    openTab(SERVER, "a.ts");
+    setActiveLine(SERVER, "a.ts", 12);
+    resetServer(SERVER);
+    expect(viewer[SERVER]).toBeUndefined();
   });
 });

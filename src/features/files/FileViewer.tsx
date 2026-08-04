@@ -20,7 +20,7 @@ import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createFileService, type FileContent } from "../../services/file.js";
-import { closeTab, setActive, viewer } from "../../stores/viewer.js";
+import { closeTab, setActive, setActiveLine, viewer } from "../../stores/viewer.js";
 import { getActiveDirectory } from "../../stores/project.js";
 import { highlightCode } from "../messages/markdown/highlighter.js";
 import { escapeHtml } from "../messages/markdown/markdown.js";
@@ -30,7 +30,14 @@ export interface FileViewerProps {
   serverId: string;
   /** Reserved for the M7 mobile fullscreen page; desktop renders inline. */
   fullscreen?: boolean;
+  /** When false the viewer stays mounted but hidden (Files search mode);
+   *  a pending hit-line target (TASK-M4-05) is only consumed while
+   *  visible, so opening a hit while searching keeps its highlight. */
+  visible?: boolean;
 }
+
+/** How long the search-hit line flash stays before fading (TASK-M4-05). */
+const LINE_FLASH_MS = 1500;
 
 /** (server, directory, path) -> fetched content; module-level so
  *  re-mounting the viewer (Main view switches) keeps tabs' content
@@ -83,7 +90,20 @@ function langFromPath(path: string): string {
   return LANG_BY_EXT[ext] ?? "";
 }
 
-function ViewerCode(props: { code: string; lang: string }) {
+/** Tags the highlighted per-line spans with data-line numbers so the
+ *  search panel's hit-line target can scroll a specific line into view
+ *  (TASK-M4-05). Shiki emits one `.line` span per line. */
+function tagLineSpans(root: HTMLElement): void {
+  const lines = root.querySelectorAll(".line");
+  lines.forEach((node, index) => node.setAttribute("data-line", String(index + 1)));
+}
+
+function ViewerCode(props: {
+  code: string;
+  lang: string;
+  /** Called after the rendered HTML (and line tags) is injected. */
+  onRendered?: (el: HTMLDivElement) => void;
+}) {
   let ref: HTMLDivElement | undefined;
   // Highlight async and inject the Shiki HTML; failures render the code
   // as a plain escaped block (mirrors the markdown fence hydration).
@@ -91,13 +111,25 @@ function ViewerCode(props: { code: string; lang: string }) {
     const el = ref;
     const code = props.code;
     const lang = props.lang;
+    const onRendered = props.onRendered;
     if (el === undefined) return;
     void highlightCode(code, lang)
       .then((html) => {
-        if (ref === el) el.innerHTML = html;
+        if (ref === el) {
+          el.innerHTML = html;
+          tagLineSpans(el);
+          onRendered?.(el);
+        }
       })
       .catch(() => {
-        if (ref === el) el.innerHTML = `<pre><code>${escapeHtml(code)}</code></pre>`;
+        if (ref === el) {
+          el.innerHTML = `<pre><code>${escapeHtml(code)
+            .split("\n")
+            .map((line) => `<span class="line">${line}</span>`)
+            .join("\n")}</code></pre>`;
+          tagLineSpans(el);
+          onRendered?.(el);
+        }
       });
   });
   return <div ref={ref} data-testid="viewer-code" class="min-h-full p-3 text-sm" />;
@@ -195,7 +227,11 @@ function imageSrc(content: FileContent): string {
   return `data:${content.mimeType ?? "application/octet-stream"};base64,${raw}`;
 }
 
-function ContentView(props: { content: FileContent; path: string }) {
+function ContentView(props: {
+  content: FileContent;
+  path: string;
+  onRendered?: (el: HTMLDivElement) => void;
+}) {
   const content = () => props.content;
   return (
     <Show
@@ -220,7 +256,11 @@ function ContentView(props: { content: FileContent; path: string }) {
                   </p>
                 }
               >
-                <ViewerCode code={content().content ?? ""} lang={langFromPath(props.path)} />
+                <ViewerCode
+                  code={content().content ?? ""}
+                  lang={langFromPath(props.path)}
+                  onRendered={props.onRendered}
+                />
               </Show>
             </Show>
           }
@@ -249,6 +289,10 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   const activePath = createMemo(() => state()?.activePath ?? null);
   const [loadingPath, setLoadingPath] = createSignal<string | null>(null);
   const [loadError, setLoadError] = createSignal<{ path: string; error: ApiError } | null>(null);
+  // The active tab's rendered code element (set by ViewerCode after the
+  // highlighted HTML is injected, so hit-line targeting runs only when the
+  // line elements actually exist).
+  const [codeEl, setCodeEl] = createSignal<HTMLDivElement | undefined>();
   // Guards stale async fetches: a newer activation (or a retry) drops any
   // in-flight result for an older one.
   let fetchSeq = 0;
@@ -325,6 +369,28 @@ const FileViewer: Component<FileViewerProps> = (props) => {
     setLoadingPath(path);
     void loadContent(serverId, directory, path, seq);
   }
+
+  // Hit-line targeting (TASK-M4-05): a search hit sets a pending line
+  // target on the active tab; once that tab's content is rendered and the
+  // viewer is visible, scroll the line into view, flash it briefly, and
+  // clear the target. Re-runs on target / tab / visibility changes and
+  // when ViewerCode finishes injecting the highlighted HTML.
+  createEffect(() => {
+    const pending = viewer[props.serverId]?.activeLine;
+    if (pending === undefined || pending === null) return;
+    if (props.visible === false) return;
+    if (pending.path !== activePath()) return;
+    const el = codeEl();
+    if (el === undefined) return;
+    setActiveLine(props.serverId, null);
+    const target = el.querySelector<HTMLElement>(`[data-line="${pending.line}"]`);
+    target?.scrollIntoView?.({ block: "center" });
+    if (target === undefined || target === null) return;
+    target.classList.add("viewer-line-flash");
+    window.setTimeout(() => {
+      target.classList.remove("viewer-line-flash");
+    }, LINE_FLASH_MS);
+  });
 
   // Evicts the tab's cached content together with the tab itself, keeping
   // the module cache from growing with closed files.
@@ -408,7 +474,11 @@ const FileViewer: Component<FileViewerProps> = (props) => {
             </div>
           </Show>
           <Show when={readyContent() !== null && activePath() !== null}>
-            <ContentView content={readyContent() as FileContent} path={activePath() as string} />
+            <ContentView
+              content={readyContent() as FileContent}
+              path={activePath() as string}
+              onRendered={setCodeEl}
+            />
           </Show>
         </div>
       </Show>

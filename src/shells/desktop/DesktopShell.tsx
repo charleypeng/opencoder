@@ -14,7 +14,10 @@
 // sidebar tree opens its tab and switches Main to Files. ⌘/Ctrl+P opens
 // the QuickOpen file search dialog (TASK-M4-04; the shortcut moves to the
 // M8 command-palette registry) whose picks jump Main to Files the same
-// way. This shell owns the per-directory SSE subscription and rebuilds
+// way. The Files view holds the tabbed viewer and the full-text search
+// panel (TASK-M4-05) side by side, toggled by ⌘/Ctrl+⇧F or the search
+// button; both stay mounted so search results survive hit navigation.
+// This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
 
@@ -42,6 +45,7 @@ import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
 import QuickOpen from "../../features/files/QuickOpen";
+import SearchPanel, { SearchIcon } from "../../features/files/SearchPanel";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -86,6 +90,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Main pane view switch (TASK-M4-03): Chat transcript or the Files
   // viewer; opening a file from the sidebar tree jumps Main to Files.
   const [mainView, setMainView] = createSignal<"chat" | "files">("chat");
+  // Files pane mode (TASK-M4-05): the tabbed viewer or the full-text
+  // search panel. Both stay mounted (hidden via CSS) so search results
+  // survive the round trip when a hit switches back to the viewer.
+  const [filesMode, setFilesMode] = createSignal<"viewer" | "search">("viewer");
   // Quick open dialog (TASK-M4-04): toggled by the provisional ⌘/Ctrl+P
   // hook below; M8 moves the shortcut into the command-palette registry.
   const [quickOpen, setQuickOpen] = createSignal(false);
@@ -123,6 +131,23 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       }
       event.preventDefault();
       setQuickOpen(true);
+      return;
+    }
+    if (event.key.toLowerCase() === "f" && event.shiftKey) {
+      // Provisional ⌘/Ctrl+⇧F hook for the full-text search panel
+      // (TASK-M4-05); M8 moves it into the command-palette registry.
+      // Guarded like ⌘P while typing in text controls.
+      const target = event.target as HTMLElement | null;
+      if (
+        target !== null &&
+        (target.isContentEditable || target.tagName === "INPUT" || target.tagName === "TEXTAREA")
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setMainView("files");
+      // Repeated presses cycle between the search panel and the viewer.
+      setFilesMode((mode) => (mode === "search" ? "viewer" : "search"));
       return;
     }
     if (!/^[1-9]$/.test(event.key)) return;
@@ -366,8 +391,43 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           >
             Files
           </button>
+          <Show when={mainView() === "files"}>
+            <button
+              type="button"
+              data-testid="files-search-toggle"
+              aria-pressed={filesMode() === "search" ? "true" : "false"}
+              aria-label="Toggle full-text search"
+              title="Full-text search (⌘⇧F)"
+              class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                filesMode() === "search" ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
+              }`}
+              onClick={() => setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))}
+            >
+              <SearchIcon />
+            </button>
+          </Show>
         </div>
-        <Show when={mainView() === "chat"} fallback={<FileViewer serverId={activeServerId()} />}>
+        <Show
+          when={mainView() === "chat"}
+          fallback={
+            <div class="flex h-full min-h-0 flex-col">
+              <div
+                data-testid="files-viewer-pane"
+                data-visible={filesMode() === "viewer" ? "true" : "false"}
+                class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+              >
+                <FileViewer serverId={activeServerId()} visible={filesMode() === "viewer"} />
+              </div>
+              <div
+                data-testid="files-search-pane"
+                data-visible={filesMode() === "search" ? "true" : "false"}
+                class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+              >
+                <SearchPanel serverId={activeServerId()} onOpenHit={() => setFilesMode("viewer")} />
+              </div>
+            </div>
+          }
+        >
           <Show
             when={activeSessionId()}
             fallback={

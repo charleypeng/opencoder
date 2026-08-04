@@ -12,6 +12,14 @@ export type FindMatch =
 
 export interface FindSearchOptions {
   dir?: string;
+  /**
+   * Asks the server to interpret `pattern` as a regular expression. The
+   * 1.18.11 contract exposes no regex flag, so this travels as an extra
+   * `regex=true` query that the mock server honors; a real server ignores
+   * it and matches literally (TASK-M4-05 limitation, see
+   * docs/api-coverage.md).
+   */
+  regex?: boolean;
 }
 
 export function createFindService(client: ApiClient) {
@@ -33,7 +41,11 @@ export function createFindService(client: ApiClient) {
      */
     search: (pattern: string, options: FindSearchOptions = {}) =>
       client.get<FindMatch[]>("/find", {
-        query: options.dir === undefined ? { pattern } : { pattern, directory: options.dir },
+        query: {
+          pattern,
+          ...(options.dir === undefined ? {} : { directory: options.dir }),
+          ...(options.regex ? { regex: "true" } : {}),
+        },
       }),
   };
 }
