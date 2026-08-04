@@ -14,6 +14,7 @@ import { todos, resetServer as resetTodos } from "./todos.js";
 import { files, resetServer as resetFiles, setTree } from "./files.js";
 import { diffs, resetServer as resetDiffs } from "./diff.js";
 import { vcs, resetServer as resetVcs } from "./vcs.js";
+import { permissions, resetServer as resetPermissions } from "./permission.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -65,6 +66,7 @@ afterEach(() => {
   resetFiles(SERVER);
   resetDiffs(SERVER);
   resetVcs(SERVER);
+  resetPermissions(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -318,6 +320,97 @@ describe("applyEvent — edge routes", () => {
     applyEvent(SERVER, { type: "vcs.branch.updated", properties: { branch: 7 } });
     expect(vcs[SERVER]).toBeUndefined();
   });
+
+  it("maps permission.asked to the permission queue (deduped by id)", () => {
+    applyEvent(SERVER, {
+      type: "permission.asked",
+      properties: {
+        id: "per_1",
+        sessionID: "ses_x",
+        permission: "bash",
+        patterns: ["ls"],
+        metadata: {},
+        always: [],
+        tool: { messageID: "m1", callID: "c1" },
+      },
+    });
+    expect(permissions[SERVER].queue).toEqual([
+      {
+        id: "per_1",
+        sessionID: "ses_x",
+        permission: "bash",
+        patterns: ["ls"],
+        metadata: {},
+        always: [],
+        tool: { messageID: "m1", callID: "c1" },
+      },
+    ]);
+
+    // A duplicate event for the same request is ignored.
+    applyEvent(SERVER, {
+      type: "permission.asked",
+      properties: {
+        id: "per_1",
+        sessionID: "ses_x",
+        permission: "edit",
+        patterns: ["src/a.ts"],
+        metadata: {},
+        always: [],
+      },
+    });
+    expect(permissions[SERVER].queue).toHaveLength(1);
+    expect(permissions[SERVER].queue[0].permission).toBe("bash");
+  });
+
+  it("ignores permission.asked without an id or permission", () => {
+    applyEvent(SERVER, { type: "permission.asked", properties: {} });
+    applyEvent(SERVER, { type: "permission.asked", properties: { id: "per_1" } });
+    expect(permissions[SERVER]).toBeUndefined();
+  });
+
+  it("maps permission.replied to a queue dequeue by requestID", () => {
+    applyEvent(SERVER, {
+      type: "permission.asked",
+      properties: {
+        id: "per_1",
+        sessionID: "ses_x",
+        permission: "bash",
+        patterns: [],
+        metadata: {},
+        always: [],
+      },
+    });
+    applyEvent(SERVER, {
+      type: "permission.asked",
+      properties: {
+        id: "per_2",
+        sessionID: "ses_x",
+        permission: "edit",
+        patterns: [],
+        metadata: {},
+        always: [],
+      },
+    });
+    applyEvent(SERVER, {
+      type: "permission.replied",
+      properties: { sessionID: "ses_x", requestID: "per_1", reply: "once" },
+    });
+    expect(permissions[SERVER].queue.map((request) => request.id)).toEqual(["per_2"]);
+
+    // Replying to an unknown request is a no-op.
+    const version = permissions[SERVER].version;
+    applyEvent(SERVER, {
+      type: "permission.replied",
+      properties: { sessionID: "ses_x", requestID: "per_nope", reply: "always" },
+    });
+    expect(permissions[SERVER].version).toBe(version);
+  });
+
+  it("ignores permission.replied without a requestID", () => {
+    applyEvent(SERVER, { type: "permission.replied", properties: {} });
+    applyEvent(SERVER, { type: "permission.replied", properties: { reply: "once" } });
+    expect(permissions[SERVER]).toBeUndefined();
+  });
 });
 
 describe("syncAll", () => {
@@ -377,11 +470,23 @@ describe("subscribeToServerEvents", () => {
       },
     });
     applyEvent(SERVER, { type: "vcs.branch.updated", properties: { branch: "stale" } });
+    applyEvent(SERVER, {
+      type: "permission.asked",
+      properties: {
+        id: "per_stale",
+        sessionID: "ses_stale",
+        permission: "bash",
+        patterns: [],
+        metadata: {},
+        always: [],
+      },
+    });
     setTree(SERVER, undefined, []);
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
     expect(diffs[SERVER]["ses_stale"]).toBeDefined();
     expect(vcs[SERVER]).toBeDefined();
+    expect(permissions[SERVER]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
@@ -394,6 +499,7 @@ describe("subscribeToServerEvents", () => {
     expect(todos[SERVER]).toBeUndefined();
     expect(diffs[SERVER]).toBeUndefined();
     expect(vcs[SERVER]).toBeUndefined();
+    expect(permissions[SERVER]).toBeUndefined();
     expect(files[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.

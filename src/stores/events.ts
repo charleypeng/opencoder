@@ -23,11 +23,13 @@ import * as todosStore from "./todos.js";
 import * as filesStore from "./files.js";
 import * as diffStore from "./diff.js";
 import * as vcsStore from "./vcs.js";
+import * as permissionStore from "./permission.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
 type Todo = components["schemas"]["Todo"];
 type SnapshotFileDiff = components["schemas"]["SnapshotFileDiff"];
+type PermissionRequest = components["schemas"]["PermissionRequest"];
 
 /** Store module APIs the router dispatches into (injectable for tests). */
 export interface EventStoreDeps {
@@ -38,6 +40,7 @@ export interface EventStoreDeps {
   files: typeof filesStore;
   diffs: typeof diffStore;
   vcs: typeof vcsStore;
+  permissions: typeof permissionStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -48,6 +51,7 @@ export const defaultEventStores: EventStoreDeps = {
   files: filesStore,
   diffs: diffStore,
   vcs: vcsStore,
+  permissions: permissionStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -72,7 +76,7 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files, diffs, vcs } = deps;
+  const { session, messages, project, todos, files, diffs, vcs, permissions } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -170,6 +174,20 @@ export function applyEvent(
       // the VCS store version so mounted panels refetch status (TASK-M4-08).
       if (typeof p.branch === "string") vcs.applyBranch(serverId, p.branch);
       return;
+    case "permission.asked":
+      // A pending permission request joins the server's queue (deduped by
+      // id); the global permission sheet shows the queue head (TASK-M5-01).
+      // The payload shape equals PermissionRequest (id/sessionID/permission/
+      // patterns/metadata/always/tool).
+      if (typeof p.id === "string" && typeof p.permission === "string") {
+        permissions.enqueue(serverId, p as PermissionRequest);
+      }
+      return;
+    case "permission.replied":
+      // The request was answered (here or by another client): drop it from
+      // the queue. The payload references the request by `requestID`.
+      if (typeof p.requestID === "string") permissions.dequeue(serverId, p.requestID);
+      return;
     default:
       if (import.meta.env.DEV) {
         console.debug(`[stores] ignoring SSE event type "${event.type}"`);
@@ -262,6 +280,7 @@ export async function subscribeToServerEvents(
       deps.files.resetServer(serverId);
       deps.diffs.resetServer(serverId);
       deps.vcs.resetServer(serverId);
+      deps.permissions.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

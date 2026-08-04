@@ -13,6 +13,7 @@
   "file.tree": "file.tree.json",
   "diff.session": "diff.session.json",
   "session.diff": "diff.session.json",
+  "permission": "permission.asked.json",
   "todo.list": "todo.list.json",
   "pty.list": "pty.list.json"
 }

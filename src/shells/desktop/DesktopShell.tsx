@@ -57,6 +57,8 @@ import DiffView from "../../features/vcs/DiffView";
 import VcsPanel from "../../features/vcs/VcsPanel";
 import { resetServer as resetDiffs } from "../../stores/diff";
 import { applyVcs, vcs } from "../../stores/vcs";
+import { resetServer as resetPermissions } from "../../stores/permission";
+import PermissionSheet from "../../features/permissions/PermissionSheet";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -292,6 +294,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     resetTodos(serverId);
     resetViewer(serverId);
     resetDiffs(serverId);
+    resetPermissions(serverId);
     let dir = directory;
     if (dir === undefined) {
       // Context not seeded yet (mount / server switch): resolve the current
@@ -746,6 +749,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         onClose={() => setQuickOpen(false)}
         onOpenFile={() => setMainView("files")}
       />
+
+      {/* Permission sheet (TASK-M5-01): global overlay for the active
+          server's pending permission queue; renders only while a request
+          is waiting (the mobile bottom-sheet variant lands in M7). */}
+      <PermissionSheet serverId={activeServerId()} variant="overlay" />
     </div>
   );
 };

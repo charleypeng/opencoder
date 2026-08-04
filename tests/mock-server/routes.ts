@@ -79,7 +79,19 @@ const VCS_ROUTES: Route[] = [
   { method: "get", path: "/vcs/diff", operation: "vcs.diff", fixture: "vcs.diff" },
 ];
 
-const ROUTES: Route[] = [...P0_CORE_LOOP, ...FIND_ROUTES, ...FILE_ROUTES, ...VCS_ROUTES];
+// P3 — permissions (M5): the pending-request list is a static fixture; the
+// reply endpoint is dynamic (body validation, TASK-M5-01).
+const PERMISSION_ROUTES: Route[] = [
+  { method: "get", path: "/permission", operation: "permission.list", fixture: "permission" },
+];
+
+const ROUTES: Route[] = [
+  ...P0_CORE_LOOP,
+  ...FIND_ROUTES,
+  ...FILE_ROUTES,
+  ...VCS_ROUTES,
+  ...PERMISSION_ROUTES,
+];
 
 // SSE endpoints stream events; they are not part of the fixture table.
 function registerSSE(app: Express): void {
@@ -336,6 +348,19 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   });
 
   app.delete("/session/:sessionID/message/:messageID/part/:partID", (_req, res) => {
+    res.json(true);
+  });
+
+  // Permission reply (TASK-M5-01): accepts the schema's once/always/reject
+  // values and reports success; an invalid reply is a 400 BadRequestError.
+  // The `permission.replied` SSE event is streamed by the scenario scripts,
+  // not emitted live here (the real server broadcasts it after processing).
+  app.post("/permission/:requestID/reply", (req, res) => {
+    const { reply } = (req.body ?? {}) as { reply?: unknown };
+    if (!["once", "always", "reject"].includes(String(reply))) {
+      res.status(400).json({ _tag: "BadRequestError", message: `invalid reply: ${reply}` });
+      return;
+    }
     res.json(true);
   });
 }

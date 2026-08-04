@@ -722,6 +722,51 @@ try {
       expect(typeof t?.priority === "string", "first item must have string priority");
     });
 
+    // TASK-M5-01: /permission family.
+    await test("permission list returns pending requests", async () => {
+      const { status, body } = await request(baseUrl, "/permission");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const p = body[0];
+      expect(typeof p?.id === "string", "request must carry id");
+      expect(typeof p?.sessionID === "string", "request must carry sessionID");
+      expect(typeof p?.permission === "string", "request must carry permission");
+      expect(Array.isArray(p?.patterns), "request must carry patterns");
+      expect(Array.isArray(p?.always), "request must carry always");
+      expect(typeof p?.tool?.messageID === "string", "request must carry tool context");
+    });
+
+    await test("permission reply returns true", async () => {
+      const { status, body } = await request(baseUrl, "/permission/per_mock_001/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: "once" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("permission reply accepts always and reject", async () => {
+      for (const reply of ["always", "reject"]) {
+        const { status } = await request(baseUrl, "/permission/per_mock_001/reply", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reply }),
+        });
+        expect(status === 200, `reply ${reply} -> status ${status}`);
+      }
+    });
+
+    await test("permission reply rejects an invalid reply", async () => {
+      const { status, body } = await request(baseUrl, "/permission/per_mock_001/reply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reply: "maybe" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/agent");
       expect(status === 501, `status ${status}`);
@@ -928,6 +973,18 @@ try {
       "session diff must serve in fixture mode",
     );
     expect(typeof sessionDiff.body[0]?.file === "string", "recorded diff entry must carry a file");
+
+    // The recorded root maps permission.asked onto the /permission list
+    // (TASK-M5-01).
+    const permission = await request(fixtureUrl, "/permission");
+    expect(
+      Array.isArray(permission.body) && permission.body.length > 0,
+      "permission list must serve in fixture mode",
+    );
+    expect(
+      permission.body[0]?.id === "per_abc123",
+      `recorded permission id ${JSON.stringify(permission.body[0]?.id)}`,
+    );
   });
 
   // ---- Server with auth + cors ----

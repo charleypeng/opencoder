@@ -1,0 +1,20 @@
+[
+  {
+    "id": "per_mock_001",
+    "sessionID": "ses_abc123",
+    "permission": "bash",
+    "patterns": ["pnpm test", "git status"],
+    "metadata": { "cwd": "/mock/projects/opencode-demo" },
+    "always": [],
+    "tool": { "messageID": "msg_asst_001", "callID": "call_mock_001" }
+  },
+  {
+    "id": "per_mock_002",
+    "sessionID": "ses_abc123",
+    "permission": "edit",
+    "patterns": ["src/features/sessions/PromptBox.tsx"],
+    "metadata": {},
+    "always": [],
+    "tool": { "messageID": "msg_asst_001", "callID": "call_mock_002" }
+  }
+]
