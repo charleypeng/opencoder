@@ -9,7 +9,7 @@
 // or the mock `poll: true` extension for auto-mode polling).
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ApiClient, invokeTransport, type HttpResponse } from "./client.js";
+import { ApiClient, fetchTransport, invokeTransport, type HttpResponse } from "./client.js";
 import {
   createProviderService,
   type ConfigProvidersResponse,
@@ -351,5 +351,55 @@ describe("createProviderService (invoke payload assembly)", () => {
     const result = await createProviderService(makeClient()).oauthPoll("azure", 0);
 
     expect(result).toBe(true);
+  });
+});
+
+const mockUrl = process.env.MOCK_URL;
+
+describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
+  const client = new ApiClient({
+    request: (input) => fetchTransport.request({ ...input, url: mockUrl }),
+  });
+  const service = createProviderService(client);
+
+  it("list returns the provider catalog with defaults and connected ids", async () => {
+    const providers = await service.list();
+    expect(providers.all.length).toBeGreaterThanOrEqual(3);
+    expect(typeof providers.default).toBe("object");
+    expect(Array.isArray(providers.connected)).toBe(true);
+  });
+
+  it("authMethods returns the per-provider auth method record", async () => {
+    const methods = await service.authMethods();
+    expect(methods.azure).toBeTypeOf("object");
+    expect(Array.isArray(methods.azure)).toBe(true);
+  });
+
+  it("oauthAuthorize resolves a browser URL for the azure auto flow", async () => {
+    const auth = await service.oauthAuthorize("azure", 0);
+    expect(auth.url).toContain("http");
+    expect(auth.method).toBe("auto");
+  });
+
+  it("oauthPoll completes the auto flow against the mock", async () => {
+    // The mock's GET /oauth/authorize?state= page completes the pending
+    // session, so a fresh authorize followed by polling yields success.
+    const auth = await service.oauthAuthorize("azure", 0);
+    const state = new URL(auth.url).searchParams.get("state");
+    expect(state).toBeTypeOf("string");
+    if (state) {
+      const roundTrip = await fetch(`${mockUrl}/oauth/authorize?state=${state}`);
+      expect(roundTrip.ok).toBe(true);
+    }
+    const done = await service.oauthPoll("azure", 0);
+    expect(done).toBe(true);
+  });
+
+  it("oauthCallback rejects an invalid mock code", async () => {
+    const auth = await service.oauthAuthorize("google", 0);
+    expect(auth.method).toBe("code");
+    await expect(service.oauthCallback("google", 0, "wrong-code")).rejects.toMatchObject({
+      status: 400,
+    });
   });
 });
