@@ -1,0 +1,18 @@
+[package]
+name = "tauri-plugin-glass"
+version = "0.1.0"
+description = "iOS 26 Liquid Glass native UI bridge (TASK-M7-02 spike)"
+authors = ["opencoder contributors"]
+edition = "2021"
+build = "build.rs"
+links = "tauri-plugin-glass"
+
+[lib]
+name = "tauri_plugin_glass"
+path = "src/lib.rs"
+
+[build-dependencies]
+tauri-plugin = { version = "2", features = ["build"] }
+
+[dependencies]
+tauri = { version = "2", default-features = false }
