@@ -233,6 +233,46 @@ describe("lazy expansion", () => {
     expect(requestMock.mock.calls.length).toBe(callsBefore);
   });
 
+  it("keeps an earlier sibling expansion's children when a later one resolves first", async () => {
+    // Deferred expansion payloads so the test can order resolutions by hand.
+    const pending = new Map<string, (value: unknown) => void>();
+    const deferred = (path: string | undefined) =>
+      new Promise((resolve) => {
+        pending.set(path ?? "", resolve);
+      });
+    requestMock = vi
+      .fn()
+      .mockImplementation((input: { path: string; query?: Record<string, string> }) => {
+        if (input.path === "/file/status") return Promise.resolve(httpResponse([]));
+        const path = input.query?.path;
+        if (path === "src" || path === "node_modules") return deferred(path);
+        return Promise.resolve(httpResponse(ROOT_NODES));
+      });
+    const transport: Transport = {
+      request: requestMock as unknown as Transport["request"],
+    };
+    getApiClientMock.mockReturnValue(new ApiClient(transport));
+    render(() => <FileTree serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+
+    fireEvent.click(row("src"));
+    fireEvent.click(row("node_modules"));
+    expect(pending.size).toBe(2);
+
+    // Dir B resolves first, then dir A.
+    pending.get("node_modules")!(httpResponse([node("node_modules/pkg", "directory")]));
+    await waitFor(() =>
+      expect(screen.getByTestId("file-row-node_modules/pkg")).toBeInTheDocument(),
+    );
+    pending.get("src")!(httpResponse(SRC_NODES));
+    await waitFor(() => expect(screen.getByTestId("file-row-src/App.tsx")).toBeInTheDocument());
+
+    // A's graft must survive B's resolution: children present AND expanded.
+    expect(screen.getByTestId("file-row-src/App.tsx")).toBeInTheDocument();
+    expect(screen.getByTestId("file-row-node_modules/pkg")).toBeInTheDocument();
+    expect(within(row("src")).getByTestId("file-chevron")).toHaveAttribute("data-expanded", "true");
+  });
+
   it("reverts the expansion and shows the error banner when the fetch fails", async () => {
     mountTree(
       {},
@@ -368,5 +408,39 @@ describe("watcher refetch and states", () => {
     applyWatcher(SERVER, "README.md");
     await waitFor(() => expect(requestMock.mock.calls.length).toBeGreaterThan(1));
     expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument();
+  });
+
+  it("refetches expanded dir subtrees after a watcher refetch replaces the root", async () => {
+    mountTree({}, treeForPath, []);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    fireEvent.click(row("src"));
+    await waitFor(() => expect(screen.getByTestId("file-row-src/auth")).toBeInTheDocument());
+    fireEvent.click(row("src/auth"));
+    await waitFor(() =>
+      expect(screen.getByTestId("file-row-src/auth/session.ts")).toBeInTheDocument(),
+    );
+    const srcCallsBefore = requestMock.mock.calls.filter(
+      (call) => (call[0] as { query?: Record<string, string> }).query?.path === "src",
+    ).length;
+
+    applyWatcher(SERVER, "README.md");
+
+    // The root replace drops grafted subtrees; the refill re-fetches the
+    // expanded `src`, then its nested expanded `src/auth` as each level lands.
+    await waitFor(() => {
+      const srcCalls = requestMock.mock.calls.filter(
+        (call) => (call[0] as { query?: Record<string, string> }).query?.path === "src",
+      );
+      expect(srcCalls.length).toBe(srcCallsBefore + 1);
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("file-row-src/auth/session.ts")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("file-row-src/App.tsx")).toBeInTheDocument();
+    expect(within(row("src")).getByTestId("file-chevron")).toHaveAttribute("data-expanded", "true");
+    expect(within(row("src/auth")).getByTestId("file-chevron")).toHaveAttribute(
+      "data-expanded",
+      "true",
+    );
   });
 });

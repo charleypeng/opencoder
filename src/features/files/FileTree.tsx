@@ -159,8 +159,12 @@ const FileTree: Component<FileTreeProps> = (props) => {
   const [menu, setMenu] = createSignal<{ node: TreeNode; x: number; y: number } | null>(null);
   const [copiedKind, setCopiedKind] = createSignal<"path" | "reference" | null>(null);
 
-  // Guards stale async work across refetches and rapid expand toggles.
+  // Guards stale async work across refetches and rapid expand toggles. Root
+  // loads share one sequence (a newer root refetch supersedes older ones);
+  // expansion fetches are tracked per path so a sibling expansion never
+  // drops another dir's graft.
   let fetchSeq = 0;
+  const expansionSeq = new Map<string, number>();
 
   async function loadRoot(): Promise<void> {
     const seq = ++fetchSeq;
@@ -174,6 +178,9 @@ const FileTree: Component<FileTreeProps> = (props) => {
       if (seq !== fetchSeq) return;
       setTree(props.serverId, undefined, treeNodes);
       applyStatuses(props.serverId, statusEntries);
+      // The root replace drops grafted subtrees; refill every expanded dir
+      // that lost its children (deeper levels refill as each one lands).
+      refillExpanded();
     } catch (err) {
       if (seq !== fetchSeq) return;
       setError(ApiError.fromUnknown(err));
@@ -198,15 +205,55 @@ const FileTree: Component<FileTreeProps> = (props) => {
     }
     expand(props.serverId, node.path);
     if (node.children !== undefined) return; // loaded already
-    const seq = ++fetchSeq;
+    await loadChildren(node.path);
+  }
+
+  /** Paths of expanded directories whose children are not loaded yet. */
+  function missingExpanded(): string[] {
+    const tree = state()?.tree ?? [];
+    const expanded = state()?.expanded ?? {};
+    const out: string[] = [];
+    const walk = (nodes: TreeNode[]): void => {
+      for (const node of nodes) {
+        if (
+          node.type === "directory" &&
+          expanded[node.path] === true &&
+          node.children === undefined
+        ) {
+          out.push(node.path);
+        } else if (node.children !== undefined) {
+          walk(node.children);
+        }
+      }
+    };
+    walk(tree);
+    return out;
+  }
+
+  /** Starts subtree fetches for every expanded dir missing its children
+   *  (after a root replace); each graft refills deeper levels in turn. */
+  function refillExpanded(): void {
+    for (const path of missingExpanded()) void loadChildren(path);
+  }
+
+  /**
+   * Fetches one directory's subtree and grafts it. Guarded per path: only a
+   * newer fetch of the SAME path (rapid re-toggle, refill after a refetch)
+   * drops an in-flight result — sibling expansions never invalidate each
+   * other, so every expanded dir keeps the children it fetched.
+   */
+  async function loadChildren(path: string): Promise<void> {
+    const seq = (expansionSeq.get(path) ?? 0) + 1;
+    expansionSeq.set(path, seq);
     try {
-      const nodes = await createFileService(getApiClient()).tree(node.path);
-      if (seq !== fetchSeq) return;
-      setTree(props.serverId, node.path, nodes);
+      const nodes = await createFileService(getApiClient()).tree(path);
+      if (expansionSeq.get(path) !== seq) return;
+      setTree(props.serverId, path, nodes);
+      refillExpanded();
     } catch (err) {
-      if (seq !== fetchSeq) return;
+      if (expansionSeq.get(path) !== seq) return;
       // Revert the chevron and surface the failure; the row click retries.
-      collapse(props.serverId, node.path);
+      collapse(props.serverId, path);
       setError(ApiError.fromUnknown(err));
     }
   }
