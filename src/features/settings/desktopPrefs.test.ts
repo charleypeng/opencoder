@@ -128,4 +128,11 @@ describe("petEnabled / setPetEnabled (TASK-M8-07)", () => {
     expect(loadDesktopPrefs().petEnabled).toBe(false);
     expect(petEnabled()).toBe(false);
   });
+
+  it("keeps the stored pref when the window action fails", async () => {
+    saveDesktopPrefs({ petEnabled: true });
+    hidePetMock.mockRejectedValueOnce(new Error("pet unavailable"));
+    await expect(setPetEnabled(false)).rejects.toThrow("pet unavailable");
+    expect(loadDesktopPrefs().petEnabled).toBe(true);
+  });
 });

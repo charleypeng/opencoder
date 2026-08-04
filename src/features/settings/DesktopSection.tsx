@@ -5,7 +5,10 @@
 // controls always mirror the APPLIED state (failures revert / surface
 // inline instead of drifting). TASK-M8-07 adds the "Show pet" switch
 // (desktopPrefs petEnabled, default on) that shows/hides the pet
-// companion window and persists the choice.
+// companion window and persists the choice, and the "Pet click-through"
+// switch (pet_set_ignore_mouse / pet_get_ignore_mouse): the escape hatch
+// for a click-through pet, which ignores every pointer event and is
+// otherwise unreachable.
 
 import { createEffect, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -15,6 +18,7 @@ import {
   setCloseToTray,
   setGlobalShortcut,
 } from "../../services/tray.js";
+import { getPetIgnoreMouse, setPetIgnoreMouse } from "../../services/pet.js";
 import { loadDesktopPrefs, petEnabled, saveDesktopPrefs, setPetEnabled } from "./desktopPrefs.js";
 
 const DesktopSection: Component = () => {
@@ -26,6 +30,8 @@ const DesktopSection: Component = () => {
   const [loaded, setLoaded] = createSignal(false);
   const [showPet, setShowPet] = createSignal(petEnabled());
   const [petBusy, setPetBusy] = createSignal(false);
+  const [petClickThrough, setPetClickThrough] = createSignal(false);
+  const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
 
   // One-shot load of the current Rust values on mount.
   createEffect(() => {
@@ -37,6 +43,9 @@ const DesktopSection: Component = () => {
     void getGlobalShortcut()
       .then(setShortcutDraft)
       .catch(() => setError("Could not read the global summon shortcut"));
+    void getPetIgnoreMouse()
+      .then(setPetClickThrough)
+      .catch(() => setError("Could not read the pet click-through setting"));
   });
 
   /** Toggles close-to-tray; on success the switch flips and the pref is
@@ -92,6 +101,23 @@ const DesktopSection: Component = () => {
     }
   }
 
+  /** Toggles pet click-through (the escape hatch: a click-through pet
+   *  ignores every pointer event, so the main window must be able to
+   *  re-enable clicks). The switch mirrors the applied state. */
+  async function togglePetClickThrough() {
+    if (petClickThroughBusy()) return;
+    setPetClickThroughBusy(true);
+    setError(null);
+    try {
+      await setPetIgnoreMouse(!petClickThrough());
+      setPetClickThrough((through) => !through);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setPetClickThroughBusy(false);
+    }
+  }
+
   return (
     <div data-testid="desktop-section" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 border-b border-bg-sunken px-4 py-3">
@@ -121,6 +147,33 @@ const DesktopSection: Component = () => {
             <span
               class={`absolute top-0.5 h-5 w-5 rounded-full bg-fg-primary transition-transform ${
                 showPet() ? "translate-x-5" : "translate-x-0.5"
+              }`}
+            />
+          </button>
+        </div>
+        <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
+          <div class="min-w-0">
+            <p class="text-xs font-medium">Pet click-through</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">
+              Lets clicks pass through the pet window; turn it off here to use the pet's controls
+              again.
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            data-testid="desktop-pet-click-through"
+            aria-checked={petClickThrough() ? "true" : "false"}
+            aria-label="Pet click-through"
+            disabled={petClickThroughBusy()}
+            onClick={() => void togglePetClickThrough()}
+            class={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors disabled:opacity-50 ${
+              petClickThrough() ? "bg-accent" : "bg-bg-sunken"
+            }`}
+          >
+            <span
+              class={`absolute top-0.5 h-5 w-5 rounded-full bg-fg-primary transition-transform ${
+                petClickThrough() ? "translate-x-5" : "translate-x-0.5"
               }`}
             />
           </button>

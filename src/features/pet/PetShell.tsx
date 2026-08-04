@@ -12,8 +12,13 @@
 // edge-dock / click-through toggles and a Hide button. Every change is
 // applied to Rust immediately and persisted in the pet window's own
 // localStorage (`oc-pet`), re-applied on the next mount via
-// applyPetPrefs. Linux without a compositor loses the transparency and
-// shows the opaque rounded blob (documented fallback, docs/tasks/M8.md).
+// applyPetPrefs. Click-through is a lockout risk by design (the window
+// ignores every pointer event) — the popover copy points at the escape
+// hatches: the main window's Desktop settings "Pet click-through" switch
+// and the auto-revert that re-enables clicks every time the window is
+// shown again (Rust-side in pet_show). Linux without a compositor loses
+// the transparency and shows the opaque rounded blob (documented
+// fallback, docs/tasks/M8.md).
 
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -237,6 +242,10 @@ const PetShell: Component = () => {
                   onChange={toggleClickThrough}
                 />
               </label>
+              <p class="text-[10px] leading-tight text-fg-faint">
+                On: clicks pass through the pet. Re-enable from Desktop settings or by re-showing
+                the pet.
+              </p>
             </div>
             <button
               type="button"

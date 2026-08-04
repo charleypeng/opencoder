@@ -69,13 +69,15 @@ export function petEnabled(): boolean {
   return loadDesktopPrefs().petEnabled !== false;
 }
 
-/** Turns the pet companion on or off: applies the window action
- *  immediately and persists the pref so the next launch matches. */
+/** Turns the pet companion on or off: applies the window action first and
+ *  persists the pref only after it succeeds, so the stored value never
+ *  claims a state the window did not reach (a failed show keeps the old
+ *  pref, and the next launch matches the UI). */
 export async function setPetEnabled(enabled: boolean): Promise<void> {
-  saveDesktopPrefs({ ...loadDesktopPrefs(), petEnabled: enabled });
   if (enabled) {
     await showPet();
   } else {
     await hidePet();
   }
+  saveDesktopPrefs({ ...loadDesktopPrefs(), petEnabled: enabled });
 }

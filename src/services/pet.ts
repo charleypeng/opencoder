@@ -1,13 +1,14 @@
 // Pet companion window facade (TASK-M8-07): thin typed wrappers over the
 // Rust pet commands (pet_show / pet_hide / pet_is_visible / pet_set_state
-// / pet_set_ignore_mouse / pet_set_size / pet_set_opacity / pet_set_topmost
-// / pet_set_mute / pet_set_dock) and the `pet-state` event Rust emits to
-// the pet window when the main window's frontend forwards an animation
-// state. Mirrors the events.ts outside-Tauri no-op guard so the desktop-
-// only surface never touches the IPC layer in web or mobile builds. The
-// window itself is created and owned Rust-side (transparent frameless
-// always-on-top, label "pet"); these calls are the main window's controls
-// (show/hide/forward state) and the pet window's settings application.
+// / pet_set_ignore_mouse / pet_get_ignore_mouse / pet_set_size /
+// pet_set_opacity / pet_set_topmost / pet_set_mute / pet_set_dock) and
+// the `pet-state` event Rust emits to the pet window when the main
+// window's frontend forwards an animation state. Mirrors the events.ts
+// outside-Tauri no-op guard so the desktop-only surface never touches the
+// IPC layer in web or mobile builds. The window itself is created and
+// owned Rust-side (transparent frameless always-on-top, label "pet");
+// these calls are the main window's controls (show/hide/forward state)
+// and the pet window's settings application.
 
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
@@ -57,6 +58,14 @@ export function setPetState(state: PetAnimationState): Promise<void> {
 export function setPetIgnoreMouse(ignore: boolean): Promise<void> {
   if (!inTauri()) return Promise.resolve();
   return invoke("pet_set_ignore_mouse", { ignore });
+}
+
+/** Whether the pet window currently ignores pointer events (click-
+ *  through); false outside Tauri. The main window's Desktop settings use
+ *  this as the escape hatch switch state. */
+export function getPetIgnoreMouse(): Promise<boolean> {
+  if (!inTauri()) return Promise.resolve(false);
+  return invoke("pet_get_ignore_mouse");
 }
 
 /** Resizes the pet window (square, clamped to 120-200). No-op outside

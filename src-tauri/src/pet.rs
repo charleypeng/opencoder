@@ -12,6 +12,11 @@
 // ends within DOCK_THRESHOLD of one (multi-monitor aware through the
 // monitor containing the window). The pet window is created lazily on the
 // first pet_show and kept (hidden) afterwards; hide/show is idempotent.
+// Click-through has an escape hatch: pet_show always re-enables pointer
+// events (a click-through pet is unreachable), and the main window's
+// Desktop settings host the "Pet click-through" switch that calls
+// pet_set_ignore_mouse directly — so click-through can never lock the
+// user out.
 // Transparency needs `app.macOSPrivateApi: true` in tauri.conf.json on
 // macOS (a private-API opt-in that App Store review may scrutinize — the
 // app is distributed via GitHub releases, see docs/tasks/M8.md); Linux
@@ -210,7 +215,7 @@ pub fn docked_position(
 /// listener. Created invisible; the caller shows it once fully
 /// configured (opacity / click-through set) so the first appearance is
 /// already correct.
-fn create_pet_window(app: &AppHandle, state: &PetState) -> tauri::Result<()> {
+fn create_pet_window<R: tauri::Runtime>(app: &AppHandle<R>, state: &PetState) -> tauri::Result<()> {
     let size = state.size();
     let window = WebviewWindowBuilder::new(app, PET_LABEL, tauri::WebviewUrl::App(PET_URL.into()))
         .title("opencoder pet")
@@ -259,16 +264,23 @@ fn create_pet_window(app: &AppHandle, state: &PetState) -> tauri::Result<()> {
 /// Shows the pet window, creating it on first use (with the last-applied
 /// settings) and re-emitting the current animation state so a fresh
 /// window starts in sync. Does not steal focus: Tauri show() keeps focus
-/// where it is.
+/// where it is. Click-through is reverted on every show: a click-through
+/// pet ignores all pointer events, so each show re-enables them (the
+/// escape hatch — the main window's Desktop settings and the pet's own
+/// settings can turn it back on).
 #[tauri::command]
-pub fn pet_show(app: AppHandle, state: State<'_, PetState>) -> Result<(), String> {
+pub fn pet_show<R: tauri::Runtime>(
+    app: AppHandle<R>,
+    state: State<'_, PetState>,
+) -> Result<(), String> {
     if !state.created() {
         create_pet_window(&app, &state).map_err(|err| err.to_string())?;
         state.mark_created();
     }
     if let Some(window) = app.get_webview_window(PET_LABEL) {
         let _ = window.set_always_on_top(state.topmost());
-        let _ = window.set_ignore_cursor_events(state.ignore_mouse());
+        state.ignore_mouse.store(false, Ordering::Relaxed);
+        let _ = window.set_ignore_cursor_events(false);
         let _ = window.show();
         if let Some(last) = state.last_state() {
             let _ = app.emit_to(PET_LABEL, "pet-state", last);
@@ -325,6 +337,13 @@ pub fn pet_set_ignore_mouse(
     Ok(())
 }
 
+/// Whether the pet window currently ignores pointer events (click-
+/// through); false when the window does not exist yet.
+#[tauri::command]
+pub fn pet_get_ignore_mouse(state: State<'_, PetState>) -> bool {
+    state.ignore_mouse()
+}
+
 /// Resizes the pet window to the clamped edge length (square window).
 #[tauri::command]
 pub fn pet_set_size(app: AppHandle, state: State<'_, PetState>, size: u32) -> Result<(), String> {
@@ -379,7 +398,10 @@ pub fn pet_set_dock(state: State<'_, PetState>, docked: bool) {
 
 #[cfg(test)]
 mod tests {
-    use super::{clamp_pet_opacity, clamp_pet_size, docked_position, PetAnimationState};
+    use super::{
+        clamp_pet_opacity, clamp_pet_size, docked_position, pet_show, PetAnimationState, PetState,
+    };
+    use std::sync::atomic::Ordering;
     use tauri::{PhysicalPosition, PhysicalSize};
 
     #[test]
@@ -508,5 +530,18 @@ mod tests {
                 *state
             );
         }
+    }
+
+    #[test]
+    fn pet_show_reverts_click_through() {
+        use tauri::Manager;
+        let app = tauri::test::mock_app();
+        app.handle().manage(PetState::default());
+        {
+            let state = app.handle().state::<PetState>();
+            state.ignore_mouse.store(true, Ordering::Relaxed);
+            assert!(pet_show(app.handle().clone(), state).is_ok());
+        }
+        assert!(!app.handle().state::<PetState>().ignore_mouse());
     }
 }
