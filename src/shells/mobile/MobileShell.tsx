@@ -1,112 +1,182 @@
-// Mobile shell placeholder (TASK-M1-08): the mobile workspace (bottom-tab
-// navigation, sheets, gestures) lands in M7 together with platform
-// detection. App.tsx currently mounts DesktopShell for every platform; this
-// component is the seam for `platform.kind === "mobile"` once src/platform/
-// exists (see docs/architecture.md §3).
+// Mobile workspace shell (TASK-M7-03): four bottom tabs (Sessions / Files /
+// Terminal / Settings) with per-tab push navigation (src/shells/mobile/
+// navigation.ts) and keep-alive tab roots — all four tabs stay mounted,
+// CSS-hidden while inactive, so each tab's scroll/input state survives
+// switching (the TerminalPanel tabs pattern).
 //
-// (M7-02 spike) Temporary Liquid Glass demo: registers the native -> web
-// handlers pushed by the glass plugin (src-tauri/plugins/glass) and exercises
-// the web -> native bridge. Removed when the real shell lands (TASK-M7-03).
+// Bottom navigation: on iOS with the glass plugin bridge reachable (M7-02
+// concluded: tier A — native Liquid Glass UITabBar), the web nav is hidden
+// entirely and the content reserves space under the native bar (pb-20
+// placeholder; M7-04 refines the safe-area insets). Native tab taps arrive
+// via window.__glassTabSelected and route through the same selectTab
+// action. Everywhere else (Android Material 3 style web nav, iOS without
+// the bridge) the web nav renders; when the bridge exists it mirrors the
+// native bar via the setActive message.
 
-import { createSignal, onCleanup, onMount } from "solid-js";
-import type { Component } from "solid-js";
+import { For, onCleanup, onMount } from "solid-js";
+import type { Component, JSX } from "solid-js";
+import type { ServerEntry } from "../../services/servers";
+import { capabilitiesOf } from "../../platform/capabilities";
+import { platform } from "../../platform";
+import { hasGlassBridge, installGlassTabHandler, postGlassMessage } from "./glass.js";
+import { nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
+import type { TabId } from "./navigation.js";
+import { pageRegistry, NotFoundPage } from "./pages.js";
+import type { MobilePage } from "./pages.js";
 
-declare global {
-  interface Window {
-    webkit?: {
-      messageHandlers?: {
-        glassBridge?: { postMessage: (message: unknown) => void };
-      };
-    };
-    __glassTabSelected?: (index: number) => void;
-    __glassNativePing?: (message: string) => void;
-  }
+export interface MobileShellProps {
+  /** The server opened from the home screen (initially active). */
+  server: ServerEntry;
+  /** Called to leave the workspace and return to the servers home. */
+  onExit: () => void;
 }
 
-const hasGlassBridge = () => typeof window.webkit?.messageHandlers?.glassBridge === "object";
+const TAB_LABELS: Record<TabId, string> = {
+  sessions: "Sessions",
+  files: "Files",
+  terminal: "Terminal",
+  settings: "Settings",
+};
 
-const MobileShell: Component = () => {
-  const [tabIndex, setTabIndex] = createSignal(-1);
-  const [eventCount, setEventCount] = createSignal(0);
-  const [ping, setPing] = createSignal("-");
-  const [nextAuto, setNextAuto] = createSignal("starts in 2s");
+const TAB_ICONS: Record<TabId, JSX.Element> = {
+  sessions: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" />
+    </svg>
+  ),
+  files: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+    </svg>
+  ),
+  terminal: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="m4 7 5 5-5 5M12 17h8" />
+    </svg>
+  ),
+  settings: (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.6"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-5 w-5"
+      aria-hidden="true"
+    >
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  ),
+};
 
-  const post = (type: string, index?: number) => {
-    window.webkit?.messageHandlers?.glassBridge?.postMessage(
-      index === undefined ? { type } : { type, index },
-    );
-  };
+const MobileShell: Component<MobileShellProps> = (props) => {
+  // Native glass mode: iOS platform + the glass bridge actually reachable.
+  // Resolved once per mount (the platform never changes at runtime).
+  const nativeGlass = capabilitiesOf(platform).supportsNativeGlass && hasGlassBridge();
 
   onMount(() => {
-    // (M7-02 spike) Native -> web handlers installed by GlassPlugin.swift.
-    window.__glassTabSelected = (index) => {
-      setTabIndex(index);
-      setEventCount((count) => count + 1);
-    };
-    window.__glassNativePing = (message) => setPing(message);
-
-    if (!hasGlassBridge()) {
-      return;
-    }
-
-    // (M7-02 spike) Scripted demo: verifies the web -> native -> web round
-    // trip from screenshots alone (no manual tap required).
-    const timers: number[] = [];
-    const schedule = (fn: () => void, delay: number) => {
-      timers.push(window.setTimeout(fn, delay));
-    };
-    const steps: Array<{ label: string; run: () => void }> = [
-      { label: "setActive(1)", run: () => post("setActive", 1) },
-      { label: "ping", run: () => post("ping") },
-      { label: "setActive(2)", run: () => post("setActive", 2) },
-    ];
-    let step = 0;
-    const next = () => {
-      if (step >= steps.length) {
-        setNextAuto("done");
-        return;
-      }
-      const item = steps[step];
-      step += 1;
-      setNextAuto(`${item.label} in 2s`);
-      schedule(() => {
-        item.run();
-        setNextAuto(`${item.label} sent`);
-        schedule(next, 2000);
-      }, 2000);
-    };
-    schedule(next, 2000);
-    onCleanup(() => timers.forEach((timer) => window.clearTimeout(timer)));
+    // Native -> web: route native bar taps through the same selectTab
+    // action the web nav uses; cleanup restores any previous handler.
+    const cleanup = installGlassTabHandler((index) => {
+      const tab = TAB_ORDER[index];
+      if (tab !== undefined) selectTab(tab);
+    });
+    onCleanup(cleanup);
   });
 
+  /** Renders the top route of one tab through the page registry. */
+  function renderTop(tab: TabId) {
+    const route = topOf(tab);
+    const Page: MobilePage = pageRegistry[route.page] ?? NotFoundPage;
+    return <Page serverId={props.server.id} onExit={props.onExit} route={route} />;
+  }
+
   return (
-    // pb-44 keeps the demo content above the native tab bar (content padding
-    // pattern from docs/ui-design.md §5, tier A).
-    <div class="min-h-screen bg-bg-base pb-44 text-fg-primary" data-testid="mobile-shell">
-      <div class="flex min-h-screen flex-col items-center justify-center gap-3">
-        <p class="text-sm text-fg-secondary">Mobile shell — M7 (M7-02 glass spike)</p>
-        <p class="text-xs text-fg-secondary">
-          native tabSelected events: {eventCount()} · last tab: {tabIndex()}
-        </p>
-        <p class="text-xs text-fg-secondary">native ping: {ping()}</p>
-        <p class="text-xs text-fg-secondary">next auto: {nextAuto()}</p>
-        <div class="flex gap-2">
-          <button
-            type="button"
-            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-            onClick={() => post("setActive", 1)}
-          >
-            JS→Native setActive(1)
-          </button>
-          <button
-            type="button"
-            class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-            onClick={() => post("ping")}
-          >
-            JS→Native ping
-          </button>
-        </div>
-      </div>
+    <div
+      data-testid="mobile-shell"
+      data-native-glass={nativeGlass ? "true" : "false"}
+      class="flex h-screen min-h-0 flex-col bg-bg-base text-fg-primary"
+    >
+      {/* Keep-alive tab pages: all four stay mounted, hidden while inactive
+          (each tab's state survives switching). pb-20 reserves space under
+          the native bar when it owns the bottom edge; M7-04 refines the
+          safe-area insets. */}
+      <main data-testid="mobile-content" class={`min-h-0 flex-1 ${nativeGlass ? "pb-20" : ""}`}>
+        <For each={TAB_ORDER}>
+          {(tab) => (
+            <div
+              data-testid={`mobile-page-${tab}`}
+              data-active={nav.activeTab === tab ? "true" : "false"}
+              class={nav.activeTab === tab ? "h-full" : "hidden"}
+            >
+              {renderTop(tab)}
+            </div>
+          )}
+        </For>
+      </main>
+
+      {/* Web nav (Android Material 3 style + iOS fallback without the
+          plugin): hidden while the native bar is in charge. */}
+      <nav
+        data-testid="mobile-nav"
+        aria-label="Main navigation"
+        class={
+          nativeGlass
+            ? "hidden"
+            : "flex shrink-0 border-t border-bg-sunken bg-bg-elevated pb-[env(safe-area-inset-bottom)]"
+        }
+      >
+        <For each={TAB_ORDER}>
+          {(tab) => (
+            <button
+              type="button"
+              role="tab"
+              data-testid={`mobile-tab-${tab}`}
+              aria-selected={nav.activeTab === tab ? "true" : "false"}
+              class={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium outline-none transition-colors ${
+                nav.activeTab === tab ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
+              }`}
+              onClick={() => {
+                selectTab(tab);
+                // Mirror web taps on the native bar when the bridge exists.
+                postGlassMessage({ type: "setActive", index: TAB_ORDER.indexOf(tab) });
+              }}
+            >
+              {TAB_ICONS[tab]}
+              {TAB_LABELS[tab]}
+            </button>
+          )}
+        </For>
+      </nav>
     </div>
   );
 };

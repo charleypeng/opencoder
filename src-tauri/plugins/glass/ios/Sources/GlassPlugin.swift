@@ -2,10 +2,11 @@
 //
 // Purpose: prove that a native UITabBar can be injected into the Tauri
 // WKWebView context on the iOS 26 simulator, and that events can round-trip
-// web <-> native. This is a spike; the real tab bar / contract (setItems,
-// setActive, setHidden, badge, tabSelected events) lands with M7-03.
+// web <-> native. The spike concluded PASS (tier A enabled, docs/tasks/
+// M7.md appendix); the bar is now the production bottom navigation of the
+// mobile shell. The tab titles are English until M9 i18n localizes them.
 //
-// Bridge contract used by the demo (src/shells/mobile/MobileShell.tsx):
+// Bridge contract used by the mobile shell (src/shells/mobile/glass.ts):
 //   native -> web: window.__glassTabSelected(index) / window.__glassNativePing(msg)
 //   web -> native: window.webkit.messageHandlers.glassBridge.postMessage({
 //                  type: "setActive", index: N } | { type: "ping" })
@@ -38,10 +39,10 @@ class GlassPlugin: Plugin, UITabBarDelegate, WKScriptMessageHandler {
     bar.translatesAutoresizingMaskIntoConstraints = false
 
     let items = [
-      UITabBarItem(title: "会话", image: UIImage(systemName: "message"), tag: 0),
-      UITabBarItem(title: "文件", image: UIImage(systemName: "folder"), tag: 1),
-      UITabBarItem(title: "终端", image: UIImage(systemName: "terminal"), tag: 2),
-      UITabBarItem(title: "设置", image: UIImage(systemName: "gearshape"), tag: 3),
+      UITabBarItem(title: "Sessions", image: UIImage(systemName: "message"), tag: 0),
+      UITabBarItem(title: "Files", image: UIImage(systemName: "folder"), tag: 1),
+      UITabBarItem(title: "Terminal", image: UIImage(systemName: "terminal"), tag: 2),
+      UITabBarItem(title: "Settings", image: UIImage(systemName: "gearshape"), tag: 3),
     ]
     bar.setItems(items, animated: false)
     bar.selectedItem = items.first
