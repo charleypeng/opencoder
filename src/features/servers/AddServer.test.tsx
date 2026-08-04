@@ -225,3 +225,109 @@ describe("AddServer save flow", () => {
     });
   });
 });
+
+describe("AddServer edit mode", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const editEntry: ServerEntry = {
+    id: "srv-1",
+    name: "Local",
+    url: "http://localhost:14096",
+    username: "admin",
+    password: "secret",
+    createdAt: 123,
+  };
+
+  it("pre-fills the form and saves via update_server, keeping the stored password", async () => {
+    const onAdded = vi.fn();
+    render(() => <AddServer server={editEntry} onAdded={onAdded} />);
+    expect(screen.getByText("Edit server")).toBeInTheDocument();
+    expect(screen.getByTestId("name-input")).toHaveValue("Local");
+    expect(screen.getByTestId("url-input")).toHaveValue("http://localhost:14096");
+    expect(screen.getByTestId("username-input")).toHaveValue("admin");
+    expect(screen.getByTestId("password-input")).toHaveValue("");
+    expect(screen.getByTestId("save-server")).toHaveTextContent("Save changes");
+
+    fireEvent.input(screen.getByTestId("name-input"), { target: { value: "Local 2" } });
+    invokeMock.mockResolvedValueOnce({ ...editEntry, name: "Local 2" });
+    fireEvent.click(screen.getByTestId("save-server"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("update_server", {
+        id: "srv-1",
+        entry: {
+          name: "Local 2",
+          url: "http://localhost:14096",
+          username: "admin",
+          password: "secret",
+        },
+      }),
+    );
+    // The emitted entry is password-stripped.
+    await waitFor(() =>
+      expect(onAdded).toHaveBeenCalledWith({
+        id: "srv-1",
+        name: "Local 2",
+        url: "http://localhost:14096",
+        username: "admin",
+        createdAt: 123,
+      }),
+    );
+  });
+
+  it("overrides the stored password when a new one is typed", async () => {
+    render(() => <AddServer server={editEntry} onAdded={vi.fn()} />);
+    fireEvent.input(screen.getByTestId("password-input"), { target: { value: "newpw" } });
+    invokeMock.mockResolvedValueOnce({ ...editEntry, password: "newpw" });
+    fireEvent.click(screen.getByTestId("save-server"));
+
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("update_server", {
+        id: "srv-1",
+        entry: {
+          name: "Local",
+          url: "http://localhost:14096",
+          username: "admin",
+          password: "newpw",
+        },
+      }),
+    );
+  });
+
+  it("uses the stored password for probes while editing", async () => {
+    invokeMock.mockResolvedValue({
+      serverId: "probe",
+      healthy: true,
+      version: "1.0",
+      latencyMs: 5,
+      failCount: 0,
+      status: "ok",
+    });
+    render(() => <AddServer server={editEntry} onAdded={vi.fn()} />);
+    fireEvent.click(screen.getByTestId("test-connection"));
+
+    await waitFor(() => expect(screen.getByTestId("probe-success")).toBeInTheDocument());
+    expect(invokeMock).toHaveBeenCalledWith("probe_server", {
+      url: "http://localhost:14096",
+      auth: { username: "admin", password: "secret" },
+    });
+  });
+
+  it("shows an inline error when the update fails", async () => {
+    invokeMock.mockRejectedValue({
+      status: 500,
+      code: "persist",
+      message: "store failed",
+      retriable: false,
+    });
+    render(() => <AddServer server={editEntry} onAdded={vi.fn()} />);
+    fireEvent.input(screen.getByTestId("name-input"), { target: { value: "Local 2" } });
+    fireEvent.click(screen.getByTestId("save-server"));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("save-error")).toHaveTextContent("store failed");
+    });
+  });
+});

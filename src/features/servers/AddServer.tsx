@@ -4,13 +4,15 @@
 
 import { createSignal, Show } from "solid-js";
 import { ApiError } from "../../services/errors";
-import { addServer, probeServer } from "../../services/servers";
+import { addServer, probeServer, updateServer } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
 
 export interface AddServerProps {
   /** Called with the saved entry (password stripped) after a successful save. */
   onAdded?: (server: ServerEntry) => void;
+  /** Existing entry to edit; when set the form saves via update_server. */
+  server?: ServerEntry;
 }
 
 type ProbeState =
@@ -24,9 +26,15 @@ const inputClass =
   "placeholder:text-fg-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
 
 function AddServer(props: AddServerProps) {
-  const [name, setName] = createSignal("");
-  const [url, setUrl] = createSignal("");
-  const [username, setUsername] = createSignal("");
+  // The wizard is mounted per entry (keyed in ServerHome), so reading the
+  // initial values once is intentional; a blank password field keeps the
+  // stored password on save.
+  // eslint-disable-next-line solid/reactivity -- one-time prefill of edit mode
+  const [name, setName] = createSignal(props.server?.name ?? "");
+  // eslint-disable-next-line solid/reactivity -- one-time prefill of edit mode
+  const [url, setUrl] = createSignal(props.server?.url ?? "");
+  // eslint-disable-next-line solid/reactivity -- one-time prefill of edit mode
+  const [username, setUsername] = createSignal(props.server?.username ?? "");
   const [password, setPassword] = createSignal("");
   const [showPassword, setShowPassword] = createSignal(false);
   const [probe, setProbe] = createSignal<ProbeState>({ kind: "idle" });
@@ -42,9 +50,12 @@ function AddServer(props: AddServerProps) {
     const normalized = normalizedUrl();
     return normalized !== null && isRemotePlainHttp(normalized);
   };
+  // The stored password is never prefilled; a blank field keeps it on save
+  // and uses it for probes while editing.
+  const storedPassword = () => props.server?.password;
   const auth = () => {
     const user = username().trim();
-    const pass = password();
+    const pass = password() || storedPassword();
     if (!user && !pass) return undefined;
     return { username: user || undefined, password: pass || undefined };
   };
@@ -75,12 +86,15 @@ function AddServer(props: AddServerProps) {
     setSaving(true);
     setSaveError(null);
     try {
-      const server = await addServer({
+      const input = {
         name: name().trim(),
         url: normalized,
         username: username().trim() || undefined,
-        password: password() || undefined,
-      });
+        password: password() || storedPassword(),
+      };
+      const server = props.server
+        ? await updateServer(props.server.id, input)
+        : await addServer(input);
       // The saved entry is shared onward without the password.
       const publicEntry: ServerEntry = {
         id: server.id,
@@ -91,12 +105,14 @@ function AddServer(props: AddServerProps) {
         lastConnectedAt: server.lastConnectedAt,
       };
       props.onAdded?.(publicEntry);
-      setName("");
-      setUrl("");
-      setUsername("");
-      setPassword("");
-      setShowPassword(false);
-      setProbe({ kind: "idle" });
+      if (!props.server) {
+        setName("");
+        setUrl("");
+        setUsername("");
+        setPassword("");
+        setShowPassword(false);
+        setProbe({ kind: "idle" });
+      }
     } catch (err) {
       setSaveError(ApiError.fromUnknown(err).message);
     } finally {
@@ -106,9 +122,15 @@ function AddServer(props: AddServerProps) {
 
   return (
     <div class="rounded-md border border-bg-sunken bg-bg-elevated p-6" data-testid="add-server">
-      <h2 class="text-lg font-semibold">Add server</h2>
+      <h2 class="text-lg font-semibold">{props.server ? "Edit server" : "Add server"}</h2>
       <p class="mt-1 text-sm text-fg-secondary">
-        Connect to an OpenCode server, e.g. <span class="font-code">localhost:14096</span>.
+        {props.server ? (
+          "Update the connection details. Leave the password blank to keep the stored one."
+        ) : (
+          <>
+            Connect to an OpenCode server, e.g. <span class="font-code">localhost:14096</span>.
+          </>
+        )}
       </p>
 
       <form class="mt-6 space-y-4" onSubmit={onSave}>
@@ -199,7 +221,7 @@ function AddServer(props: AddServerProps) {
             class={`rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50`}
             disabled={!canSave()}
           >
-            {saving() ? "Saving…" : "Save server"}
+            {saving() ? "Saving…" : props.server ? "Save changes" : "Save server"}
           </button>
         </div>
 

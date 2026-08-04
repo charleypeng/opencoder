@@ -72,3 +72,10 @@ export async function probeServer(url: string, auth?: AuthCredentials): Promise<
     throw ApiError.fromUnknown(err);
   });
 }
+
+/** (Re)starts the 15s health polling loop for a saved server (reconnect flow). */
+export async function startHealthMonitoring(serverId: string): Promise<void> {
+  return invoke<void>("start_health_monitoring", { serverId }).catch((err: unknown) => {
+    throw ApiError.fromUnknown(err);
+  });
+}
