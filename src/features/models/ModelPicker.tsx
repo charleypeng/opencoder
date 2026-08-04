@@ -1,16 +1,22 @@
-// Model picker dialog (TASK-M5-05): a kobalte Dialog listing the server's
-// models grouped by provider with a search box, capability badges
-// (tools/vision/reasoning), cost + context-limit hints, unconnected
-// providers grayed out and disabled, a Default marker per provider (from
-// the /config/providers default record) and a favorites section (star
-// toggle persisted in localStorage `oc-fav-models`). The catalog is
-// fetched on open through the models store (loaded flag + in-flight
-// guard; PromptBox also pre-fetches on mount); selecting a model records
-// the per-session choice in the store and closes the dialog.
+// Model picker (TASK-M5-05): lists the server's models grouped by
+// provider with a search box, capability badges (tools/vision/reasoning),
+// cost + context-limit hints, unconnected providers grayed out and
+// disabled, a Default marker per provider (from the /config/providers
+// default record) and a favorites section (star toggle persisted in
+// localStorage `oc-fav-models`). The catalog is fetched on open through
+// the models store (loaded flag + in-flight guard; PromptBox also
+// pre-fetches on mount); selecting a model records the per-session choice
+// in the store and closes the picker. Presentation (TASK-M7-05): the
+// desktop keeps the kobalte Dialog; on mobile platforms (src/platform)
+// the same content renders inside the Sheet bottom sheet — the picker is
+// dismissible there (scrim / Esc / drag-down), unlike the permission and
+// question sheets.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
+import Sheet from "../../components/Sheet.js";
+import { platform } from "../../platform/index.js";
 import { createProviderService, type Model, type Provider } from "../../services/provider.js";
 import { getApiClient } from "../../services/client.js";
 import { getServerSessionState } from "../../stores/session.js";
@@ -176,40 +182,17 @@ function ModelRow(props: ModelRowProps) {
   );
 }
 
-const ModelPicker: Component<ModelPickerProps> = (props) => {
+interface ModelPickerContentProps {
+  serverId: string;
+  sessionId: string;
+  onClose: () => void;
+}
+
+/** The picker body — the search box, the grouped model list and the Close
+ *  button — shared by the desktop dialog and the mobile bottom sheet. */
+function ModelPickerContent(props: ModelPickerContentProps) {
   const [search, setSearch] = createSignal("");
   const [favorites, setFavorites] = createSignal<string[]>(loadFavorites());
-  // Catalog fetch: in-flight guarded; reused across opens via the store's
-  // loaded flag (PromptBox also pre-fetches on mount). A failed fetch
-  // keeps loaded=false so the next open retries.
-  let modelFetch: Promise<void> | null = null;
-
-  createEffect(() => {
-    if (!props.open) return;
-    const serverId = props.serverId;
-    if (getServerModelState(serverId).loaded || modelFetch !== null) return;
-    modelFetch = Promise.allSettled([
-      createProviderService(getApiClient()).list(),
-      createProviderService(getApiClient()).configProviders(),
-    ])
-      .then(([list, config]) => {
-        // The catalog and the config defaults settle independently: a
-        // config failure must not discard a successful provider catalog
-        // (M5 review) — the /provider default record covers the gap.
-        if (list.status === "fulfilled") setProviders(serverId, list.value);
-        if (config.status === "fulfilled" && config.value?.default !== undefined) {
-          setConfigDefault(serverId, config.value.default);
-        }
-      })
-      .finally(() => {
-        modelFetch = null;
-      });
-  });
-
-  onCleanup(() => {
-    // A close mid-fetch must not let the guard leak into the next open.
-    modelFetch = null;
-  });
 
   const sessionModel = createMemo(
     () => getServerSessionState(props.serverId).sessions[props.sessionId]?.model,
@@ -260,117 +243,191 @@ const ModelPicker: Component<ModelPickerProps> = (props) => {
 
   function selectModel(providerID: string, modelID: string): void {
     setModelForSession(props.serverId, props.sessionId, { providerID, modelID });
-    props.onOpenChange(false);
+    props.onClose();
   }
 
   return (
-    <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
-      <Dialog.Portal>
-        <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content
-          data-testid="model-picker"
-          class="glass fixed left-1/2 top-1/2 z-50 flex max-h-[75vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col p-5"
-        >
-          <Dialog.Title class="text-md font-semibold">Select model</Dialog.Title>
-          <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-            The choice is kept for this session.
-          </Dialog.Description>
+    <>
+      <input
+        data-testid="model-picker-search"
+        type="text"
+        value={search()}
+        placeholder="Search models…"
+        aria-label="Search models"
+        onInput={(event) => setSearch(event.currentTarget.value)}
+        class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-fg-faint"
+      />
 
-          <input
-            data-testid="model-picker-search"
-            type="text"
-            value={search()}
-            placeholder="Search models…"
-            aria-label="Search models"
-            onInput={(event) => setSearch(event.currentTarget.value)}
-            class="mt-4 w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-fg-faint"
-          />
-
-          <div class="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
-            <Show
-              when={groups().length > 0}
-              fallback={
-                <div
-                  data-testid="model-picker-empty"
-                  class="px-1 py-3 text-center text-xs text-fg-faint"
-                >
-                  {getServerModelState(props.serverId).loaded
-                    ? "No matching models"
-                    : "Models unavailable"}
-                </div>
-              }
+      <div class="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+        <Show
+          when={groups().length > 0}
+          fallback={
+            <div
+              data-testid="model-picker-empty"
+              class="px-1 py-3 text-center text-xs text-fg-faint"
             >
-              <Show when={favoriteRows().length > 0}>
-                <div data-testid="model-favorites-section">
-                  <h3 class="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-fg-faint">
-                    Favorites
-                  </h3>
-                  <For each={favoriteRows()}>
-                    {({ provider, model }) => (
-                      <ModelRow
-                        serverId={props.serverId}
-                        provider={provider}
-                        model={model}
-                        active={active()}
-                        favorites={favorites()}
-                        onSelect={selectModel}
-                        onToggleFav={toggleFav}
-                      />
-                    )}
-                  </For>
-                </div>
-              </Show>
-              <For each={groups()}>
-                {(group) => (
-                  <section data-testid="model-group" data-provider={group.provider.id}>
-                    <h3
-                      data-testid="model-provider-header"
-                      class="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-faint"
-                    >
-                      <span class="truncate">{group.provider.name}</span>
-                      <Show
-                        when={
-                          !getServerModelState(props.serverId).connected.includes(group.provider.id)
-                        }
-                      >
-                        <span
-                          data-testid="model-not-connected"
-                          class="rounded border border-bg-sunken bg-bg-elevated px-1 py-px text-[10px] normal-case tracking-normal text-fg-secondary"
-                        >
-                          Not connected
-                        </span>
-                      </Show>
-                    </h3>
-                    <For each={group.models}>
-                      {(model) => (
-                        <ModelRow
-                          serverId={props.serverId}
-                          provider={group.provider}
-                          model={model}
-                          active={active()}
-                          favorites={favorites()}
-                          onSelect={selectModel}
-                          onToggleFav={toggleFav}
-                        />
-                      )}
-                    </For>
-                  </section>
+              {getServerModelState(props.serverId).loaded
+                ? "No matching models"
+                : "Models unavailable"}
+            </div>
+          }
+        >
+          <Show when={favoriteRows().length > 0}>
+            <div data-testid="model-favorites-section">
+              <h3 class="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-fg-faint">
+                Favorites
+              </h3>
+              <For each={favoriteRows()}>
+                {({ provider, model }) => (
+                  <ModelRow
+                    serverId={props.serverId}
+                    provider={provider}
+                    model={model}
+                    active={active()}
+                    favorites={favorites()}
+                    onSelect={selectModel}
+                    onToggleFav={toggleFav}
+                  />
                 )}
               </For>
-            </Show>
-          </div>
+            </div>
+          </Show>
+          <For each={groups()}>
+            {(group) => (
+              <section data-testid="model-group" data-provider={group.provider.id}>
+                <h3
+                  data-testid="model-provider-header"
+                  class="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-faint"
+                >
+                  <span class="truncate">{group.provider.name}</span>
+                  <Show
+                    when={
+                      !getServerModelState(props.serverId).connected.includes(group.provider.id)
+                    }
+                  >
+                    <span
+                      data-testid="model-not-connected"
+                      class="rounded border border-bg-sunken bg-bg-elevated px-1 py-px text-[10px] normal-case tracking-normal text-fg-secondary"
+                    >
+                      Not connected
+                    </span>
+                  </Show>
+                </h3>
+                <For each={group.models}>
+                  {(model) => (
+                    <ModelRow
+                      serverId={props.serverId}
+                      provider={group.provider}
+                      model={model}
+                      active={active()}
+                      favorites={favorites()}
+                      onSelect={selectModel}
+                      onToggleFav={toggleFav}
+                    />
+                  )}
+                </For>
+              </section>
+            )}
+          </For>
+        </Show>
+      </div>
 
-          <div class="flex justify-end pt-4">
-            <Dialog.CloseButton
-              data-testid="model-picker-close"
-              class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary hover:text-fg-primary"
+      <div class="flex justify-end pt-4">
+        <button
+          type="button"
+          data-testid="model-picker-close"
+          class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary hover:text-fg-primary"
+          onClick={() => props.onClose()}
+        >
+          Close
+        </button>
+      </div>
+    </>
+  );
+}
+
+const ModelPicker: Component<ModelPickerProps> = (props) => {
+  // Catalog fetch: in-flight guarded; reused across opens via the store's
+  // loaded flag (PromptBox also pre-fetches on mount). A failed fetch
+  // keeps loaded=false so the next open retries.
+  let modelFetch: Promise<void> | null = null;
+
+  createEffect(() => {
+    if (!props.open) return;
+    const serverId = props.serverId;
+    if (getServerModelState(serverId).loaded || modelFetch !== null) return;
+    modelFetch = Promise.allSettled([
+      createProviderService(getApiClient()).list(),
+      createProviderService(getApiClient()).configProviders(),
+    ])
+      .then(([list, config]) => {
+        // The catalog and the config defaults settle independently: a
+        // config failure must not discard a successful provider catalog
+        // (M5 review) — the /provider default record covers the gap.
+        if (list.status === "fulfilled") setProviders(serverId, list.value);
+        if (config.status === "fulfilled" && config.value?.default !== undefined) {
+          setConfigDefault(serverId, config.value.default);
+        }
+      })
+      .finally(() => {
+        modelFetch = null;
+      });
+  });
+
+  onCleanup(() => {
+    // A close mid-fetch must not let the guard leak into the next open.
+    modelFetch = null;
+  });
+
+  const close = () => props.onOpenChange(false);
+  // Mobile platforms present the picker as a bottom sheet (TASK-M7-05);
+  // the desktop keeps the kobalte dialog. The picker is dismissible in
+  // both — picking a model is a choice, not a forced answer. (The platform
+  // never changes at runtime, so the two branches are exclusive.)
+  const mobile = platform.kind === "mobile";
+
+  return (
+    <>
+      <Show when={mobile}>
+        <Sheet
+          open={props.open}
+          onClose={close}
+          snap="high"
+          title="Select model"
+          testId="model-picker"
+          dismissible
+        >
+          <ModelPickerContent
+            serverId={props.serverId}
+            sessionId={props.sessionId}
+            onClose={close}
+          />
+        </Sheet>
+      </Show>
+      <Show when={!mobile}>
+        <Dialog.Root open={props.open} onOpenChange={props.onOpenChange}>
+          <Dialog.Portal>
+            <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+            <Dialog.Content
+              data-testid="model-picker"
+              class="glass fixed left-1/2 top-1/2 z-50 flex max-h-[75vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col p-5"
             >
-              Close
-            </Dialog.CloseButton>
-          </div>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+              <Dialog.Title class="text-md font-semibold">Select model</Dialog.Title>
+              <Dialog.Description class="mt-1 text-sm text-fg-secondary">
+                The choice is kept for this session.
+              </Dialog.Description>
+              <div class="mt-4 flex min-h-0 flex-1 flex-col">
+                <ModelPickerContent
+                  serverId={props.serverId}
+                  sessionId={props.sessionId}
+                  onClose={close}
+                />
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </Dialog.Root>
+      </Show>
+    </>
   );
 };
 

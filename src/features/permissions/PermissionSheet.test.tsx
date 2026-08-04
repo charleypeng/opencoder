@@ -7,7 +7,8 @@
 // records the remember-memo and a later request with the same pattern is
 // auto-replied "always" without showing the card; a store-level dequeue
 // (permission.replied event path) advances the queue head; Esc cannot
-// dismiss the dialog; the "sheet" variant renders nothing (M7).
+// dismiss the dialog; the "sheet" variant renders the same card as a
+// pinned mobile bottom sheet (TASK-M7-05) with working actions.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
@@ -249,11 +250,46 @@ describe("PermissionSheet (overlay)", () => {
   });
 });
 
-describe("PermissionSheet (variant)", () => {
-  it("renders nothing for the reserved mobile sheet variant", () => {
+describe("PermissionSheet (sheet variant)", () => {
+  it("renders the queue head as a bottom sheet and actions drain the queue", async () => {
+    const reply = mockReply();
+    enqueue(SERVER, request("per_1"));
+    render(() => <PermissionSheet serverId={SERVER} variant="sheet" />);
+
+    // The Sheet panel carries the same test id as the overlay dialog.
+    await vi.waitFor(() => expect(screen.getByTestId("permission-sheet")).toBeInTheDocument());
+    expect(screen.getByTestId("permission-sheet")).toHaveAttribute("data-snap", "high");
+    expect(screen.getByTestId("permission-sheet-scrim")).toBeInTheDocument();
+    expect(screen.getByTestId("permission-type").textContent).toBe("bash");
+
+    fireEvent.click(screen.getByTestId("permission-allow-once"));
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith("per_1", "once"));
+    await vi.waitFor(() => expect(screen.queryByTestId("permission-sheet")).toBeNull());
+  });
+
+  it("cannot be dismissed by scrim, Esc or drag-down", async () => {
     mockReply();
     enqueue(SERVER, request("per_1"));
     render(() => <PermissionSheet serverId={SERVER} variant="sheet" />);
-    expect(screen.queryByTestId("permission-sheet")).toBeNull();
+    await vi.waitFor(() => expect(screen.getByTestId("permission-sheet")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("permission-sheet-scrim"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    const panel = screen.getByTestId("permission-sheet");
+    fireEvent.pointerDown(panel, { clientY: 100, button: 0 });
+    fireEvent.pointerMove(window, { clientY: 400 });
+    fireEvent.pointerUp(window, { clientY: 400 });
+
+    expect(screen.getByTestId("permission-type").textContent).toBe("bash");
+  });
+
+  it("auto-replies a remembered pattern without surfacing the sheet", async () => {
+    const reply = mockReply();
+    rememberPattern(SERVER, { permission: "bash", patterns: ["pnpm test"] });
+    enqueue(SERVER, request("per_1"));
+    render(() => <PermissionSheet serverId={SERVER} variant="sheet" />);
+
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith("per_1", "always"));
+    await vi.waitFor(() => expect(screen.queryByTestId("permission-sheet")).toBeNull());
   });
 });

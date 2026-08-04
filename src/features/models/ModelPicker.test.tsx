@@ -16,6 +16,7 @@ import type {
 } from "../../services/provider";
 import { activeModelFor, resetServer as resetModels } from "../../stores/models";
 import { applySessionList, resetServer as resetSessions } from "../../stores/session";
+import { refreshPlatform } from "../../platform";
 import { FAVORITES_STORAGE_KEY } from "./models";
 
 const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
@@ -24,6 +25,16 @@ vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
 
 const SERVER = "srv-picker";
 const SESSION = "ses_picker_01";
+
+const ANDROID_UA =
+  "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36";
+const ORIGINAL_UA = window.navigator.userAgent;
+
+/** Switches the platform probe to mobile and back around a test. */
+function stubMobileUA() {
+  Object.defineProperty(window.navigator, "userAgent", { value: ANDROID_UA, configurable: true });
+  refreshPlatform();
+}
 
 function model(id: string, overrides: Partial<Model> = {}): Model {
   return {
@@ -147,6 +158,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  Object.defineProperty(window.navigator, "userAgent", { value: ORIGINAL_UA, configurable: true });
+  refreshPlatform();
   resetSessions(SERVER);
   resetModels(SERVER);
   window.localStorage.clear();
@@ -358,5 +371,51 @@ describe("ModelPicker", () => {
 
     fireEvent.click(screen.getByTestId("model-picker-close"));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+});
+
+describe("ModelPicker (mobile sheet, TASK-M7-05)", () => {
+  it("presents the picker as a bottom sheet on mobile platforms", async () => {
+    stubMobileUA();
+    const onOpenChange = vi.fn();
+    renderPicker(onOpenChange);
+
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    const panel = screen.getByTestId("model-picker");
+    expect(panel).toHaveAttribute("data-snap", "high");
+    expect(panel.getAttribute("role")).toBe("dialog");
+    // Sheet chrome: drag handle + scrim (absent on the desktop dialog).
+    expect(screen.getByTestId("model-picker-handle")).toBeInTheDocument();
+    expect(screen.getByTestId("model-picker-scrim")).toBeInTheDocument();
+    expect(screen.getByText("Select model")).toBeInTheDocument();
+
+    // Selection still records the per-session choice and closes.
+    const claudeRow = screen
+      .getAllByTestId("model-item")
+      .find((item) => item.getAttribute("data-model") === "claude-sonnet-4-5");
+    fireEvent.click(claudeRow!.querySelector("[data-testid='model-item-select']")!);
+    expect(activeModelFor(SERVER, SESSION)).toEqual({
+      providerID: "anthropic",
+      modelID: "claude-sonnet-4-5",
+    });
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("closes on scrim click in the mobile sheet", async () => {
+    stubMobileUA();
+    const onOpenChange = vi.fn();
+    renderPicker(onOpenChange);
+
+    await waitFor(() => expect(screen.getByTestId("model-picker")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("model-picker-scrim"));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it("keeps the desktop dialog presentation on desktop platforms", async () => {
+    renderPicker();
+    await waitFor(() => expect(screen.getByTestId("model-picker")).toBeInTheDocument());
+    expect(screen.getByTestId("model-picker")).not.toHaveAttribute("data-snap");
+    expect(screen.queryByTestId("model-picker-scrim")).toBeNull();
+    expect(screen.getByText("The choice is kept for this session.")).toBeInTheDocument();
   });
 });

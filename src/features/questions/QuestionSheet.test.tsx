@@ -9,7 +9,8 @@
 // store-level dequeue (question.replied / question.rejected event path)
 // advances the head; a malformed request without questions renders
 // defensively (note + Reject only); Esc cannot dismiss the dialog; the
-// "sheet" variant renders nothing (M7).
+// "sheet" variant renders the same card as a pinned mobile bottom sheet
+// (TASK-M7-05) with working replies.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
@@ -252,11 +253,53 @@ describe("QuestionSheet (overlay)", () => {
   });
 });
 
-describe("QuestionSheet (variant)", () => {
-  it("renders nothing for the reserved mobile sheet variant", () => {
+describe("QuestionSheet (sheet variant)", () => {
+  it("renders the queue head as a bottom sheet and replies drain the queue", async () => {
+    const { reply } = mockService();
+    enqueue(SERVER, optionsRequest("que_1"));
+    render(() => <QuestionSheet serverId={SERVER} variant="sheet" />);
+
+    // The Sheet panel carries the same test id as the overlay dialog.
+    await vi.waitFor(() => expect(screen.getByTestId("question-sheet")).toBeInTheDocument());
+    expect(screen.getByTestId("question-sheet")).toHaveAttribute("data-snap", "high");
+    expect(screen.getByTestId("question-sheet-scrim")).toBeInTheDocument();
+    expect(screen.getByTestId("question-text").textContent).toContain("refactor");
+
+    fireEvent.click(screen.getAllByTestId("question-option")[0]);
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith("que_1", [["Incremental"]]));
+    await vi.waitFor(() => expect(screen.queryByTestId("question-sheet")).toBeNull());
+  });
+
+  it("renders the free-input form and rejects inside the sheet", async () => {
+    const { reply, reject } = mockService();
+    enqueue(SERVER, freeInputRequest("que_2"));
+    render(() => <QuestionSheet serverId={SERVER} variant="sheet" />);
+    await vi.waitFor(() => expect(screen.getByTestId("question-sheet")).toBeInTheDocument());
+
+    const input = screen.getByTestId("question-free-input") as HTMLTextAreaElement;
+    fireEvent.input(input, { target: { value: "my answer" } });
+    fireEvent.click(screen.getByTestId("question-send"));
+    await vi.waitFor(() => expect(reply).toHaveBeenCalledWith("que_2", [["my answer"]]));
+
+    enqueue(SERVER, freeInputRequest("que_3"));
+    await vi.waitFor(() => expect(screen.getByTestId("question-sheet")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("question-reject"));
+    await vi.waitFor(() => expect(reject).toHaveBeenCalledWith("que_3"));
+  });
+
+  it("cannot be dismissed by scrim, Esc or drag-down", async () => {
     mockService();
     enqueue(SERVER, optionsRequest("que_1"));
     render(() => <QuestionSheet serverId={SERVER} variant="sheet" />);
-    expect(screen.queryByTestId("question-sheet")).toBeNull();
+    await vi.waitFor(() => expect(screen.getByTestId("question-sheet")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("question-sheet-scrim"));
+    fireEvent.keyDown(window, { key: "Escape" });
+    const panel = screen.getByTestId("question-sheet");
+    fireEvent.pointerDown(panel, { clientY: 100, button: 0 });
+    fireEvent.pointerMove(window, { clientY: 400 });
+    fireEvent.pointerUp(window, { clientY: 400 });
+
+    expect(screen.getByTestId("question-text").textContent).toContain("refactor");
   });
 });

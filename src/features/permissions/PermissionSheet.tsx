@@ -1,26 +1,27 @@
 // Global permission request sheet (TASK-M5-01, architecture.md §7.2):
-// mounted once per workspace in DesktopShell, it reads the per-server
-// permission queue (stores/permission.ts) and shows a kobalte overlay for
-// the queue head — permission type, pattern chips, tool context
-// (messageID/callID) and an expandable metadata detail — with the three
-// reply actions (Allow once / Always allow / Reject) posting to
-// POST /permission/{requestID}/reply. A request is dequeued only after its
-// reply POST succeeds (a failure keeps it queued — the requeue — and shows
-// an inline error; the reply buttons are disabled while one POST is in
-// flight). `permission.replied` events dequeue independently (idempotent,
-// routed in stores/events.ts). "Always allow" also records the pattern in
-// the session remember-memo, and a remembered pattern arriving later is
-// auto-replied "always" silently — the card stays hidden while that reply
-// is in flight and appears (with the inline error) if it fails, so nothing
-// is ever dropped silently. A "1 of N" indicator shows the queue position
-// when more than one request is pending. The dialog cannot be dismissed
-// (no close button / Esc / overlay): a permission must be answered, not
-// skipped. The `variant` prop reserves the M7 mobile bottom sheet; only
-// "overlay" renders today.
+// mounted once per workspace (DesktopShell overlay, MobileShell bottom
+// sheet — TASK-M7-05), it reads the per-server permission queue
+// (stores/permission.ts) and shows the queue head — permission type,
+// pattern chips, tool context (messageID/callID) and an expandable
+// metadata detail — with the three reply actions (Allow once / Always
+// allow / Reject) posting to POST /permission/{requestID}/reply. A
+// request is dequeued only after its reply POST succeeds (a failure
+// keeps it queued — the requeue — and shows an inline error; the reply
+// buttons are disabled while one POST is in flight). `permission.replied`
+// events dequeue independently (idempotent, routed in stores/events.ts).
+// "Always allow" also records the pattern in the session remember-memo,
+// and a remembered pattern arriving later is auto-replied "always"
+// silently — the card stays hidden while that reply is in flight and
+// appears (with the inline error) if it fails, so nothing is ever dropped
+// silently. A "1 of N" indicator shows the queue position when more than
+// one request is pending. The card cannot be dismissed (no close button /
+// Esc / scrim / drag): a permission must be answered, not skipped — the
+// sheet variant pins the Sheet's `dismissible` to false.
 
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
+import Sheet from "../../components/Sheet.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError, errorTitle } from "../../services/errors.js";
 import { createPermissionService, type PermissionReply } from "../../services/permission.js";
@@ -31,7 +32,7 @@ import { isPatternRemembered, rememberPattern } from "./remembered.js";
 export interface PermissionSheetProps {
   /** The server whose permission queue is shown. */
   serverId: string;
-  /** "overlay" = desktop dialog; "sheet" = M7 mobile bottom sheet (no-op). */
+  /** "overlay" = desktop dialog; "sheet" = M7 mobile bottom sheet. */
   variant: "overlay" | "sheet";
 }
 
@@ -47,6 +48,118 @@ function actionButtonClass(kind: "accent" | "danger" | "neutral"): string {
     default:
       return `${base} border border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary`;
   }
+}
+
+interface PermissionCardProps {
+  /** The queue head shown by the card. */
+  request: PermissionRequest;
+  /** Queue length (drives the "1 of N" indicator). */
+  count: number;
+  replying: boolean;
+  error: ApiError | null;
+  detailsOpen: boolean;
+  onToggleDetails: () => void;
+  onAction: (reply: PermissionReply) => void;
+}
+
+/** The shared card body — used by both the overlay dialog and the mobile
+ *  bottom sheet, so the reply logic renders identically everywhere. */
+function PermissionCard(props: PermissionCardProps) {
+  return (
+    <>
+      <div class="flex items-start justify-between gap-3">
+        <div class="min-w-0">
+          <Show when={props.count > 1}>
+            <p data-testid="permission-queue-position" class="mt-0.5 text-xs text-fg-faint">
+              1 of {props.count} waiting
+            </p>
+          </Show>
+        </div>
+        <span
+          data-testid="permission-type"
+          class="shrink-0 rounded-full border border-accent bg-accent-soft px-3 py-1 font-code text-xs text-accent"
+        >
+          {props.request.permission}
+        </span>
+      </div>
+
+      <Show when={props.request.patterns.length > 0}>
+        <div data-testid="permission-patterns" class="mt-3 flex flex-wrap gap-1.5">
+          <For each={props.request.patterns}>
+            {(pattern) => (
+              <code class="rounded border border-bg-sunken bg-bg-sunken px-2 py-0.5 font-code text-xs text-fg-default">
+                {pattern}
+              </code>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      <Show when={props.request.tool}>
+        <p data-testid="permission-tool-context" class="mt-3 font-code text-xs text-fg-faint">
+          message {props.request.tool?.messageID} · call {props.request.tool?.callID}
+        </p>
+      </Show>
+
+      <Show when={Object.keys(props.request.metadata).length > 0}>
+        <div class="mt-3">
+          <button
+            type="button"
+            data-testid="permission-details-toggle"
+            aria-expanded={props.detailsOpen ? "true" : "false"}
+            class="text-xs font-medium text-fg-secondary outline-none hover:text-fg-primary"
+            onClick={() => props.onToggleDetails()}
+          >
+            {props.detailsOpen ? "Hide details" : "Show details"}
+          </button>
+          <Show when={props.detailsOpen}>
+            <pre
+              data-testid="permission-details"
+              class="mt-1.5 max-h-40 overflow-auto rounded-md border border-bg-sunken bg-bg-sunken p-2.5 font-code text-xs text-fg-secondary"
+            >
+              {JSON.stringify(props.request.metadata, null, 2)}
+            </pre>
+          </Show>
+        </div>
+      </Show>
+
+      <Show when={props.error}>
+        <p data-testid="permission-error" class="mt-3 text-sm text-danger">
+          {errorTitle(props.error!)} — the request stays queued; retry below.
+        </p>
+      </Show>
+
+      <div class="mt-5 flex flex-wrap justify-end gap-2">
+        <button
+          type="button"
+          data-testid="permission-allow-once"
+          class={actionButtonClass("neutral")}
+          disabled={props.replying}
+          onClick={() => props.onAction("once")}
+        >
+          Allow once
+        </button>
+        <button
+          type="button"
+          data-testid="permission-allow-always"
+          class={actionButtonClass("accent")}
+          disabled={props.replying}
+          onClick={() => props.onAction("always")}
+        >
+          Always allow
+        </button>
+        <button
+          type="button"
+          data-testid="permission-reject"
+          class={actionButtonClass("danger")}
+          disabled={props.replying}
+          onClick={() => props.onAction("reject")}
+        >
+          Reject
+        </button>
+      </div>
+    </>
+  );
 }
 
 const PermissionSheet: Component<PermissionSheetProps> = (props) => {
@@ -78,9 +191,8 @@ const PermissionSheet: Component<PermissionSheetProps> = (props) => {
 
   // Auto-reply: a remembered pattern is answered "always" without showing
   // the card. A failed attempt surfaces the card with the inline error for
-  // a manual retry.
+  // a manual retry. Runs in both variants (TASK-M7-05 wired the sheet).
   createEffect(() => {
-    if (props.variant !== "overlay") return;
     const request = head();
     if (request === undefined || replying()) return;
     if (!isPatternRemembered(props.serverId, request)) return;
@@ -113,122 +225,56 @@ const PermissionSheet: Component<PermissionSheetProps> = (props) => {
     void replyTo(request, reply);
   }
 
+  const card = (request: PermissionRequest) => (
+    <PermissionCard
+      request={request}
+      count={count()}
+      replying={replying()}
+      error={error()}
+      detailsOpen={detailsOpen()}
+      onToggleDetails={() => setDetailsOpen((open) => !open)}
+      onAction={(reply) => onAction(request, reply)}
+    />
+  );
+
   return (
-    <Dialog.Root open={props.variant === "overlay" && visible() !== undefined}>
-      <Dialog.Portal>
-        <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
-        <Dialog.Content
-          data-testid="permission-sheet"
-          class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 p-6"
-          onEscapeKeyDown={(event) => event.preventDefault()}
-        >
-          <Show when={visible()} fallback={null}>
-            {(request) => (
-              <>
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <Dialog.Title class="text-md font-semibold">Permission request</Dialog.Title>
-                    <Show when={count() > 1}>
-                      <p
-                        data-testid="permission-queue-position"
-                        class="mt-0.5 text-xs text-fg-faint"
-                      >
-                        1 of {count()} waiting
-                      </p>
-                    </Show>
-                  </div>
-                  <span
-                    data-testid="permission-type"
-                    class="shrink-0 rounded-full border border-accent bg-accent-soft px-3 py-1 font-code text-xs text-accent"
-                  >
-                    {request().permission}
-                  </span>
-                </div>
+    <>
+      {/* Desktop overlay: the classic centered dialog (cannot be dismissed). */}
+      <Dialog.Root open={props.variant === "overlay" && visible() !== undefined}>
+        <Dialog.Portal>
+          <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+          <Dialog.Content
+            data-testid="permission-sheet"
+            class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 p-6"
+            onEscapeKeyDown={(event) => event.preventDefault()}
+          >
+            <Show when={visible()} fallback={null}>
+              {(request) => (
+                <>
+                  <Dialog.Title class="text-md font-semibold">Permission request</Dialog.Title>
+                  {card(request())}
+                </>
+              )}
+            </Show>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
 
-                <Show when={request().patterns.length > 0}>
-                  <div data-testid="permission-patterns" class="mt-3 flex flex-wrap gap-1.5">
-                    <For each={request().patterns}>
-                      {(pattern) => (
-                        <code class="rounded border border-bg-sunken bg-bg-sunken px-2 py-0.5 font-code text-xs text-fg-default">
-                          {pattern}
-                        </code>
-                      )}
-                    </For>
-                  </div>
-                </Show>
-
-                <Show when={request().tool}>
-                  <p
-                    data-testid="permission-tool-context"
-                    class="mt-3 font-code text-xs text-fg-faint"
-                  >
-                    message {request().tool?.messageID} · call {request().tool?.callID}
-                  </p>
-                </Show>
-
-                <Show when={Object.keys(request().metadata).length > 0}>
-                  <div class="mt-3">
-                    <button
-                      type="button"
-                      data-testid="permission-details-toggle"
-                      aria-expanded={detailsOpen() ? "true" : "false"}
-                      class="text-xs font-medium text-fg-secondary outline-none hover:text-fg-primary"
-                      onClick={() => setDetailsOpen((open) => !open)}
-                    >
-                      {detailsOpen() ? "Hide details" : "Show details"}
-                    </button>
-                    <Show when={detailsOpen()}>
-                      <pre
-                        data-testid="permission-details"
-                        class="mt-1.5 max-h-40 overflow-auto rounded-md border border-bg-sunken bg-bg-sunken p-2.5 font-code text-xs text-fg-secondary"
-                      >
-                        {JSON.stringify(request().metadata, null, 2)}
-                      </pre>
-                    </Show>
-                  </div>
-                </Show>
-
-                <Show when={error()}>
-                  <p data-testid="permission-error" class="mt-3 text-sm text-danger">
-                    {errorTitle(error()!)} — the request stays queued; retry below.
-                  </p>
-                </Show>
-
-                <div class="mt-5 flex flex-wrap justify-end gap-2">
-                  <button
-                    type="button"
-                    data-testid="permission-allow-once"
-                    class={actionButtonClass("neutral")}
-                    disabled={replying()}
-                    onClick={() => onAction(request(), "once")}
-                  >
-                    Allow once
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="permission-allow-always"
-                    class={actionButtonClass("accent")}
-                    disabled={replying()}
-                    onClick={() => onAction(request(), "always")}
-                  >
-                    Always allow
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="permission-reject"
-                    class={actionButtonClass("danger")}
-                    disabled={replying()}
-                    onClick={() => onAction(request(), "reject")}
-                  >
-                    Reject
-                  </button>
-                </div>
-              </>
-            )}
-          </Show>
-        </Dialog.Content>
-      </Dialog.Portal>
-    </Dialog.Root>
+      {/* Mobile bottom sheet (TASK-M7-05): the same card inside the Sheet;
+          pinned (dismissible=false) — a permission must be answered. */}
+      <Sheet
+        open={props.variant === "sheet" && visible() !== undefined}
+        onClose={() => undefined}
+        snap="high"
+        title="Permission request"
+        testId="permission-sheet"
+        dismissible={false}
+      >
+        <Show when={visible()} fallback={null}>
+          {(request) => card(request())}
+        </Show>
+      </Sheet>
+    </>
   );
 };
 

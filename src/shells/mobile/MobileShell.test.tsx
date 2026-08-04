@@ -5,7 +5,8 @@
 // web nav is the fallback on Android / bridge-less iOS. TASK-M7-04 adds
 // the safe-area classes (pb-safe-bar / pb-safe) and the native bar
 // visibility lifecycle: the shell shows the bar on mount and hides it on
-// unmount through the glass bridge's setHidden message.
+// unmount through the glass bridge's setHidden message. TASK-M7-05 mounts
+// the permission and question sheets in their mobile presentation.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -14,6 +15,16 @@ import { refreshPlatform } from "../../platform";
 import { resetNav } from "./navigation";
 import { applySessionList, resetServer as resetSessions } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
+import {
+  dequeue as dequeuePermission,
+  enqueue as enqueuePermission,
+  resetServer as resetPermissionStore,
+} from "../../stores/permission";
+import {
+  dequeue as dequeueQuestion,
+  enqueue as enqueueQuestion,
+  resetServer as resetQuestionStore,
+} from "../../stores/question";
 import type { Session } from "../../services/session";
 import type { ServerEntry } from "../../services/servers";
 
@@ -102,6 +113,8 @@ afterEach(() => {
   resetNav();
   resetSessions(SERVER.id);
   resetMessages(SERVER.id);
+  resetPermissionStore(SERVER.id);
+  resetQuestionStore(SERVER.id);
 });
 
 function renderShell() {
@@ -262,5 +275,42 @@ describe("MobileShell", () => {
     await waitFor(() =>
       expect(screen.getByTestId("mobile-page-terminal")).toHaveAttribute("data-active", "true"),
     );
+  });
+
+  it("mounts the permission and question sheets in the mobile presentation", async () => {
+    stubAndroid();
+    enqueuePermission(SERVER.id, {
+      id: "per_mobile_1",
+      sessionID: "sess_1",
+      permission: "bash",
+      patterns: ["pnpm test"],
+      metadata: {},
+      always: [],
+    });
+    enqueueQuestion(SERVER.id, {
+      id: "que_mobile_1",
+      sessionID: "sess_1",
+      questions: [
+        {
+          question: "Which approach?",
+          header: "Approach",
+          options: [{ label: "A", description: "" }],
+        },
+      ],
+    });
+    renderShell();
+    await waitFor(() => screen.getByTestId("mobile-shell"));
+
+    // Both queues surface as bottom sheets pinned inside the shell.
+    await waitFor(() => expect(screen.getByTestId("permission-sheet")).toBeInTheDocument());
+    expect(screen.getByTestId("permission-type")).toHaveTextContent("bash");
+    await waitFor(() => expect(screen.getByTestId("question-sheet")).toBeInTheDocument());
+    expect(screen.getByTestId("question-text")).toHaveTextContent("Which approach?");
+
+    // Draining the queues (the replied/rejected event path) hides both.
+    dequeuePermission(SERVER.id, "per_mobile_1");
+    dequeueQuestion(SERVER.id, "que_mobile_1");
+    await waitFor(() => expect(screen.queryByTestId("permission-sheet")).toBeNull());
+    expect(screen.queryByTestId("question-sheet")).toBeNull();
   });
 });

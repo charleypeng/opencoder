@@ -32,6 +32,8 @@ import { nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
 import type { TabId } from "./navigation.js";
 import { pageRegistry, NotFoundPage } from "./pages.js";
 import type { MobilePage } from "./pages.js";
+import PermissionSheet from "../../features/permissions/PermissionSheet.js";
+import QuestionSheet from "../../features/questions/QuestionSheet.js";
 
 export interface MobileShellProps {
   /** The server opened from the home screen (initially active). */
@@ -193,6 +195,15 @@ const MobileShell: Component<MobileShellProps> = (props) => {
           )}
         </For>
       </nav>
+
+      {/* Permission sheet (TASK-M5-01) mobile presentation (TASK-M7-05):
+          the queue head renders as a bottom sheet; pinned — a permission
+          must be answered, not skipped. */}
+      <PermissionSheet serverId={props.server.id} variant="sheet" />
+
+      {/* Question sheet (TASK-M5-02) mobile presentation (TASK-M7-05):
+          same bottom-sheet treatment as the permission queue. */}
+      <QuestionSheet serverId={props.server.id} variant="sheet" />
     </div>
   );
 };
