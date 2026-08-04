@@ -110,6 +110,7 @@ const ALL_PART_TYPES = [
   "step-start",
   "step-finish",
   "subtask",
+  "agent",
   "retry",
   "compaction",
 ] as const;
@@ -129,9 +130,12 @@ describe("recorded fixtures (tests/fixtures)", () => {
     }
   });
 
-  it("message.stream.all-parts covers every Part type exactly once each", () => {
+  it("message.stream.all-parts covers every Part type at least once", () => {
     const types = allParts.parts.map((part) => part.type);
     expect(new Set(types)).toEqual(new Set(ALL_PART_TYPES));
+    // The step pair repeats so the multi-step hierarchy renders (TASK-M3-03).
+    expect(types.filter((type) => type === "step-start").length).toBeGreaterThanOrEqual(2);
+    expect(types.filter((type) => type === "step-finish").length).toBeGreaterThanOrEqual(2);
 
     const toolStates = allParts.parts
       .filter((part) => part.type === "tool")

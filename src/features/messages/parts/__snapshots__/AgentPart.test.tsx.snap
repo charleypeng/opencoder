@@ -1,0 +1,37 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`AgentPart snapshot > matches the fixture's agent part 1`] = `
+<div>
+  <span
+    class="my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent"
+    data-testid="agent-part"
+  >
+    <svg
+      aria-hidden=""
+      class="h-3.5 w-3.5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      stroke-width="1.5"
+      viewBox="0 0 16 16"
+    >
+      <rect
+        height="7"
+        rx="1.5"
+        width="11"
+        x="2.5"
+        y="5.5"
+      />
+      <path
+        d="M8 2.5v3M4.8 8.3h.01M7.5 8.3h.01M10.2 8.3h.01"
+      />
+    </svg>
+    <span
+      data-testid="agent-name"
+    >
+      build
+    </span>
+  </span>
+</div>
+`;

@@ -149,8 +149,17 @@ describe("MessageBubble", () => {
     await waitFor(() => expect(bubble.querySelector('[data-testid="typing-cursor"]')).toBeNull());
   });
 
-  it("renders file, patch and snapshot parts from the all-parts fixture", async () => {
-    for (const partId of ["prt_p3", "prt_p6", "prt_p10", "prt_p11"]) {
+  it("renders file, patch, snapshot, step, subtask and agent parts from the all-parts fixture", async () => {
+    for (const partId of [
+      "prt_p3",
+      "prt_p6",
+      "prt_p10",
+      "prt_p11",
+      "prt_p1",
+      "prt_p12",
+      "prt_p7",
+      "prt_p21",
+    ]) {
       const part = allPartsFixtureJson.parts.find((item) => item.id === partId);
       expect(part).toBeDefined();
       applyPartDelta(SERVER, SESSION, part as Part);
@@ -160,7 +169,16 @@ describe("MessageBubble", () => {
         serverId={SERVER}
         sessionId={SESSION}
         messageID="msg_m2"
-        partIds={["prt_p3", "prt_p6", "prt_p10", "prt_p11"]}
+        partIds={[
+          "prt_p3",
+          "prt_p6",
+          "prt_p10",
+          "prt_p11",
+          "prt_p1",
+          "prt_p12",
+          "prt_p7",
+          "prt_p21",
+        ]}
       />
     ));
 
@@ -181,6 +199,27 @@ describe("MessageBubble", () => {
     expect(snapshot).not.toBeNull();
     expect(snapshot).toHaveTextContent("Snapshot");
     expect(snapshot).toHaveTextContent("snp_a1b2c3d4");
+
+    const stepStart = bubble.querySelector('[data-testid="step-start-part"]');
+    expect(stepStart).not.toBeNull();
+    expect(stepStart).toHaveTextContent("Step");
+
+    const stepFinish = bubble.querySelector('[data-testid="step-finish-part"]');
+    expect(stepFinish).not.toBeNull();
+    expect(stepFinish).toHaveTextContent("Step complete");
+    expect(stepFinish).toHaveTextContent("1.8k tokens");
+    expect(stepFinish).toHaveTextContent("$0.42");
+
+    const subtask = bubble.querySelector('[data-testid="subtask-part"]');
+    expect(subtask).not.toBeNull();
+    expect(subtask).toHaveTextContent(
+      "Implement the auth API client and wire it into the login form",
+    );
+    expect(subtask?.querySelector('[data-testid="agent-chip"]')).toHaveTextContent("build");
+
+    const agent = bubble.querySelector('[data-testid="agent-part"]');
+    expect(agent).not.toBeNull();
+    expect(agent).toHaveTextContent("build");
   });
 
   it("keeps the caret in place across text deltas", async () => {

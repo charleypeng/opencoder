@@ -136,19 +136,23 @@ describe("MessageList", () => {
     expect(within(completed).getByText(/auth/)).toBeInTheDocument();
   });
 
-  it("renders every supported part from the all-parts fixture and skips the rest", async () => {
+  it("renders every supported part from the all-parts fixture", async () => {
     mockClient([allPartsFixture]);
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-msg_m2")).toBeInTheDocument());
 
-    // text / reasoning / tool render; unsupported types (step-start, file,
-    // subtask, retry, compaction, patch, snapshot, step-finish) are skipped.
+    // text / reasoning / tool plus the step / subtask / agent hierarchy.
     expect(
       screen.getByText("Let me check the existing project structure first."),
     ).toBeInTheDocument();
     expect(screen.getByText("Reasoning")).toBeInTheDocument();
     expect(screen.getAllByTestId("tool-part")).toHaveLength(9);
-    expect(screen.queryByText(/Implement the auth API client/)).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("step-start-part")).toHaveLength(2);
+    expect(screen.getAllByTestId("step-finish-part")).toHaveLength(2);
+    expect(screen.getByTestId("subtask-part")).toHaveTextContent(
+      "Implement the auth API client and wire it into the login form",
+    );
+    expect(screen.getByTestId("agent-part")).toHaveTextContent("build");
   });
 
   it("shows the empty state when the session has no messages", async () => {

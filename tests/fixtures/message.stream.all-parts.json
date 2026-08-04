@@ -330,6 +330,38 @@
         },
         "raw": "bash ls src"
       }
+    },
+    {
+      "id": "prt_p20",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "step-start",
+      "snapshot": "snp_e6f7a8b9c0d1"
+    },
+    {
+      "id": "prt_p21",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "agent",
+      "name": "build"
+    },
+    {
+      "id": "prt_p22",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "step-finish",
+      "reason": "completed",
+      "cost": 0.012,
+      "tokens": {
+        "total": 12000,
+        "input": 10000,
+        "output": 2000,
+        "reasoning": 0,
+        "cache": {
+          "read": 0,
+          "write": 0
+        }
+      }
     }
   ]
 }

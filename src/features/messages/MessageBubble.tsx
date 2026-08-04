@@ -14,10 +14,13 @@ import { createMemo, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
+import AgentPart from "./parts/AgentPart.js";
 import FilePart from "./parts/FilePart.js";
 import PatchPart from "./parts/PatchPart.js";
 import ReasoningPart from "./parts/ReasoningPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
+import { StepFinishPart, StepStartPart } from "./parts/StepPart.js";
+import SubtaskPart from "./parts/SubtaskPart.js";
 import TextPart from "./parts/TextPart.js";
 import ToolPart from "./parts/ToolPart.js";
 
@@ -42,6 +45,10 @@ type RenderablePart = Extract<
   | { type: "file" }
   | { type: "patch" }
   | { type: "snapshot" }
+  | { type: "step-start" }
+  | { type: "step-finish" }
+  | { type: "subtask" }
+  | { type: "agent" }
 >;
 
 function isRenderable(part: Part | undefined): part is RenderablePart {
@@ -52,7 +59,11 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
       part.type === "tool" ||
       part.type === "file" ||
       part.type === "patch" ||
-      part.type === "snapshot")
+      part.type === "snapshot" ||
+      part.type === "step-start" ||
+      part.type === "step-finish" ||
+      part.type === "subtask" ||
+      part.type === "agent")
   );
 }
 
@@ -78,6 +89,14 @@ function PartView(props: { part: Part | undefined; streaming?: boolean }) {
         return <PatchPart part={props.part} />;
       case "snapshot":
         return <SnapshotPart part={props.part} />;
+      case "step-start":
+        return <StepStartPart part={props.part} />;
+      case "step-finish":
+        return <StepFinishPart part={props.part} />;
+      case "subtask":
+        return <SubtaskPart part={props.part} />;
+      case "agent":
+        return <AgentPart part={props.part} />;
       default:
         // Unsupported part types render nothing until their milestones land.
         return null;
