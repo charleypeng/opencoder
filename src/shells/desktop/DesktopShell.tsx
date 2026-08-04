@@ -575,7 +575,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   return (
     <div
-      class="flex h-screen min-h-0 flex-col bg-bg-base text-fg-primary"
+      class="flex h-full min-h-0 flex-col bg-bg-base text-fg-primary"
       data-testid="desktop-shell"
       data-active-scope={activeScope()}
     >

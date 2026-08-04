@@ -347,12 +347,14 @@ function ServerHome(props: ServerHomeProps) {
   }
 
   return (
-    // TASK-M7-04: min-h-dvh + pb-safe keep the home clear of the notch /
+    // TASK-M7-04: min-h-full + pb-safe keep the home clear of the notch /
     // home indicator on mobile (env() is 0 on desktop, so the classes are
     // desktop-neutral); the header's top/left/right padding grows by the
     // safe-area insets via max() so the sticky bar never sits under the
-    // notch in portrait or landscape.
-    <div class="min-h-dvh bg-bg-base text-fg-primary pb-safe" data-testid="server-home">
+    // notch in portrait or landscape. TASK-M8-04: min-h-full (instead of
+    // min-h-dvh) lets the page fill the App content wrapper below the
+    // desktop TitleBar without overflowing it.
+    <div class="min-h-full bg-bg-base text-fg-primary pb-safe" data-testid="server-home">
       <header class="glass sticky top-0 z-10 flex items-center justify-between pb-4 pl-[max(1.5rem,env(safe-area-inset-left,0px))] pr-[max(1.5rem,env(safe-area-inset-right,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]">
         <div>
           <h1 class="text-lg font-semibold">opencoder</h1>

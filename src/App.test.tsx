@@ -4,7 +4,9 @@
 // on mobile (src/platform). The shells are stubbed so the test focuses on
 // the switch itself. TASK-M7-04: on mobile the startup state is the
 // servers home (no bottom nav), so App asserts the native glass bar stays
-// hidden through the bridge control.
+// hidden through the bridge control. TASK-M8-04: on desktop the custom
+// TitleBar (window chrome) is mounted above every screen — the home page
+// included — and never on mobile.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
@@ -23,6 +25,9 @@ vi.mock("./features/servers/ServerHome", () => ({
       Home
     </button>
   ),
+}));
+vi.mock("./shells/desktop/TitleBar", () => ({
+  default: () => <div data-testid="titlebar-mock" />,
 }));
 vi.mock("./shells/desktop/DesktopShell", () => ({
   default: () => <div data-testid="desktop-shell-mock" />,
@@ -46,9 +51,12 @@ describe("App platform switch", () => {
     refreshPlatform();
     render(() => <App />);
     const home = await screen.findByTestId("server-home");
+    // The window chrome (custom TitleBar) is mounted above the home too.
+    expect(screen.getByTestId("titlebar-mock")).toBeInTheDocument();
     fireEvent.click(home);
     await screen.findByTestId("desktop-shell-mock");
     expect(screen.queryByTestId("mobile-shell-mock")).not.toBeInTheDocument();
+    expect(screen.getByTestId("titlebar-mock")).toBeInTheDocument();
     // Desktop never touches the native glass bar control.
     expect(glassHide).not.toHaveBeenCalled();
   });
@@ -62,6 +70,8 @@ describe("App platform switch", () => {
     refreshPlatform();
     render(() => <App />);
     const home = await screen.findByTestId("server-home");
+    // Mobile has no window chrome; the TitleBar never mounts.
+    expect(screen.queryByTestId("titlebar-mock")).not.toBeInTheDocument();
     // Mobile startup lands on the servers home: no bottom navigation, so
     // the native glass bar must stay hidden (TASK-M7-04).
     expect(glassHide).toHaveBeenCalledTimes(1);

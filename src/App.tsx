@@ -2,6 +2,7 @@ import { createSignal, onMount, Show } from "solid-js";
 import ServerHome from "./features/servers/ServerHome";
 import DesktopShell from "./shells/desktop/DesktopShell";
 import MobileShell from "./shells/mobile/MobileShell";
+import TitleBar from "./shells/desktop/TitleBar";
 import { setGlassBarHidden } from "./shells/mobile/glassControl.js";
 import { platform } from "./platform";
 import type { ServerEntry } from "./services/servers";
@@ -16,6 +17,12 @@ import type { ServerEntry } from "./services/servers";
 // bottom navigation — assert the native glass bar stays hidden here (the
 // plugin starts hidden too); MobileShell shows it while the workspace is
 // mounted and hides it again on unmount (src/shells/mobile/glassControl.ts).
+//
+// TASK-M8-04: on desktop the custom TitleBar (window chrome: drag region,
+// traffic-light spacer on macOS, custom min/max/close on Windows/Linux)
+// is mounted above the content so every desktop screen keeps its window
+// controls — the content wrapper absorbs the remaining height, and the
+// shells' roots use percentage heights (h-full / min-h-full) to fill it.
 
 function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
@@ -25,15 +32,20 @@ function App() {
   });
 
   return (
-    <>
-      <Show when={selected()} fallback={<ServerHome onSelect={setSelected} />}>
-        {platform.kind === "mobile" ? (
-          <MobileShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
-        ) : (
-          <DesktopShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
-        )}
+    <div class="flex h-dvh flex-col">
+      <Show when={platform.kind === "desktop"}>
+        <TitleBar />
       </Show>
-    </>
+      <div class="min-h-0 flex-1">
+        <Show when={selected()} fallback={<ServerHome onSelect={setSelected} />}>
+          {platform.kind === "mobile" ? (
+            <MobileShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+          ) : (
+            <DesktopShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+          )}
+        </Show>
+      </div>
+    </div>
   );
 }
 

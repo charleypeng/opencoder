@@ -88,7 +88,7 @@ export type Platform =
 export const platform: Platform = detect(); // UA + tauri os plugin + 视口综合判定
 ```
 
-- `App.tsx` 根据 `platform.kind` 挂载 `DesktopShell` 或 `MobileShell`
+- `App.tsx` 根据 `platform.kind` 挂载 `DesktopShell` 或 `MobileShell`；desktop 时在内容上方挂载自定义 `TitleBar`（M8-04 窗口 chrome：macOS Overlay 红绿灯避让 / Win+Linux 无边框自定义控件）
 - 功能可用性表（`platform/capabilities.ts`）：`supportsPet`、`supportsGlobalShortcut`、`supportsNativeGlass`、`supportsTray`…
 - 响应式断点只作为兜底，**形态切换以平台探测为准**（避免 iPad 横屏误判）
 
@@ -174,8 +174,8 @@ registryStore                       # 全部服务器（前端镜像 Rust 注册
 | dialog / fs | 桌面文件操作、图片附件选取 | 桌面+移动 |
 | opener | 外部打开链接/分享 URL | 全平台 |
 | os | 平台探测 | 全平台 |
-| window-state | 桌面窗口位置记忆 | 桌面 |
-| single-instance | 桌面单实例 | 桌面 |
+| window-state | 桌面窗口位置记忆（M8-04 已接线） | 桌面 |
+| single-instance | 桌面单实例（M8-04 已接线：二次启动聚焦主窗口） | 桌面 |
 | global-shortcut | 全局快捷键（唤起） | 桌面 |
 | haptics | 移动端触觉反馈 | 移动 |
 | barcode-scanner | 扫码添加服务器（二维码含 URL+端口） | 移动 |
