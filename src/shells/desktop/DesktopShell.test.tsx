@@ -6,7 +6,9 @@
 // the stream is (re)built when the active server or directory changes, and
 // switching projects re-syncs isolated session/message state. TASK-M2-04
 // mounts the session list below the switcher; selecting a row echoes the
-// session id in the main placeholder.
+// session id in the main placeholder. TASK-M2-05 drives the main
+// placeholder from the store's active session id, so the "+ New session"
+// button enters the created session in the store and the main pane.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
@@ -106,6 +108,19 @@ function mockHttpRoutes(servers: ServerEntry[]) {
         return Promise.resolve(httpResponse(directory === LABS_DIR ? LABS_PROJECT : DEMO_PROJECT));
       }
       if (request?.path === "/session") {
+        if (request?.method === "POST") {
+          return Promise.resolve(
+            httpResponse({
+              id: "sess_new_01",
+              slug: "untitled",
+              projectID: "project-mock-1",
+              directory: DEMO_DIR,
+              title: "",
+              version: "1.18.11",
+              time: { created: 1, updated: 1 },
+            }),
+          );
+        }
         return Promise.resolve(
           httpResponse(
             directory === LABS_DIR
@@ -156,6 +171,7 @@ afterEach(() => {
   resetSessions("srv-rail-a");
   resetSessions("srv-rail-b");
   resetSessions("srv-sel");
+  resetSessions("srv-new");
   resetMessages("srv-switch");
   resetProjects("srv-sse");
   resetProjects("srv-switch");
@@ -377,5 +393,22 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     fireEvent.click(await screen.findByTestId("session-item-sess_sel_01"));
     expect(getServerSessionState("srv-sel").activeSessionId).toBe("sess_sel_01");
     expect(screen.getByTestId("main-selected-session")).toHaveTextContent("sess_sel_01");
+  });
+
+  it("creating a new session enters it in the store and the main pane (TASK-M2-05)", async () => {
+    const alpha = server({ id: "srv-new", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    // Wait for the mount-time re-sync to settle before creating, so the
+    // full-list replacement can no longer overwrite the new session.
+    await waitFor(() => expect(sessions["srv-new"]?.order).toEqual(["sess_demo_01"]));
+
+    fireEvent.click(screen.getByTestId("new-session-button"));
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-new").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("main-selected-session")).toHaveTextContent("sess_new_01");
+    expect(sessions["srv-new"]?.order).toContain("sess_new_01");
   });
 });

@@ -1,9 +1,10 @@
-// Session list (TASK-M2-04): the sidebar's lower section. Renders the
+// Session list (TASK-M2-04/05): the sidebar's lower section. Renders the
 // server's sessions grouped by local time (Today / Yesterday / This Week /
 // Earlier) with a status badge per session (busy spinner, idle dot, error
-// red dot), a local search filter, the active-session highlight and a
-// hover-actions stub (rename/delete are wired in M2-05). The store is
-// SSE-driven, so grouping and badges update live without polling.
+// red dot), a local search filter, the active-session highlight, a
+// per-row actions menu (rename / delete dialogs) and a "+ New session"
+// button (header + empty state). The store is SSE-driven, so grouping and
+// badges update live without polling.
 //
 // Virtual scroll preparation: rows render plainly today; when session
 // counts grow, swap the <For> bodies for a virtualized list (e.g.
@@ -11,7 +12,12 @@
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { DropdownMenu } from "@kobalte/core";
+import ErrorBanner from "../../components/ErrorBanner.js";
+import { getApiClient } from "../../services/client.js";
+import { ApiError } from "../../services/errors.js";
 import type { Session } from "../../services/session.js";
+import { createSessionService } from "../../services/session.js";
 import {
   type SessionStatusEntry,
   getServerSessionState,
@@ -19,6 +25,9 @@ import {
 } from "../../stores/session.js";
 import { formatRelativeTime } from "../servers/relativeTime.js";
 import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
+import { createSession } from "./sessionActions.js";
+import DeleteSessionDialog from "./DeleteSessionDialog.js";
+import RenameSessionDialog from "./RenameSessionDialog.js";
 
 export interface SessionListProps {
   /** The server whose sessions are shown. */
@@ -79,21 +88,47 @@ function StatusBadge(props: { status: SessionStatusEntry | undefined }) {
   );
 }
 
-// Hover actions stub (TASK-M2-04): the "⋯" button establishes the pattern;
-// M2-05 replaces it with a real rename/delete menu wired to the store.
-function SessionRowMenu() {
+// Hover actions (TASK-M2-05): the "⋯" trigger opens a rename/delete menu;
+// the dialogs live in SessionList, keyed per target session.
+function SessionRowMenu(props: { onRename: () => void; onDelete: () => void }) {
   return (
-    <button
-      type="button"
-      data-testid="session-row-menu"
-      aria-label="Session actions"
-      disabled
-      class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity group-hover:visible group-hover:opacity-100"
-    >
-      ⋯
-    </button>
+    <DropdownMenu.Root>
+      <DropdownMenu.Trigger
+        as="button"
+        type="button"
+        data-testid="session-row-menu"
+        aria-label="Session actions"
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={(event) => event.stopPropagation()}
+        class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary transition-opacity group-hover:visible group-hover:opacity-100"
+      >
+        ⋯
+      </DropdownMenu.Trigger>
+      <DropdownMenu.Portal>
+        <DropdownMenu.Content class="glass z-50 min-w-36 p-1">
+          <DropdownMenu.Item
+            data-testid="session-menu-rename"
+            class={menuItemClass}
+            onSelect={props.onRename}
+          >
+            Rename
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            data-testid="session-menu-delete"
+            class={menuItemClass}
+            onSelect={props.onDelete}
+          >
+            Delete
+          </DropdownMenu.Item>
+        </DropdownMenu.Content>
+      </DropdownMenu.Portal>
+    </DropdownMenu.Root>
   );
 }
+
+const menuItemClass =
+  "flex w-full rounded-sm px-3 py-1.5 text-left text-sm outline-none " +
+  "hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft";
 
 function SessionRow(props: {
   session: Session;
@@ -101,6 +136,8 @@ function SessionRow(props: {
   active: boolean;
   nowMs: number;
   onSelect: (sessionId: string) => void;
+  onRename: (session: Session) => void;
+  onDelete: (session: Session) => void;
 }) {
   return (
     <div
@@ -125,7 +162,10 @@ function SessionRow(props: {
         </span>
       </span>
       <StatusBadge status={props.status} />
-      <SessionRowMenu />
+      <SessionRowMenu
+        onRename={() => props.onRename(props.session)}
+        onDelete={() => props.onDelete(props.session)}
+      />
     </div>
   );
 }
@@ -134,6 +174,10 @@ const SessionList: Component<SessionListProps> = (props) => {
   const state = createMemo(() => getServerSessionState(props.serverId));
   const now = () => props.nowMs ?? Date.now();
   const [query, setQuery] = createSignal("");
+  const [creating, setCreating] = createSignal(false);
+  const [createError, setCreateError] = createSignal<ApiError | null>(null);
+  const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
+  const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
 
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
@@ -153,9 +197,32 @@ const SessionList: Component<SessionListProps> = (props) => {
     props.onSelect(sessionId);
   }
 
+  async function handleCreate() {
+    if (creating()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      await createSession(props.serverId, createSessionService(getApiClient()));
+    } catch (err) {
+      setCreateError(ApiError.fromUnknown(err));
+    } finally {
+      setCreating(false);
+    }
+  }
+
   return (
     <div data-testid="session-list" class="flex min-h-0 flex-1 flex-col">
       <div class="px-3 pb-2 pt-3">
+        <ErrorBanner error={createError()} onDismiss={() => setCreateError(null)} />
+        <button
+          type="button"
+          data-testid="new-session-button"
+          class="mb-2 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
+          disabled={creating()}
+          onClick={handleCreate}
+        >
+          {creating() ? "Creating…" : "+ New session"}
+        </button>
         <input
           type="search"
           data-testid="session-search"
@@ -181,6 +248,15 @@ const SessionList: Component<SessionListProps> = (props) => {
               <div data-testid="session-empty" class="px-3 py-6 text-center">
                 <p class="text-sm text-fg-secondary">No sessions yet</p>
                 <p class="mt-1 text-xs text-fg-faint">New conversations appear here.</p>
+                <button
+                  type="button"
+                  data-testid="new-session-empty-button"
+                  class="mt-3 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={creating()}
+                  onClick={handleCreate}
+                >
+                  {creating() ? "Creating…" : "+ New session"}
+                </button>
               </div>
             </Show>
           }
@@ -202,6 +278,8 @@ const SessionList: Component<SessionListProps> = (props) => {
                       active={state().activeSessionId === session.id}
                       nowMs={now()}
                       onSelect={select}
+                      onRename={setRenameTarget}
+                      onDelete={setDeleteTarget}
                     />
                   )}
                 </For>
@@ -210,6 +288,24 @@ const SessionList: Component<SessionListProps> = (props) => {
           </For>
         </Show>
       </div>
+      <Show when={renameTarget()} keyed>
+        {(target) => (
+          <RenameSessionDialog
+            serverId={props.serverId}
+            session={target}
+            onClose={() => setRenameTarget(null)}
+          />
+        )}
+      </Show>
+      <Show when={deleteTarget()} keyed>
+        {(target) => (
+          <DeleteSessionDialog
+            serverId={props.serverId}
+            session={target}
+            onClose={() => setDeleteTarget(null)}
+          />
+        )}
+      </Show>
     </div>
   );
 };
