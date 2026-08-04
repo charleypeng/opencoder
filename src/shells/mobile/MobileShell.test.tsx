@@ -23,6 +23,8 @@ import {
   setSessionStatus,
 } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
+import { registerSheet, resetSheets } from "../../stores/sheets";
+import { composerPrefill, consumeComposerPrefill } from "../../stores/composer";
 import {
   dequeue as dequeuePermission,
   enqueue as enqueuePermission,
@@ -36,9 +38,10 @@ import {
 import type { Session } from "../../services/session";
 import type { ServerEntry } from "../../services/servers";
 
-const { invokeMock, hapticMock } = vi.hoisted(() => ({
+const { invokeMock, hapticMock, listenMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   hapticMock: vi.fn(),
+  listenMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -46,6 +49,10 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 // can be asserted (the facade's own guard/dispatch is covered in
 // src/services/haptics.test.ts).
 vi.mock("../../services/haptics.js", () => ({ haptic: hapticMock }));
+// TASK-M7-10: the native `back-button` event subscription is mocked so
+// the shell-level back routing can be asserted (the facade's own
+// registration lifecycle is covered in src/services/androidBack.test.ts).
+vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 // MessageBubble renders through Shiki; the stub keeps the shell tests free
 // of language-pack loading (the viewer tests cover the real contract).
 vi.mock("../../features/messages/markdown/highlighter.js", () => ({
@@ -85,6 +92,8 @@ function httpResponse(body: unknown) {
 // The glassBridge postMessage stub of the currently stubbed environment
 // (undefined when no bridge is installed).
 let bridgePostMessage: ReturnType<typeof vi.fn> | undefined;
+// TASK-M7-10: the unlisten fn the mocked native back subscription resolves.
+const unlistenBack = vi.fn();
 
 /** Sets the environment to a mobile platform and re-resolves platform. */
 function stubPlatform(userAgent: string, bridge: boolean): void {
@@ -110,6 +119,13 @@ function stubIOS(bridge: boolean): void {
   stubPlatform(IPHONE_UA, bridge);
 }
 
+/** Android + Tauri internals: the native back / share wiring becomes
+ *  active (TASK-M7-10). */
+function stubAndroidTauri(): void {
+  stubAndroid();
+  Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
+}
+
 beforeEach(() => {
   invokeMock.mockImplementation((cmd: string) => {
     // Message history / any other REST call: an empty payload keeps the
@@ -117,12 +133,15 @@ beforeEach(() => {
     if (cmd === "http_request") return Promise.resolve(httpResponse([]));
     return Promise.resolve(undefined);
   });
+  // TASK-M7-10: the native back listener resolves to this unlisten fn.
+  listenMock.mockResolvedValue(unlistenBack);
 });
 
 afterEach(() => {
   Object.defineProperty(window.navigator, "userAgent", { value: ORIGINAL_UA, configurable: true });
   delete window.webkit;
   delete window.__glassTabSelected;
+  delete window.__TAURI_INTERNALS__;
   bridgePostMessage = undefined;
   refreshPlatform();
   resetNav();
@@ -130,6 +149,8 @@ afterEach(() => {
   resetMessages(SERVER.id);
   resetPermissionStore(SERVER.id);
   resetQuestionStore(SERVER.id);
+  resetSheets();
+  consumeComposerPrefill();
   vi.clearAllMocks();
 });
 
@@ -441,5 +462,104 @@ describe("MobileShell", () => {
     dequeueQuestion(SERVER.id, "que_mobile_1");
     await waitFor(() => expect(screen.queryByTestId("permission-sheet")).toBeNull());
     expect(screen.queryByTestId("question-sheet")).toBeNull();
+  });
+
+  it("pops the route stack on the Android system back (TASK-M7-10)", async () => {
+    stubAndroidTauri();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    const sessionsTab = screen.getByTestId("mobile-page-sessions");
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+
+    // The native listener registers only while a back press can be handled.
+    await waitFor(() =>
+      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
+    );
+    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
+    onBack();
+    await waitFor(() =>
+      expect(within(sessionsTab).queryByTestId("mobile-page-chat")).not.toBeInTheDocument(),
+    );
+    // Back at the root the listener drops so the native default resumes.
+    await waitFor(() => expect(unlistenBack).toHaveBeenCalled());
+  });
+
+  it("closes a dismissible sheet before popping on system back (TASK-M7-10)", async () => {
+    stubAndroidTauri();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    const closeSheet = vi.fn();
+    registerSheet("model-picker", { id: "model-picker", dismissible: true, close: closeSheet });
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    const sessionsTab = screen.getByTestId("mobile-page-sessions");
+    await waitFor(() =>
+      expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
+    );
+
+    // Sheet wins over the route pop.
+    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
+    onBack();
+    await waitFor(() => expect(closeSheet).toHaveBeenCalled());
+    expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument();
+  });
+
+  it("drops the back listener while a pinned permission sheet blocks it (TASK-M7-10)", async () => {
+    stubAndroidTauri();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent.click(screen.getByTestId("session-row-sess_1"));
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("mobile-page-sessions")).getByTestId("mobile-page-chat"),
+      ).toBeInTheDocument(),
+    );
+    await waitFor(() =>
+      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
+    );
+
+    // A pinned sheet opens: nothing can be handled, the native listener
+    // unregisters (Android's default back behavior resumes) and a press
+    // neither pops the chat nor closes the sheet.
+    enqueuePermission(SERVER.id, {
+      id: "per_back_1",
+      sessionID: "sess_1",
+      permission: "bash",
+      patterns: ["pnpm test"],
+      metadata: {},
+      always: [],
+    });
+    await waitFor(() => expect(screen.getByTestId("permission-sheet")).toBeInTheDocument());
+    await waitFor(() => expect(unlistenBack).toHaveBeenCalled());
+    expect(
+      within(screen.getByTestId("mobile-page-sessions")).getByTestId("mobile-page-chat"),
+    ).toBeInTheDocument();
+  });
+
+  it("queues a shared text into the composer store (TASK-M7-10)", async () => {
+    stubAndroidTauri();
+    applySessionList(SERVER.id, [session("sess_1")]);
+    renderShell();
+    await waitFor(() => screen.getByTestId("session-row-sess_1"));
+
+    fireEvent(
+      window,
+      new CustomEvent("share-received", { detail: { text: "  shared into the composer  " } }),
+    );
+    // The mobile chat page has no composer (M7-03 note): the share lands
+    // in the composer store, which the PromptBox consumes on mount (its
+    // DOM application is covered in PromptBox.test.tsx).
+    await waitFor(() => expect(composerPrefill()).toEqual({ text: "shared into the composer" }));
   });
 });

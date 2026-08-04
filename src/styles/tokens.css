@@ -2,6 +2,38 @@
  * Design tokens (docs/ui-design.md §2).
  * Dark is the default; light lives under [data-theme="light"].
  * Bridge into Tailwind v4 via @theme inline in index.css.
+ *
+ * Material 3 role mapping (TASK-M7-10): the mobile chrome is Material-3
+ * inspired; these aliases map the M3 color roles onto the semantic tokens
+ * so Android-native surfaces (status/nav bar tints, splash, edge-to-edge
+ * scrims) can be tuned from one place. The values ARE the M3-ish hues
+ * already in use (exact palette refinement is a design task, not this
+ * task's scope).
+ *
+ *   M3 role                  -> token                (dark / light)
+ *   primary                  -> --accent             (#7c8cff / #4f63f5)
+ *   onPrimary                -> #ffffff (constant)
+ *   secondary                -> --fg-secondary       (#9aa3b2 / #586071)
+ *   tertiary                 -> --success            (#34d399 / #059669)
+ *   surface                  -> --bg-elevated        (#161a22 / #ffffff)
+ *   surfaceContainerLowest   -> --bg-sunken          (#0a0c10 / #ecedf1)
+ *   surfaceContainerHighest  -> --bg-base            (#0f1115 / #f6f7f9)
+ *   onSurface                -> --fg-primary         (#e8eaf0 / #191e29)
+ *   onSurfaceVariant         -> --fg-faint           (#5c6575 / #8b93a3)
+ *   error                    -> --danger             (#f87171 / #dc2626)
+ *   outline                  -> --glass-border       (rgba(255,255,255,0.09)
+ *                                                     / rgba(15,17,21,0.1))
+ *   scrim                    -> --glass-bg           (rgba(22,26,34,0.62)
+ *                                                     / rgba(255,255,255,0.62))
+ *
+ * Motion note (Material motion curves): the sheet/route transitions run on
+ * --ease-spring (a custom spring) over --dur-med; --ease-emphasized is the
+ * official M3 emphasized curve (cubic-bezier(0.2, 0, 0, 1) — in the
+ * published M3 tokens it equals the standard curve; the distinct
+ * sub-curves are emphasized-accelerate 0.3,0,0.8,0.15 and
+ * emphasized-decelerate 0.05,0.7,0.1,1) kept as the Android-native alias.
+ * Durations stay on --dur-fast/--dur-med so prefers-reduced-motion zeroes
+ * them.
  */
 
 :root {
@@ -37,6 +69,11 @@
 
   /* motion */
   --ease-spring: cubic-bezier(0.32, 0.72, 0.24, 1);
+  /* Material 3 "emphasized" easing (TASK-M7-10): the official M3 token
+     value (cubic-bezier(0.2, 0, 0, 1), which the published M3 tokens
+     share with the standard curve) — the curve Android's own system
+     animations use; kept as the Android-native alias. */
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --dur-fast: 120ms;
   --dur-med: 220ms;
 

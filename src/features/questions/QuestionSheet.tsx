@@ -20,7 +20,7 @@
 // with the inline error and the event clears the queue), and the 1.18.11
 // contract has no question timeout event, so nothing else is needed.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import Sheet from "../../components/Sheet.js";
@@ -28,6 +28,7 @@ import { getApiClient } from "../../services/client.js";
 import { ApiError, errorTitle } from "../../services/errors.js";
 import { createQuestionService, type QuestionRequest } from "../../services/question.js";
 import { dequeue, questions } from "../../stores/question.js";
+import { registerSheet } from "../../stores/sheets.js";
 
 export interface QuestionSheetProps {
   /** The server whose question queue is shown. */
@@ -242,6 +243,20 @@ const QuestionSheet: Component<QuestionSheetProps> = (props) => {
   createEffect(() => {
     void question();
     setDraft("");
+  });
+
+  // TASK-M7-10: register the open sheet with the Android system back
+  // resolver (stores/sheets.ts). Pinned — the back key NEVER closes it
+  // (a question must be answered, not skipped), but the entry matters:
+  // the resolver treats a pinned sheet as blocking, so back neither pops
+  // the route underneath nor swallows the press (native default resumes).
+  createEffect(() => {
+    const open = props.variant === "sheet" && head() !== undefined;
+    registerSheet(
+      "question",
+      open ? { id: "question", dismissible: false, close: () => undefined } : null,
+    );
+    onCleanup(() => registerSheet("question", null));
   });
 
   return (

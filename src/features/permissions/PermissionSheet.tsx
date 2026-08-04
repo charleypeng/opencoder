@@ -18,7 +18,7 @@
 // Esc / scrim / drag): a permission must be answered, not skipped — the
 // sheet variant pins the Sheet's `dismissible` to false.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import Sheet from "../../components/Sheet.js";
@@ -27,6 +27,7 @@ import { ApiError, errorTitle } from "../../services/errors.js";
 import { createPermissionService, type PermissionReply } from "../../services/permission.js";
 import type { PermissionRequest } from "../../services/permission.js";
 import { dequeue, permissions } from "../../stores/permission.js";
+import { registerSheet } from "../../stores/sheets.js";
 import { isPatternRemembered, rememberPattern } from "./remembered.js";
 
 export interface PermissionSheetProps {
@@ -224,6 +225,20 @@ const PermissionSheet: Component<PermissionSheetProps> = (props) => {
     if (replying()) return;
     void replyTo(request, reply);
   }
+
+  // TASK-M7-10: register the open sheet with the Android system back
+  // resolver (stores/sheets.ts). Pinned — the back key NEVER closes it
+  // (a permission must be answered, not skipped), but the entry matters:
+  // the resolver treats a pinned sheet as blocking, so back neither pops
+  // the route underneath nor swallows the press (native default resumes).
+  createEffect(() => {
+    const open = props.variant === "sheet" && visible() !== undefined;
+    registerSheet(
+      "permission",
+      open ? { id: "permission", dismissible: false, close: () => undefined } : null,
+    );
+    onCleanup(() => registerSheet("permission", null));
+  });
 
   const card = (request: PermissionRequest) => (
     <PermissionCard

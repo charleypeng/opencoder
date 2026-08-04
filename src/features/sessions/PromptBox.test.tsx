@@ -39,6 +39,7 @@ import {
   setSessionStatus,
 } from "../../stores/session";
 import { messages, resetServer as resetMessages } from "../../stores/messages";
+import { composerPrefill, consumeComposerPrefill, prefillComposer } from "../../stores/composer";
 import { agentNameFor, resetServer as resetAgents } from "../../stores/agents";
 import { activeModelFor, resetServer as resetModels } from "../../stores/models";
 import { applyEvent } from "../../stores/events";
@@ -109,6 +110,7 @@ afterEach(() => {
   resetModels(SERVER);
   clearPrompts(SERVER);
   window.localStorage.clear();
+  consumeComposerPrefill();
 });
 
 function input(): HTMLTextAreaElement {
@@ -129,6 +131,30 @@ describe("PromptBox", () => {
     expect(input().value).toBe("");
     expect(screen.getByTestId("prompt-send")).toBeDisabled();
     expect(screen.getByText("⌘/Ctrl+Enter to send")).toBeInTheDocument();
+  });
+
+  it("prefills the input from the composer store exactly once (TASK-M7-10)", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    expect(input().value).toBe("");
+
+    // A shared text lands in the store (Android share receive) and the
+    // composer applies it, consuming the pending slot.
+    prefillComposer("  shared into the composer  ");
+    await waitFor(() => expect(input().value).toBe("shared into the composer"));
+    expect(input().selectionStart).toBe("shared into the composer".length);
+    expect(composerPrefill()).toBeNull();
+
+    // The prefill is consumed: a store write with no prefill does not
+    // touch the input again.
+    fireEvent.input(input(), { target: { value: "typed after" } });
+    expect(input().value).toBe("typed after");
+  });
+
+  it("applies a prefill that arrived before the composer mounted (TASK-M7-10)", () => {
+    prefillComposer("queued while hidden");
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    expect(input().value).toBe("queued while hidden");
+    expect(composerPrefill()).toBeNull();
   });
 
   it("sends on ⌘/Ctrl+Enter: POST with the text part, optimistic store insert, cleared textarea", async () => {

@@ -20,6 +20,7 @@ import { platform } from "../../platform/index.js";
 import { createProviderService, type Model, type Provider } from "../../services/provider.js";
 import { getApiClient } from "../../services/client.js";
 import { getServerSessionState } from "../../stores/session.js";
+import { registerSheet } from "../../stores/sheets.js";
 import {
   activeModelFor,
   getServerModelState,
@@ -385,6 +386,17 @@ const ModelPicker: Component<ModelPickerProps> = (props) => {
   // both — picking a model is a choice, not a forced answer. (The platform
   // never changes at runtime, so the two branches are exclusive.)
   const mobile = platform.kind === "mobile";
+
+  // TASK-M7-10: register the sheet so Android's system back closes the
+  // picker FIRST (dismissible — unlike the pinned permission/question
+  // sheets, a picker choice is not a forced answer).
+  createEffect(() => {
+    registerSheet(
+      "model-picker",
+      mobile && props.open ? { id: "model-picker", dismissible: true, close } : null,
+    );
+    onCleanup(() => registerSheet("model-picker", null));
+  });
 
   return (
     <>

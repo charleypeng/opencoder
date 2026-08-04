@@ -111,6 +111,7 @@ import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
 import { haptic } from "../../services/haptics.js";
+import { composerPrefill, consumeComposerPrefill } from "../../stores/composer.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -433,6 +434,27 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   createEffect(() => {
     const sessionId = props.sessionId;
     onCleanup(() => untrackPendingLocalMessage(props.serverId, sessionId));
+  });
+
+  // TASK-M7-10 (Android share receive): a shared text queued via the
+  // composer store (stores/composer.ts) prefills this input exactly once
+  // (consume-on-apply). The pending slot survives composer unmounts, so a
+  // share that lands while the chat page is hidden applies when the page
+  // becomes visible again; applied even while generating — the input is
+  // locked then, so nothing can be clobbered and the text waits ready to
+  // send.
+  createEffect(() => {
+    const prefill = composerPrefill();
+    if (prefill === null) return;
+    consumeComposerPrefill();
+    setText(prefill.text);
+    const el = textareaRef;
+    if (el !== undefined) {
+      el.value = prefill.text;
+      el.selectionStart = el.selectionEnd = prefill.text.length;
+      applyHeight(el);
+    }
+    textareaRef?.focus?.({ preventScroll: true });
   });
 
   onCleanup(() => {

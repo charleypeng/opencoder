@@ -26,6 +26,7 @@ exports[`design tokens (L2 snapshot) > matches the token snapshot for dark and l
     "--r-lg: 16px",
     "--r-xl: 22px",
     "--ease-spring: cubic-bezier(0.32, 0.72, 0.24, 1)",
+    "--ease-emphasized: cubic-bezier(0.2, 0, 0, 1)",
     "--dur-fast: 120ms",
     "--dur-med: 220ms",
     "--density: 1",

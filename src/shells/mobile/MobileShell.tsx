@@ -25,11 +25,15 @@ import { For, onCleanup, onMount, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ServerEntry } from "../../services/servers";
 import { startHapticEvents } from "../../services/hapticEvents.js";
+import { startAndroidBack } from "../../services/androidBack.js";
+import { startShareReceive } from "../../services/shareReceive.js";
 import { capabilitiesOf } from "../../platform/capabilities";
 import { platform } from "../../platform";
+import { prefillComposer } from "../../stores/composer.js";
+import { closeTopSheet, topSheet } from "../../stores/sheets.js";
 import { hasGlassBridge, installGlassTabHandler, postGlassMessage } from "./glass.js";
 import { setGlassBarHidden, setGlassBarShown } from "./glassControl.js";
-import { nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
+import { back, nav, selectTab, TAB_ORDER, topOf } from "./navigation.js";
 import type { TabId } from "./navigation.js";
 import { pageRegistry, NotFoundPage } from "./pages.js";
 import type { MobilePage } from "./pages.js";
@@ -138,6 +142,32 @@ const MobileShell: Component<MobileShellProps> = (props) => {
     // TASK-M7-07: haptic events (session complete / error, permission
     // asked) — the facade itself no-ops outside Tauri mobile.
     onCleanup(startHapticEvents(props.server.id));
+    // TASK-M7-10: Android system back drives the navigation stack — a
+    // dismissible sheet closes first, then the active tab's stack pops;
+    // with nothing to handle the native listener is dropped so Android's
+    // default (background the app) resumes. Mounted on Android only
+    // (supportsSystemBack); the facade additionally guards Tauri.
+    if (capabilitiesOf(platform).supportsSystemBack) {
+      const backController = startAndroidBack({
+        getContext: () => {
+          const sheet = topSheet();
+          return {
+            sheet: sheet === null ? null : { dismissible: sheet.dismissible },
+            stackDepth: nav.stacks[nav.activeTab].length,
+          };
+        },
+        handlers: {
+          closeSheet: () => closeTopSheet(),
+          pop: () => back(),
+        },
+      });
+      onCleanup(() => backController.dispose());
+    }
+    // TASK-M7-10: Android share receive — a shared text (native intent
+    // via the future Kotlin bridge, docs/tasks/M7.md appendix) prefills
+    // the active session's composer; the facade no-ops elsewhere.
+    const shareController = startShareReceive({ onShareText: (text) => prefillComposer(text) });
+    onCleanup(() => shareController.dispose());
   });
 
   /** Renders the top route of one tab through the page registry. The
