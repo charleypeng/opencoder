@@ -28,6 +28,7 @@ import { messages, resetServer as resetMessages, upsertMessage } from "../../sto
 import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer, viewer } from "../../stores/viewer";
 import { resetServer as resetDiffs } from "../../stores/diff";
+import { resetServer as resetVcs } from "../../stores/vcs";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -176,6 +177,16 @@ function mockHttpRoutes(servers: ServerEntry[]) {
         );
       }
       if (request?.path === "/file/status") return Promise.resolve(httpResponse([]));
+      if (request?.path === "/vcs") {
+        return Promise.resolve(httpResponse({ branch: "main", default_branch: "main" }));
+      }
+      if (request?.path === "/vcs/status") {
+        return Promise.resolve(
+          httpResponse([
+            { file: "src/features/a.ts", additions: 12, deletions: 4, status: "modified" },
+          ]),
+        );
+      }
       if (request?.path === "/find") {
         return Promise.resolve(
           httpResponse([
@@ -301,6 +312,8 @@ afterEach(() => {
   resetDiffs("srv-m4diff");
   resetMessages("srv-m4search");
   resetTodos("srv-m4search");
+  resetVcs("srv-m4vcs");
+  resetVcs("srv-m4vcsbar");
   localStorage.removeItem("oc-recent-files:srv-m4quick");
 });
 
@@ -959,5 +972,50 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     fireEvent.click(screen.getByTestId("diff-filter-clear"));
     expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+  });
+});
+
+describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
+  it("opens the Changes view from the Files tab and Back returns to Files", async () => {
+    const alpha = server({ id: "srv-m4vcs", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // The changes toggle only exists on the Files tab.
+    expect(screen.queryByTestId("changes-toggle")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("main-tab-files"));
+    fireEvent.click(screen.getByTestId("changes-toggle"));
+
+    // The Changes view replaces the tab bar with its own header + panel.
+    expect(screen.getByTestId("vcs-panel")).toBeInTheDocument();
+    expect(screen.getByText("Changes")).toBeInTheDocument();
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("vcs-branch")).toHaveTextContent("main"));
+    await waitFor(() =>
+      expect(screen.getByTestId("vcs-change")).toHaveTextContent("src/features/a.ts"),
+    );
+
+    // Back returns to the Files view.
+    fireEvent.click(screen.getByTestId("changes-back"));
+    expect(screen.queryByTestId("vcs-panel")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("shows the branch chip in the status bar and updates it on vcs.branch.updated", async () => {
+    const alpha = server({ id: "srv-m4vcsbar", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // The chip fetched GET /vcs on mount (branch from the store).
+    await waitFor(() => expect(screen.getByTestId("status-bar-branch")).toHaveTextContent("main"));
+
+    // A vcs.branch.updated SSE event updates the chip live.
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: unknown }) => void;
+    handler({ type: "vcs.branch.updated", properties: { branch: "feat/x" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("status-bar-branch")).toHaveTextContent("feat/x"),
+    );
   });
 });

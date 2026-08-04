@@ -13,6 +13,7 @@ import { projects, resetServer as resetProjects } from "./project.js";
 import { todos, resetServer as resetTodos } from "./todos.js";
 import { files, resetServer as resetFiles, setTree } from "./files.js";
 import { diffs, resetServer as resetDiffs } from "./diff.js";
+import { vcs, resetServer as resetVcs } from "./vcs.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -63,6 +64,7 @@ afterEach(() => {
   resetTodos(SERVER);
   resetFiles(SERVER);
   resetDiffs(SERVER);
+  resetVcs(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -295,6 +297,27 @@ describe("applyEvent — edge routes", () => {
     applyEvent(SERVER, { type: "session.diff", properties: {} });
     expect(diffs[SERVER]).toBeUndefined();
   });
+
+  it("maps vcs.branch.updated to the vcs store with a version bump", () => {
+    applyEvent(SERVER, {
+      type: "vcs.branch.updated",
+      properties: { branch: "feature/x" },
+    });
+    expect(vcs[SERVER]).toEqual({ branch: "feature/x", changes: [], version: 1 });
+
+    applyEvent(SERVER, {
+      type: "vcs.branch.updated",
+      properties: { branch: "main" },
+    });
+    expect(vcs[SERVER]?.branch).toBe("main");
+    expect(vcs[SERVER]?.version).toBe(2);
+  });
+
+  it("ignores vcs.branch.updated without a branch name", () => {
+    applyEvent(SERVER, { type: "vcs.branch.updated", properties: {} });
+    applyEvent(SERVER, { type: "vcs.branch.updated", properties: { branch: 7 } });
+    expect(vcs[SERVER]).toBeUndefined();
+  });
 });
 
 describe("syncAll", () => {
@@ -353,10 +376,12 @@ describe("subscribeToServerEvents", () => {
         diff: [{ file: "a.ts", additions: 1, deletions: 0 }],
       },
     });
+    applyEvent(SERVER, { type: "vcs.branch.updated", properties: { branch: "stale" } });
     setTree(SERVER, undefined, []);
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
     expect(diffs[SERVER]["ses_stale"]).toBeDefined();
+    expect(vcs[SERVER]).toBeDefined();
     expect(files[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
@@ -368,6 +393,7 @@ describe("subscribeToServerEvents", () => {
     expect(projects[SERVER].current).toBe("/sync/proj");
     expect(todos[SERVER]).toBeUndefined();
     expect(diffs[SERVER]).toBeUndefined();
+    expect(vcs[SERVER]).toBeUndefined();
     expect(files[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.

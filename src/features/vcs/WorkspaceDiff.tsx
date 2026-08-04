@@ -1,61 +1,40 @@
-// Session diff view (TASK-M4-07): renders GET /session/{id}/diff payloads
-// (SnapshotFileDiff[] — per-file stats plus optional unified patch text)
-// as per-file groups. Unified mode shows line-numbered rows with green/red
-// add/del coloring and runs of more than three unchanged lines folded
-// behind an expand handle; split mode aligns the old/new sides side by
-// side. The fetch runs on mount / session / message id change (stale
-// guarded), and the diff store's version counter refetches when a
-// `session.diff` event lands while the view is open. Per-file rendering is
-// the shared DiffFileGroup component (TASK-M4-08) — the workspace diff
-// view reuses it for /vcs/diff payloads. Files without patch content
-// render as a stats card with a note.
+// Workspace diff view (TASK-M4-08): renders GET /vcs/diff (VcsFileDiff[] —
+// per-file unified patches for the whole working tree) through the shared
+// DiffFileGroup renderer, with the same unified/split toggle and folding.
+// The fetch runs on mount and on every VCS store version bump (a
+// `vcs.branch.updated` event or an apply-refresh changed the working tree),
+// stale-guarded like the session diff view.
 
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
-import { createVcsService, type SnapshotFileDiff } from "../../services/vcs.js";
-import { diffs } from "../../stores/diff.js";
+import { createVcsService, type VcsFileDiff } from "../../services/vcs.js";
+import { vcs } from "../../stores/vcs.js";
 import DiffFileGroup, { type DiffFileEntry } from "./DiffFileGroup.js";
 import { type DiffMode } from "./diffLines.js";
 
-export interface DiffViewProps {
-  /** The server whose session diff is shown. */
+export interface WorkspaceDiffProps {
+  /** The server whose working-tree diff is shown. */
   serverId: string;
-  /** The session to render. */
-  sessionId: string;
-  /** Filters the diff to one message's changes (optional). */
-  messageId?: string;
-  /** Initial view mode; toggling is internal state (default unified). */
-  mode?: DiffMode;
 }
-
-export type { DiffMode };
 
 type DiffState =
   | { kind: "loading" }
   | { kind: "error"; error: ApiError }
-  | { kind: "ready"; diffs: SnapshotFileDiff[] };
+  | { kind: "ready"; diffs: VcsFileDiff[] };
 
-const DiffView: Component<DiffViewProps> = (props) => {
-  // Mode toggle lives here (internal state); the prop seeds the default.
-  // eslint-disable-next-line solid/reactivity -- one-time initial value
-  const [mode, setMode] = createSignal<DiffMode>(props.mode ?? "unified");
+const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
+  const [mode, setMode] = createSignal<DiffMode>("unified");
   const [state, setState] = createSignal<DiffState>({ kind: "loading" });
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
-  // Guards stale async fetches: a newer key (or retry) drops any in-flight
-  // result for an older one.
   let fetchSeq = 0;
-  // The (server, session, message) key and store version the last fetch was
-  // issued for. A version bump for the SAME key refetches silently (no
-  // loading flash); a key change reloads from scratch.
-  let seenKey = "";
   let seenVersion = -1;
 
-  async function fetchDiff(sessionId: string, messageId: string | undefined, seq: number) {
+  async function fetchDiff(seq: number) {
     try {
-      const payload = await createVcsService(getApiClient()).sessionDiff(sessionId, messageId);
+      const payload = await createVcsService(getApiClient()).diff();
       if (seq !== fetchSeq) return;
       setState({ kind: "ready", diffs: payload });
     } catch (err) {
@@ -64,31 +43,21 @@ const DiffView: Component<DiffViewProps> = (props) => {
     }
   }
 
-  // Fetch on key change (server/session/message id) and on `session.diff`
-  // version bumps. Reading the store here (tracked) drives both cases.
+  // Fetch on mount and on VCS store version bumps (branch events / apply
+  // refreshes); a version bump for the same server refetches silently.
   createEffect(() => {
-    const serverId = props.serverId;
-    const sessionId = props.sessionId;
-    const messageId = props.messageId;
-    const version = diffs[serverId]?.[sessionId]?.version ?? -1;
-    const key = `${serverId}\u0000${sessionId}\u0000${messageId ?? ""}`;
-    const keyChanged = key !== seenKey;
-    const versionChanged = version !== seenVersion;
-    if (!keyChanged && !versionChanged) return;
-    seenKey = key;
+    const version = vcs[props.serverId]?.version ?? 0;
+    if (version === seenVersion) return;
     seenVersion = version;
     const seq = ++fetchSeq;
-    if (keyChanged) {
-      setExpanded(new Set<string>());
-      setState({ kind: "loading" });
-    }
-    void fetchDiff(sessionId, messageId, seq);
+    if (seq === 1) setState({ kind: "loading" });
+    void fetchDiff(seq);
   });
 
   function retry(): void {
     const seq = ++fetchSeq;
     setState({ kind: "loading" });
-    void fetchDiff(props.sessionId, props.messageId, seq);
+    void fetchDiff(seq);
   }
 
   function toggleFold(key: string): void {
@@ -100,19 +69,16 @@ const DiffView: Component<DiffViewProps> = (props) => {
     });
   }
 
-  // Narrowed derives for the render branches (reactive via state()).
   const loading = () => state().kind === "loading";
   const viewError = createMemo(() =>
     state().kind === "error" ? (state() as { kind: "error"; error: ApiError }).error : null,
   );
   const readyDiffs = createMemo(() =>
-    state().kind === "ready"
-      ? (state() as { kind: "ready"; diffs: SnapshotFileDiff[] }).diffs
-      : null,
+    state().kind === "ready" ? (state() as { kind: "ready"; diffs: VcsFileDiff[] }).diffs : null,
   );
 
   return (
-    <div data-testid="session-diff-view" class="flex h-full min-h-0 flex-col">
+    <div data-testid="workspace-diff" class="flex h-full min-h-0 flex-col">
       <Show when={loading()}>
         <p data-testid="diff-loading" class="px-4 py-4 text-sm text-fg-secondary">
           Loading diff…
@@ -163,7 +129,7 @@ const DiffView: Component<DiffViewProps> = (props) => {
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto">
           <Show
-            when={(readyDiffs() as SnapshotFileDiff[]).length > 0}
+            when={(readyDiffs() as VcsFileDiff[]).length > 0}
             fallback={
               <div data-testid="diff-empty" class="py-8 text-center">
                 <p class="text-sm text-fg-secondary">No changes in this diff</p>
@@ -171,7 +137,7 @@ const DiffView: Component<DiffViewProps> = (props) => {
             }
           >
             <div class="flex min-w-0 flex-col divide-y divide-bg-sunken">
-              <For each={readyDiffs() as SnapshotFileDiff[]}>
+              <For each={readyDiffs() as VcsFileDiff[]}>
                 {(entry) => (
                   <DiffFileGroup
                     entry={entry as DiffFileEntry}
@@ -189,4 +155,4 @@ const DiffView: Component<DiffViewProps> = (props) => {
   );
 };
 
-export default DiffView;
+export default WorkspaceDiff;

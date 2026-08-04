@@ -17,6 +17,11 @@
 // way. The Files view holds the tabbed viewer and the full-text search
 // panel (TASK-M4-05) side by side, toggled by ⌘/Ctrl+⇧F or the search
 // button; both stay mounted so search results survive hit navigation.
+// TASK-M4-08 adds the VCS changes view (a git button in the Files tab bar
+// opens it; its own Back header returns to Files) and a bottom status bar
+// whose branch chip follows the vcs store (one GET /vcs per server on
+// mount; `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
+// M9-07 extends the bar with LSP/MCP/tokens).
 // This shell owns the per-directory SSE subscription and rebuilds
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
@@ -28,6 +33,7 @@ import { listServers } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { getApiClient } from "../../services/client";
 import { createProjectService } from "../../services/project";
+import { createVcsService } from "../../services/vcs";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
@@ -47,7 +53,9 @@ import FileViewer from "../../features/files/FileViewer";
 import QuickOpen from "../../features/files/QuickOpen";
 import SearchPanel, { SearchIcon } from "../../features/files/SearchPanel";
 import DiffView from "../../features/vcs/DiffView";
+import VcsPanel from "../../features/vcs/VcsPanel";
 import { resetServer as resetDiffs } from "../../stores/diff";
+import { applyVcs, vcs } from "../../stores/vcs";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -70,10 +78,64 @@ function healthKind(server: ServerEntry): HealthKind {
 }
 
 /** Chat header title: the server-provided title, falling back to the slug
- * and finally the raw session id. Reads the reactive store directly. */
+ *  and finally the raw session id. Reads the reactive store directly. */
 function titleOf(serverId: string, sessionId: string): string {
   const session = getServerSessionState(serverId).sessions[sessionId];
   return session ? session.title || session.slug || sessionId : sessionId;
+}
+
+/**
+ * Status-bar branch chip (TASK-M4-08): the minimal status bar entry, driven
+ * by the vcs store so `vcs.branch.updated` events update it live. The
+ * branch is fetched once per server (GET /vcs) when the chip mounts or the
+ * store bucket is cleared (re-sync); the VCS panel and branch events keep
+ * it fresh afterwards. Hidden while no branch is known (non-git workspace).
+ */
+function StatusBarBranch(props: { serverId: string }) {
+  // Servers whose info fetch was already issued (or is in flight).
+  const fetched = new Set<string>();
+  createEffect(() => {
+    const serverId = props.serverId;
+    const bucket = vcs[serverId];
+    if (fetched.has(serverId) || (bucket !== undefined && bucket.branch !== null)) return;
+    fetched.add(serverId);
+    void createVcsService(getApiClient())
+      .info()
+      .then((info) => applyVcs(serverId, info))
+      .catch(() => {
+        // Unreachable server: the chip stays hidden until an event or a
+        // later re-mount (the fetch guard is cleared for retries on the
+        // next version bump / bucket change).
+        fetched.delete(serverId);
+      });
+  });
+  const branch = createMemo(() => vcs[props.serverId]?.branch ?? null);
+  return (
+    <Show when={branch() !== null}>
+      <span
+        data-testid="status-bar-branch"
+        title="Current branch"
+        class="flex shrink-0 items-center gap-1.5 font-code text-xs text-fg-secondary"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        >
+          <circle cx="6" cy="6" r="2.4" />
+          <circle cx="6" cy="18" r="2.4" />
+          <circle cx="18" cy="8" r="2.4" />
+          <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+        </svg>
+        {branch()}
+      </span>
+    </Show>
+  );
 }
 
 const DesktopShell: Component<DesktopShellProps> = (props) => {
@@ -93,8 +155,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // viewer; opening a file from the sidebar tree jumps Main to Files.
   // TASK-M4-07 adds the session/message diff view (⌘/Ctrl+D or the
   // message menu's "View diff"), reached through its own header's back
-  // button; the Chat|Files tab bar is hidden while it is open.
-  const [mainView, setMainView] = createSignal<"chat" | "files" | "diff">("chat");
+  // button; the Chat|Files tab bar is hidden while it is open. TASK-M4-08
+  // adds the Changes view (VCS panel), opened from the Files tab bar's git
+  // button, with the tab bar hidden while it is open like the diff view.
+  const [mainView, setMainView] = createSignal<"chat" | "files" | "diff" | "changes">("chat");
   // Diff message filter (TASK-M4-07): set when opened from a message's
   // "View diff"; the diff header's chip clears it back to the whole
   // session's diff.
@@ -285,293 +349,360 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     servers().find((entry) => entry.id === registry.activeServerId) ?? props.server;
 
   return (
-    <div class="flex h-screen min-h-0 bg-bg-base text-fg-primary" data-testid="desktop-shell">
-      <nav
-        class="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"
-        data-testid="rail"
-      >
-        <For each={servers()}>
-          {(entry) => {
-            const active = () => registry.activeServerId === entry.id;
-            const kind = () => healthKind(entry);
-            return (
-              <button
-                type="button"
-                data-testid={`rail-item-${entry.id}`}
-                data-active={active() ? "true" : "false"}
-                aria-label={`Switch to ${entry.name}`}
-                title={entry.name}
-                class="outline-none"
-                onClick={() => setActiveServer(entry.id)}
-              >
-                <span
-                  class={`relative flex h-10 w-10 items-center justify-center rounded-full border bg-bg-sunken text-sm font-medium transition-colors ${
-                    active()
-                      ? "border-accent text-fg-primary"
-                      : "border-transparent text-fg-secondary hover:text-fg-primary"
-                  }`}
-                >
-                  {entry.name.charAt(0)}
-                  <span
-                    data-testid="rail-dot"
-                    data-status={kind()}
-                    class={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg-elevated ${dotClass[kind()]}`}
-                  />
-                </span>
-              </button>
-            );
-          }}
-        </For>
-        <button
-          type="button"
-          data-testid="rail-add"
-          aria-label="Add server"
-          title="Add server"
-          class="mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-fg-faint text-lg text-fg-secondary transition-colors hover:text-fg-primary"
-          onClick={() => props.onExit()}
+    <div
+      class="flex h-screen min-h-0 flex-col bg-bg-base text-fg-primary"
+      data-testid="desktop-shell"
+    >
+      <div class="flex min-h-0 flex-1">
+        <nav
+          class="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"
+          data-testid="rail"
         >
-          +
-        </button>
-      </nav>
-
-      <aside class="flex w-64 shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated">
-        <header class="flex items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
-          <h1 data-testid="sidebar-server-name" class="truncate text-sm font-semibold">
-            {activeServer().name}
-          </h1>
+          <For each={servers()}>
+            {(entry) => {
+              const active = () => registry.activeServerId === entry.id;
+              const kind = () => healthKind(entry);
+              return (
+                <button
+                  type="button"
+                  data-testid={`rail-item-${entry.id}`}
+                  data-active={active() ? "true" : "false"}
+                  aria-label={`Switch to ${entry.name}`}
+                  title={entry.name}
+                  class="outline-none"
+                  onClick={() => setActiveServer(entry.id)}
+                >
+                  <span
+                    class={`relative flex h-10 w-10 items-center justify-center rounded-full border bg-bg-sunken text-sm font-medium transition-colors ${
+                      active()
+                        ? "border-accent text-fg-primary"
+                        : "border-transparent text-fg-secondary hover:text-fg-primary"
+                    }`}
+                  >
+                    {entry.name.charAt(0)}
+                    <span
+                      data-testid="rail-dot"
+                      data-status={kind()}
+                      class={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-bg-elevated ${dotClass[kind()]}`}
+                    />
+                  </span>
+                </button>
+              );
+            }}
+          </For>
           <button
             type="button"
-            data-testid="back-to-servers"
-            class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
+            data-testid="rail-add"
+            aria-label="Add server"
+            title="Add server"
+            class="mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-fg-faint text-lg text-fg-secondary transition-colors hover:text-fg-primary"
             onClick={() => props.onExit()}
           >
-            Back to servers
+            +
           </button>
-        </header>
-        <div
-          role="tablist"
-          aria-label="Sidebar view"
-          class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
-        >
-          <button
-            type="button"
-            role="tab"
-            data-testid="sidebar-view-sessions"
-            aria-selected={sidebarView() === "sessions" ? "true" : "false"}
-            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-              sidebarView() === "sessions"
-                ? "bg-accent-soft text-fg-primary"
-                : "text-fg-secondary hover:text-fg-primary"
-            }`}
-            onClick={() => setSidebarView("sessions")}
-          >
-            Sessions
-          </button>
-          <button
-            type="button"
-            role="tab"
-            data-testid="sidebar-view-files"
-            aria-selected={sidebarView() === "files" ? "true" : "false"}
-            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-              sidebarView() === "files"
-                ? "bg-accent-soft text-fg-primary"
-                : "text-fg-secondary hover:text-fg-primary"
-            }`}
-            onClick={() => setSidebarView("files")}
-          >
-            Files
-          </button>
-        </div>
-        <ProjectSwitcher serverId={activeServerId()} />
-        <Show
-          when={sidebarView() === "sessions"}
-          fallback={
-            <FileTree
-              serverId={activeServerId()}
-              onOpenFile={(path) => {
-                openTab(activeServerId(), path);
-                setMainView("files");
-              }}
-            />
-          }
-        >
-          <SessionList serverId={activeServerId()} onSelect={() => undefined} />
-        </Show>
-      </aside>
+        </nav>
 
-      <main class="flex min-w-0 flex-1 flex-col">
-        <Show
-          when={mainView() === "diff"}
-          fallback={
-            <>
-              <div
-                role="tablist"
-                aria-label="Main view"
-                class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
-              >
-                <button
-                  type="button"
-                  role="tab"
-                  data-testid="main-tab-chat"
-                  aria-selected={mainView() === "chat" ? "true" : "false"}
-                  class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                    mainView() === "chat"
-                      ? "bg-accent-soft text-fg-primary"
-                      : "text-fg-secondary hover:text-fg-primary"
-                  }`}
-                  onClick={() => setMainView("chat")}
+        <aside class="flex w-64 shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated">
+          <header class="flex items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
+            <h1 data-testid="sidebar-server-name" class="truncate text-sm font-semibold">
+              {activeServer().name}
+            </h1>
+            <button
+              type="button"
+              data-testid="back-to-servers"
+              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
+              onClick={() => props.onExit()}
+            >
+              Back to servers
+            </button>
+          </header>
+          <div
+            role="tablist"
+            aria-label="Sidebar view"
+            class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
+          >
+            <button
+              type="button"
+              role="tab"
+              data-testid="sidebar-view-sessions"
+              aria-selected={sidebarView() === "sessions" ? "true" : "false"}
+              class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                sidebarView() === "sessions"
+                  ? "bg-accent-soft text-fg-primary"
+                  : "text-fg-secondary hover:text-fg-primary"
+              }`}
+              onClick={() => setSidebarView("sessions")}
+            >
+              Sessions
+            </button>
+            <button
+              type="button"
+              role="tab"
+              data-testid="sidebar-view-files"
+              aria-selected={sidebarView() === "files" ? "true" : "false"}
+              class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                sidebarView() === "files"
+                  ? "bg-accent-soft text-fg-primary"
+                  : "text-fg-secondary hover:text-fg-primary"
+              }`}
+              onClick={() => setSidebarView("files")}
+            >
+              Files
+            </button>
+          </div>
+          <ProjectSwitcher serverId={activeServerId()} />
+          <Show
+            when={sidebarView() === "sessions"}
+            fallback={
+              <FileTree
+                serverId={activeServerId()}
+                onOpenFile={(path) => {
+                  openTab(activeServerId(), path);
+                  setMainView("files");
+                }}
+              />
+            }
+          >
+            <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+          </Show>
+        </aside>
+
+        <main class="flex min-w-0 flex-1 flex-col">
+          <Show
+            when={mainView() === "diff" || mainView() === "changes"}
+            fallback={
+              <>
+                <div
+                  role="tablist"
+                  aria-label="Main view"
+                  class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
                 >
-                  Chat
-                </button>
-                <button
-                  type="button"
-                  role="tab"
-                  data-testid="main-tab-files"
-                  aria-selected={mainView() === "files" ? "true" : "false"}
-                  class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                    mainView() === "files"
-                      ? "bg-accent-soft text-fg-primary"
-                      : "text-fg-secondary hover:text-fg-primary"
-                  }`}
-                  onClick={() => setMainView("files")}
-                >
-                  Files
-                </button>
-                <Show when={mainView() === "files"}>
                   <button
                     type="button"
-                    data-testid="files-search-toggle"
-                    aria-pressed={filesMode() === "search" ? "true" : "false"}
-                    aria-label="Toggle full-text search"
-                    title="Full-text search (⌘⇧F)"
-                    class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
-                      filesMode() === "search"
-                        ? "text-accent"
+                    role="tab"
+                    data-testid="main-tab-chat"
+                    aria-selected={mainView() === "chat" ? "true" : "false"}
+                    class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                      mainView() === "chat"
+                        ? "bg-accent-soft text-fg-primary"
                         : "text-fg-secondary hover:text-fg-primary"
                     }`}
-                    onClick={() =>
-                      setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
-                    }
+                    onClick={() => setMainView("chat")}
                   >
-                    <SearchIcon />
+                    Chat
                   </button>
-                </Show>
-              </div>
-              <Show
-                when={mainView() === "chat"}
-                fallback={
-                  <div class="flex h-full min-h-0 flex-col">
-                    <div
-                      data-testid="files-viewer-pane"
-                      data-visible={filesMode() === "viewer" ? "true" : "false"}
-                      class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+                  <button
+                    type="button"
+                    role="tab"
+                    data-testid="main-tab-files"
+                    aria-selected={mainView() === "files" ? "true" : "false"}
+                    class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                      mainView() === "files"
+                        ? "bg-accent-soft text-fg-primary"
+                        : "text-fg-secondary hover:text-fg-primary"
+                    }`}
+                    onClick={() => setMainView("files")}
+                  >
+                    Files
+                  </button>
+                  <Show when={mainView() === "files"}>
+                    <button
+                      type="button"
+                      data-testid="files-search-toggle"
+                      aria-pressed={filesMode() === "search" ? "true" : "false"}
+                      aria-label="Toggle full-text search"
+                      title="Full-text search (⌘⇧F)"
+                      class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                        filesMode() === "search"
+                          ? "text-accent"
+                          : "text-fg-secondary hover:text-fg-primary"
+                      }`}
+                      onClick={() =>
+                        setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
+                      }
                     >
-                      <FileViewer serverId={activeServerId()} visible={filesMode() === "viewer"} />
-                    </div>
-                    <div
-                      data-testid="files-search-pane"
-                      data-visible={filesMode() === "search" ? "true" : "false"}
-                      class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+                      <SearchIcon />
+                    </button>
+                    <button
+                      type="button"
+                      data-testid="changes-toggle"
+                      aria-label="Open version control changes"
+                      title="VCS changes"
+                      class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+                      onClick={() => setMainView("changes")}
                     >
-                      <SearchPanel
-                        serverId={activeServerId()}
-                        onOpenHit={() => setFilesMode("viewer")}
-                      />
-                    </div>
-                  </div>
-                }
-              >
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-4 w-4"
+                        aria-hidden="true"
+                      >
+                        <circle cx="6" cy="6" r="2.4" />
+                        <circle cx="6" cy="18" r="2.4" />
+                        <circle cx="18" cy="8" r="2.4" />
+                        <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+                      </svg>
+                    </button>
+                  </Show>
+                </div>
                 <Show
-                  when={activeSessionId()}
+                  when={mainView() === "chat"}
                   fallback={
-                    <div class="flex flex-1 items-center justify-center p-4">
-                      <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                    <div class="flex h-full min-h-0 flex-col">
+                      <div
+                        data-testid="files-viewer-pane"
+                        data-visible={filesMode() === "viewer" ? "true" : "false"}
+                        class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+                      >
+                        <FileViewer
+                          serverId={activeServerId()}
+                          visible={filesMode() === "viewer"}
+                        />
+                      </div>
+                      <div
+                        data-testid="files-search-pane"
+                        data-visible={filesMode() === "search" ? "true" : "false"}
+                        class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+                      >
+                        <SearchPanel
+                          serverId={activeServerId()}
+                          onOpenHit={() => setFilesMode("viewer")}
+                        />
+                      </div>
                     </div>
                   }
                 >
-                  <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
-                    <h2
-                      data-testid="chat-session-title"
-                      class="min-w-0 truncate text-sm font-semibold"
-                    >
-                      {titleOf(activeServerId(), activeSessionId() as string)}
-                    </h2>
-                    <button
-                      type="button"
-                      data-testid="todo-toggle"
-                      aria-pressed={todosOpen() ? "true" : "false"}
-                      aria-label="Toggle todo panel"
-                      class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                        todosOpen()
-                          ? "border-accent text-accent"
-                          : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-                      }`}
-                      onClick={() => setTodosOpen((open) => !open)}
-                    >
-                      Todos
-                    </button>
-                  </header>
-                  <MessageList
-                    serverId={activeServerId()}
-                    sessionId={activeSessionId() as string}
-                    onViewDiff={openDiff}
-                  />
-                  <SessionErrorBanner
-                    serverId={activeServerId()}
-                    sessionId={activeSessionId() as string}
-                  />
-                  <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
+                  <Show
+                    when={activeSessionId()}
+                    fallback={
+                      <div class="flex flex-1 items-center justify-center p-4">
+                        <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                      </div>
+                    }
+                  >
+                    <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
+                      <h2
+                        data-testid="chat-session-title"
+                        class="min-w-0 truncate text-sm font-semibold"
+                      >
+                        {titleOf(activeServerId(), activeSessionId() as string)}
+                      </h2>
+                      <button
+                        type="button"
+                        data-testid="todo-toggle"
+                        aria-pressed={todosOpen() ? "true" : "false"}
+                        aria-label="Toggle todo panel"
+                        class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                          todosOpen()
+                            ? "border-accent text-accent"
+                            : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                        }`}
+                        onClick={() => setTodosOpen((open) => !open)}
+                      >
+                        Todos
+                      </button>
+                    </header>
+                    <MessageList
+                      serverId={activeServerId()}
+                      sessionId={activeSessionId() as string}
+                      onViewDiff={openDiff}
+                    />
+                    <SessionErrorBanner
+                      serverId={activeServerId()}
+                      sessionId={activeSessionId() as string}
+                    />
+                    <PromptBox
+                      serverId={activeServerId()}
+                      sessionId={activeSessionId() as string}
+                    />
+                  </Show>
                 </Show>
-              </Show>
-            </>
-          }
-        >
-          {/* Diff view (TASK-M4-07): its own header (back to chat + message
-              filter chip) replaces the Chat|Files tab bar while open. */}
-          <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
-            <button
-              type="button"
-              data-testid="diff-back"
-              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-              onClick={() => setMainView("chat")}
-            >
-              ← Back
-            </button>
-            <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
-            <Show when={diffMessageId() !== undefined}>
-              <span
-                data-testid="diff-message-filter"
-                class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
-              >
-                Message {diffMessageId()}
-                <button
-                  type="button"
-                  data-testid="diff-filter-clear"
-                  aria-label="Show the whole session diff"
-                  class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
-                  onClick={() => setDiffMessageId(undefined)}
-                >
-                  ×
-                </button>
-              </span>
-            </Show>
-          </header>
-          <Show
-            when={activeSessionId()}
-            fallback={
-              <div class="flex flex-1 items-center justify-center p-4">
-                <p class="text-sm text-fg-secondary">Select a session — M2</p>
-              </div>
+              </>
             }
           >
-            <DiffView
-              serverId={activeServerId()}
-              sessionId={activeSessionId() as string}
-              messageId={diffMessageId()}
-            />
+            {/* Diff view (TASK-M4-07): its own header (back to chat + message
+              filter chip) replaces the Chat|Files tab bar while open. The
+              Changes view (TASK-M4-08) sits beside it the same way. */}
+            <Show
+              when={mainView() === "changes"}
+              fallback={
+                <>
+                  <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
+                    <button
+                      type="button"
+                      data-testid="diff-back"
+                      class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                      onClick={() => setMainView("chat")}
+                    >
+                      ← Back
+                    </button>
+                    <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
+                    <Show when={diffMessageId() !== undefined}>
+                      <span
+                        data-testid="diff-message-filter"
+                        class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
+                      >
+                        Message {diffMessageId()}
+                        <button
+                          type="button"
+                          data-testid="diff-filter-clear"
+                          aria-label="Show the whole session diff"
+                          class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                          onClick={() => setDiffMessageId(undefined)}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    </Show>
+                  </header>
+                  <Show
+                    when={activeSessionId()}
+                    fallback={
+                      <div class="flex flex-1 items-center justify-center p-4">
+                        <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                      </div>
+                    }
+                  >
+                    <DiffView
+                      serverId={activeServerId()}
+                      sessionId={activeSessionId() as string}
+                      messageId={diffMessageId()}
+                    />
+                  </Show>
+                </>
+              }
+            >
+              {/* Changes view (TASK-M4-08): the VCS panel with its own back
+                header returning to the Files view it was opened from. */}
+              <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
+                <button
+                  type="button"
+                  data-testid="changes-back"
+                  class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                  onClick={() => setMainView("files")}
+                >
+                  ← Back
+                </button>
+                <h2 class="shrink-0 text-sm font-semibold">Changes</h2>
+              </header>
+              <VcsPanel serverId={activeServerId()} />
+            </Show>
           </Show>
-        </Show>
-      </main>
+        </main>
+      </div>
+
+      {/* Status bar (TASK-M4-08): minimal bottom bar with the branch chip,
+          reactive to the vcs store (M9-07 extends it with LSP/MCP/tokens). */}
+      <footer
+        data-testid="status-bar"
+        class="flex h-7 shrink-0 items-center gap-3 border-t border-bg-sunken bg-bg-elevated px-3"
+      >
+        <StatusBarBranch serverId={activeServerId()} />
+      </footer>
 
       {/* Todo drawer (TASK-M3-07): fixed right-side overlay panel with a
           backdrop; Esc and backdrop clicks close it (mobile bottom sheet

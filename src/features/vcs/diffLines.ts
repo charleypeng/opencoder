@@ -9,6 +9,9 @@
 
 export type DiffLineKind = "add" | "del" | "ctx" | "hunk" | "meta";
 
+/** How a diff renders: unified rows or side-by-side split columns. */
+export type DiffMode = "unified" | "split";
+
 export interface DiffLine {
   kind: DiffLineKind;
   /** Line number in the old file; null for added lines and headers. */

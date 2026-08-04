@@ -22,6 +22,7 @@ import * as projectStore from "./project.js";
 import * as todosStore from "./todos.js";
 import * as filesStore from "./files.js";
 import * as diffStore from "./diff.js";
+import * as vcsStore from "./vcs.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
@@ -36,6 +37,7 @@ export interface EventStoreDeps {
   todos: typeof todosStore;
   files: typeof filesStore;
   diffs: typeof diffStore;
+  vcs: typeof vcsStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -45,6 +47,7 @@ export const defaultEventStores: EventStoreDeps = {
   todos: todosStore,
   files: filesStore,
   diffs: diffStore,
+  vcs: vcsStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -69,7 +72,7 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos, files, diffs } = deps;
+  const { session, messages, project, todos, files, diffs, vcs } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -162,6 +165,11 @@ export function applyEvent(
       // mounted FileTree refetches tree + statuses (M4-02).
       if (typeof p.file === "string") files.applyWatcher(serverId, p.file);
       return;
+    case "vcs.branch.updated":
+      // Branch change (schema properties: branch name): apply it and bump
+      // the VCS store version so mounted panels refetch status (TASK-M4-08).
+      if (typeof p.branch === "string") vcs.applyBranch(serverId, p.branch);
+      return;
     default:
       if (import.meta.env.DEV) {
         console.debug(`[stores] ignoring SSE event type "${event.type}"`);
@@ -253,6 +261,7 @@ export async function subscribeToServerEvents(
       deps.todos.resetServer(serverId);
       deps.files.resetServer(serverId);
       deps.diffs.resetServer(serverId);
+      deps.vcs.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.
