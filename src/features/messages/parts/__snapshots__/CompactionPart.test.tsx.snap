@@ -1,0 +1,53 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`CompactionPart snapshot > matches the fixture's compaction part 1`] = `
+<div>
+  <div
+    class="my-1 inline-flex w-fit flex-col overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/40 text-xs text-fg-secondary"
+    data-testid="compaction-part"
+  >
+    <button
+      aria-expanded="false"
+      class="flex w-full items-center gap-1.5 px-2 py-1 text-left outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      data-testid="compaction-toggle"
+      type="button"
+    >
+      <svg
+        aria-hidden=""
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="M6.5 2.5v3h-3"
+        />
+        <path
+          d="M9.5 2.5v3h3"
+        />
+        <path
+          d="M6.5 13.5v-3h-3"
+        />
+        <path
+          d="M9.5 13.5v-3h3"
+        />
+      </svg>
+      <span
+        class="font-medium text-fg-primary"
+      >
+        Context compacted
+      </span>
+      <span
+        aria-hidden=""
+        class="inline-block shrink-0 text-fg-faint transition-transform "
+      >
+        ▸
+      </span>
+    </button>
+    
+  </div>
+</div>
+`;

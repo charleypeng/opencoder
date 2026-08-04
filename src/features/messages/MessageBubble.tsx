@@ -15,8 +15,10 @@ import type { Component, JSX } from "solid-js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import AgentPart from "./parts/AgentPart.js";
+import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
 import PatchPart from "./parts/PatchPart.js";
+import RetryPart from "./parts/RetryPart.js";
 import ReasoningPart from "./parts/ReasoningPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
 import { StepFinishPart, StepStartPart } from "./parts/StepPart.js";
@@ -49,6 +51,8 @@ type RenderablePart = Extract<
   | { type: "step-finish" }
   | { type: "subtask" }
   | { type: "agent" }
+  | { type: "retry" }
+  | { type: "compaction" }
 >;
 
 function isRenderable(part: Part | undefined): part is RenderablePart {
@@ -63,7 +67,9 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
       part.type === "step-start" ||
       part.type === "step-finish" ||
       part.type === "subtask" ||
-      part.type === "agent")
+      part.type === "agent" ||
+      part.type === "retry" ||
+      part.type === "compaction")
   );
 }
 
@@ -97,6 +103,10 @@ function PartView(props: { part: Part | undefined; streaming?: boolean }) {
         return <SubtaskPart part={props.part} />;
       case "agent":
         return <AgentPart part={props.part} />;
+      case "retry":
+        return <RetryPart part={props.part} />;
+      case "compaction":
+        return <CompactionPart part={props.part} />;
       default:
         // Unsupported part types render nothing until their milestones land.
         return null;

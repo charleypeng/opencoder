@@ -1,0 +1,54 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`RetryPart snapshot > matches the fixture's retry part 1`] = `
+<div>
+  <div
+    class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md border border-bg-sunken bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
+    data-testid="retry-part"
+  >
+    <span
+      class="flex flex-wrap items-center gap-1.5"
+    >
+      <svg
+        aria-hidden=""
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
+      >
+        <path
+          d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"
+        />
+        <path
+          d="M13.5 2.5V6h-3.5"
+        />
+      </svg>
+      <span
+        class="font-medium text-fg-primary"
+        data-testid="retry-attempt"
+      >
+        Retrying (attempt 
+        2
+        <!---->
+        )
+      </span>
+      <span
+        class="shrink-0 text-fg-faint"
+        data-testid="retry-countdown"
+      >
+        Retrying…
+      </span>
+    </span>
+    <span
+      class="whitespace-pre-wrap break-words leading-relaxed text-danger"
+      data-testid="retry-error"
+      title="rate limited by the model provider"
+    >
+      rate limited by the model provider
+    </span>
+  </div>
+</div>
+`;

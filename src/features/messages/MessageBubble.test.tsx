@@ -149,7 +149,7 @@ describe("MessageBubble", () => {
     await waitFor(() => expect(bubble.querySelector('[data-testid="typing-cursor"]')).toBeNull());
   });
 
-  it("renders file, patch, snapshot, step, subtask and agent parts from the all-parts fixture", async () => {
+  it("renders file, patch, snapshot, step, subtask, agent, retry and compaction parts from the all-parts fixture", async () => {
     for (const partId of [
       "prt_p3",
       "prt_p6",
@@ -159,6 +159,8 @@ describe("MessageBubble", () => {
       "prt_p12",
       "prt_p7",
       "prt_p21",
+      "prt_p8",
+      "prt_p9",
     ]) {
       const part = allPartsFixtureJson.parts.find((item) => item.id === partId);
       expect(part).toBeDefined();
@@ -178,6 +180,8 @@ describe("MessageBubble", () => {
           "prt_p12",
           "prt_p7",
           "prt_p21",
+          "prt_p8",
+          "prt_p9",
         ]}
       />
     ));
@@ -220,6 +224,15 @@ describe("MessageBubble", () => {
     const agent = bubble.querySelector('[data-testid="agent-part"]');
     expect(agent).not.toBeNull();
     expect(agent).toHaveTextContent("build");
+
+    const retry = bubble.querySelector('[data-testid="retry-part"]');
+    expect(retry).not.toBeNull();
+    expect(retry).toHaveTextContent("Retrying (attempt 2)");
+    expect(retry).toHaveTextContent("rate limited by the model provider");
+
+    const compaction = bubble.querySelector('[data-testid="compaction-part"]');
+    expect(compaction).not.toBeNull();
+    expect(compaction).toHaveTextContent("Context compacted");
   });
 
   it("keeps the caret in place across text deltas", async () => {

@@ -153,6 +153,8 @@ describe("MessageList", () => {
       "Implement the auth API client and wire it into the login form",
     );
     expect(screen.getByTestId("agent-part")).toHaveTextContent("build");
+    expect(screen.getByTestId("retry-part")).toHaveTextContent("Retrying (attempt 2)");
+    expect(screen.getByTestId("compaction-part")).toHaveTextContent("Context compacted");
   });
 
   it("shows the empty state when the session has no messages", async () => {
