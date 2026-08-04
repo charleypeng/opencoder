@@ -157,6 +157,14 @@ describe("activeModelFor", () => {
     });
   });
 
+  it("drops a session model whose provider is disconnected", () => {
+    setProviders(SERVER, { ...RESPONSE, connected: ["anthropic"] });
+    expect(activeModelFor(SERVER, "ses_1", { id: "openai:gpt-5", providerID: "openai" })).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+  });
+
   it("drops a selection that vanished from the catalog", () => {
     setProviders(SERVER, RESPONSE);
     setModelForSession(SERVER, "ses_1", { providerID: "openai", modelID: "openai:gpt-4.1" });

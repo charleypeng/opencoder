@@ -130,4 +130,15 @@ describe("buildSessionTree", () => {
     const tree = buildSessionTree(all, topLevelRoots([all[1]], all));
     expect(flatten(tree)).toEqual([["child", 0]]);
   });
+
+  it("does not hang on a synthetic parentID cycle", () => {
+    const x = session("x", "y");
+    const y = session("y", "x");
+    // The cycle is cut by the seen set: x renders with y as its only child.
+    const tree = buildSessionTree([x, y], [x]);
+    expect(flatten(tree)).toEqual([
+      ["x", 0],
+      ["y", 1],
+    ]);
+  });
 });

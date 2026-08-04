@@ -116,6 +116,22 @@ describe("SummarizeDialog (TASK-M6-06)", () => {
     expect(values).toEqual(["openai", "anthropic"]);
   });
 
+  it("falls back to a connected provider when the session model's provider is disconnected", () => {
+    seedModels();
+    setProviders(SERVER, {
+      all: [OPENAI, ANTHROPIC, AZURE],
+      default: { openai: "gpt-5" },
+      connected: ["anthropic"],
+    });
+    applySessionList(SERVER, [session({ model: { id: "gpt-5", providerID: "openai" } })]);
+    renderDialog({ model: { id: "gpt-5", providerID: "openai" } });
+
+    const options = within(screen.getByTestId("model-select-provider")).getAllByRole("option");
+    expect(options.map((o) => (o as HTMLOptionElement).value)).toEqual(["anthropic"]);
+    expect(screen.getByTestId("model-select-model")).toHaveValue("claude-sonnet-4");
+    expect(screen.getByTestId("summarize-confirm")).toBeEnabled();
+  });
+
   it("shows a hint and disables confirm when no provider is connected", () => {
     seedModels();
     setProviders(SERVER, {

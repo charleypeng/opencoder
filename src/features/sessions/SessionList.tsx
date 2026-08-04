@@ -393,19 +393,20 @@ const SessionList: Component<SessionListProps> = (props) => {
   const tree = createMemo(() => buildSessionTree(storeSessions(), roots()));
   const groups = createMemo(() => groupSessionsByTime(roots(), now()));
 
-  /** Toggles a node's expand state. Re-EXPANDING a parent asks the server's
-   *  /children endpoint ONCE and upserts the returned sessions, so the tree
-   *  stays complete (subagent sessions that have not arrived via SSE yet
-   *  join on expand). Fetch failures are ignored — the store is the truth. */
+  /** Toggles a node's expand state. Expanding a node that WAS collapsed
+   *  (wasCollapsed) asks the server's /children endpoint ONCE and upserts
+   *  the returned sessions, so the tree stays complete (subagent sessions
+   *  that have not arrived via SSE yet join on expand). Fetch failures are
+   *  ignored — the store is the truth. */
   function toggleNode(session: Session) {
     const id = session.id;
     const next = new Set(collapsed());
-    const nowExpanded = next.has(id);
-    if (nowExpanded) next.delete(id);
+    const wasCollapsed = next.has(id);
+    if (wasCollapsed) next.delete(id);
     else next.add(id);
     setCollapsed(next);
     const fetched = childrenFetched();
-    if (nowExpanded && !fetched.has(id)) {
+    if (wasCollapsed && !fetched.has(id)) {
       setChildrenFetched(new Set(fetched).add(id));
       const serverId = props.serverId;
       void createSessionService(getApiClient())

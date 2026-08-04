@@ -43,13 +43,21 @@ export function topLevelRoots(matched: Session[], all: Session[]): Session[] {
 }
 
 /** Nests children (looked up over the WHOLE session list, so a matched
- *  parent pulls its entire subtree along) under the given roots. */
+ *  parent pulls its entire subtree along) under the given roots. A `seen`
+ *  set skips a session already on the current path and a depth cap bounds
+ *  pathological nesting, so a synthetic parentID cycle cannot hang the
+ *  builder (unreachable through topLevelRoots, but unsafe in isolation). */
 export function buildSessionTree(sessions: Session[], roots: Session[]): SessionTreeNode[] {
   const byParent = childrenOf(sessions);
-  const build = (session: Session, depth: number): SessionTreeNode => ({
-    session,
-    depth,
-    children: (byParent.get(session.id) ?? []).map((child) => build(child, depth + 1)),
-  });
-  return roots.map((root) => build(root, 0));
+  const MAX_DEPTH = 32;
+  const build = (session: Session, depth: number, seen: Set<string>): SessionTreeNode[] => {
+    if (depth > MAX_DEPTH || seen.has(session.id)) return [];
+    seen.add(session.id);
+    const children = (byParent.get(session.id) ?? []).flatMap((child) =>
+      build(child, depth + 1, seen),
+    );
+    seen.delete(session.id);
+    return [{ session, depth, children }];
+  };
+  return roots.flatMap((root) => build(root, 0, new Set()));
 }

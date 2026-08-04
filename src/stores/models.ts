@@ -7,7 +7,9 @@
 // model PATCH, so the choice lives client-side). Resolving a session's
 // model falls back from the recorded selection to the session's own model
 // (when it is still in the catalog) to the config default and finally to
-// the first model of the first connected provider.
+// the first model of the first connected provider; each preselection is
+// additionally gated on the provider being connected, so a disconnected
+// provider never preselects (TASK-M6-06).
 
 import { createStore, produce } from "solid-js/store";
 import { type Model, type Provider, type ProviderListResponse } from "../services/provider.js";
@@ -68,6 +70,13 @@ export function findModel(state: ServerModelState, ref: ModelRef): Model | undef
   return provider?.models[ref.modelID];
 }
 
+/** True when the ref is still in the catalog AND its provider is connected
+ *  (preselections must stay within connected providers: a disconnected one
+ *  would leave the compact select with an unmatchable value). */
+function usable(state: ServerModelState, ref: ModelRef): boolean {
+  return state.connected.includes(ref.providerID) && findModel(state, ref) !== undefined;
+}
+
 function firstDefaultRef(defaultModels: Record<string, string>): ModelRef | null {
   for (const [providerID, modelID] of Object.entries(defaultModels)) {
     return { providerID, modelID };
@@ -122,9 +131,9 @@ export function setModelForSession(serverId: string, sessionId: string, ref: Mod
 
 /**
  * Resolves the effective model reference for a session: the recorded
- * selection first (dropped when the model vanished from the catalog),
- * then the session's own model when still in the catalog, then the
- * config default, then the first model of the first connected provider.
+ * selection first, then the session's own model, then the config
+ * default — each dropped when it left the catalog OR its provider is
+ * disconnected — then the first model of the first connected provider.
  * Null when the server exposes no usable model.
  */
 export function activeModelFor(
@@ -134,16 +143,16 @@ export function activeModelFor(
 ): ModelRef | null {
   const state = getServerModelState(serverId);
   const selected = state.activeBySession[sessionId];
-  if (selected !== undefined && findModel(state, selected) !== undefined) {
+  if (selected !== undefined && usable(state, selected)) {
     return selected;
   }
   if (sessionModel !== undefined) {
     const ref: ModelRef = { providerID: sessionModel.providerID, modelID: sessionModel.id };
-    if (findModel(state, ref) !== undefined) {
+    if (usable(state, ref)) {
       return ref;
     }
   }
-  if (state.defaultModel !== null && findModel(state, state.defaultModel) !== undefined) {
+  if (state.defaultModel !== null && usable(state, state.defaultModel)) {
     return state.defaultModel;
   }
   for (const provider of state.providers) {
