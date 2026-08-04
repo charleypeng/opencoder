@@ -38,10 +38,10 @@ import {
 import type { Session } from "../../services/session";
 import type { ServerEntry } from "../../services/servers";
 
-const { invokeMock, hapticMock, listenMock } = vi.hoisted(() => ({
+const { invokeMock, hapticMock, onBackButtonPressMock } = vi.hoisted(() => ({
   invokeMock: vi.fn(),
   hapticMock: vi.fn(),
-  listenMock: vi.fn(),
+  onBackButtonPressMock: vi.fn(),
 }));
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -49,10 +49,11 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 // can be asserted (the facade's own guard/dispatch is covered in
 // src/services/haptics.test.ts).
 vi.mock("../../services/haptics.js", () => ({ haptic: hapticMock }));
-// TASK-M7-10: the native `back-button` event subscription is mocked so
-// the shell-level back routing can be asserted (the facade's own
-// registration lifecycle is covered in src/services/androidBack.test.ts).
-vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+// TASK-M7-10: the native `onBackButtonPress` registration (the Android
+// back listener) is mocked so the shell-level back routing can be
+// asserted (the facade's own registration lifecycle is covered in
+// src/services/androidBack.test.ts).
+vi.mock("@tauri-apps/api/app", () => ({ onBackButtonPress: onBackButtonPressMock }));
 // MessageBubble renders through Shiki; the stub keeps the shell tests free
 // of language-pack loading (the viewer tests cover the real contract).
 vi.mock("../../features/messages/markdown/highlighter.js", () => ({
@@ -92,8 +93,9 @@ function httpResponse(body: unknown) {
 // The glassBridge postMessage stub of the currently stubbed environment
 // (undefined when no bridge is installed).
 let bridgePostMessage: ReturnType<typeof vi.fn> | undefined;
-// TASK-M7-10: the unlisten fn the mocked native back subscription resolves.
-const unlistenBack = vi.fn();
+// TASK-M7-10: the listener the mocked onBackButtonPress registration
+// resolves to (its unregister fn marks the native listener teardown).
+const unlistenBack = { unregister: vi.fn() };
 
 /** Sets the environment to a mobile platform and re-resolves platform. */
 function stubPlatform(userAgent: string, bridge: boolean): void {
@@ -133,8 +135,8 @@ beforeEach(() => {
     if (cmd === "http_request") return Promise.resolve(httpResponse([]));
     return Promise.resolve(undefined);
   });
-  // TASK-M7-10: the native back listener resolves to this unlisten fn.
-  listenMock.mockResolvedValue(unlistenBack);
+  // TASK-M7-10: the native back listener resolves to this unregister fn.
+  onBackButtonPressMock.mockResolvedValue(unlistenBack);
 });
 
 afterEach(() => {
@@ -477,16 +479,16 @@ describe("MobileShell", () => {
     );
 
     // The native listener registers only while a back press can be handled.
-    await waitFor(() =>
-      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
-    );
-    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
-    onBack();
+    await waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalledWith(expect.any(Function)));
+    const [onBack] = onBackButtonPressMock.mock.calls[0] as [
+      (payload: { canGoBack: boolean }) => void,
+    ];
+    onBack({ canGoBack: false });
     await waitFor(() =>
       expect(within(sessionsTab).queryByTestId("mobile-page-chat")).not.toBeInTheDocument(),
     );
     // Back at the root the listener drops so the native default resumes.
-    await waitFor(() => expect(unlistenBack).toHaveBeenCalled());
+    await waitFor(() => expect(unlistenBack.unregister).toHaveBeenCalled());
   });
 
   it("closes a dismissible sheet before popping on system back (TASK-M7-10)", async () => {
@@ -502,13 +504,13 @@ describe("MobileShell", () => {
     await waitFor(() =>
       expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
-    );
+    await waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalledWith(expect.any(Function)));
 
     // Sheet wins over the route pop.
-    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
-    onBack();
+    const [onBack] = onBackButtonPressMock.mock.calls[0] as [
+      (payload: { canGoBack: boolean }) => void,
+    ];
+    onBack({ canGoBack: false });
     await waitFor(() => expect(closeSheet).toHaveBeenCalled());
     expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument();
   });
@@ -525,9 +527,7 @@ describe("MobileShell", () => {
         within(screen.getByTestId("mobile-page-sessions")).getByTestId("mobile-page-chat"),
       ).toBeInTheDocument(),
     );
-    await waitFor(() =>
-      expect(listenMock).toHaveBeenCalledWith("back-button", expect.any(Function)),
-    );
+    await waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalledWith(expect.any(Function)));
 
     // A pinned sheet opens: nothing can be handled, the native listener
     // unregisters (Android's default back behavior resumes) and a press
@@ -541,7 +541,7 @@ describe("MobileShell", () => {
       always: [],
     });
     await waitFor(() => expect(screen.getByTestId("permission-sheet")).toBeInTheDocument());
-    await waitFor(() => expect(unlistenBack).toHaveBeenCalled());
+    await waitFor(() => expect(unlistenBack.unregister).toHaveBeenCalled());
     expect(
       within(screen.getByTestId("mobile-page-sessions")).getByTestId("mobile-page-chat"),
     ).toBeInTheDocument();

@@ -2,12 +2,15 @@
 // against tauri 2.11.5 sources, mobile/android/.../app/tauri/AppPlugin.kt):
 // the Android back button is handled by the BUILT-IN core "app" plugin —
 // no third-party plugin (there is no tauri-plugin-back-button in the
-// plugins-workspace) and no custom Kotlin override are needed. While a JS
-// listener for the `back-button` event is registered (via
-// @tauri-apps/api/event listen), every back press triggers that event
-// with a `{ canGoBack }` payload instead of the system default; WITHOUT a
-// registered listener the WebView history back / system default (finish
-// the activity) runs natively.
+// plugins-workspace) and no custom Kotlin override are needed. The Kotlin
+// AppPlugin gates native back handling on ITS OWN listener registry,
+// populated ONLY via the `plugin:app|register_listener` command — i.e. the
+// JS API `onBackButtonPress` from `@tauri-apps/api/app` (a plain
+// `listen("back-button")` event subscription is Rust-side and never
+// reaches Kotlin). While the listener is registered every back press is
+// delivered with a `{ canGoBack }` payload instead of the system default;
+// WITHOUT a registered listener the native default (background the
+// activity) runs.
 //
 // The `canGoBack` flag reflects WebView history, which a SPA does not
 // use, so the decision is resolved from OUR navigation state instead:
@@ -23,15 +26,13 @@
 //
 // The listener registration follows the context reactively (Solid
 // createRoot): navigation pushes/pops and sheet open/close re-evaluate
-// it, so the native event only exists while the web side can actually
+// it, so the native listener only exists while the web side can actually
 // handle a back press.
 
 import { createEffect, createRoot } from "solid-js";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { onBackButtonPress } from "@tauri-apps/api/app";
+import type { PluginListener } from "@tauri-apps/api/core";
 import { platform } from "../platform/index.js";
-
-/** The core Android back event name (built-in app plugin, see above). */
-export const ANDROID_BACK_EVENT = "back-button";
 
 export type BackDecision = "closeSheet" | "pop" | "none";
 
@@ -69,7 +70,7 @@ export function isAndroidBackActive(): boolean {
 }
 
 export interface AndroidBackController {
-  /** Whether the native `back-button` listener is currently registered. */
+  /** Whether the native back listener is currently registered. */
   listening(): boolean;
   /** Unregisters the listener and stops the controller. */
   dispose(): void;
@@ -79,7 +80,7 @@ export function startAndroidBack(options: {
   getContext: () => BackContext;
   handlers: BackHandlers;
 }): AndroidBackController {
-  let unlistenFn: UnlistenFn | null = null;
+  let listener: PluginListener | null = null;
   let listenInFlight: Promise<void> | null = null;
   let disposed = false;
   let disposeRoot: (() => void) | null = null;
@@ -92,10 +93,10 @@ export function startAndroidBack(options: {
   }
 
   async function startListening(): Promise<void> {
-    if (unlistenFn !== null || listenInFlight !== null) return;
-    listenInFlight = listen<{ canGoBack: boolean }>(ANDROID_BACK_EVENT, handleBackPress)
-      .then((fn) => {
-        unlistenFn = fn;
+    if (listener !== null || listenInFlight !== null) return;
+    listenInFlight = onBackButtonPress(handleBackPress)
+      .then((l) => {
+        listener = l;
       })
       .catch(() => {
         // Registration failed (e.g. no Tauri event bridge): retried on
@@ -109,9 +110,10 @@ export function startAndroidBack(options: {
 
   async function stopListening(): Promise<void> {
     if (listenInFlight !== null) await listenInFlight;
-    if (unlistenFn !== null) {
-      unlistenFn();
-      unlistenFn = null;
+    if (listener !== null) {
+      const l = listener;
+      listener = null;
+      await l.unregister();
     }
   }
 
@@ -137,7 +139,7 @@ export function startAndroidBack(options: {
   });
 
   return {
-    listening: () => unlistenFn !== null,
+    listening: () => listener !== null,
     dispose: () => {
       disposed = true;
       disposeRoot?.();

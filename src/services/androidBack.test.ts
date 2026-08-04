@@ -1,26 +1,25 @@
 // L1 tests for the Android system back handler (TASK-M7-10): the pure
 // resolveBack decision table (dismissible sheet first / pop / pinned-sheet
 // and root both unhandled), the facade's reactive listener registration —
-// the native `back-button` listener exists ONLY while a back press can be
-// handled, so Android's native default (background the app) resumes at
-// the root — and the event dispatch through the two handlers. The event
-// module is mocked; the facade's own Tauri+Android guard is covered by
-// the no-op cases.
+// the native `onBackButtonPress` listener exists ONLY while a back press
+// can be handled, so Android's native default (background the app)
+// resumes at the root — and the event dispatch through the two handlers.
+// The `@tauri-apps/api/app` module is mocked; the facade's own
+// Tauri+Android guard is covered by the no-op cases.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
-import {
-  startAndroidBack,
-  resolveBack,
-  isAndroidBackActive,
-  ANDROID_BACK_EVENT,
-} from "./androidBack";
+import { startAndroidBack, resolveBack, isAndroidBackActive } from "./androidBack";
 import { refreshPlatform } from "../platform/index.js";
 
-const { listenMock } = vi.hoisted(() => ({
-  listenMock: vi.fn(),
+const { onBackButtonPressMock } = vi.hoisted(() => ({
+  onBackButtonPressMock: vi.fn(),
 }));
-vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+vi.mock("@tauri-apps/api/app", () => ({ onBackButtonPress: onBackButtonPressMock }));
+
+function pluginListener() {
+  return { unregister: vi.fn().mockResolvedValue(undefined) };
+}
 
 const ANDROID_UA =
   "Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Mobile Safari/537.36";
@@ -103,11 +102,11 @@ describe("startAndroidBack", () => {
     return { stackDepth: depth, sheet };
   }
 
-  it("registers the back-button listener only while a back press is handled", async () => {
+  it("registers the back listener only while a back press is handled", async () => {
     withTauri();
     withAndroidPlatform();
-    const unlisten = vi.fn();
-    listenMock.mockResolvedValue(unlisten);
+    const listener = pluginListener();
+    onBackButtonPressMock.mockResolvedValue(listener);
     // A signal mirrors the reactive store context the shell provides.
     const [depth, setDepth] = createSignal(1);
     const controller = startAndroidBack({
@@ -116,14 +115,14 @@ describe("startAndroidBack", () => {
     });
 
     // Root: nothing to handle, no listener.
-    expect(listenMock).not.toHaveBeenCalled();
+    expect(onBackButtonPressMock).not.toHaveBeenCalled();
     await Promise.resolve();
-    expect(listenMock).not.toHaveBeenCalled();
+    expect(onBackButtonPressMock).not.toHaveBeenCalled();
 
     // A push makes the back press handleable: the listener registers.
     setDepth(2);
     await vi.waitFor(() =>
-      expect(listenMock).toHaveBeenCalledWith(ANDROID_BACK_EVENT, expect.any(Function)),
+      expect(onBackButtonPressMock).toHaveBeenCalledWith(expect.any(Function)),
     );
     await vi.waitFor(() => expect(controller.listening()).toBe(true));
 
@@ -131,7 +130,7 @@ describe("startAndroidBack", () => {
     // default (background the app) resumes.
     setDepth(1);
     await vi.waitFor(() => expect(controller.listening()).toBe(false));
-    expect(unlisten).toHaveBeenCalled();
+    expect(listener.unregister).toHaveBeenCalled();
 
     controller.dispose();
   });
@@ -140,15 +139,17 @@ describe("startAndroidBack", () => {
     withTauri();
     withAndroidPlatform();
     const pop = vi.fn();
-    listenMock.mockResolvedValue(vi.fn());
+    onBackButtonPressMock.mockResolvedValue(pluginListener());
     startAndroidBack({
       getContext: () => context(2),
       handlers: { closeSheet: vi.fn(), pop },
     });
-    await vi.waitFor(() => expect(listenMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalled());
 
-    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
-    onBack();
+    const [onBack] = onBackButtonPressMock.mock.calls[0] as [
+      (payload: { canGoBack: boolean }) => void,
+    ];
+    onBack({ canGoBack: false });
     expect(pop).toHaveBeenCalledTimes(1);
   });
 
@@ -156,15 +157,17 @@ describe("startAndroidBack", () => {
     withTauri();
     withAndroidPlatform();
     const closeSheet = vi.fn();
-    listenMock.mockResolvedValue(vi.fn());
+    onBackButtonPressMock.mockResolvedValue(pluginListener());
     startAndroidBack({
       getContext: () => context(5, { dismissible: true }),
       handlers: { closeSheet, pop: vi.fn() },
     });
-    await vi.waitFor(() => expect(listenMock).toHaveBeenCalled());
+    await vi.waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalled());
 
-    const [, onBack] = listenMock.mock.calls[0] as [string, () => void];
-    onBack();
+    const [onBack] = onBackButtonPressMock.mock.calls[0] as [
+      (payload: { canGoBack: boolean }) => void,
+    ];
+    onBack({ canGoBack: false });
     expect(closeSheet).toHaveBeenCalledTimes(1);
   });
 
@@ -173,20 +176,19 @@ describe("startAndroidBack", () => {
     withAndroidPlatform();
     const closeSheet = vi.fn();
     const pop = vi.fn();
-    listenMock.mockResolvedValue(vi.fn());
     startAndroidBack({
       getContext: () => context(5, { dismissible: false }),
       handlers: { closeSheet, pop },
     });
     await Promise.resolve();
     // No listener at all: the native default handles the press.
-    expect(listenMock).not.toHaveBeenCalled();
+    expect(onBackButtonPressMock).not.toHaveBeenCalled();
     expect(closeSheet).not.toHaveBeenCalled();
     expect(pop).not.toHaveBeenCalled();
   });
 
   it("never registers outside Tauri or off Android", async () => {
-    listenMock.mockResolvedValue(vi.fn());
+    onBackButtonPressMock.mockResolvedValue(pluginListener());
     const make = () =>
       startAndroidBack({
         getContext: () => context(2),
@@ -200,14 +202,14 @@ describe("startAndroidBack", () => {
     withAndroidPlatform();
     make();
     await Promise.resolve();
-    expect(listenMock).not.toHaveBeenCalled();
+    expect(onBackButtonPressMock).not.toHaveBeenCalled();
   });
 
   it("disposes the listener and stops reacting", async () => {
     withTauri();
     withAndroidPlatform();
-    const unlisten = vi.fn();
-    listenMock.mockResolvedValue(unlisten);
+    const listener = pluginListener();
+    onBackButtonPressMock.mockResolvedValue(listener);
     const [depth, setDepth] = createSignal(2);
     const controller = startAndroidBack({
       getContext: () => context(depth()),
@@ -217,12 +219,12 @@ describe("startAndroidBack", () => {
 
     controller.dispose();
     await Promise.resolve();
-    expect(unlisten).toHaveBeenCalled();
+    expect(listener.unregister).toHaveBeenCalled();
     expect(controller.listening()).toBe(false);
 
     // A context change after dispose must not re-register.
     setDepth(3);
     await Promise.resolve();
-    expect(listenMock).toHaveBeenCalledTimes(1);
+    expect(onBackButtonPressMock).toHaveBeenCalledTimes(1);
   });
 });
