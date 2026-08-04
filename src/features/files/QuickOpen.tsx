@@ -1,5 +1,8 @@
-// Quick open (⌘/Ctrl+P) dialog (TASK-M4-04): a kobalte modal that searches
-// the workspace over GET /find/file. Typing debounces 150ms and invalidates
+// Quick open (⌘/Ctrl+P) dialog (TASK-M4-04 / TASK-M4-06): a kobalte modal
+// that searches the workspace over GET /find/file — and, when the query
+// starts with `#` (a trigger + at least one more character), over GET
+// /find/symbol instead, showing symbol rows with a kind glyph and jumping
+// to the symbol's file + line. Typing debounces 150ms and invalidates
 // in-flight responses (the same pattern as the PromptBox @-menu — the core
 // is deliberately not extracted: the @ menu is caret-insertion driven while
 // this dialog owns a full open/close lifecycle). ↑↓ wrap through the ranked
@@ -15,9 +18,17 @@ import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { getApiClient } from "../../services/client.js";
 import { createFindService } from "../../services/find.js";
-import { openTab } from "../../stores/viewer.js";
+import { getActiveDirectory } from "../../stores/project.js";
+import { openTab, setActiveLine } from "../../stores/viewer.js";
 import { pushRecentFile, readRecentFiles } from "./recentFiles.js";
 import { rankResults, type RankedEntry } from "./rankResults.js";
+import {
+  isSymbolQuery,
+  symbolHitOf,
+  symbolKindIcon,
+  symbolQueryOf,
+  type SymbolHit,
+} from "./symbols.js";
 
 export interface QuickOpenProps {
   /** The server whose workspace is searched. */
@@ -63,7 +74,7 @@ function EmptyRow(props: { testId: string; label: string }) {
 function FileRows(props: {
   entries: RankedEntry[];
   selected: () => number;
-  onOpen: (entry: RankedEntry) => void;
+  onOpen: (path: string) => void;
 }) {
   return (
     <For each={props.entries}>
@@ -74,7 +85,7 @@ function FileRows(props: {
           data-testid={`quick-open-item-${entry.path}`}
           aria-selected={index() === props.selected() ? "true" : "false"}
           onMouseDown={(event) => event.preventDefault()}
-          onClick={() => props.onOpen(entry)}
+          onClick={() => props.onOpen(entry.path)}
           class={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm outline-none ${
             index() === props.selected() ? "bg-bg-sunken" : ""
           }`}
@@ -86,9 +97,40 @@ function FileRows(props: {
   );
 }
 
+function SymbolRows(props: {
+  entries: SymbolHit[];
+  selected: () => number;
+  onOpen: (hit: SymbolHit) => void;
+}) {
+  return (
+    <For each={props.entries}>
+      {(entry, index) => (
+        <button
+          type="button"
+          role="option"
+          data-testid={`quick-open-symbol-${entry.name}`}
+          aria-selected={index() === props.selected() ? "true" : "false"}
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => props.onOpen(entry)}
+          class={`flex w-full items-center gap-2 px-4 py-1.5 text-left text-sm outline-none ${
+            index() === props.selected() ? "bg-bg-sunken" : ""
+          }`}
+        >
+          <span aria-hidden="true" class="w-4 shrink-0 text-center font-code text-xs text-fg-faint">
+            {symbolKindIcon(entry.kind)}
+          </span>
+          <span class="truncate font-code text-xs text-fg-default">{entry.name}</span>
+          <span class="truncate text-xs text-fg-faint">{entry.path}</span>
+        </button>
+      )}
+    </For>
+  );
+}
+
 const QuickOpen: Component<QuickOpenProps> = (props) => {
   const [query, setQuery] = createSignal("");
   const [results, setResults] = createSignal<RankedEntry[]>([]);
+  const [symbols, setSymbols] = createSignal<SymbolHit[]>([]);
   const [recent, setRecent] = createSignal<string[]>([]);
   const [selected, setSelected] = createSignal(0);
   const [loading, setLoading] = createSignal(false);
@@ -112,6 +154,7 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
     }
     setQuery("");
     setResults([]);
+    setSymbols([]);
     setRecent(readRecentFiles(props.serverId));
     setSelected(0);
     setLoading(false);
@@ -126,26 +169,42 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
   // The visible entries: recent files for an empty query, ranked search
   // results otherwise.
   const queryText = createMemo(() => query().trim());
+  const symbolMode = createMemo(() => isSymbolQuery(queryText()));
   const entries = createMemo<RankedEntry[]>(() => {
     if (queryText() === "") {
       return recent().map((path) => ({ path, bucket: 0, recentIndex: 0 }));
     }
     return results();
   });
+  // Row count for keyboard navigation across both modes.
+  const rowCount = createMemo(() => {
+    if (queryText() === "") return recent().length;
+    if (symbolMode()) return symbols().length;
+    return results().length;
+  });
 
   async function search(value: string): Promise<void> {
     const seq = ++fetchSeq;
     setLoading(true);
     try {
-      const items = await createFindService(getApiClient()).files(value);
-      if (seq !== fetchSeq) return; // stale response; a newer query owns the list
-      setResults(rankResults(value, items, recent()));
-      setSelected(0);
+      const find = createFindService(getApiClient());
+      if (isSymbolQuery(value)) {
+        const items = await find.symbols(symbolQueryOf(value));
+        if (seq !== fetchSeq) return; // stale response; a newer query owns the list
+        setSymbols(items.map((symbol) => symbolHitOf(symbol, getActiveDirectory())));
+        setSelected(0);
+      } else {
+        const items = await find.files(value);
+        if (seq !== fetchSeq) return; // stale response; a newer query owns the list
+        setResults(rankResults(value, items, recent()));
+        setSelected(0);
+      }
     } catch {
       if (seq !== fetchSeq) return;
-      // A failed search leaves the list empty ("No matches" below); typing
-      // again re-searches.
+      // A failed search leaves the list empty ("No matches" / "No symbols
+      // found" below); typing again re-searches.
       setResults([]);
+      setSymbols([]);
     } finally {
       if (seq === fetchSeq) setLoading(false);
     }
@@ -163,10 +222,12 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
       fetchSeq += 1;
       setLoading(false);
       setResults([]);
+      setSymbols([]);
       setSelected(0);
       return;
     }
     setResults([]);
+    setSymbols([]);
     setSelected(0);
     timer = setTimeout(() => {
       timer = undefined;
@@ -174,15 +235,38 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
     }, SEARCH_DEBOUNCE_MS);
   }
 
-  function openEntry(entry: RankedEntry): void {
-    openTab(props.serverId, entry.path);
-    pushRecentFile(props.serverId, entry.path);
-    props.onOpenFile?.(entry.path);
+  function openFile(path: string): void {
+    openTab(props.serverId, path);
+    pushRecentFile(props.serverId, path);
+    props.onOpenFile?.(path);
     props.onClose();
   }
 
+  function openSymbol(hit: SymbolHit): void {
+    openTab(props.serverId, hit.path);
+    setActiveLine(props.serverId, hit.path, hit.line);
+    pushRecentFile(props.serverId, hit.path);
+    props.onOpenFile?.(hit.path);
+    props.onClose();
+  }
+
+  function openAt(index: number): void {
+    if (queryText() === "") {
+      const path = recent()[index];
+      if (path !== undefined) openFile(path);
+      return;
+    }
+    if (symbolMode()) {
+      const hit = symbols()[index];
+      if (hit !== undefined) openSymbol(hit);
+      return;
+    }
+    const entry = results()[index];
+    if (entry !== undefined) openFile(entry.path);
+  }
+
   function onKeyDown(event: KeyboardEvent): void {
-    const count = entries().length;
+    const count = rowCount();
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
       if (count === 0) return;
@@ -192,7 +276,7 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
     }
     if (event.key === "Enter" && count > 0) {
       event.preventDefault();
-      openEntry(entries()[selected()]);
+      openAt(selected());
     }
     // Esc is handled by the kobalte dialog itself (closes via onClose).
   }
@@ -209,7 +293,12 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
 
   const view = createMemo(() => {
     if (queryText() === "") return { kind: "recent" } as const;
-    if (loading() && results().length === 0) return { kind: "loading" } as const;
+    if (loading() && rowCount() === 0) return { kind: "loading" } as const;
+    if (symbolMode()) {
+      return symbols().length === 0
+        ? ({ kind: "symbols-empty" } as const)
+        : ({ kind: "symbols" } as const);
+    }
     if (results().length === 0) return { kind: "empty" } as const;
     return { kind: "list" } as const;
   });
@@ -265,9 +354,26 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
                   fallback={
                     <Show
                       when={view().kind === "list"}
-                      fallback={<EmptyRow testId="quick-open-empty" label="No matches" />}
+                      fallback={
+                        <Show
+                          when={view().kind === "symbols"}
+                          fallback={
+                            <Show
+                              when={view().kind === "symbols-empty"}
+                              fallback={<EmptyRow testId="quick-open-empty" label="No matches" />}
+                            >
+                              <EmptyRow
+                                testId="quick-open-symbols-empty"
+                                label="No symbols found"
+                              />
+                            </Show>
+                          }
+                        >
+                          <SymbolRows entries={symbols()} selected={selected} onOpen={openSymbol} />
+                        </Show>
+                      }
                     >
-                      <FileRows entries={entries()} selected={selected} onOpen={openEntry} />
+                      <FileRows entries={entries()} selected={selected} onOpen={openFile} />
                     </Show>
                   }
                 >
@@ -285,7 +391,7 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
                 >
                   Recent
                 </div>
-                <FileRows entries={entries()} selected={selected} onOpen={openEntry} />
+                <FileRows entries={entries()} selected={selected} onOpen={openFile} />
               </Show>
             </Show>
           </div>

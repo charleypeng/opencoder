@@ -484,6 +484,47 @@ try {
       expect(typeof body[0]?.name === "string", "symbol must carry a name");
       expect(typeof body[0]?.kind === "number", "symbol must carry a numeric kind");
       expect(typeof body[0]?.location?.uri === "string", "symbol must carry a location uri");
+      expect(
+        typeof body[0]?.location?.range?.start?.line === "number" &&
+          typeof body[0]?.location?.range?.start?.character === "number",
+        "symbol location must carry a 0-based start position",
+      );
+    });
+
+    await test("find/symbol filters symbols by query name substring", async () => {
+      const { body } = await request(baseUrl, "/find/symbol?query=build");
+      expect(Array.isArray(body) && body.length >= 1, `expected >= 1; got ${body?.length}`);
+      for (const symbol of body) {
+        expect(
+          typeof symbol?.name === "string" && symbol.name.toLowerCase().includes("build"),
+          `name must contain the query; got ${JSON.stringify(symbol?.name)}`,
+        );
+      }
+      expect(
+        body[0]?.location?.range?.start?.line === 91,
+        `start line ${JSON.stringify(body[0]?.location?.range?.start)}`,
+      );
+    });
+
+    await test("find/symbol with an empty query returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find/symbol?query=");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
+    });
+
+    await test("find/symbol fixture spans multiple kinds", async () => {
+      // "e" matches six of the seven fixture names, exposing the kind
+      // spread (function/method/class/interface/variable/constant).
+      const { body } = await request(baseUrl, "/find/symbol?query=e");
+      expect(Array.isArray(body) && body.length >= 5, `expected >= 5 symbols; got ${body?.length}`);
+      const kinds = new Set(body.map((symbol) => symbol?.kind));
+      expect(kinds.size >= 4, `expected >= 4 kinds in fixture; got ${[...kinds].join(", ")}`);
+    });
+
+    await test("find/symbol with no matches returns an empty array", async () => {
+      const { status, body } = await request(baseUrl, "/find/symbol?query=zzz_no_match");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
     });
 
     // TASK-M4-01: /file family.

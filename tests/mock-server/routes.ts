@@ -57,11 +57,9 @@ const P0_CORE_LOOP: Route[] = [
 ];
 
 // P2 — efficiency tools (M4): /find family. `/find` is handled dynamically
-// (pattern filtering, TASK-M4-05) and `/find/file` filters by query
-// (TASK-M3-08); `/find/symbol` serves its fixture declaratively.
-const FIND_ROUTES: Route[] = [
-  { method: "get", path: "/find/symbol", operation: "find.symbols", fixture: "find.symbol" },
-];
+// (pattern filtering, TASK-M4-05) and `/find/file` / `/find/symbol` filter
+// by query (TASK-M3-08 / TASK-M4-06).
+const FIND_ROUTES: Route[] = [];
 
 // P2 — efficiency tools (M4): /file family. The tree is a flat FileNode[]
 // served declaratively; the viewer (M4-03) expands directories by re-listing
@@ -211,6 +209,29 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     }
     const needle = query.toLowerCase();
     res.json(files.filter((path) => path.toLowerCase().includes(needle)));
+  });
+
+  // Workspace symbol search (TASK-M4-06): the fixture symbol list is
+  // filtered by a case-insensitive substring match on the symbol name; an
+  // empty or missing query returns an empty array (same convention as
+  // `/find/file`).
+  app.get("/find/symbol", (req, res) => {
+    const query = queryString(req, "query");
+    const symbols = Array.isArray(fixtures["find.symbol"])
+      ? (fixtures["find.symbol"] as { name?: unknown }[])
+      : [];
+    if (query === undefined || query === "") {
+      res.json([]);
+      return;
+    }
+    const needle = query.toLowerCase();
+    res.json(
+      symbols.filter((symbol) =>
+        String(symbol.name ?? "")
+          .toLowerCase()
+          .includes(needle),
+      ),
+    );
   });
 
   // Full-text search (TASK-M4-05): the fixture match list is filtered by

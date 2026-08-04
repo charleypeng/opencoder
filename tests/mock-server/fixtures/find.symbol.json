@@ -18,7 +18,7 @@
   },
   {
     "name": "sendPrompt",
-    "kind": 5,
+    "kind": 6,
     "location": {
       "uri": "file:///mock/projects/opencode-demo/src/features/sessions/sendPrompt.ts",
       "range": {
@@ -28,6 +28,91 @@
         },
         "end": {
           "line": 35,
+          "character": 22
+        }
+      }
+    }
+  },
+  {
+    "name": "OpenCodeClient",
+    "kind": 5,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/services/client.ts",
+      "range": {
+        "start": {
+          "line": 17,
+          "character": 7
+        },
+        "end": {
+          "line": 17,
+          "character": 21
+        }
+      }
+    }
+  },
+  {
+    "name": "buildTree",
+    "kind": 6,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/features/files/FileTree.tsx",
+      "range": {
+        "start": {
+          "line": 91,
+          "character": 10
+        },
+        "end": {
+          "line": 91,
+          "character": 19
+        }
+      }
+    }
+  },
+  {
+    "name": "viewer",
+    "kind": 13,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/stores/viewer.ts",
+      "range": {
+        "start": {
+          "line": 32,
+          "character": 6
+        },
+        "end": {
+          "line": 32,
+          "character": 12
+        }
+      }
+    }
+  },
+  {
+    "name": "SessionListProps",
+    "kind": 11,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/features/sessions/SessionList.tsx",
+      "range": {
+        "start": {
+          "line": 11,
+          "character": 14
+        },
+        "end": {
+          "line": 11,
+          "character": 29
+        }
+      }
+    }
+  },
+  {
+    "name": "MAX_RECENT_FILES",
+    "kind": 14,
+    "location": {
+      "uri": "file:///mock/projects/opencode-demo/src/features/files/recentFiles.ts",
+      "range": {
+        "start": {
+          "line": 5,
+          "character": 6
+        },
+        "end": {
+          "line": 5,
           "character": 22
         }
       }
