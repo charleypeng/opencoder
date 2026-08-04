@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { permissionHaptic, startHapticEvents, statusHaptic } from "./hapticEvents";
 import {
   applySessionList,
+  removeSession,
   resetServer as resetSessions,
   setSessionStatus,
 } from "../stores/session.js";
@@ -147,6 +148,28 @@ describe("startHapticEvents", () => {
     applyList(SERVER, [request("p1")]);
     withWatcher(() => {});
     await flush();
+    expect(hapticMock).not.toHaveBeenCalled();
+  });
+
+  it("prunes deleted sessions so a reused id starts a fresh baseline", async () => {
+    // A generating session exists at mount (baseline = busy).
+    applySessionList(SERVER, [session("s1")]);
+    setSessionStatus(SERVER, "s1", { type: "busy" });
+    const dispose = startHapticEvents(SERVER);
+    try {
+      // The deletion run prunes s1's baseline from prevStatuses.
+      removeSession(SERVER, "s1");
+      await flush();
+      // A NEW session reuses the id and is already idle on first
+      // observation — the stale "busy" baseline would have fired a
+      // spurious "complete" for the deleted session.
+      applySessionList(SERVER, [session("s1")]);
+      await flush();
+      setSessionStatus(SERVER, "s1", { type: "idle" });
+      await flush();
+    } finally {
+      dispose();
+    }
     expect(hapticMock).not.toHaveBeenCalled();
   });
 

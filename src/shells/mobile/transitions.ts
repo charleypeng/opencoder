@@ -32,10 +32,11 @@ export function pageEnterClass(dir: PageEnterDir): string {
 }
 
 /** Stable identity of a route; used as the remount key for the page
- *  wrapper so a route change replays the enter animation. */
+ *  wrapper so a route change replays the enter animation. The full params
+ *  are folded in (a diff push carries sessionId + messageID, so a key
+ *  based on sessionId alone would collide across messages). */
 export function routeKey(route: Route): string {
   const params = route.params;
   if (params === undefined || Object.keys(params).length === 0) return route.page;
-  const id = params.sessionId ?? params.path ?? "";
-  return `${route.page}:${id}`;
+  return `${route.page}:${JSON.stringify(params)}`;
 }

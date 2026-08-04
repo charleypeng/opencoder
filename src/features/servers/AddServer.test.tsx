@@ -655,4 +655,18 @@ describe("AddServer QR scan (TASK-M7-08)", () => {
       ),
     );
   });
+
+  it("shows Scan cancelled instead of a camera error when the scan is cancelled", async () => {
+    withTauri();
+    withMobilePlatform();
+    render(() => <AddServer scanEnabled />);
+
+    scanMock.mockRejectedValue("cancelled");
+    fireEvent.click(screen.getByTestId("scan-qr-button"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("scan-error")).toHaveTextContent("Scan cancelled."),
+    );
+    expect(screen.getByTestId("scan-error")).not.toHaveTextContent("camera");
+  });
 });

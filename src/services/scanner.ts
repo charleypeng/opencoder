@@ -17,12 +17,36 @@ export function canScan(): boolean {
   return platform.kind === "mobile";
 }
 
+/** Thrown by scanQrCode when the user cancels the camera scan — distinct
+ *  from failures (permission denied, camera errors). */
+export class ScanCancelledError extends Error {
+  constructor() {
+    super("Scan cancelled");
+    this.name = "ScanCancelledError";
+  }
+}
+
 /** Runs the native camera scanner (QR codes) and resolves with the decoded
- *  text. Rejects outside Tauri/mobile and on scan errors or cancellation. */
+ *  text. Rejects outside Tauri/mobile and on scan errors; a user cancel is
+ *  rejected as ScanCancelledError. */
 export async function scanQrCode(): Promise<string> {
   if (!canScan()) {
     throw new Error("QR scanning is only available in the mobile app");
   }
-  const scanned = await pluginScan({ formats: [Format.QRCode] });
-  return scanned.content;
+  try {
+    const scanned = await pluginScan({ formats: [Format.QRCode] });
+    return scanned.content;
+  } catch (err) {
+    // Both platform implementations reject with the literal "cancelled" on
+    // user cancel (BarcodeScannerPlugin.swift / BarcodeScannerPlugin.kt);
+    // anything else is a real failure and propagates unchanged.
+    if (messageOf(err) === "cancelled") throw new ScanCancelledError();
+    throw err;
+  }
+}
+
+function messageOf(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (typeof err === "string") return err;
+  return String(err);
 }

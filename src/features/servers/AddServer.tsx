@@ -10,7 +10,7 @@ import {
   subscribeToServerDiscovered,
 } from "../../services/discovery";
 import type { DiscoveredServer } from "../../services/discovery";
-import { canScan, scanQrCode } from "../../services/scanner";
+import { ScanCancelledError, canScan, scanQrCode } from "../../services/scanner";
 import { addServer, probeServer, updateServer } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
@@ -156,8 +156,13 @@ function AddServer(props: AddServerProps) {
       setName(parsed.name);
       setUrl(parsed.url);
       void onTestConnection();
-    } catch {
-      setQrScanError("Could not start the camera. Check the camera permission and try again.");
+    } catch (err) {
+      // A user cancel is not a failure — no scary camera copy for it.
+      setQrScanError(
+        err instanceof ScanCancelledError
+          ? "Scan cancelled."
+          : "Could not start the camera. Check the camera permission and try again.",
+      );
     } finally {
       setQrScanning(false);
     }

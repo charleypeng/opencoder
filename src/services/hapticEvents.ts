@@ -52,12 +52,19 @@ export function startHapticEvents(serverId: string): () => void {
     // Baseline snapshots taken at mount time (effects run on Solid's own
     // flush, which is deferred; the snapshot must not be an event).
     const prevStatuses = new Map(Object.entries(getServerSessionState(serverId).statuses));
-    const prevPermissionIds = new Map<string, string[]>([
-      [serverId, (permissions[serverId]?.queue ?? []).map((request) => request.id)],
-    ]);
+    let prevPermissionIds: readonly string[] | undefined = (permissions[serverId]?.queue ?? []).map(
+      (request) => request.id,
+    );
 
     createEffect(() => {
-      const statuses = getServerSessionState(serverId).statuses;
+      const { sessions, statuses } = getServerSessionState(serverId);
+      // Prune baselines of sessions deleted from the store: a reused id
+      // must start a fresh baseline (a stale one would fire a spurious
+      // "complete" from the deleted session) and the map must not grow
+      // unbounded.
+      for (const sessionId of prevStatuses.keys()) {
+        if (!(sessionId in sessions)) prevStatuses.delete(sessionId);
+      }
       for (const [sessionId, entry] of Object.entries(statuses)) {
         const kind = statusHaptic(prevStatuses.get(sessionId), entry);
         if (kind !== null) void haptic(kind);
@@ -67,9 +74,9 @@ export function startHapticEvents(serverId: string): () => void {
 
     createEffect(() => {
       const ids = (permissions[serverId]?.queue ?? []).map((request) => request.id);
-      const kind = permissionHaptic(prevPermissionIds.get(serverId), ids);
+      const kind = permissionHaptic(prevPermissionIds, ids);
       if (kind !== null) void haptic(kind);
-      prevPermissionIds.set(serverId, ids);
+      prevPermissionIds = ids;
     });
 
     return dispose;

@@ -550,6 +550,30 @@ describe("ServerHome QR share (TASK-M7-08)", () => {
       refreshPlatform();
     }
   });
+
+  it("hides the Show QR code menu item on a mobile platform", async () => {
+    const IPHONE_UA =
+      "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148";
+    const ORIGINAL_UA = window.navigator.userAgent;
+    Object.defineProperty(window.navigator, "userAgent", { value: IPHONE_UA, configurable: true });
+    refreshPlatform();
+    try {
+      invokeMock.mockResolvedValueOnce([server({ id: "srv-mobile-menu", name: "Alpha" })]);
+      render(() => <ServerHome onSelect={vi.fn()} />);
+      const card = await waitFor(() => screen.getByTestId("server-card-srv-mobile-menu"));
+      fireEvent.contextMenu(card);
+      await waitFor(() =>
+        expect(screen.getByRole("menuitem", { name: "Edit" })).toBeInTheDocument(),
+      );
+      expect(screen.queryByRole("menuitem", { name: "Show QR code" })).toBeNull();
+    } finally {
+      Object.defineProperty(window.navigator, "userAgent", {
+        value: ORIGINAL_UA,
+        configurable: true,
+      });
+      refreshPlatform();
+    }
+  });
 });
 
 describe("ServerHome error banner (TASK-M1-09)", () => {

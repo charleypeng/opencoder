@@ -84,12 +84,16 @@ function serverMenuItems(
 ): JSX.Element {
   return (
     <>
-      <Item
-        class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
-        onSelect={() => actions.onShowQr(server)}
-      >
-        Show QR code
-      </Item>
+      <Show when={platform.kind === "desktop"}>
+        {/* The QR share dialog is a desktop feature; the mobile card menu
+            must not offer it (mobile sharing is the native share sheet). */}
+        <Item
+          class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
+          onSelect={() => actions.onShowQr(server)}
+        >
+          Show QR code
+        </Item>
+      </Show>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onEdit(server)}

@@ -5,7 +5,7 @@
 // dispatch through the official plugin guest API on Tauri mobile.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { canScan, scanQrCode } from "./scanner";
+import { ScanCancelledError, canScan, scanQrCode } from "./scanner";
 import { refreshPlatform } from "../platform/index.js";
 
 const { scanMock } = vi.hoisted(() => ({ scanMock: vi.fn() }));
@@ -100,5 +100,19 @@ describe("scanQrCode", () => {
     withMobilePlatform();
     scanMock.mockRejectedValue(new Error("camera permission denied"));
     await expect(scanQrCode()).rejects.toThrow("camera permission denied");
+  });
+
+  it('maps a cancelled scan (plugin rejects with "cancelled") to ScanCancelledError', async () => {
+    withTauri();
+    withMobilePlatform();
+    scanMock.mockRejectedValue("cancelled");
+    await expect(scanQrCode()).rejects.toBeInstanceOf(ScanCancelledError);
+  });
+
+  it("maps an Error-wrapped cancelled scan the same way", async () => {
+    withTauri();
+    withMobilePlatform();
+    scanMock.mockRejectedValue(new Error("cancelled"));
+    await expect(scanQrCode()).rejects.toBeInstanceOf(ScanCancelledError);
   });
 });
