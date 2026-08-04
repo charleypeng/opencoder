@@ -1,9 +1,11 @@
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 mod commands;
 pub mod connections;
+pub mod discovery;
 pub mod transport;
 
 use connections::health::HealthMonitor;
+use discovery::MdnsDiscovery;
 use tauri::Manager;
 
 #[tauri::command]
@@ -19,8 +21,10 @@ pub fn run() {
         .setup(|app| {
             let registry = connections::ServerRegistry::load(app.handle())?;
             let monitor = HealthMonitor::new(app.handle());
+            let discovery = MdnsDiscovery::new(app.handle());
             app.manage(registry);
             app.manage(monitor);
+            app.manage(discovery);
             // Start per-server health polling for every persisted server.
             let monitor = app.state::<HealthMonitor<tauri::Wry>>();
             monitor.start_all(&app.state::<connections::ServerRegistry<tauri::Wry>>());
@@ -40,7 +44,10 @@ pub fn run() {
             commands::get_server_health,
             commands::probe_server,
             commands::start_health_monitoring,
-            commands::stop_health_monitoring
+            commands::stop_health_monitoring,
+            commands::start_mdns_discovery,
+            commands::stop_mdns_discovery,
+            commands::get_discovered_servers
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

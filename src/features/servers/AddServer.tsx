@@ -2,8 +2,14 @@
 // "Test connection" probe (probe_server → GET /global/health), URL
 // normalization, a plain-HTTP risk warning and save via add_server.
 
-import { createSignal, Show } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import { ApiError } from "../../services/errors";
+import {
+  getDiscoveredServers,
+  startMdnsDiscovery,
+  subscribeToServerDiscovered,
+} from "../../services/discovery";
+import type { DiscoveredServer } from "../../services/discovery";
 import { addServer, probeServer, updateServer } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
@@ -24,6 +30,14 @@ type ProbeState =
 const inputClass =
   "mt-1 w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 text-sm text-fg-primary " +
   "placeholder:text-fg-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent";
+
+/// How long the "Scanning…" indicator stays up without any discovery
+/// result before the section falls back to the empty note.
+const SCAN_SETTLE_MS = 4000;
+
+const nearbyRowClass =
+  "flex items-center justify-between gap-3 rounded-md border border-bg-sunken " +
+  "bg-bg-sunken px-3 py-2";
 
 function AddServer(props: AddServerProps) {
   // The wizard is mounted per entry (keyed in ServerHome), so reading the
@@ -59,6 +73,59 @@ function AddServer(props: AddServerProps) {
     if (!user && !pass) return undefined;
     return { username: user || undefined, password: pass || undefined };
   };
+
+  // Nearby servers: the mDNS scan starts when the wizard opens (add mode
+  // only), the Rust-side cache is pulled once and every `server-discovered`
+  // event appends a server. The scan is best-effort: failures outside Tauri
+  // or on a network without mDNS leave the section quietly empty.
+  const [nearby, setNearby] = createSignal<DiscoveredServer[]>([]);
+  const [scanning, setScanning] = createSignal(true);
+  let scanTimer: ReturnType<typeof setTimeout> | undefined;
+
+  function upsertNearby(server: DiscoveredServer): void {
+    setNearby((servers) => {
+      if (servers.some((existing) => existing.url === server.url)) return servers;
+      return [...servers, server];
+    });
+  }
+
+  async function refreshNearby() {
+    setScanning(true);
+    if (scanTimer) clearTimeout(scanTimer);
+    scanTimer = setTimeout(() => setScanning(false), SCAN_SETTLE_MS);
+    try {
+      await startMdnsDiscovery();
+    } catch {
+      // LAN discovery is optional; a failed start leaves the section empty.
+    }
+  }
+
+  onMount(() => {
+    if (props.server) return;
+    const stop = subscribeToServerDiscovered(upsertNearby);
+    onCleanup(() => {
+      stop();
+      if (scanTimer) clearTimeout(scanTimer);
+    });
+    void getDiscoveredServers()
+      .then((servers) => servers.forEach(upsertNearby))
+      .catch(() => {
+        // Best-effort pull; new servers still arrive via events.
+      })
+      .finally(() => void refreshNearby());
+  });
+
+  function onAddNearby(server: DiscoveredServer) {
+    setName(server.name);
+    setUrl(server.url);
+    void onTestConnection();
+  }
+
+  // Removes a just-saved server from the nearby list (it is now saved).
+  function onAdded(server: ServerEntry) {
+    setNearby((servers) => servers.filter((nearby) => nearby.url !== server.url));
+    props.onAdded?.(server);
+  }
 
   async function onTestConnection() {
     const normalized = normalizedUrl();
@@ -104,7 +171,7 @@ function AddServer(props: AddServerProps) {
         createdAt: server.createdAt,
         lastConnectedAt: server.lastConnectedAt,
       };
-      props.onAdded?.(publicEntry);
+      onAdded(publicEntry);
       if (!props.server) {
         setName("");
         setUrl("");
@@ -248,6 +315,56 @@ function AddServer(props: AddServerProps) {
           </Show>
         </div>
       </form>
+
+      <Show when={!props.server}>
+        <section
+          data-testid="nearby-servers"
+          class="mt-6 border-t border-bg-sunken pt-4"
+          aria-label="Nearby servers"
+        >
+          <div class="flex items-center justify-between gap-3">
+            <h3 class="text-sm font-semibold">Nearby servers</h3>
+            <button
+              data-testid="mdns-refresh"
+              type="button"
+              class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
+              onClick={() => void refreshNearby()}
+            >
+              Refresh
+            </button>
+          </div>
+          <Show when={scanning() && nearby().length === 0}>
+            <p class="mt-2 text-sm text-fg-secondary" data-testid="mdns-scanning">
+              Scanning the local network…
+            </p>
+          </Show>
+          <Show when={!scanning() && nearby().length === 0}>
+            <p class="mt-2 text-sm text-fg-faint" data-testid="mdns-empty">
+              No OpenCode servers found on this network.
+            </p>
+          </Show>
+          <ul class="mt-2 space-y-2">
+            <For each={nearby()}>
+              {(server) => (
+                <li data-testid={`nearby-${server.id}`} class={nearbyRowClass}>
+                  <div class="min-w-0">
+                    <p class="truncate text-sm text-fg-primary">{server.name}</p>
+                    <p class="truncate font-code text-xs text-fg-secondary">{server.url}</p>
+                  </div>
+                  <button
+                    data-testid={`add-nearby-${server.id}`}
+                    type="button"
+                    class="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-white"
+                    onClick={() => onAddNearby(server)}
+                  >
+                    Add
+                  </button>
+                </li>
+              )}
+            </For>
+          </ul>
+        </section>
+      </Show>
     </div>
   );
 }

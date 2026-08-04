@@ -6,6 +6,7 @@
 use crate::connections::health::{HealthMonitor, ServerHealth};
 use crate::connections::registry::{RegistryError, ServerEntry, ServerEntryInput};
 use crate::connections::ServerRegistry;
+use crate::discovery::{DiscoveredServer, MdnsDiscovery};
 use crate::transport::http::{
     http_cancel as cancel_request, http_request as do_request, ApiError, Auth, HttpRequest,
     HttpResponse,
@@ -133,6 +134,33 @@ pub fn stop_health_monitoring(
 ) -> Result<(), ApiError> {
     monitor.stop(&server_id);
     Ok(())
+}
+
+/// Starts the LAN mDNS scan for OpenCode servers (idempotent); every newly
+/// discovered server arrives as a `server-discovered` event.
+#[tauri::command]
+pub fn start_mdns_discovery(
+    discovery: tauri::State<'_, MdnsDiscovery<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    discovery.start();
+    Ok(())
+}
+
+/// Stops the LAN mDNS scan (idempotent).
+#[tauri::command]
+pub fn stop_mdns_discovery(
+    discovery: tauri::State<'_, MdnsDiscovery<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    discovery.stop();
+    Ok(())
+}
+
+/// Servers discovered so far by the LAN mDNS scan.
+#[tauri::command]
+pub fn get_discovered_servers(
+    discovery: tauri::State<'_, MdnsDiscovery<tauri::Wry>>,
+) -> Vec<DiscoveredServer> {
+    discovery.discovered()
 }
 
 /// Resolves the base URL registered for a server id.

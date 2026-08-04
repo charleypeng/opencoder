@@ -1,14 +1,22 @@
 // L2 tests for the Add Server wizard (TASK-M1-05): form rendering, URL
-// normalization, the probe flow, the save flow and the plain-HTTP warning.
+// normalization, the probe flow, the save flow and the plain-HTTP warning;
+// plus the "Nearby servers" mDNS section (TASK-M1-07): list rendering from
+// the Rust cache, event-driven appends, one-click prefill, dedupe by URL
+// and the non-Tauri no-op guard.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import AddServer from "./AddServer";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
+import type { DiscoveredServer } from "../../services/discovery";
 import type { ServerEntry } from "../../services/servers";
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+const { invokeMock, listenMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  listenMock: vi.fn(),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 
 function typeUrl(value: string): void {
   fireEvent.input(screen.getByTestId("url-input"), { target: { value } });
@@ -329,5 +337,176 @@ describe("AddServer edit mode", () => {
     await waitFor(() => {
       expect(screen.getByTestId("save-error")).toHaveTextContent("store failed");
     });
+  });
+});
+
+// ---- Nearby servers (TASK-M1-07) ----
+
+const nearbyA: DiscoveredServer = {
+  id: "opencode-14096._http._tcp.local.",
+  name: "opencode-14096",
+  url: "http://192.168.1.5:14096",
+  host: "192.168.1.5",
+  port: 14096,
+};
+
+const nearbyB: DiscoveredServer = {
+  id: "opencode-14097._http._tcp.local.",
+  name: "opencode-14097",
+  url: "http://192.168.1.6:14097",
+  host: "192.168.1.6",
+  port: 14097,
+};
+
+function withTauri(): void {
+  Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
+}
+
+function withoutTauri(): void {
+  Object.defineProperty(window, "__TAURI_INTERNALS__", { value: undefined, configurable: true });
+}
+
+/** Happy-path mock for the discovery commands plus a healthy probe. */
+function mockDiscoveryCommands(servers: DiscoveredServer[], addServerResult?: ServerEntry): void {
+  listenMock.mockResolvedValue(() => {});
+  invokeMock.mockImplementation((cmd: string) => {
+    switch (cmd) {
+      case "get_discovered_servers":
+        return Promise.resolve(servers);
+      case "start_mdns_discovery":
+      case "stop_mdns_discovery":
+        return Promise.resolve();
+      case "add_server":
+        return addServerResult
+          ? Promise.resolve(addServerResult)
+          : Promise.reject(new Error(`unexpected command ${cmd}`));
+      case "probe_server":
+        return Promise.resolve({
+          serverId: "probe",
+          healthy: true,
+          version: "1.18.11-mock",
+          latencyMs: 12,
+          failCount: 0,
+          status: "ok",
+        });
+      default:
+        return Promise.reject(new Error(`unexpected command ${cmd}`));
+    }
+  });
+}
+
+describe("AddServer nearby servers", () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+    vi.useRealTimers();
+    withoutTauri();
+  });
+
+  it("renders the servers pulled from the Rust cache", async () => {
+    withTauri();
+    mockDiscoveryCommands([nearbyA, nearbyB]);
+    render(() => <AddServer />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`nearby-${nearbyA.id}`)).toBeInTheDocument();
+    });
+    expect(screen.getByTestId(`nearby-${nearbyB.id}`)).toBeInTheDocument();
+    expect(screen.getByText("http://192.168.1.5:14096")).toBeInTheDocument();
+    expect(invokeMock).toHaveBeenCalledWith("get_discovered_servers");
+    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("start_mdns_discovery"));
+  });
+
+  it("dedupes servers with the same url", async () => {
+    withTauri();
+    const duplicate = { ...nearbyB, id: "opencode-9999._http._tcp.local.", name: "dup" };
+    mockDiscoveryCommands([nearbyA, duplicate]);
+    render(() => <AddServer />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`nearby-${nearbyA.id}`)).toBeInTheDocument();
+    });
+    // The first entry for a url wins; the other id for the same url never
+    // renders (dedupe is by url, not by mDNS instance id).
+    expect(screen.getByTestId(`nearby-${duplicate.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`nearby-${nearbyB.id}`)).toBeNull();
+  });
+
+  it("adds a server from a server-discovered event", async () => {
+    withTauri();
+    mockDiscoveryCommands([]);
+    render(() => <AddServer />);
+
+    await waitFor(() => expect(listenMock).toHaveBeenCalled());
+    const [, onEvent] = listenMock.mock.calls[0];
+    onEvent({ payload: nearbyA });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`nearby-${nearbyA.id}`)).toBeInTheDocument();
+    });
+  });
+
+  it("prefills the form and probes when Add is clicked", async () => {
+    withTauri();
+    mockDiscoveryCommands([nearbyA]);
+    render(() => <AddServer />);
+
+    fireEvent.click(await screen.findByTestId(`add-nearby-${nearbyA.id}`));
+
+    expect(screen.getByTestId("name-input")).toHaveValue(nearbyA.name);
+    expect(screen.getByTestId("url-input")).toHaveValue(nearbyA.url);
+    await waitFor(() => {
+      expect(invokeMock).toHaveBeenCalledWith("probe_server", { url: nearbyA.url });
+    });
+  });
+
+  it("removes a nearby server from the list once it is saved", async () => {
+    withTauri();
+    const saved: ServerEntry = {
+      id: "srv-1",
+      name: nearbyA.name,
+      url: nearbyA.url,
+      createdAt: 123,
+    };
+    mockDiscoveryCommands([nearbyA], { ...saved, password: "secret" });
+    render(() => <AddServer />);
+
+    fireEvent.click(await screen.findByTestId(`add-nearby-${nearbyA.id}`));
+    fireEvent.click(screen.getByTestId("save-server"));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId(`nearby-${nearbyA.id}`)).toBeNull();
+    });
+  });
+
+  it("shows the scanning indicator and then the empty note without results", async () => {
+    withoutTauri();
+    vi.useFakeTimers();
+    render(() => <AddServer />);
+
+    expect(screen.getByTestId("mdns-scanning")).toBeInTheDocument();
+    await vi.advanceTimersByTimeAsync(4000);
+    expect(screen.getByTestId("mdns-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("mdns-scanning")).toBeNull();
+  });
+
+  it("is a quiet no-op outside Tauri", async () => {
+    withoutTauri();
+    render(() => <AddServer />);
+
+    expect(screen.queryByTestId(`nearby-${nearbyA.id}`)).toBeNull();
+    expect(invokeMock).not.toHaveBeenCalled();
+    expect(listenMock).not.toHaveBeenCalled();
+  });
+
+  it("hides the section in edit mode", () => {
+    withTauri();
+    mockDiscoveryCommands([nearbyA]);
+    render(() => (
+      <AddServer
+        server={{ id: "srv-1", name: "Local", url: "http://localhost:14096", createdAt: 1 }}
+        onAdded={vi.fn()}
+      />
+    ));
+    expect(screen.queryByTestId("nearby-servers")).toBeNull();
   });
 });
