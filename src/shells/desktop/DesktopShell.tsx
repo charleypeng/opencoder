@@ -8,9 +8,12 @@
 // toggling between the session list (TASK-M2-04) and the files tree; the
 // main pane shows the chat transcript (TASK-M2-06) for the store's active
 // session id (set by row selection and by the "New session" flow,
-// TASK-M2-05), keeping a placeholder only while no session is open. This
-// shell owns the per-directory SSE subscription and rebuilds it whenever the
-// active server or the active directory changes, re-syncing the stores so
+// TASK-M2-05), keeping a placeholder only while no session is open. A
+// Main-area tab bar (TASK-M4-03) switches between Chat and Files: the
+// Files tab mounts the tabbed file viewer, and clicking a file in the
+// sidebar tree opens its tab and switches Main to Files. This shell owns
+// the per-directory SSE subscription and rebuilds it whenever the active
+// server or the active directory changes, re-syncing the stores so
 // sessions and messages never mix across contexts.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
@@ -26,6 +29,7 @@ import { getServerProjectState } from "../../stores/project";
 import { getServerSessionState, resetServer as resetSessions } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetTodos } from "../../stores/todos";
+import { openTab, resetServer as resetViewer } from "../../stores/viewer";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
 import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
 import PromptBox from "../../features/sessions/PromptBox";
@@ -34,6 +38,7 @@ import SessionList from "../../features/sessions/SessionList";
 import TodoPanel from "../../features/sessions/TodoPanel";
 import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
+import FileViewer from "../../features/files/FileViewer";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -75,6 +80,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const closeTodos = () => setTodosOpen(false);
   // Sidebar view switch (TASK-M4-02): Sessions list or the Files tree.
   const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
+  // Main pane view switch (TASK-M4-03): Chat transcript or the Files
+  // viewer; opening a file from the sidebar tree jumps Main to Files.
+  const [mainView, setMainView] = createSignal<"chat" | "files">("chat");
 
   createEffect(() => {
     if (!todosOpen()) return;
@@ -125,6 +133,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     resetSessions(serverId);
     resetMessages(serverId);
     resetTodos(serverId);
+    resetViewer(serverId);
     let dir = directory;
     if (dir === undefined) {
       // Context not seeded yet (mount / server switch): resolve the current
@@ -287,43 +296,90 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         <ProjectSwitcher serverId={activeServerId()} />
         <Show
           when={sidebarView() === "sessions"}
-          fallback={<FileTree serverId={activeServerId()} />}
+          fallback={
+            <FileTree
+              serverId={activeServerId()}
+              onOpenFile={(path) => {
+                openTab(activeServerId(), path);
+                setMainView("files");
+              }}
+            />
+          }
         >
           <SessionList serverId={activeServerId()} onSelect={() => undefined} />
         </Show>
       </aside>
 
       <main class="flex min-w-0 flex-1 flex-col">
-        <Show
-          when={activeSessionId()}
-          fallback={
-            <div class="flex flex-1 items-center justify-center p-4">
-              <p class="text-sm text-fg-secondary">Select a session — M2</p>
-            </div>
-          }
+        <div
+          role="tablist"
+          aria-label="Main view"
+          class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
         >
-          <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
-            <h2 data-testid="chat-session-title" class="min-w-0 truncate text-sm font-semibold">
-              {titleOf(activeServerId(), activeSessionId() as string)}
-            </h2>
-            <button
-              type="button"
-              data-testid="todo-toggle"
-              aria-pressed={todosOpen() ? "true" : "false"}
-              aria-label="Toggle todo panel"
-              class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                todosOpen()
-                  ? "border-accent text-accent"
-                  : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-              }`}
-              onClick={() => setTodosOpen((open) => !open)}
-            >
-              Todos
-            </button>
-          </header>
-          <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
-          <SessionErrorBanner serverId={activeServerId()} sessionId={activeSessionId() as string} />
-          <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
+          <button
+            type="button"
+            role="tab"
+            data-testid="main-tab-chat"
+            aria-selected={mainView() === "chat" ? "true" : "false"}
+            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+              mainView() === "chat"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setMainView("chat")}
+          >
+            Chat
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-testid="main-tab-files"
+            aria-selected={mainView() === "files" ? "true" : "false"}
+            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+              mainView() === "files"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setMainView("files")}
+          >
+            Files
+          </button>
+        </div>
+        <Show when={mainView() === "chat"} fallback={<FileViewer serverId={activeServerId()} />}>
+          <Show
+            when={activeSessionId()}
+            fallback={
+              <div class="flex flex-1 items-center justify-center p-4">
+                <p class="text-sm text-fg-secondary">Select a session — M2</p>
+              </div>
+            }
+          >
+            <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
+              <h2 data-testid="chat-session-title" class="min-w-0 truncate text-sm font-semibold">
+                {titleOf(activeServerId(), activeSessionId() as string)}
+              </h2>
+              <button
+                type="button"
+                data-testid="todo-toggle"
+                aria-pressed={todosOpen() ? "true" : "false"}
+                aria-label="Toggle todo panel"
+                class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                  todosOpen()
+                    ? "border-accent text-accent"
+                    : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                }`}
+                onClick={() => setTodosOpen((open) => !open)}
+              >
+                Todos
+              </button>
+            </header>
+            <MessageList serverId={activeServerId()} sessionId={activeSessionId() as string} />
+            <SessionErrorBanner
+              serverId={activeServerId()}
+              sessionId={activeSessionId() as string}
+            />
+            <PromptBox serverId={activeServerId()} sessionId={activeSessionId() as string} />
+          </Show>
         </Show>
       </main>
 

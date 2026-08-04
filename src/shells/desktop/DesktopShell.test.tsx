@@ -24,6 +24,7 @@ import {
 } from "../../stores/session";
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
 import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
+import { resetServer as resetViewer, viewer } from "../../stores/viewer";
 import type { components } from "../../services/api/schema.js";
 import type { Project } from "../../services/project";
 import type { Session } from "../../services/session";
@@ -39,6 +40,12 @@ const { invokeMock, listenMock, sseSubscribeMock } = vi.hoisted(() => {
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 vi.mock("../../services/sse.js", () => ({ sseSubscribe: sseSubscribeMock }));
+// The Files viewer highlights through Shiki; a stub keeps the shell tests
+// free of language-pack loading (the viewer tests cover the real contract).
+vi.mock("../../features/messages/markdown/highlighter.js", () => ({
+  getHighlighter: vi.fn(),
+  highlightCode: vi.fn(async (code: string) => `<pre data-testid="hl">${code}</pre>`),
+}));
 
 function server(overrides: Partial<ServerEntry>): ServerEntry {
   return {
@@ -131,6 +138,36 @@ function mockHttpRoutes(servers: ServerEntry[]) {
         );
       }
       if (request?.path === "/session/status") return Promise.resolve(httpResponse({}));
+      if (request?.path === "/file") {
+        return Promise.resolve(
+          httpResponse([
+            {
+              name: "README.md",
+              path: "README.md",
+              type: "file",
+              absolute: "/mock/projects/opencode-demo/README.md",
+              ignored: false,
+            },
+            {
+              name: "src",
+              path: "src",
+              type: "directory",
+              absolute: "/mock/projects/opencode-demo/src",
+              ignored: false,
+            },
+          ]),
+        );
+      }
+      if (request?.path === "/file/status") return Promise.resolve(httpResponse([]));
+      if (request?.path === "/file/content") {
+        return Promise.resolve(
+          httpResponse(
+            request?.query?.path === "README.md"
+              ? { type: "text", content: "# Demo project\n", mimeType: "text/markdown" }
+              : { type: "text", content: "const a = 1;\n", mimeType: "text/typescript" },
+          ),
+        );
+      }
     }
     return Promise.resolve(httpResponse(undefined));
   });
@@ -182,6 +219,7 @@ afterEach(() => {
   resetProjects("srv-switch");
   resetProjects("srv-rail-a");
   resetProjects("srv-rail-b");
+  resetViewer("srv-m4view");
 });
 
 describe("DesktopShell workspace", () => {
@@ -528,5 +566,54 @@ describe("DesktopShell todo drawer (TASK-M3-07)", () => {
     ]);
     await waitFor(() => expect(screen.getByText("Explore the repo")).toHaveClass("line-through"));
     expect(screen.getByText("Explore the repo")).toHaveClass("text-fg-faint");
+  });
+});
+
+describe("DesktopShell main view tabs (TASK-M4-03)", () => {
+  it("renders the Chat|Files tab bar with Chat selected and switches to the empty viewer", async () => {
+    const alpha = server({ id: "srv-m4view", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("main-tab-files"));
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("file-viewer")).toBeInTheDocument();
+    expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
+    expect(screen.queryByText("Select a session — M2")).not.toBeInTheDocument();
+
+    // Back to Chat restores the chat pane.
+    fireEvent.click(screen.getByTestId("main-tab-chat"));
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+  });
+
+  it("a sidebar tree click opens the file tab in the Main Files view and switches to it", async () => {
+    const alpha = server({ id: "srv-m4view", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // Open the sidebar Files tree and click the README row.
+    fireEvent.click(screen.getByTestId("sidebar-view-files"));
+    await waitFor(() => expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("file-row-README.md"));
+
+    // Main switched to Files with the opened tab; the content is fetched
+    // and highlighted through the stubbed highlighter.
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
+    );
+    expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
+
+    // A second click re-activates the existing tab without a duplicate.
+    fireEvent.click(screen.getByTestId("file-row-README.md"));
+    expect(viewer["srv-m4view"]?.tabs).toHaveLength(1);
   });
 });
