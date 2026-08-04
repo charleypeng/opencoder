@@ -24,9 +24,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 0px;"
         >
           <div
-            class="group relative flex flex-col gap-1 items-end"
+            aria-haspopup="menu"
+            class="group relative flex flex-col gap-1 outline-none items-end"
             data-role="user"
             data-testid="message-msg_m1"
+            tabindex="0"
           >
             <div
               class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
@@ -54,11 +56,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               10:26
             </span>
             <button
-              aria-expanded="false"
-              aria-haspopup="true"
               aria-label="Message actions"
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-closed=""
               data-testid="message-actions"
               type="button"
             >
@@ -76,9 +75,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 96px;"
         >
           <div
-            class="group relative flex flex-col gap-1 items-start"
+            aria-haspopup="menu"
+            class="group relative flex flex-col gap-1 outline-none items-start"
             data-role="assistant"
             data-testid="message-msg_m2"
+            tabindex="0"
           >
             <div
               class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
@@ -260,11 +261,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               10:26
             </span>
             <button
-              aria-expanded="false"
-              aria-haspopup="true"
               aria-label="Message actions"
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-closed=""
               data-testid="message-actions"
               type="button"
             >
@@ -282,9 +280,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 192px;"
         >
           <div
-            class="group relative flex flex-col gap-1 items-end"
+            aria-haspopup="menu"
+            class="group relative flex flex-col gap-1 outline-none items-end"
             data-role="user"
             data-testid="message-msg_m3"
+            tabindex="0"
           >
             <div
               class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
@@ -312,11 +312,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               10:26
             </span>
             <button
-              aria-expanded="false"
-              aria-haspopup="true"
               aria-label="Message actions"
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-closed=""
               data-testid="message-actions"
               type="button"
             >
@@ -334,9 +331,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 288px;"
         >
           <div
-            class="group relative flex flex-col gap-1 items-start"
+            aria-haspopup="menu"
+            class="group relative flex flex-col gap-1 outline-none items-start"
             data-role="assistant"
             data-testid="message-msg_m4"
+            tabindex="0"
           >
             <div
               class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
@@ -364,11 +363,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               10:26
             </span>
             <button
-              aria-expanded="false"
-              aria-haspopup="true"
               aria-label="Message actions"
               class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-closed=""
               data-testid="message-actions"
               type="button"
             >

@@ -191,7 +191,7 @@ describe("FileTree mobile variant", () => {
     await waitFor(() => expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument());
 
     fireEvent.contextMenu(row("README.md"), { clientX: 30, clientY: 40 });
-    expect(screen.queryByTestId("file-context-menu")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("file-context")).not.toBeInTheDocument();
     expect(screen.queryByTestId("file-context-backdrop")).not.toBeInTheDocument();
   });
 

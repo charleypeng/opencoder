@@ -237,9 +237,9 @@ describe("MessageList", () => {
     await waitFor(() => expect(screen.getByTestId("message-msg_m1")).toBeInTheDocument());
 
     const user = screen.getByTestId("message-msg_m1");
-    fireEvent.pointerDown(within(user).getByTestId("message-actions"), { pointerType: "mouse" });
+    fireEvent.click(within(user).getByTestId("message-actions"));
     await waitFor(() => expect(screen.getByTestId("message-action-delete")).toBeInTheDocument());
-    fireEvent.pointerUp(screen.getByTestId("message-action-delete"), { pointerType: "mouse" });
+    fireEvent.click(screen.getByTestId("message-action-delete"));
     await waitFor(() => expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("delete-message-confirm"));

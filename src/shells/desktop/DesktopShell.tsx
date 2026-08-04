@@ -43,6 +43,10 @@
 
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
+import ContextMenu from "../../components/ContextMenu.js";
+import type { MenuItem } from "../../components/ContextMenu.js";
+import { quoteBlock } from "../../components/ContextMenu.js";
+import { prefillComposer } from "../../stores/composer.js";
 import { subscribeToServersChanged } from "../../services/events";
 import { listServers } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
@@ -251,6 +255,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Share dialog target (TASK-M6-05): the session object is captured at
   // open time so a mid-flight session switch cannot reroute the dialog.
   const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
+  // Selected-text context menu (TASK-M8-03): window-level right-click (or
+  // the Menu key on any element) with a non-empty selection — and no more
+  // specific menu (message/file/session rows preventDefault their own)
+  // — opens the text menu (Copy / Quote in chat) at the cursor.
+  const [textMenu, setTextMenu] = createSignal<{ x: number; y: number; selection: string } | null>(
+    null,
+  );
 
   /** Opens the diff view, optionally filtered to one message. */
   function openDiff(messageId?: string) {
@@ -355,6 +366,74 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     };
     window.addEventListener("keydown", onKeyDown);
     onCleanup(() => window.removeEventListener("keydown", onKeyDown));
+  });
+
+  /** Copies via the async Clipboard API with a legacy execCommand fallback
+   *  (mirrors the per-file helpers in MessageActions / FileTree). */
+  async function copyToClipboard(text: string): Promise<boolean> {
+    if (navigator.clipboard !== undefined) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // Fall through to the legacy path.
+      }
+    }
+    try {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      textarea.style.position = "fixed";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      const ok = document.execCommand("copy");
+      textarea.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  // Selected-text menu (TASK-M8-03): the window-level contextmenu fires
+  // last, so the message/file/session menus (which preventDefault) and any
+  // open menu region (the ContextMenu root + backdrop) win; everything else
+  // with a non-empty selection opens the text menu. The Menu key reaches
+  // the same handler through the browser's contextmenu event.
+  createEffect(() => {
+    const onWindowContextMenu = (event: MouseEvent) => {
+      if (event.defaultPrevented) return;
+      if (
+        event.target instanceof Element &&
+        event.target.closest("[data-context-menu], [data-context-backdrop]") !== null
+      ) {
+        return;
+      }
+      const selection = document.getSelection()?.toString() ?? "";
+      if (selection.trim() === "") return;
+      event.preventDefault();
+      setTextMenu({ x: event.clientX, y: event.clientY, selection });
+    };
+    window.addEventListener("contextmenu", onWindowContextMenu);
+    onCleanup(() => window.removeEventListener("contextmenu", onWindowContextMenu));
+  });
+
+  /** Selected-text menu items: copy the selection, or quote it into the
+   *  composer through the prefill store (the PromptBox applies it with
+   *  focus once mounted — queued text survives an unmounted composer). */
+  const textMenuItems = createMemo<MenuItem[]>(() => {
+    const selection = textMenu()?.selection ?? "";
+    return [
+      {
+        id: "copy",
+        label: "Copy",
+        onSelect: () => void copyToClipboard(selection),
+      },
+      {
+        id: "quote",
+        label: "Quote in chat",
+        onSelect: () => prefillComposer(quoteBlock(selection)),
+      },
+    ];
   });
 
   async function refresh() {
@@ -613,6 +692,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   openTab(activeServerId(), path);
                   setMainView("files");
                 }}
+                onReference={(path) => prefillComposer(`@${path}`)}
               />
             }
           >
@@ -1139,6 +1219,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       {/* Toast host (TASK-M6-06): global result feedback (summarize/init
           successes), auto-dismissed by the toast store. */}
       <Toasts />
+
+      {/* Selected-text context menu (TASK-M8-03): Copy / Quote in chat,
+          opened by the window-level contextmenu handler above. */}
+      <Show when={textMenu() !== null}>
+        <ContextMenu
+          testId="text-menu"
+          label="Selection actions"
+          x={textMenu()!.x}
+          y={textMenu()!.y}
+          items={textMenuItems()}
+          onClose={() => setTextMenu(null)}
+        />
+      </Show>
     </div>
   );
 };

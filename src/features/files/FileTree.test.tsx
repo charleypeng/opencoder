@@ -293,7 +293,7 @@ describe("lazy expansion", () => {
 describe("context menu", () => {
   async function openContextMenu(path: string) {
     fireEvent.contextMenu(row(path), { clientX: 30, clientY: 40 });
-    await waitFor(() => expect(screen.getByTestId("file-context-menu")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("file-context")).toBeInTheDocument());
   }
 
   it("copy path writes the path to the clipboard", async () => {

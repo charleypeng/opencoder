@@ -86,18 +86,19 @@ function renderList(onSelect: (id: string) => void = vi.fn()) {
   return onSelect;
 }
 
-/** Opens the row's actions menu; the list must hold exactly one session. */
+/** Opens the row's actions menu; the list must hold exactly one session.
+ *  TASK-M8-03: the "⋯" trigger opens the shared ContextMenu. */
 async function openActionsMenu(sessionId: string) {
   const menu = within(screen.getByTestId(`session-item-${sessionId}`)).getByTestId(
     "session-row-menu",
   );
-  fireEvent.pointerDown(menu, { pointerType: "mouse" });
+  fireEvent.click(menu);
   await waitFor(() => expect(screen.getByTestId("session-menu-rename")).toBeInTheDocument());
   return menu;
 }
 
 async function pickMenuAction(testId: string) {
-  fireEvent.pointerUp(screen.getByTestId(testId), { pointerType: "mouse" });
+  fireEvent.click(screen.getByTestId(testId));
 }
 
 describe("SessionList", () => {
@@ -758,5 +759,56 @@ describe("SessionList summarize/init (TASK-M6-06)", () => {
     const dialog = await screen.findByTestId("init-dialog");
     expect(dialog).toHaveTextContent("Session A");
     expect(dialog).toHaveTextContent("Generate AGENTS.md");
+  });
+});
+
+describe("SessionList row context menu (TASK-M8-03)", () => {
+  it("opens the same menu on row right-click and runs the items", async () => {
+    applySessionList(SERVER, [session("a", TODAY, "Session A")]);
+    renderList();
+
+    fireEvent.contextMenu(screen.getByTestId("session-item-a"), { clientX: 30, clientY: 40 });
+    await waitFor(() => expect(screen.getByTestId("session-menu-rename")).toBeInTheDocument());
+    expect(screen.getByTestId("session-menu-fork")).toHaveTextContent("Fork");
+    expect(screen.getByTestId("session-menu-share")).toHaveTextContent("Share");
+    expect(screen.getByTestId("session-menu-delete")).toHaveTextContent("Delete");
+  });
+
+  it("closes on the backdrop click and on Escape", async () => {
+    applySessionList(SERVER, [session("a", TODAY)]);
+    renderList();
+    await openActionsMenu("a");
+
+    fireEvent.click(screen.getByTestId("session-menu-backdrop"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("session-menu-rename")).not.toBeInTheDocument(),
+    );
+
+    fireEvent.contextMenu(screen.getByTestId("session-item-a"), { clientX: 30, clientY: 40 });
+    await waitFor(() => expect(screen.getByTestId("session-menu-rename")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByTestId("session-menu-rename")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("renders the Move to server placeholder submenu with its grayed item", async () => {
+    applySessionList(SERVER, [session("a", TODAY)]);
+    renderList();
+    await openActionsMenu("a");
+
+    fireEvent.mouseEnter(screen.getByTestId("session-menu-move-server"));
+    expect(screen.getByTestId("session-menu-move-server-unavailable")).toBeDisabled();
+    expect(screen.getByTestId("session-menu-move-server-unavailable")).toHaveTextContent(
+      "Not available",
+    );
+  });
+
+  it("the delete item is danger-styled", async () => {
+    applySessionList(SERVER, [session("a", TODAY)]);
+    renderList();
+    await openActionsMenu("a");
+
+    expect(screen.getByTestId("session-menu-delete").className).toContain("text-danger");
   });
 });

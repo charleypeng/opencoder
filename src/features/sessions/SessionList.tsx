@@ -11,13 +11,20 @@
 // a parent asks GET /session/{id}/children once so subagent sessions not yet
 // in the store join the tree.
 //
+// Row menu (TASK-M8-03): the "⋯" button and the row right-click both open
+// ONE shared ContextMenu (Fork / Share / Move to server placeholder submenu
+// / Compress context / Generate AGENTS.md / Rename / Delete) — the dialogs
+// live in SessionList, keyed per target session. The Menu key opens the same
+// menu from a focused row through the browser's contextmenu event.
+//
 // Virtual scroll preparation: rows render plainly today; when session
 // counts grow, swap the <For> bodies for a virtualized list (e.g.
 // @tanstack/virtual) keeping the same group headers (M2-09).
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
-import { DropdownMenu } from "@kobalte/core";
+import ContextMenu from "../../components/ContextMenu.js";
+import type { MenuItem } from "../../components/ContextMenu.js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
@@ -99,84 +106,6 @@ function StatusBadge(props: { status: SessionStatusEntry | undefined }) {
   );
 }
 
-// Hover actions (TASK-M2-05 / TASK-M6-03): the "⋯" trigger opens a
-// rename/delete/fork menu; the dialogs live in SessionList, keyed per
-// target session. TASK-M6-05 adds the Share item (share dialog).
-function SessionRowMenu(props: {
-  onRename: () => void;
-  onDelete: () => void;
-  onFork: () => void;
-  onShare: () => void;
-  onSummarize: () => void;
-  onInit: () => void;
-}) {
-  return (
-    <DropdownMenu.Root>
-      <DropdownMenu.Trigger
-        as="button"
-        type="button"
-        data-testid="session-row-menu"
-        aria-label="Session actions"
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={(event) => event.stopPropagation()}
-        class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary transition-opacity group-hover:visible group-hover:opacity-100"
-      >
-        ⋯
-      </DropdownMenu.Trigger>
-      <DropdownMenu.Portal>
-        <DropdownMenu.Content class="glass z-50 min-w-36 p-1">
-          <DropdownMenu.Item
-            data-testid="session-menu-fork"
-            class={menuItemClass}
-            onSelect={props.onFork}
-          >
-            Fork
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            data-testid="session-menu-share"
-            class={menuItemClass}
-            onSelect={props.onShare}
-          >
-            Share
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            data-testid="session-menu-summarize"
-            class={menuItemClass}
-            onSelect={props.onSummarize}
-          >
-            Compress context
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            data-testid="session-menu-init"
-            class={menuItemClass}
-            onSelect={props.onInit}
-          >
-            Generate AGENTS.md
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            data-testid="session-menu-rename"
-            class={menuItemClass}
-            onSelect={props.onRename}
-          >
-            Rename
-          </DropdownMenu.Item>
-          <DropdownMenu.Item
-            data-testid="session-menu-delete"
-            class={menuItemClass}
-            onSelect={props.onDelete}
-          >
-            Delete
-          </DropdownMenu.Item>
-        </DropdownMenu.Content>
-      </DropdownMenu.Portal>
-    </DropdownMenu.Root>
-  );
-}
-
-const menuItemClass =
-  "flex w-full rounded-sm px-3 py-1.5 text-left text-sm outline-none " +
-  "hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft";
-
 function SessionRow(props: {
   session: Session;
   status: SessionStatusEntry | undefined;
@@ -193,12 +122,8 @@ function SessionRow(props: {
   /** Parent session title for the fork badge tooltip (TASK-M6-03). */
   parentTitle?: string;
   onSelect: (sessionId: string) => void;
-  onRename: (session: Session) => void;
-  onDelete: (session: Session) => void;
-  onFork: (session: Session) => void;
-  onShare: (session: Session) => void;
-  onSummarize: (session: Session) => void;
-  onInit: (session: Session) => void;
+  /** Opens the row's ContextMenu at a position (⋯ button or right-click). */
+  onMenu: (session: Session, position: { x: number; y: number }) => void;
 }) {
   const forked = () => props.session.parentID !== undefined;
   // Shared state derives from the contract's Session.share marker
@@ -216,6 +141,7 @@ function SessionRow(props: {
       data-active={props.active ? "true" : "false"}
       data-forked={forked() ? "true" : "false"}
       aria-current={props.active ? "true" : undefined}
+      aria-haspopup="menu"
       class={`group flex w-full cursor-pointer items-center gap-2 py-2 pr-3 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
         props.depth > 0 ? "border-l border-bg-sunken" : ""
       }`}
@@ -226,6 +152,10 @@ function SessionRow(props: {
           event.preventDefault();
           props.onSelect(props.session.id);
         }
+      }}
+      onContextMenu={(event) => {
+        event.preventDefault();
+        props.onMenu(props.session, { x: event.clientX, y: event.clientY });
       }}
     >
       <Show when={props.hasChildren}>
@@ -270,14 +200,22 @@ function SessionRow(props: {
         </span>
       </span>
       <StatusBadge status={props.status} />
-      <SessionRowMenu
-        onRename={() => props.onRename(props.session)}
-        onDelete={() => props.onDelete(props.session)}
-        onFork={() => props.onFork(props.session)}
-        onShare={() => props.onShare(props.session)}
-        onSummarize={() => props.onSummarize(props.session)}
-        onInit={() => props.onInit(props.session)}
-      />
+      {/* The ⋯ trigger (TASK-M8-03): opens the shared ContextMenu below the
+          button; the row right-click opens the same menu at the cursor. */}
+      <button
+        type="button"
+        data-testid="session-row-menu"
+        aria-label="Session actions"
+        class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
+        onClick={(event) => {
+          event.stopPropagation();
+          const rect = event.currentTarget.getBoundingClientRect();
+          props.onMenu(props.session, { x: rect.left, y: rect.bottom });
+        }}
+        onKeyDown={(event) => event.stopPropagation()}
+      >
+        ⋯
+      </button>
     </div>
   );
 }
@@ -291,12 +229,7 @@ function SessionTreeNodeView(props: {
   collapsed: ReadonlySet<string>;
   onToggle: (session: Session) => void;
   onSelect: (sessionId: string) => void;
-  onRename: (session: Session) => void;
-  onDelete: (session: Session) => void;
-  onFork: (session: Session) => void;
-  onShare: (session: Session) => void;
-  onSummarize: (session: Session) => void;
-  onInit: (session: Session) => void;
+  onMenu: (session: Session, position: { x: number; y: number }) => void;
   parentTitleOf: (session: Session) => string | undefined;
 }) {
   // Getters (not consts): collapse state and store children change after
@@ -316,12 +249,7 @@ function SessionTreeNodeView(props: {
         onToggle={() => props.onToggle(props.node.session)}
         parentTitle={props.parentTitleOf(props.node.session)}
         onSelect={props.onSelect}
-        onRename={props.onRename}
-        onDelete={props.onDelete}
-        onFork={props.onFork}
-        onShare={props.onShare}
-        onSummarize={props.onSummarize}
-        onInit={props.onInit}
+        onMenu={props.onMenu}
       />
       <Show when={expanded()}>
         <For each={props.node.children}>
@@ -333,12 +261,7 @@ function SessionTreeNodeView(props: {
               collapsed={props.collapsed}
               onToggle={props.onToggle}
               onSelect={props.onSelect}
-              onRename={props.onRename}
-              onDelete={props.onDelete}
-              onFork={props.onFork}
-              onShare={props.onShare}
-              onSummarize={props.onSummarize}
-              onInit={props.onInit}
+              onMenu={props.onMenu}
               parentTitleOf={props.parentTitleOf}
             />
           )}
@@ -364,6 +287,11 @@ const SessionList: Component<SessionListProps> = (props) => {
   // "Compress context" and "Generate AGENTS.md" items.
   const [summarizeTarget, setSummarizeTarget] = createSignal<Session | null>(null);
   const [initTarget, setInitTarget] = createSignal<Session | null>(null);
+  // Row ContextMenu target (TASK-M8-03): the session plus the request
+  // position (⋯ button / right-click / Menu key on a focused row).
+  const [rowMenu, setRowMenu] = createSignal<{ session: Session; x: number; y: number } | null>(
+    null,
+  );
   // Tree mode (TASK-M6-07): the set of collapsed subtree roots (children
   // stay hidden until the chevron re-expands them), plus the set of parents
   // whose server-side children were already fetched (one-shot completeness).
@@ -463,6 +391,30 @@ const SessionList: Component<SessionListProps> = (props) => {
     return parent === undefined ? undefined : titleOf(parent);
   }
 
+  /** Row ContextMenu items (TASK-M8-03): §3.2 session actions plus the
+   *  M6-03/05/06 items, with the cross-server move as a GRAYED PLACEHOLDER
+   *  submenu (the drag-to-server migration is a ui-design §3.2 backlog
+   *  item). The dialogs stay keyed per target session in this component. */
+  const rowMenuItems = createMemo<MenuItem[]>(() => {
+    const target = rowMenu();
+    if (target === null) return [];
+    const session = target.session;
+    return [
+      { id: "fork", label: "Fork", onSelect: () => handleFork(session) },
+      { id: "share", label: "Share", onSelect: () => setShareTarget(session) },
+      {
+        id: "move-server",
+        label: "Move to server",
+        submenu: [{ id: "move-server-unavailable", label: "Not available", disabled: true }],
+      },
+      { id: "summarize", label: "Compress context", onSelect: () => setSummarizeTarget(session) },
+      { id: "init", label: "Generate AGENTS.md", onSelect: () => setInitTarget(session) },
+      { separator: true },
+      { id: "rename", label: "Rename", onSelect: () => setRenameTarget(session) },
+      { id: "delete", label: "Delete", danger: true, onSelect: () => setDeleteTarget(session) },
+    ];
+  });
+
   return (
     <div data-testid="session-list" class="flex min-h-0 flex-1 flex-col">
       <div class="px-3 pb-2 pt-3">
@@ -535,12 +487,7 @@ const SessionList: Component<SessionListProps> = (props) => {
                       collapsed={collapsed()}
                       onToggle={toggleNode}
                       onSelect={select}
-                      onRename={setRenameTarget}
-                      onDelete={setDeleteTarget}
-                      onFork={handleFork}
-                      onShare={setShareTarget}
-                      onSummarize={setSummarizeTarget}
-                      onInit={setInitTarget}
+                      onMenu={(session, position) => setRowMenu({ session, ...position })}
                       parentTitleOf={parentTitleOf}
                     />
                   )}
@@ -594,6 +541,20 @@ const SessionList: Component<SessionListProps> = (props) => {
             onClose={() => setInitTarget(null)}
           />
         )}
+      </Show>
+
+      {/* Row context menu (TASK-M8-03): the ⋯ button and the row
+          right-click share one menu; keyboard (Menu key) works via the
+          focused row's contextmenu event. */}
+      <Show when={rowMenu() !== null}>
+        <ContextMenu
+          testId="session-menu"
+          label="Session actions"
+          x={rowMenu()!.x}
+          y={rowMenu()!.y}
+          items={rowMenuItems()}
+          onClose={() => setRowMenu(null)}
+        />
       </Show>
     </div>
   );

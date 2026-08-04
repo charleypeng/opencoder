@@ -1247,10 +1247,10 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     );
     expect(invokeForDiff).toHaveLength(0);
 
-    fireEvent.pointerDown(screen.getByTestId("message-actions"), { pointerType: "mouse" });
+    fireEvent.click(screen.getByTestId("message-actions"));
     const item = await screen.findByTestId("message-action-view-diff");
     expect(item).not.toBeDisabled();
-    fireEvent.pointerUp(item, { pointerType: "mouse" });
+    fireEvent.click(item);
 
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("diff-message-filter")).toBeInTheDocument());
@@ -1283,10 +1283,10 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     // Message menu → Fork from here: POST /session/{id}/fork with the
     // messageID; the child enters the store, opens in chat and shows as a
     // forked row under its parent in the list.
-    fireEvent.pointerDown(screen.getByTestId("message-actions"), { pointerType: "mouse" });
+    fireEvent.click(screen.getByTestId("message-actions"));
     const item = await screen.findByTestId("message-action-fork");
     expect(item).not.toBeDisabled();
-    fireEvent.pointerUp(item, { pointerType: "mouse" });
+    fireEvent.click(item);
 
     await waitFor(() =>
       expect(getServerSessionState("srv-m6fork").sessions["sess_forked_01"]).toBeDefined(),
@@ -1318,10 +1318,10 @@ describe("DesktopShell message revert (TASK-M6-04)", () => {
   /** Opens the "⋯" menu of a specific message and clicks a menu item. */
   async function pickMessageAction(messageId: string, actionTestId: string) {
     const row = screen.getByTestId(`message-${messageId}`);
-    fireEvent.pointerDown(within(row).getByTestId("message-actions"), { pointerType: "mouse" });
+    fireEvent.click(within(row).getByTestId("message-actions"));
     const item = await screen.findByTestId(actionTestId);
     expect(item).not.toBeDisabled();
-    fireEvent.pointerUp(item, { pointerType: "mouse" });
+    fireEvent.click(item);
   }
 
   function revertCalls() {
@@ -1747,5 +1747,145 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
     expect(screen.queryByTestId("command-palette-dialog")).not.toBeInTheDocument();
     fireEvent.keyDown(screen.getByTestId("quick-open-input"), { key: "Escape" });
+  });
+});
+
+describe("DesktopShell selected-text context menu (TASK-M8-03)", () => {
+  // sess_revert_01 has a message route in mockHttpRoutes (msg_r1 renders).
+  const SESSION_TEXT = "sess_revert_01";
+  let writeTextMock: ReturnType<typeof vi.fn>;
+  let selectionSpy: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    writeTextMock = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: writeTextMock },
+    });
+    selectionSpy = vi.spyOn(document, "getSelection").mockReturnValue({
+      toString: () => "selected words",
+    } as unknown as Selection);
+  });
+
+  afterEach(() => {
+    selectionSpy.mockRestore();
+    delete (navigator as { clipboard?: unknown }).clipboard;
+  });
+
+  async function openTextChat(serverId: string) {
+    applySessionList(serverId, [session(SESSION_TEXT, DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_TEXT}`));
+    await waitFor(() => expect(screen.getByTestId("message-msg_r1")).toBeInTheDocument());
+  }
+
+  it("right-click with a selection opens Copy / Quote in chat at the cursor", async () => {
+    const alpha = server({ id: "srv-m8text", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text");
+
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    await waitFor(() => expect(screen.getByTestId("text-menu")).toBeInTheDocument());
+    expect(screen.getByTestId("text-menu-copy")).toHaveTextContent("Copy");
+    expect(screen.getByTestId("text-menu-quote")).toHaveTextContent("Quote in chat");
+  });
+
+  it("Copy writes the selection to the clipboard and closes", async () => {
+    const alpha = server({ id: "srv-m8text2", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text2");
+
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    fireEvent.click(await screen.findByTestId("text-menu-copy"));
+
+    expect(writeTextMock).toHaveBeenCalledWith("selected words");
+    await waitFor(() => expect(screen.queryByTestId("text-menu")).not.toBeInTheDocument());
+  });
+
+  it("Quote in chat prefills the composer with a blockquote and focuses it", async () => {
+    const alpha = server({ id: "srv-m8text3", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text3");
+
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    fireEvent.click(await screen.findByTestId("text-menu-quote"));
+
+    const input = screen.getByTestId("prompt-input") as HTMLTextAreaElement;
+    await waitFor(() => expect(input.value).toBe("> selected words"));
+    expect(input).toHaveFocus();
+  });
+
+  it("does not open without a selection or when a message menu handled the event", async () => {
+    const alpha = server({ id: "srv-m8text4", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text4");
+
+    // A message's own context menu prevents the default and wins.
+    fireEvent.contextMenu(screen.getByTestId("message-msg_r1"), { clientX: 30, clientY: 40 });
+    await waitFor(() => expect(screen.getByTestId("message-action")).toBeInTheDocument());
+    expect(screen.queryByTestId("text-menu")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("message-action-backdrop"));
+
+    // No selection: nothing opens.
+    selectionSpy.mockReturnValue({ toString: () => "" } as unknown as Selection);
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    expect(screen.queryByTestId("text-menu")).not.toBeInTheDocument();
+  });
+
+  it("right-click inside the open menu region does not reopen it", async () => {
+    const alpha = server({ id: "srv-m8text5", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text5");
+
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    await waitFor(() => expect(screen.getByTestId("text-menu")).toBeInTheDocument());
+
+    // A right-click on the menu's own backdrop suppresses the native menu
+    // but must not open another text menu.
+    fireEvent.contextMenu(screen.getByTestId("text-menu-backdrop"), { clientX: 60, clientY: 70 });
+    expect(screen.getAllByTestId("text-menu")).toHaveLength(1);
+  });
+
+  it("Esc closes the text menu", async () => {
+    const alpha = server({ id: "srv-m8text6", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openTextChat("srv-m8text6");
+
+    fireEvent.contextMenu(window, { clientX: 120, clientY: 130 });
+    await waitFor(() => expect(screen.getByTestId("text-menu")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByTestId("text-menu")).not.toBeInTheDocument());
+  });
+});
+
+describe("DesktopShell file reference in chat (TASK-M8-03)", () => {
+  it("the file tree's Reference in chat prefills the composer with @path", async () => {
+    const alpha = server({ id: "srv-m8ref", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m8ref", [session("sess_ref_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_ref_01"));
+    await waitFor(() => expect(screen.getByTestId("prompt-input")).toBeInTheDocument());
+
+    // Switch the sidebar to the Files tree and right-click a file row.
+    fireEvent.click(screen.getByTestId("sidebar-view-files"));
+    await waitFor(() => expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument());
+    fireEvent.contextMenu(screen.getByTestId("file-row-README.md"), { clientX: 30, clientY: 40 });
+    fireEvent.click(await screen.findByTestId("file-context-reference"));
+
+    const input = screen.getByTestId("prompt-input") as HTMLTextAreaElement;
+    await waitFor(() => expect(input.value).toBe("@README.md"));
   });
 });

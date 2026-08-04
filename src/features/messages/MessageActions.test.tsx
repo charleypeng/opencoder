@@ -97,20 +97,21 @@ function mountActions(overrides: Partial<Parameters<typeof MessageActions>[0]> =
   ));
 }
 
-/** Opens the "⋯" dropdown and waits for its items. */
+/** Opens the "⋯" menu (TASK-M8-03: the shared ContextMenu below the
+ *  trigger) and waits for its items. */
 async function openMenu() {
-  fireEvent.pointerDown(screen.getByTestId("message-actions"), { pointerType: "mouse" });
+  fireEvent.click(screen.getByTestId("message-actions"));
   await waitFor(() => expect(screen.getByTestId("message-action-copy-text")).toBeInTheDocument());
 }
 
-/** Selects a dropdown item (Kobalte selects on pointerup). */
+/** Selects a menu item. */
 function pickMenuAction(testId: string) {
-  fireEvent.pointerUp(screen.getByTestId(testId), { pointerType: "mouse" });
+  fireEvent.click(screen.getByTestId(testId));
 }
 
 async function openContextMenu() {
   fireEvent.contextMenu(screen.getByTestId("message-msg_user"), { clientX: 30, clientY: 40 });
-  await waitFor(() => expect(screen.getByTestId("message-context-menu")).toBeInTheDocument());
+  await waitFor(() => expect(screen.getByTestId("message-action")).toBeInTheDocument());
 }
 
 describe("MessageActions copy", () => {
@@ -143,7 +144,7 @@ describe("MessageActions copy", () => {
     mountActions();
     await openMenu();
 
-    expect(screen.getByTestId("message-action-copy-code")).toHaveAttribute("data-disabled");
+    expect(screen.getByTestId("message-action-copy-code")).toBeDisabled();
   });
 });
 
@@ -270,8 +271,8 @@ describe("MessageActions edit", () => {
     ));
     await openMenu();
 
-    expect(screen.getByTestId("message-action-edit")).toHaveAttribute("data-disabled");
-    expect(screen.getByTestId("message-action-delete")).toHaveAttribute("data-disabled");
+    expect(screen.getByTestId("message-action-edit")).toBeDisabled();
+    expect(screen.getByTestId("message-action-delete")).toBeDisabled();
   });
 });
 
@@ -352,7 +353,7 @@ describe("MessageActions view diff", () => {
     mountActions();
     await openMenu();
 
-    expect(screen.getByTestId("message-action-view-diff")).toHaveAttribute("data-disabled");
+    expect(screen.getByTestId("message-action-view-diff")).toBeDisabled();
   });
 
   it("calls onViewDiff with the message id when provided", async () => {
@@ -374,7 +375,7 @@ describe("MessageActions fork from here (TASK-M6-03)", () => {
     mountActions();
     await openMenu();
 
-    expect(screen.getByTestId("message-action-fork")).toHaveAttribute("data-disabled");
+    expect(screen.getByTestId("message-action-fork")).toBeDisabled();
   });
 
   it("calls onFork with the message id when provided", async () => {
@@ -414,7 +415,7 @@ describe("MessageActions fork from here (TASK-M6-03)", () => {
     mountActions({ onFork: (id) => void (forked = id) });
     await openContextMenu();
 
-    fireEvent.click(screen.getByTestId("message-context-fork"));
+    fireEvent.click(screen.getByTestId("message-action-fork"));
     expect(forked).toBe("msg_user");
   });
 });
@@ -426,7 +427,7 @@ describe("MessageActions revert to here (TASK-M6-04)", () => {
     mountActions();
     await openMenu();
 
-    expect(screen.getByTestId("message-action-revert")).toHaveAttribute("data-disabled");
+    expect(screen.getByTestId("message-action-revert")).toBeDisabled();
   });
 
   it("calls onRevert with the message id when provided", async () => {
@@ -466,7 +467,7 @@ describe("MessageActions revert to here (TASK-M6-04)", () => {
     mountActions({ onRevert: (id) => void (reverted = id) });
     await openContextMenu();
 
-    fireEvent.click(screen.getByTestId("message-context-revert"));
+    fireEvent.click(screen.getByTestId("message-action-revert"));
     expect(reverted).toBe("msg_user");
   });
 });
@@ -478,11 +479,9 @@ describe("MessageActions context menu", () => {
     mountActions();
     await openContextMenu();
 
-    fireEvent.click(screen.getByTestId("message-context-copy-code"));
+    fireEvent.click(screen.getByTestId("message-action-copy-code"));
     expect(writeTextMock).toHaveBeenCalledWith("const x = 1;");
-    await waitFor(() =>
-      expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("message-action")).not.toBeInTheDocument());
   });
 
   it("closes on backdrop click and on Escape", async () => {
@@ -491,16 +490,12 @@ describe("MessageActions context menu", () => {
     mountActions();
     await openContextMenu();
 
-    fireEvent.click(screen.getByTestId("message-context-backdrop"));
-    await waitFor(() =>
-      expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument(),
-    );
+    fireEvent.click(screen.getByTestId("message-action-backdrop"));
+    await waitFor(() => expect(screen.queryByTestId("message-action")).not.toBeInTheDocument());
 
     await openContextMenu();
     fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() =>
-      expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.queryByTestId("message-action")).not.toBeInTheDocument());
   });
 
   it("opens the edit dialog from the context menu", async () => {
@@ -509,7 +504,7 @@ describe("MessageActions context menu", () => {
     mountActions();
     await openContextMenu();
 
-    fireEvent.click(screen.getByTestId("message-context-edit"));
+    fireEvent.click(screen.getByTestId("message-action-edit"));
     await waitFor(() => expect(screen.getByTestId("edit-message-dialog")).toBeInTheDocument());
     expect((screen.getByTestId("edit-message-input") as HTMLTextAreaElement).value).toBe(
       "hello world",
@@ -547,15 +542,15 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
     mountActions({ mobile: true });
     longPressColumn();
 
-    expect(screen.getByTestId("message-context-menu")).toBeInTheDocument();
-    expect(screen.getByTestId("message-context-copy-text")).toBeInTheDocument();
-    expect(screen.getByTestId("message-context-copy-code")).toBeInTheDocument();
-    expect(screen.getByTestId("message-context-delete")).toBeInTheDocument();
+    expect(screen.getByTestId("message-action")).toBeInTheDocument();
+    expect(screen.getByTestId("message-action-copy-text")).toBeInTheDocument();
+    expect(screen.getByTestId("message-action-copy-code")).toBeInTheDocument();
+    expect(screen.getByTestId("message-action-delete")).toBeInTheDocument();
     // Desktop-only items stay out of the touch menu.
-    expect(screen.queryByTestId("message-context-edit")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("message-context-view-diff")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("message-context-fork")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("message-context-revert")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action-edit")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action-view-diff")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action-fork")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action-revert")).not.toBeInTheDocument();
   });
 
   it("copy text from the touch menu writes the joined parts", () => {
@@ -570,13 +565,13 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
     // Releasing the held finger fires a click on the backdrop, which the
     // post-hold guard swallows (the menu must not close on release)...
     fireEvent.pointerUp(window, { clientX: 30, clientY: 40 });
-    fireEvent.click(screen.getByTestId("message-context-backdrop"));
-    expect(screen.getByTestId("message-context-menu")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("message-action-backdrop"));
+    expect(screen.getByTestId("message-action")).toBeInTheDocument();
 
     // ...then the menu item tap goes through.
-    fireEvent.click(screen.getByTestId("message-context-copy-text"));
+    fireEvent.click(screen.getByTestId("message-action-copy-text"));
     expect(writeTextMock).toHaveBeenCalledWith("part one\npart two");
-    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action")).not.toBeInTheDocument();
   });
 
   it("copy code is disabled in the touch menu when the message has no fences", () => {
@@ -585,7 +580,7 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
     mountActions({ mobile: true });
     longPressColumn();
 
-    expect(screen.getByTestId("message-context-copy-code")).toBeDisabled();
+    expect(screen.getByTestId("message-action-copy-code")).toBeDisabled();
   });
 
   it("delete opens the shared delete dialog for a user message", async () => {
@@ -596,8 +591,8 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
 
     // Release click (swallowed by the post-hold guard), then the menu tap.
     fireEvent.pointerUp(window, { clientX: 30, clientY: 40 });
-    fireEvent.click(screen.getByTestId("message-context-backdrop"));
-    fireEvent.click(screen.getByTestId("message-context-delete"));
+    fireEvent.click(screen.getByTestId("message-action-backdrop"));
+    fireEvent.click(screen.getByTestId("message-action-delete"));
     await flush();
     expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("delete-message-confirm"));
@@ -620,7 +615,7 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
       button: 0,
     });
     vi.advanceTimersByTime(500);
-    expect(screen.getByTestId("message-context-delete")).toBeDisabled();
+    expect(screen.getByTestId("message-action-delete")).toBeDisabled();
   });
 
   it("movement past the slop cancels the hold (scrolling never opens it)", () => {
@@ -635,7 +630,7 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
     });
     fireEvent.pointerMove(window, { clientX: 50, clientY: 40 });
     vi.advanceTimersByTime(500);
-    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action")).not.toBeInTheDocument();
   });
 
   it("the release click after a hold is swallowed (no button underneath fires)", () => {
@@ -672,6 +667,6 @@ describe("MessageActions mobile long-press (TASK-M7-06)", () => {
       button: 0,
     });
     vi.advanceTimersByTime(500);
-    expect(screen.queryByTestId("message-context-menu")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-action")).not.toBeInTheDocument();
   });
 });

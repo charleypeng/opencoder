@@ -6,12 +6,16 @@
 // `file.watcher.updated` / `file.edited` events bump the store version and
 // the panel refetches tree + statuses on the change (the fetch is the
 // source of truth for the delta). Rows open files through `onOpenFile`
-// (wired by the M4-03 viewer); the right-click menu offers copy path,
-// "Reference in chat" (copies `@path` to the clipboard until a prompt
-// insert hook lands with the M8 command palette) and Open.
+// (wired by the M4-03 viewer); the right-click menu (TASK-M8-03: the shared
+// ContextMenu) offers copy path, "Reference in chat" (inserts `@path` into
+// the composer through `onReference`, wired by the shell to the composer
+// prefill store — the clipboard fallback copies `@path` until a hook is
+// provided) and Open.
 
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
+import ContextMenu from "../../components/ContextMenu.js";
+import type { MenuItem } from "../../components/ContextMenu.js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
@@ -149,11 +153,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
     return false;
   }
 }
-
-const menuItemClass =
-  "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm outline-none " +
-  "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 disabled:cursor-not-allowed " +
-  "disabled:opacity-50 hover:bg-accent-soft focus:bg-accent-soft";
 
 // --- panel ------------------------------------------------------------------
 
@@ -336,16 +335,6 @@ const FileTree: Component<FileTreeProps> = (props) => {
     setMenu({ node, x: event.clientX, y: event.clientY });
   }
 
-  // Esc closes the hand-rolled context popover (mirrors MessageActions).
-  createEffect(() => {
-    if (menu() === null) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenu(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
-
   async function copyPath(node: TreeNode): Promise<void> {
     if (await copyToClipboard(node.path)) setCopiedKind("path");
   }
@@ -359,6 +348,36 @@ const FileTree: Component<FileTreeProps> = (props) => {
     // (or any other surface) can paste it; wired to the composer in M8.
     if (await copyToClipboard(`@${node.path}`)) setCopiedKind("reference");
   }
+
+  /** Right-click menu items (TASK-M8-03): copy path and reference keep the
+   *  menu open to show the "✓ Copied" feedback (keepOpen), Open closes. */
+  const menuItems = createMemo<MenuItem[]>(() => {
+    const target = menu();
+    if (target === null) return [];
+    const node = target.node;
+    return [
+      {
+        id: "copy",
+        label: copiedKind() === "path" ? "✓ Copied" : "Copy path",
+        keepOpen: true,
+        onSelect: () => void copyPath(node),
+      },
+      {
+        id: "reference",
+        label: copiedKind() === "reference" ? "✓ Copied @path" : "Reference in chat",
+        keepOpen: props.onReference === undefined,
+        onSelect: () => void referencePath(node),
+      },
+      {
+        id: "open",
+        label: "Open",
+        disabled: node.type !== "file" || props.onOpenFile === undefined,
+        onSelect: () => {
+          if (node.type === "file") props.onOpenFile?.(node.path);
+        },
+      },
+    ];
+  });
 
   // Flat list of visible rows (expanded dirs walk their children).
   const visibleRows = createMemo(() => {
@@ -538,59 +557,18 @@ const FileTree: Component<FileTreeProps> = (props) => {
         </Show>
       </div>
 
-      {/* Right-click popover at the cursor (same pattern as MessageActions).
-          Mobile never opens it (no context-menu handler is attached). */}
+      {/* Right-click menu (TASK-M8-03): the shared ContextMenu at the
+          cursor. Mobile never opens it (no context-menu handler is
+          attached). */}
       <Show when={!isMobile() && menu() !== null}>
-        <div
-          data-testid="file-context-backdrop"
-          class="fixed inset-0 z-40"
-          onContextMenu={(event) => event.preventDefault()}
-          onClick={() => setMenu(null)}
+        <ContextMenu
+          testId="file-context"
+          label="File actions"
+          x={menu()!.x}
+          y={menu()!.y}
+          items={menuItems()}
+          onClose={() => setMenu(null)}
         />
-        <div
-          data-testid="file-context-menu"
-          class="glass fixed z-50 min-w-44 p-1"
-          style={{
-            left: `${Math.min(menu()!.x, window.innerWidth - 200)}px`,
-            top: `${Math.min(menu()!.y, window.innerHeight - 200)}px`,
-          }}
-        >
-          <button
-            type="button"
-            data-testid="file-context-copy"
-            class={menuItemClass}
-            onClick={() => void copyPath(menu()!.node)}
-          >
-            {copiedKind() === "path" ? "✓ Copied" : "Copy path"}
-          </button>
-          <button
-            type="button"
-            data-testid="file-context-reference"
-            class={menuItemClass}
-            onClick={() => {
-              const node = menu()!.node;
-              // The clipboard fallback keeps the menu open to show the
-              // ✓ feedback; a real insert hook closes it.
-              if (props.onReference !== undefined) setMenu(null);
-              void referencePath(node);
-            }}
-          >
-            {copiedKind() === "reference" ? "✓ Copied @path" : "Reference in chat"}
-          </button>
-          <button
-            type="button"
-            data-testid="file-context-open"
-            class={menuItemClass}
-            disabled={menu()!.node.type !== "file" || props.onOpenFile === undefined}
-            onClick={() => {
-              const node = menu()!.node;
-              setMenu(null);
-              if (node.type === "file") props.onOpenFile?.(node.path);
-            }}
-          >
-            Open
-          </button>
-        </div>
       </Show>
     </div>
   );

@@ -1,7 +1,9 @@
 // Message actions (TASK-M3-06): per-message hover toolbar and right-click
 // context menu. The "⋯" trigger is revealed on row hover (group-hover, the
 // bubble column is the group) and the same item set opens on contextmenu at
-// the cursor. Items:
+// the cursor (TASK-M8-03: both open ONE shared ContextMenu — the trigger at
+// the button position, the right-click at the cursor; the Menu key opens it
+// from the focused column via the browser's contextmenu event). Items:
 //   - Copy text: all text parts of the message joined with newlines.
 //   - Copy code: the bodies of fenced ```lang ... ``` blocks only; disabled
 //     when the message has none.
@@ -23,7 +25,7 @@
 //     the item is disabled while no onRevert callback is provided.
 //
 // TASK-M7-06: with `mobile` the column gains a LONG-PRESS action menu —
-// holding still for 500ms opens the same fixed popover with the touch-
+// holding still for 500ms opens the same ContextMenu with the touch-
 // appropriate subset (copy text / copy code / delete), the release click
 // is swallowed so a button under the finger never activates, and the iOS
 // text-selection callout is suppressed (the menu replaces it). Long-press
@@ -33,9 +35,11 @@
 // children), so hover state, the context menu and the store-driven role
 // alignment live in one place.
 
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
-import { Dialog, DropdownMenu } from "@kobalte/core";
+import { Dialog } from "@kobalte/core";
+import ContextMenu from "../../components/ContextMenu.js";
+import type { MenuItem } from "../../components/ContextMenu.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError, errorDetail, errorTitle } from "../../services/errors.js";
 import { createMessageService } from "../../services/message.js";
@@ -72,24 +76,6 @@ export interface MessageActionsProps {
 }
 
 type TextPart = Extract<Part, { type: "text" }>;
-
-interface MenuAction {
-  id: string;
-  label: string;
-  disabled: boolean;
-  danger?: boolean;
-  onSelect: () => void;
-}
-
-const menuItemClass =
-  "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm outline-none " +
-  "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 disabled:cursor-not-allowed " +
-  "disabled:opacity-50 hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft";
-
-const menuDangerClass =
-  "flex w-full items-center gap-2 rounded-sm px-3 py-1.5 text-left text-sm text-danger outline-none " +
-  "data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 disabled:cursor-not-allowed " +
-  "disabled:opacity-50 hover:bg-danger/10 focus:bg-danger/10 data-[highlighted]:bg-danger/10";
 
 /** Fenced code blocks (```lang\n body \n```); unterminated fences run to
  *  the end of the text. Returns the joined bodies or undefined when the
@@ -373,19 +359,10 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
 
   const [editOpen, setEditOpen] = createSignal(false);
   const [deleteOpen, setDeleteOpen] = createSignal(false);
+  // The shared ContextMenu state: the ⋯ trigger, the right-click (desktop)
+  // and the long-press (mobile) all open the SAME menu (TASK-M8-03).
   const [contextPos, setContextPos] = createSignal<{ x: number; y: number } | null>(null);
   const [copied, setCopied] = createSignal<"text" | "code" | null>(null);
-
-  // Esc closes the hand-rolled context popover (the DropdownMenu handles
-  // its own Esc).
-  createEffect(() => {
-    if (contextPos() === null) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setContextPos(null);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  });
 
   // The "✓ Copied" flash timer: cleared on re-flash so a rapid copy click
   // can't let a stale timer eat the newer feedback, and on unmount so the
@@ -410,7 +387,7 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     if (code !== undefined && (await copyToClipboard(code))) flashCopy("code");
   }
 
-  const actions = createMemo<MenuAction[]>(() => [
+  const actions = createMemo<MenuItem[]>(() => [
     {
       id: "copy-text",
       label: "Copy text",
@@ -459,15 +436,21 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
 
   // TASK-M7-06: the touch menu keeps the copy/delete essentials only (the
   // edit dialog and the shell-side actions stay desktop paths).
-  const mobileActions = createMemo<MenuAction[]>(() => {
+  const mobileActions = createMemo<MenuItem[]>(() => {
     const allowed = new Set(["copy-text", "copy-code", "delete"]);
-    return actions().filter((action) => allowed.has(action.id));
+    return actions().filter((action) => action.id !== undefined && allowed.has(action.id));
   });
   const menuActions = () => (props.mobile ? mobileActions() : actions());
 
   function handleContextMenu(event: MouseEvent) {
     event.preventDefault();
     setContextPos({ x: event.clientX, y: event.clientY });
+  }
+
+  /** Opens the menu below the ⋯ trigger button. */
+  function openTriggerMenu(event: MouseEvent) {
+    const rect = (event.currentTarget as HTMLButtonElement).getBoundingClientRect();
+    setContextPos({ x: rect.left, y: rect.bottom });
   }
 
   const triggerClass =
@@ -486,7 +469,9 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     <div
       data-testid={`message-${props.messageID}`}
       data-role={role()}
-      class={`group relative flex flex-col gap-1 ${user() ? "items-end" : "items-start"}${
+      tabIndex={0}
+      aria-haspopup="menu"
+      class={`group relative flex flex-col gap-1 outline-none ${user() ? "items-end" : "items-start"}${
         props.mobile ? " [-webkit-touch-callout:none]" : ""
       }`}
       onContextMenu={handleContextMenu}
@@ -494,68 +479,30 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
     >
       {props.children}
 
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger
-          as="button"
-          type="button"
-          data-testid="message-actions"
-          aria-label="Message actions"
-          class={triggerClass}
-        >
-          {copied() === null ? "⋯" : "✓ Copied"}
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content class="glass z-50 min-w-44 p-1">
-            <For each={actions()}>
-              {(action) => (
-                <DropdownMenu.Item
-                  data-testid={`message-action-${action.id}`}
-                  class={action.danger ? menuDangerClass : menuItemClass}
-                  disabled={action.disabled}
-                  onSelect={action.onSelect}
-                >
-                  {action.label}
-                </DropdownMenu.Item>
-              )}
-            </For>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      {/* The ⋯ trigger (TASK-M8-03): opens the shared ContextMenu below the
+          button instead of the old kobalte dropdown — one item set, one
+          keyboard model for the whole app. */}
+      <button
+        type="button"
+        data-testid="message-actions"
+        aria-label="Message actions"
+        class={triggerClass}
+        onClick={openTriggerMenu}
+      >
+        {copied() === null ? "⋯" : "✓ Copied"}
+      </button>
 
-      {/* Right-click (desktop) / long-press (mobile) popover: fixed at the
-          press position; the item set depends on the presentation. */}
+      {/* Right-click (desktop) / long-press (mobile) / ⋯ (both): the shared
+          ContextMenu at the position the menu was requested at. */}
       <Show when={contextPos() !== null}>
-        <div
-          data-testid="message-context-backdrop"
-          class="fixed inset-0 z-40"
-          onContextMenu={(event) => event.preventDefault()}
-          onClick={() => setContextPos(null)}
+        <ContextMenu
+          testId="message-action"
+          label="Message actions"
+          x={contextPos()!.x}
+          y={contextPos()!.y}
+          items={menuActions()}
+          onClose={() => setContextPos(null)}
         />
-        <div
-          data-testid="message-context-menu"
-          class="glass fixed z-50 min-w-44 p-1"
-          style={{
-            left: `${Math.min(contextPos()!.x, window.innerWidth - 200)}px`,
-            top: `${Math.min(contextPos()!.y, window.innerHeight - 200)}px`,
-          }}
-        >
-          <For each={menuActions()}>
-            {(action) => (
-              <button
-                data-testid={`message-context-${action.id}`}
-                type="button"
-                class={action.danger ? menuDangerClass : menuItemClass}
-                disabled={action.disabled}
-                onClick={() => {
-                  setContextPos(null);
-                  action.onSelect();
-                }}
-              >
-                {action.label}
-              </button>
-            )}
-          </For>
-        </div>
       </Show>
 
       <Show when={editOpen() && editPart() !== undefined}>
