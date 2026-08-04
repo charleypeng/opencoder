@@ -334,6 +334,27 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     });
   });
 
+  // Session share (TASK-M6-05): no body per the contract — reports the
+  // updated session carrying the `share` marker with the shareable URL.
+  app.post("/session/:sessionID/share", (req, res) => {
+    res.json({
+      ...base,
+      id: req.params.sessionID,
+      time: { ...base.time, updated: base.time.updated + 1 },
+      share: { url: `https://share.opencode.dev/s/${req.params.sessionID}` },
+    });
+  });
+
+  // Session unshare (TASK-M6-05): reports the updated session without the
+  // share marker (the link is revoked, the session is private again).
+  app.delete("/session/:sessionID/share", (req, res) => {
+    res.json({
+      ...base,
+      id: req.params.sessionID,
+      time: { ...base.time, updated: base.time.updated + 1 },
+    });
+  });
+
   // Prompt send (TASK-M2-08): always 204. TASK-M5-08 validates the part
   // array shape so the `@skillName` reference flow is exercised — accepted
   // types are the ones the composer actually sends: text (with a string

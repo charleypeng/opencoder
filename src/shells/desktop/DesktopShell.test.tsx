@@ -39,14 +39,24 @@ import { readRecentFiles } from "../../features/files/recentFiles";
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
 
-const { invokeMock, listenMock, sseSubscribeMock } = vi.hoisted(() => {
-  const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
-  return { invokeMock: vi.fn(), listenMock, sseSubscribeMock: vi.fn() };
-});
+const { invokeMock, listenMock, sseSubscribeMock, qrToDataURLMock, openUrlMock } = vi.hoisted(
+  () => {
+    const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
+    return {
+      invokeMock: vi.fn(),
+      listenMock,
+      sseSubscribeMock: vi.fn(),
+      qrToDataURLMock: vi.fn(),
+      openUrlMock: vi.fn(),
+    };
+  },
+);
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 vi.mock("../../services/sse.js", () => ({ sseSubscribe: sseSubscribeMock }));
+vi.mock("qrcode", () => ({ default: { toDataURL: qrToDataURLMock } }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 // The Files viewer highlights through Shiki; a stub keeps the shell tests
 // free of language-pack loading (the viewer tests cover the real contract).
 vi.mock("../../features/messages/markdown/highlighter.js", () => ({
@@ -193,6 +203,24 @@ function mockHttpRoutes(servers: ServerEntry[]) {
         const sessionID = (request?.path ?? "").split("/")[2];
         return Promise.resolve(
           httpResponse({ ...session(sessionID, DEMO_DIR), time: { created: 1, updated: 3 } }),
+        );
+      }
+      if (request?.method === "POST" && /^\/session\/.+\/share$/.test(request?.path ?? "")) {
+        // Share (TASK-M6-05): the updated session carries the share URL.
+        const sessionID = (request?.path ?? "").split("/")[2];
+        return Promise.resolve(
+          httpResponse({
+            ...session(sessionID, DEMO_DIR),
+            time: { created: 1, updated: 4 },
+            share: { url: `https://share.opencode.dev/s/${sessionID}` },
+          }),
+        );
+      }
+      if (request?.method === "DELETE" && /^\/session\/.+\/share$/.test(request?.path ?? "")) {
+        // Unshare (TASK-M6-05): the updated session without the share marker.
+        const sessionID = (request?.path ?? "").split("/")[2];
+        return Promise.resolve(
+          httpResponse({ ...session(sessionID, DEMO_DIR), time: { created: 1, updated: 5 } }),
         );
       }
       if (request?.path === "/session/status") return Promise.resolve(httpResponse({}));
@@ -412,6 +440,8 @@ beforeEach(() => {
     cmd === "http_request" ? Promise.resolve(httpResponse([])) : Promise.resolve([]),
   );
   listenMock.mockClear();
+  qrToDataURLMock.mockClear().mockResolvedValue("data:image/png;base64,QRDATA");
+  openUrlMock.mockClear().mockResolvedValue(undefined);
   setActiveServer(null);
   unsubscribes = [];
   sseSubscribeMock.mockClear();
@@ -1392,6 +1422,104 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
     handler({ type: "vcs.branch.updated", properties: { branch: "feat/x" } });
     await waitFor(() =>
       expect(screen.getByTestId("status-bar-branch")).toHaveTextContent("feat/x"),
+    );
+  });
+});
+
+describe("DesktopShell session share (TASK-M6-05)", () => {
+  const SESSION_SHARE = "sess_share_01";
+
+  async function openShareChat(serverId: string) {
+    applySessionList(serverId, [session(SESSION_SHARE, DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_SHARE}`));
+    await waitFor(() => expect(screen.getByTestId("chat-session-title")).toBeInTheDocument());
+  }
+
+  it("the chat header share icon opens the share dialog for the active session", async () => {
+    const alpha = server({ id: "srv-m6share1", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openShareChat("srv-m6share1");
+
+    expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "false");
+    fireEvent.click(screen.getByTestId("session-share-toggle"));
+
+    const dialog = await screen.findByTestId("share-session-dialog");
+    expect(dialog).toHaveTextContent(SESSION_SHARE);
+    expect(screen.getByTestId("share-action")).toBeInTheDocument();
+  });
+
+  it("shares the active session from the header dialog and unshares it back", async () => {
+    const alpha = server({ id: "srv-m6share2", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openShareChat("srv-m6share2");
+
+    // Share: POST /session/{id}/share (no body) → URL + QR in the dialog.
+    fireEvent.click(screen.getByTestId("session-share-toggle"));
+    fireEvent.click(await screen.findByTestId("share-action"));
+
+    const shareUrl = "https://share.opencode.dev/s/sess_share_01";
+    await waitFor(() => expect(screen.getByTestId("share-url")).toHaveValue(shareUrl));
+    await waitFor(() =>
+      expect(screen.getByTestId("share-qr")).toHaveAttribute("src", "data:image/png;base64,QRDATA"),
+    );
+    const shareCalls = invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/share$/.test(call[1].request?.path ?? ""),
+    );
+    expect(shareCalls).toHaveLength(1);
+    expect(shareCalls[0][1].request.method).toBe("POST");
+    // The header icon and the sidebar row reflect the shared state.
+    await waitFor(() =>
+      expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "true"),
+    );
+    expect(
+      within(screen.getByTestId(`session-item-${SESSION_SHARE}`)).getByTestId(
+        "session-shared-badge",
+      ),
+    ).toBeInTheDocument();
+
+    // Open in browser calls the opener plugin with the share URL.
+    fireEvent.click(screen.getByTestId("share-open"));
+    await waitFor(() => expect(openUrlMock).toHaveBeenCalledWith(shareUrl));
+
+    // Unshare: DELETE /session/{id}/share → URL gone, badge gone.
+    fireEvent.click(screen.getByTestId("share-unshare"));
+    await waitFor(() => expect(screen.queryByTestId("share-url")).not.toBeInTheDocument());
+    expect(getServerSessionState("srv-m6share2").sessions[SESSION_SHARE].share).toBeUndefined();
+    expect(
+      within(screen.getByTestId(`session-item-${SESSION_SHARE}`)).queryByTestId(
+        "session-shared-badge",
+      ),
+    ).toBeNull();
+    await waitFor(() =>
+      expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "false"),
+    );
+  });
+
+  it("a shared session opens with the URL shown and the share icon marked", async () => {
+    const alpha = server({ id: "srv-m6share3", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-m6share3", [
+      {
+        ...session(SESSION_SHARE, DEMO_DIR),
+        share: { url: "https://share.opencode.dev/s/sess_share_01" },
+      },
+    ]);
+    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_SHARE}`));
+    await waitFor(() => expect(screen.getByTestId("chat-session-title")).toBeInTheDocument());
+
+    expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "true");
+    fireEvent.click(screen.getByTestId("session-share-toggle"));
+    await waitFor(() =>
+      expect(screen.getByTestId("share-url")).toHaveValue(
+        "https://share.opencode.dev/s/sess_share_01",
+      ),
     );
   });
 });

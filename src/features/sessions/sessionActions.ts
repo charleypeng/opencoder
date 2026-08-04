@@ -79,6 +79,38 @@ export async function unrevertSession(
   }
 }
 
+/** Shares a session; the server's updated session (carrying the `share`
+ *  marker with the share URL) replaces the stored one. */
+export async function shareSession(
+  serverId: string,
+  sessionId: string,
+  sessionService: SessionService,
+): Promise<Session> {
+  try {
+    const updated = await sessionService.share(sessionId);
+    upsertSession(serverId, updated);
+    return updated;
+  } catch (err) {
+    throw ApiError.fromUnknown(err);
+  }
+}
+
+/** Unshares a session; the server's updated session (share marker cleared)
+ *  replaces the stored one. */
+export async function unshareSession(
+  serverId: string,
+  sessionId: string,
+  sessionService: SessionService,
+): Promise<Session> {
+  try {
+    const updated = await sessionService.unshare(sessionId);
+    upsertSession(serverId, updated);
+    return updated;
+  } catch (err) {
+    throw ApiError.fromUnknown(err);
+  }
+}
+
 /** Renames a session; optimistic with rollback to the captured original. */
 export async function renameSession(
   serverId: string,

@@ -743,6 +743,28 @@ try {
       expect(body?.revert === undefined, `revert ${JSON.stringify(body?.revert)}`);
     });
 
+    // TASK-M6-05: session share family.
+    await test("session share reports the updated session with a share URL", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/share", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "sess_01", `id ${JSON.stringify(body?.id)}`);
+      expect(typeof body?.share?.url === "string", `share ${JSON.stringify(body?.share)}`);
+      expect(typeof body?.time?.updated === "number", "share must carry numeric time.updated");
+    });
+
+    await test("session unshare clears the share marker", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/share", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "sess_01", `id ${JSON.stringify(body?.id)}`);
+      expect(body?.share === undefined, `share ${JSON.stringify(body?.share)}`);
+    });
+
     await test("session messages honors the limit pagination param", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
       expect(status === 200, `status ${status}`);

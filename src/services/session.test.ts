@@ -257,6 +257,52 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("share POSTs /session/{id}/share without a body", async () => {
+    invokeMock.mockResolvedValue(
+      httpResponse({
+        body: { id: "sess_01", share: { url: "https://share.opencode.dev/s/sess_01" } },
+      }),
+    );
+    const result = await createSessionService(makeClient()).share("sess_01");
+    expect(result.share?.url).toBe("https://share.opencode.dev/s/sess_01");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/session/sess_01/share" },
+    });
+  });
+
+  it("share carries an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    await createSessionService(makeClient()).share("sess_01", "/mock/projects/opencode-demo");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/share",
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
+  it("unshare DELETEs /session/{id}/share and resolves the updated session", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    const result = await createSessionService(makeClient()).unshare("sess_01");
+    expect(result.share).toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "DELETE", path: "/session/sess_01/share" },
+    });
+  });
+
+  it("unshare carries an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    await createSessionService(makeClient()).unshare("sess_01", "/mock/projects/opencode-demo");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "DELETE",
+        path: "/session/sess_01/share",
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -373,5 +419,19 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
     const updated = await service.unrevert("sess_01");
     expect(updated.id).toBe("sess_01");
     expect(updated.revert).toBeUndefined();
+  });
+
+  it("share reports the updated session carrying the share URL", async () => {
+    const updated = await service.share("sess_01");
+    expect(updated.id).toBe("sess_01");
+    expect(updated.share?.url).toBeTypeOf("string");
+    expect(updated.time.updated).toBeTypeOf("number");
+  });
+
+  it("unshare clears the share marker", async () => {
+    await service.share("sess_01");
+    const updated = await service.unshare("sess_01");
+    expect(updated.id).toBe("sess_01");
+    expect(updated.share).toBeUndefined();
   });
 });

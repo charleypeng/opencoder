@@ -19,6 +19,8 @@ import {
   forkSession,
   renameSession,
   revertSession,
+  shareSession,
+  unshareSession,
   unrevertSession,
 } from "./sessionActions";
 
@@ -53,6 +55,8 @@ function fakeService(overrides: Partial<SessionService> = {}): SessionService {
     promptAsync: vi.fn(),
     abort: vi.fn(),
     fork: vi.fn(),
+    share: vi.fn(),
+    unshare: vi.fn(),
     ...overrides,
   } as SessionService;
 }
@@ -217,6 +221,66 @@ describe("deleteSession", () => {
       code: "unknown",
     });
     expect(service.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("shareSession / unshareSession (TASK-M6-05)", () => {
+  const SHARED = {
+    ...ORIGINAL,
+    time: { created: ORIGINAL.time.created, updated: 2000 },
+    share: { url: "https://share.opencode.dev/s/sess_1" },
+  } as Session;
+
+  it("shares the session and replaces the stored one with the server state", async () => {
+    const service = fakeService({ share: vi.fn().mockResolvedValue(SHARED) });
+
+    const result = await shareSession(SERVER, "sess_1", service);
+
+    expect(service.share).toHaveBeenCalledWith("sess_1");
+    expect(result).toBe(SHARED);
+    expect(getServerSessionState(SERVER).sessions["sess_1"].share).toEqual({
+      url: "https://share.opencode.dev/s/sess_1",
+    });
+  });
+
+  it("throws ApiError and leaves the store untouched when the share fails", async () => {
+    const service = fakeService({
+      share: vi.fn().mockRejectedValue(new ApiError(500, "http", "boom", true)),
+    });
+    const before = getServerSessionState(SERVER);
+
+    await expect(shareSession(SERVER, "sess_1", service)).rejects.toMatchObject({
+      code: "http",
+      status: 500,
+    });
+
+    expect(getServerSessionState(SERVER)).toEqual(before);
+  });
+
+  it("unshares and clears the share marker in the store", async () => {
+    applySessionList(SERVER, [SHARED]);
+    const service = fakeService({ unshare: vi.fn().mockResolvedValue(ORIGINAL) });
+
+    const result = await unshareSession(SERVER, "sess_1", service);
+
+    expect(service.unshare).toHaveBeenCalledWith("sess_1");
+    expect(result).toBe(ORIGINAL);
+    expect(getServerSessionState(SERVER).sessions["sess_1"].share).toBeUndefined();
+  });
+
+  it("throws ApiError and keeps the share marker when the unshare fails", async () => {
+    applySessionList(SERVER, [SHARED]);
+    const service = fakeService({
+      unshare: vi.fn().mockRejectedValue(new ApiError(500, "http", "boom", true)),
+    });
+
+    await expect(unshareSession(SERVER, "sess_1", service)).rejects.toMatchObject({
+      code: "http",
+    });
+
+    expect(getServerSessionState(SERVER).sessions["sess_1"].share?.url).toBe(
+      "https://share.opencode.dev/s/sess_1",
+    );
   });
 });
 

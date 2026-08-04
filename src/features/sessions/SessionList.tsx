@@ -29,6 +29,7 @@ import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
 import { createSession, forkSession } from "./sessionActions.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
+import ShareSessionDialog from "./ShareSessionDialog.js";
 
 export interface SessionListProps {
   /** The server whose sessions are shown. */
@@ -91,8 +92,13 @@ function StatusBadge(props: { status: SessionStatusEntry | undefined }) {
 
 // Hover actions (TASK-M2-05 / TASK-M6-03): the "⋯" trigger opens a
 // rename/delete/fork menu; the dialogs live in SessionList, keyed per
-// target session.
-function SessionRowMenu(props: { onRename: () => void; onDelete: () => void; onFork: () => void }) {
+// target session. TASK-M6-05 adds the Share item (share dialog).
+function SessionRowMenu(props: {
+  onRename: () => void;
+  onDelete: () => void;
+  onFork: () => void;
+  onShare: () => void;
+}) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
@@ -114,6 +120,13 @@ function SessionRowMenu(props: { onRename: () => void; onDelete: () => void; onF
             onSelect={props.onFork}
           >
             Fork
+          </DropdownMenu.Item>
+          <DropdownMenu.Item
+            data-testid="session-menu-share"
+            class={menuItemClass}
+            onSelect={props.onShare}
+          >
+            Share
           </DropdownMenu.Item>
           <DropdownMenu.Item
             data-testid="session-menu-rename"
@@ -150,8 +163,12 @@ function SessionRow(props: {
   onRename: (session: Session) => void;
   onDelete: (session: Session) => void;
   onFork: (session: Session) => void;
+  onShare: (session: Session) => void;
 }) {
   const forked = () => props.session.parentID !== undefined;
+  // Shared state derives from the contract's Session.share marker
+  // (TASK-M6-05), like the fork badge derives from parentID.
+  const shared = () => props.session.share !== undefined;
   return (
     <div
       role="button"
@@ -180,6 +197,15 @@ function SessionRow(props: {
           fork
         </span>
       </Show>
+      <Show when={shared()}>
+        <span
+          data-testid="session-shared-badge"
+          title="Shared — anyone with the link can view"
+          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+        >
+          shared
+        </span>
+      </Show>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-sm">{titleOf(props.session)}</span>
         <span class="block truncate font-code text-xs text-fg-secondary">
@@ -191,6 +217,7 @@ function SessionRow(props: {
         onRename={() => props.onRename(props.session)}
         onDelete={() => props.onDelete(props.session)}
         onFork={() => props.onFork(props.session)}
+        onShare={() => props.onShare(props.session)}
       />
     </div>
   );
@@ -208,6 +235,7 @@ function SessionNode(props: {
   onRename: (session: Session) => void;
   onDelete: (session: Session) => void;
   onFork: (session: Session) => void;
+  onShare: (session: Session) => void;
   parentTitleOf: (session: Session) => string | undefined;
 }) {
   return (
@@ -222,6 +250,7 @@ function SessionNode(props: {
         onRename={props.onRename}
         onDelete={props.onDelete}
         onFork={props.onFork}
+        onShare={props.onShare}
       />
       <For each={props.childrenOf.get(props.session.id) ?? []}>
         {(child) => (
@@ -234,6 +263,7 @@ function SessionNode(props: {
             onRename={props.onRename}
             onDelete={props.onDelete}
             onFork={props.onFork}
+            onShare={props.onShare}
             parentTitleOf={props.parentTitleOf}
           />
         )}
@@ -252,6 +282,8 @@ const SessionList: Component<SessionListProps> = (props) => {
   const [forkError, setForkError] = createSignal<ApiError | null>(null);
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
+  // Share dialog target (TASK-M6-05): set from the row menu's Share item.
+  const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
 
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
@@ -409,6 +441,7 @@ const SessionList: Component<SessionListProps> = (props) => {
                       onRename={setRenameTarget}
                       onDelete={setDeleteTarget}
                       onFork={handleFork}
+                      onShare={setShareTarget}
                       parentTitleOf={parentTitleOf}
                     />
                   )}
@@ -433,6 +466,15 @@ const SessionList: Component<SessionListProps> = (props) => {
             serverId={props.serverId}
             session={target}
             onClose={() => setDeleteTarget(null)}
+          />
+        )}
+      </Show>
+      <Show when={shareTarget()} keyed>
+        {(target) => (
+          <ShareSessionDialog
+            serverId={props.serverId}
+            session={target}
+            onClose={() => setShareTarget(null)}
           />
         )}
       </Show>

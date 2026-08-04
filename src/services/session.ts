@@ -108,6 +108,20 @@ export function createSessionService(client: ApiClient) {
       client.post<Session>(sessionPath(sessionID, "/unrevert"), {
         ...(dirQuery(dir) ?? {}),
       }),
+    /**
+     * Create a shareable link for a session (POST /session/{id}/share, no
+     * body per the contract). Resolves the updated session carrying
+     * `share: { url }`; unshare clears the marker the same way.
+     */
+    share: (sessionID: string, dir?: string) =>
+      client.post<Session>(sessionPath(sessionID, "/share"), dirQuery(dir)),
+    /**
+     * Remove the shareable link, making the session private again (DELETE
+     * /session/{id}/share). Resolves the updated session without the
+     * `share` field.
+     */
+    unshare: (sessionID: string, dir?: string) =>
+      client.delete<Session>(sessionPath(sessionID, "/share"), dirQuery(dir)),
   };
 }
 

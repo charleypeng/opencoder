@@ -22,9 +22,15 @@ import {
   setSessionStatus,
 } from "../../stores/session";
 
-const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+const { getApiClientMock, qrToDataURLMock, openUrlMock } = vi.hoisted(() => ({
+  getApiClientMock: vi.fn(),
+  qrToDataURLMock: vi.fn(),
+  openUrlMock: vi.fn(),
+}));
 
 vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
+vi.mock("qrcode", () => ({ default: { toDataURL: qrToDataURLMock } }));
+vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 
 const SERVER = "srv-list";
 
@@ -66,6 +72,8 @@ function mockClient() {
 beforeEach(() => {
   resetServer(SERVER);
   getApiClientMock.mockReset();
+  qrToDataURLMock.mockReset().mockResolvedValue("data:image/png;base64,QRDATA");
+  openUrlMock.mockReset().mockResolvedValue(undefined);
   mockClient();
 });
 afterEach(() => resetServer(SERVER));
@@ -514,5 +522,55 @@ describe("SessionList session actions (TASK-M2-05)", () => {
 
     fireEvent.click(screen.getByTestId("error-banner-dismiss"));
     expect(screen.queryByTestId("error-banner")).toBeNull();
+  });
+});
+
+describe("SessionList share (TASK-M6-05)", () => {
+  it("shows a shared badge on sessions carrying the share marker", () => {
+    const shared = { ...session("a", TODAY, "Shared session"), share: { url: "https://share" } };
+    applySessionList(SERVER, [shared, session("b", YESTERDAY, "Private session")]);
+    renderList();
+
+    expect(
+      within(screen.getByTestId("session-item-a")).getByTestId("session-shared-badge"),
+    ).toHaveTextContent("shared");
+    expect(
+      within(screen.getByTestId("session-item-b")).queryByTestId("session-shared-badge"),
+    ).toBeNull();
+  });
+
+  it("opens the share dialog from the row menu", async () => {
+    applySessionList(SERVER, [session("a", TODAY, "Session A")]);
+    renderList();
+
+    await openActionsMenu("a");
+    await pickMenuAction("session-menu-share");
+
+    const dialog = await screen.findByTestId("share-session-dialog");
+    expect(dialog).toHaveTextContent("Session A");
+  });
+
+  it("shares a session from the row menu dialog; the row gains the badge", async () => {
+    const client = mockClient();
+    client.post.mockResolvedValue({
+      ...session("a", TODAY, "Session A"),
+      share: { url: "https://share.opencode.dev/s/a" },
+    });
+    applySessionList(SERVER, [session("a", TODAY, "Session A")]);
+    renderList();
+
+    await openActionsMenu("a");
+    await pickMenuAction("session-menu-share");
+    fireEvent.click(await screen.findByTestId("share-action"));
+
+    await waitFor(() => expect(client.post).toHaveBeenCalledWith("/session/a/share", undefined));
+    await waitFor(() =>
+      expect(screen.getByTestId("share-url")).toHaveValue("https://share.opencode.dev/s/a"),
+    );
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId("session-item-a")).getByTestId("session-shared-badge"),
+      ).toBeInTheDocument(),
+    );
   });
 });

@@ -39,7 +39,7 @@ import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { createProjectService } from "../../services/project";
-import { createSessionService } from "../../services/session";
+import { createSessionService, type Session } from "../../services/session";
 import { createVcsService } from "../../services/vcs";
 import {
   forkSession,
@@ -47,6 +47,7 @@ import {
   unrevertSession,
 } from "../../features/sessions/sessionActions.js";
 import RevertMessageDialog from "../../features/messages/RevertMessageDialog";
+import ShareSessionDialog from "../../features/sessions/ShareSessionDialog";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
@@ -100,6 +101,11 @@ function healthKind(server: ServerEntry): HealthKind {
 function titleOf(serverId: string, sessionId: string): string {
   const session = getServerSessionState(serverId).sessions[sessionId];
   return session ? session.title || session.slug || sessionId : sessionId;
+}
+
+/** The stored session object for a session id (undefined when absent). */
+function sessionOf(serverId: string, sessionId: string): Session | undefined {
+  return getServerSessionState(serverId).sessions[sessionId];
 }
 
 /**
@@ -208,6 +214,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     messageID: string;
   } | null>(null);
   const [revertError, setRevertError] = createSignal<ApiError | null>(null);
+  // Share dialog target (TASK-M6-05): the session object is captured at
+  // open time so a mid-flight session switch cannot reroute the dialog.
+  const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
 
   /** Opens the diff view, optionally filtered to one message. */
   function openDiff(messageId?: string) {
@@ -746,20 +755,65 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       >
                         {titleOf(activeServerId(), activeSessionId() as string)}
                       </h2>
-                      <button
-                        type="button"
-                        data-testid="todo-toggle"
-                        aria-pressed={todosOpen() ? "true" : "false"}
-                        aria-label="Toggle todo panel"
-                        class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                          todosOpen()
-                            ? "border-accent text-accent"
-                            : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-                        }`}
-                        onClick={() => setTodosOpen((open) => !open)}
-                      >
-                        Todos
-                      </button>
+                      <div class="flex shrink-0 items-center gap-1">
+                        <button
+                          type="button"
+                          data-testid="session-share-toggle"
+                          data-shared={
+                            sessionOf(activeServerId(), activeSessionId() as string)?.share !==
+                            undefined
+                              ? "true"
+                              : "false"
+                          }
+                          aria-label="Share session"
+                          title={
+                            sessionOf(activeServerId(), activeSessionId() as string)?.share !==
+                            undefined
+                              ? "Shared — open the share dialog"
+                              : "Share session"
+                          }
+                          class={`rounded-md p-1.5 outline-none transition-colors ${
+                            sessionOf(activeServerId(), activeSessionId() as string)?.share !==
+                            undefined
+                              ? "text-accent"
+                              : "text-fg-secondary hover:text-fg-primary"
+                          }`}
+                          onClick={() => {
+                            const target = sessionOf(activeServerId(), activeSessionId() as string);
+                            if (target !== undefined) setShareTarget(target);
+                          }}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          >
+                            <circle cx="18" cy="5" r="2.4" />
+                            <circle cx="6" cy="12" r="2.4" />
+                            <circle cx="18" cy="19" r="2.4" />
+                            <path d="m8.6 10.6 6.8-4.2M8.6 13.4l6.8 4.2" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="todo-toggle"
+                          aria-pressed={todosOpen() ? "true" : "false"}
+                          aria-label="Toggle todo panel"
+                          class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
+                            todosOpen()
+                              ? "border-accent text-accent"
+                              : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                          }`}
+                          onClick={() => setTodosOpen((open) => !open)}
+                        >
+                          Todos
+                        </button>
+                      </div>
                     </header>
                     <MessageList
                       serverId={activeServerId()}
@@ -966,6 +1020,18 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           onConfirm={confirmRevert}
           onClose={() => setRevertTarget(null)}
         />
+      </Show>
+
+      {/* Share dialog (TASK-M6-05): opened from the chat header share icon;
+          the row menu opens its own instance inside SessionList. */}
+      <Show when={shareTarget()} keyed>
+        {(target) => (
+          <ShareSessionDialog
+            serverId={activeServerId()}
+            session={target}
+            onClose={() => setShareTarget(null)}
+          />
+        )}
       </Show>
     </div>
   );
