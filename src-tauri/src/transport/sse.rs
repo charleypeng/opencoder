@@ -5,9 +5,11 @@
 //! client-irrelevant events (`tui.*`, `workspace.*`) are dropped, and events
 //! are batched into a single Channel push per 16ms window (IPC rate cap
 //! ~60/s). Streams are kept alive with exponential-backoff reconnects
-//! (1s -> 30s cap) and a 60s heartbeat timeout that forces a reconnect; after
-//! a successful reconnect a `server.connected` event with `reconnected: true`
-//! is pushed so the TS layer can trigger a full re-sync. Oversized payloads
+//! (1s -> 30s cap; reset to base after a connection that survived a minute)
+//! and a 60s heartbeat timeout that forces a reconnect; after a successful
+//! reconnect (i.e. a stream was already established at least once) a
+//! `server.connected` event with `reconnected: true` is pushed so the TS
+//! layer can trigger a full re-sync. Oversized payloads
 //! (>64KB) are forwarded as raw JSON strings (`{ "__raw": ... }`) so the TS
 //! side lazy-parses them instead of paying double serialization.
 
@@ -44,6 +46,9 @@ impl SseSink for tauri::ipc::Channel<serde_json::Value> {
 pub(crate) struct SseConfig {
     pub(crate) backoff_base: Duration,
     pub(crate) backoff_cap: Duration,
+    /// A connection that lived at least this long proves the server is
+    /// healthy, so the next retry starts from the backoff base again.
+    pub(crate) backoff_reset_after: Duration,
     pub(crate) heartbeat_timeout: Duration,
     pub(crate) batch_window: Duration,
 }
@@ -53,6 +58,7 @@ impl Default for SseConfig {
         Self {
             backoff_base: Duration::from_secs(1),
             backoff_cap: Duration::from_secs(30),
+            backoff_reset_after: Duration::from_secs(60),
             heartbeat_timeout: Duration::from_secs(60),
             batch_window: Duration::from_millis(16),
         }
@@ -297,14 +303,30 @@ async fn run_subscription(
         Err(_) => return,
     };
     let mut backoff = config.backoff_base;
-    let mut attempt = 0u32;
+    let mut ever_connected = false;
     loop {
         if token.is_cancelled() || shared.is_dead() {
             break;
         }
-        match connect_and_stream(&config, &params, &client, &shared, &token, attempt == 0).await {
+        let attempt_started = Instant::now();
+        match connect_and_stream(
+            &config,
+            &params,
+            &client,
+            &shared,
+            &token,
+            &mut ever_connected,
+        )
+        .await
+        {
             Err(StreamFailure::Fatal) => break,
             Ok(()) | Err(StreamFailure::Transient) => {}
+        }
+        // A stream that survived long enough proves the server is healthy;
+        // reset the backoff so a subsequent drop reconnects promptly
+        // instead of compounding the delay at the 30s cap.
+        if attempt_started.elapsed() >= config.backoff_reset_after {
+            backoff = config.backoff_base;
         }
         if token.is_cancelled() || shared.is_dead() {
             break;
@@ -315,20 +337,23 @@ async fn run_subscription(
             _ = tokio::time::sleep(backoff) => {}
         }
         backoff = (backoff * 2).min(config.backoff_cap);
-        attempt += 1;
     }
 }
 
 /// Opens one SSE connection, parses the stream and forwards events into the
 /// shared batch buffer. Returns when the stream ends (EOF, error, heartbeat
 /// timeout, or explicit cancellation).
+///
+/// `ever_connected` tracks whether any stream has been established so far:
+/// reconnects (a stream was already established once) announce themselves
+/// with a `server.connected` marker; the first successful stream never does.
 async fn connect_and_stream(
     config: &SseConfig,
     params: &SubscribeParams,
     client: &reqwest::Client,
     shared: &Arc<SubscriptionShared>,
     token: &CancellationToken,
-    first_attempt: bool,
+    ever_connected: &mut bool,
 ) -> Result<(), StreamFailure> {
     let mut request = client.get(params.url.clone());
     if let Some(auth) = &params.auth {
@@ -348,13 +373,16 @@ async fn connect_and_stream(
             Err(StreamFailure::Transient)
         };
     }
-    // Reconnects are announced so the TS layer can re-align its state.
-    if !first_attempt {
+    // Reconnects are announced so the TS layer can re-align its state; a
+    // stream that never established once is not a reconnect, so only the
+    // second successful connection onwards pushes the marker.
+    if *ever_connected {
         shared.push(serde_json::json!({
             "type": "server.connected",
             "properties": { "reconnected": true },
         }));
     }
+    *ever_connected = true;
 
     let last_activity = Arc::new(Mutex::new(Instant::now()));
     let stream_token = token.child_token();
@@ -615,6 +643,7 @@ mod tests {
         addr: SocketAddr,
         connections: Arc<AtomicUsize>,
         accepted_at: Arc<Mutex<Vec<Instant>>>,
+        closed_at: Arc<Mutex<Vec<Instant>>>,
         stop: Arc<AtomicBool>,
         thread: Option<std::thread::JoinHandle<()>>,
     }
@@ -626,10 +655,12 @@ mod tests {
             let addr = listener.local_addr().unwrap();
             let connections = Arc::new(AtomicUsize::new(0));
             let accepted_at = Arc::new(Mutex::new(Vec::new()));
+            let closed_at = Arc::new(Mutex::new(Vec::new()));
             let stop = Arc::new(AtomicBool::new(false));
             let thread = std::thread::spawn({
                 let connections = Arc::clone(&connections);
                 let accepted_at = Arc::clone(&accepted_at);
+                let closed_at = Arc::clone(&closed_at);
                 let stop = Arc::clone(&stop);
                 move || {
                     let mut index = 0usize;
@@ -640,7 +671,10 @@ mod tests {
                                 accepted_at.lock().unwrap().push(Instant::now());
                                 let response = script(index);
                                 index += 1;
-                                std::thread::spawn(move || serve_connection(stream, response));
+                                let closed_at = Arc::clone(&closed_at);
+                                std::thread::spawn(move || {
+                                    serve_connection(stream, response, closed_at)
+                                });
                             }
                             Err(err) if err.kind() == std::io::ErrorKind::WouldBlock => {
                                 std::thread::sleep(Duration::from_millis(2));
@@ -654,6 +688,7 @@ mod tests {
                 addr,
                 connections,
                 accepted_at,
+                closed_at,
                 stop,
                 thread: Some(thread),
             }
@@ -665,6 +700,13 @@ mod tests {
 
         fn accepted_times(&self) -> Vec<Instant> {
             self.accepted_at.lock().unwrap().clone()
+        }
+
+        /// Timestamps of every server-side connection close, indexed like
+        /// `accepted_times`; lets tests measure the client's retry delay
+        /// independently of how long a connection stayed alive.
+        fn closed_times(&self) -> Vec<Instant> {
+            self.closed_at.lock().unwrap().clone()
         }
     }
 
@@ -682,6 +724,8 @@ mod tests {
         status: String,
         frames: Vec<String>,
         close: bool,
+        /// When set, the connection stays open for this long before closing.
+        close_after: Option<Duration>,
     }
 
     impl ScriptedResponse {
@@ -690,6 +734,7 @@ mod tests {
                 status: "HTTP/1.1 200 OK".to_string(),
                 frames,
                 close,
+                close_after: None,
             }
         }
 
@@ -698,6 +743,7 @@ mod tests {
                 status: format!("HTTP/1.1 {status} Error"),
                 frames: Vec::new(),
                 close: true,
+                close_after: None,
             }
         }
     }
@@ -706,7 +752,11 @@ mod tests {
         format!("data: {}\n\n", serde_json::to_string(value).unwrap())
     }
 
-    fn serve_connection(mut stream: TcpStream, response: ScriptedResponse) {
+    fn serve_connection(
+        mut stream: TcpStream,
+        response: ScriptedResponse,
+        closed_at: Arc<Mutex<Vec<Instant>>>,
+    ) {
         read_request_head(&stream);
         let mut payload = format!(
             "{}\r\nContent-Type: text/event-stream\r\nCache-Control: no-cache\r\nConnection: keep-alive\r\n\r\n",
@@ -717,12 +767,18 @@ mod tests {
         }
         let _ = stream.write_all(payload.as_bytes());
         let _ = stream.flush();
-        if response.close {
+        if let Some(hold) = response.close_after {
+            std::thread::sleep(hold);
+            closed_at.lock().unwrap().push(Instant::now());
+            let _ = stream.shutdown(std::net::Shutdown::Both);
+        } else if response.close {
+            closed_at.lock().unwrap().push(Instant::now());
             let _ = stream.shutdown(std::net::Shutdown::Both);
         } else {
             // Keep the connection open until the client goes away.
             let mut buf = [0u8; 1024];
             while stream.read(&mut buf).unwrap_or(0) > 0 {}
+            closed_at.lock().unwrap().push(Instant::now());
         }
     }
 
@@ -1072,6 +1128,157 @@ mod tests {
             sink.pushes().is_empty(),
             "silent stream must not emit events"
         );
+
+        sse_unsubscribe(id);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn backoff_resets_after_a_long_lived_connection() {
+        let event = |id: &str| {
+            sse_frame(&serde_json::json!({
+                "id": id,
+                "type": "session.idle",
+                "properties": {},
+            }))
+        };
+        let server = SseTestServer::start(move |connection| match connection {
+            // Short-lived: drops immediately, so the backoff would escalate.
+            0 => ScriptedResponse::ok(vec![event("e0")], true),
+            // Long-lived: survives past the reset threshold (300ms > 250ms).
+            1 => ScriptedResponse {
+                status: "HTTP/1.1 200 OK".to_string(),
+                frames: vec![event("e1")],
+                close: false,
+                close_after: Some(Duration::from_millis(300)),
+            },
+            // Stays open so the test observes the reset reconnect.
+            _ => ScriptedResponse::ok(vec![event("e2")], false),
+        });
+        crate::transport::http::register_server_base_url(
+            "srv-backoff-reset",
+            &format!("http://{}", server.addr),
+        );
+
+        let sink = TestSink::new();
+        let config = SseConfig {
+            backoff_base: Duration::from_millis(50),
+            backoff_reset_after: Duration::from_millis(250),
+            heartbeat_timeout: Duration::from_secs(2),
+            ..SseConfig::default()
+        };
+        let id = subscribe_with_config(
+            "srv-backoff-reset".to_string(),
+            None,
+            Arc::new(sink.clone()),
+            None,
+            config,
+        )
+        .unwrap();
+
+        let reconnected = sink
+            .wait_until(Duration::from_secs(5), || server.connection_count() >= 3)
+            .await;
+        assert!(
+            reconnected,
+            "third connection never established: {:?}",
+            server.accepted_times()
+        );
+
+        // After the 300ms connection the retry must come at the 50ms base,
+        // not at the doubled 100ms a never-resetting backoff would use.
+        // The delay is measured from the server-side close so the
+        // connection's own 300ms lifetime does not skew the gap.
+        let times = server.accepted_times();
+        let closes = server.closed_times();
+        let backoff_delay = times[2].duration_since(closes[1]);
+        assert!(
+            backoff_delay >= Duration::from_millis(40),
+            "reconnect happened before the backoff base: {backoff_delay:?}"
+        );
+        assert!(
+            backoff_delay < Duration::from_millis(75),
+            "backoff did not reset after a long-lived connection: {backoff_delay:?}"
+        );
+
+        sse_unsubscribe(id);
+        tokio::time::sleep(Duration::from_millis(200)).await;
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn no_reconnect_marker_before_first_successful_stream() {
+        let server = SseTestServer::start(|connection| match connection {
+            // The first attempt fails before any stream is established.
+            0 => ScriptedResponse::status_only(500),
+            // The second attempt succeeds; it is not a reconnect.
+            1 => ScriptedResponse::ok(
+                vec![sse_frame(&serde_json::json!({
+                    "id": "e1",
+                    "type": "session.created",
+                    "properties": {},
+                }))],
+                true,
+            ),
+            // Later connections are reconnects and announce the marker.
+            _ => ScriptedResponse::ok(
+                vec![sse_frame(&serde_json::json!({
+                    "id": "e2",
+                    "type": "session.idle",
+                    "properties": {},
+                }))],
+                false,
+            ),
+        });
+        crate::transport::http::register_server_base_url(
+            "srv-first-fail",
+            &format!("http://{}", server.addr),
+        );
+
+        let sink = TestSink::new();
+        let config = SseConfig {
+            backoff_base: Duration::from_millis(20),
+            heartbeat_timeout: Duration::from_secs(2),
+            ..SseConfig::default()
+        };
+        let id = subscribe_with_config(
+            "srv-first-fail".to_string(),
+            None,
+            Arc::new(sink.clone()),
+            None,
+            config,
+        )
+        .unwrap();
+
+        let arrived = sink
+            .wait_until(Duration::from_secs(5), || {
+                flattened(sink.pushes()).len() >= 3
+            })
+            .await;
+        assert!(
+            arrived,
+            "events after reconnect never arrived: {:?}",
+            sink.pushes()
+        );
+
+        // No marker may precede the first successful stream's events.
+        let events = flattened(sink.pushes());
+        let types: Vec<String> = events
+            .iter()
+            .map(|event| event["type"].as_str().unwrap().to_string())
+            .collect();
+        assert_eq!(
+            types,
+            vec![
+                "session.created".to_string(),
+                "server.connected".to_string(),
+                "session.idle".to_string(),
+            ]
+        );
+        let marker = events
+            .iter()
+            .find(|event| event["type"] == "server.connected")
+            .unwrap();
+        assert_eq!(marker["properties"]["reconnected"], true);
 
         sse_unsubscribe(id);
         tokio::time::sleep(Duration::from_millis(200)).await;
