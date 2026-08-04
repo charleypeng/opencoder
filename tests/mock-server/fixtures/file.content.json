@@ -1,0 +1,5 @@
+{
+  "type": "text",
+  "content": "import { createSignal } from \"solid-js\";\n\n// Prompt composer (TASK-M2-08)\nexport function PromptBox() {\n  const [text, setText] = createSignal(\"\");\n  return <textarea value={text()} />;\n}\n",
+  "mimeType": "text/typescript"
+}

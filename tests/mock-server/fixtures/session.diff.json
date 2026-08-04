@@ -1,0 +1,28 @@
+[
+  {
+    "file": "src/auth/login.ts",
+    "patch": "--- a/src/auth/login.ts\n+++ b/src/auth/login.ts\n@@ -1,14 +1,28 @@\n import { auth } from \"./api\";\n+\n+export function login(username: string, password: string): Promise<string> {\n+  return auth.login(username, password);\n+}\n",
+    "additions": 21,
+    "deletions": 5,
+    "status": "modified"
+  },
+  {
+    "file": "src/auth/session.ts",
+    "patch": "--- a/src/auth/session.ts\n+++ b/src/auth/session.ts\n@@ -1,20 +1,26 @@\n export interface Session {\n   token: string;\n }\n+\n+export const session = createSession();\n",
+    "additions": 13,
+    "deletions": 7,
+    "status": "modified"
+  },
+  {
+    "file": "src/auth/token.ts",
+    "additions": 8,
+    "deletions": 0,
+    "status": "added"
+  },
+  {
+    "file": "src/auth/legacy.ts",
+    "additions": 0,
+    "deletions": 20,
+    "status": "deleted"
+  }
+]

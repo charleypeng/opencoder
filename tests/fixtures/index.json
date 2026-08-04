@@ -12,6 +12,7 @@
   "question.asked": "question.asked.json",
   "file.tree": "file.tree.json",
   "diff.session": "diff.session.json",
+  "session.diff": "diff.session.json",
   "todo.list": "todo.list.json",
   "pty.list": "pty.list.json"
 }

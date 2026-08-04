@@ -1,0 +1,20 @@
+[
+  {
+    "file": "src/features/sessions/PromptBox.tsx",
+    "additions": 12,
+    "deletions": 4,
+    "status": "modified"
+  },
+  {
+    "file": "src/services/file.ts",
+    "additions": 64,
+    "deletions": 0,
+    "status": "added"
+  },
+  {
+    "file": "src/legacy/deprecated.ts",
+    "additions": 0,
+    "deletions": 30,
+    "status": "deleted"
+  }
+]

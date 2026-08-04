@@ -65,7 +65,25 @@ const FIND_ROUTES: Route[] = [
   { method: "get", path: "/find/symbol", operation: "find.symbols", fixture: "find.symbol" },
 ];
 
-const ROUTES: Route[] = [...P0_CORE_LOOP, ...FIND_ROUTES];
+// P2 — efficiency tools (M4): /file family. The tree is a flat FileNode[]
+// served declaratively; the viewer (M4-03) expands directories by re-listing
+// with `path`, and `/file/content` / `/file/status` are static fixtures.
+const FILE_ROUTES: Route[] = [
+  { method: "get", path: "/file", operation: "file.list", fixture: "file.tree" },
+  { method: "get", path: "/file/content", operation: "file.read", fixture: "file.content" },
+  { method: "get", path: "/file/status", operation: "file.status", fixture: "file.status" },
+];
+
+// P2 — efficiency tools (M4): /vcs family. Branch info, status and per-file
+// diffs are static fixtures; `/vcs/diff/raw` (text/x-diff), `/vcs/apply` and
+// the messageID-filtered `/session/{id}/diff` are handled dynamically.
+const VCS_ROUTES: Route[] = [
+  { method: "get", path: "/vcs", operation: "vcs.get", fixture: "vcs" },
+  { method: "get", path: "/vcs/status", operation: "vcs.status", fixture: "vcs.status" },
+  { method: "get", path: "/vcs/diff", operation: "vcs.diff", fixture: "vcs.diff" },
+];
+
+const ROUTES: Route[] = [...P0_CORE_LOOP, ...FIND_ROUTES, ...FILE_ROUTES, ...VCS_ROUTES];
 
 // SSE endpoints stream events; they are not part of the fixture table.
 function registerSSE(app: Express): void {
@@ -194,6 +212,34 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
 
   app.post("/session/:sessionID/abort", (_req, res) => {
     res.json(true);
+  });
+
+  // Raw working-tree diff (TASK-M4-01): the endpoint serves text/x-diff, so
+  // the fixture string is sent as text with the proper content type instead
+  // of being JSON-encoded.
+  app.get("/vcs/diff/raw", (_req, res) => {
+    res.type("text/x-diff; charset=utf-8").send(fixtures["vcs.diff.raw"]);
+  });
+
+  // Patch apply (TASK-M4-01): the mock always reports success.
+  app.post("/vcs/apply", (_req, res) => {
+    res.json({ applied: true });
+  });
+
+  // Session diff (TASK-M4-01): SnapshotFileDiff entries carry no message id,
+  // so the optional messageID filter is modeled with a fixed subset — msg_02
+  // covers the first two records, unknown ids yield an empty array (same
+  // convention as the message `before` cursor).
+  app.get("/session/:sessionID/diff", (req, res) => {
+    const messageID = queryString(req, "messageID");
+    const diffs = Array.isArray(fixtures["session.diff"]) ? fixtures["session.diff"] : [];
+    if (messageID === undefined) {
+      res.json(diffs);
+    } else if (messageID === "msg_02") {
+      res.json(diffs.slice(0, 2));
+    } else {
+      res.json([]);
+    }
   });
 
   // Messages honor the `limit`/`before` pagination params (TASK-M2-01 /

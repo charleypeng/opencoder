@@ -1,0 +1,79 @@
+[
+  {
+    "name": "src",
+    "path": "src",
+    "absolute": "/mock/projects/opencode-demo/src",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "features",
+    "path": "src/features",
+    "absolute": "/mock/projects/opencode-demo/src/features",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "sessions",
+    "path": "src/features/sessions",
+    "absolute": "/mock/projects/opencode-demo/src/features/sessions",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "PromptBox.tsx",
+    "path": "src/features/sessions/PromptBox.tsx",
+    "absolute": "/mock/projects/opencode-demo/src/features/sessions/PromptBox.tsx",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "sendPrompt.ts",
+    "path": "src/features/sessions/sendPrompt.ts",
+    "absolute": "/mock/projects/opencode-demo/src/features/sessions/sendPrompt.ts",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "stores",
+    "path": "src/stores",
+    "absolute": "/mock/projects/opencode-demo/src/stores",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "messages.ts",
+    "path": "src/stores/messages.ts",
+    "absolute": "/mock/projects/opencode-demo/src/stores/messages.ts",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "services",
+    "path": "src/services",
+    "absolute": "/mock/projects/opencode-demo/src/services",
+    "type": "directory",
+    "ignored": false
+  },
+  {
+    "name": "find.ts",
+    "path": "src/services/find.ts",
+    "absolute": "/mock/projects/opencode-demo/src/services/find.ts",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "README.md",
+    "path": "README.md",
+    "absolute": "/mock/projects/opencode-demo/README.md",
+    "type": "file",
+    "ignored": false
+  },
+  {
+    "name": "node_modules",
+    "path": "node_modules",
+    "absolute": "/mock/projects/opencode-demo/node_modules",
+    "type": "directory",
+    "ignored": true
+  }
+]

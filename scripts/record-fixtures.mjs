@@ -74,10 +74,41 @@ const TARGETS = [
     url: (base, ctx) => `${base}/file?directory=${encodeURIComponent(ctx.worktree)}&path=.`,
   },
   {
-    keys: ["diff.session"],
+    keys: ["diff.session", "session.diff"],
     file: "diff.session.json",
     dependsOn: "sessionID",
     url: (base, ctx) => `${base}/session/${ctx.sessionID}/diff`,
+  },
+  {
+    keys: ["file.content"],
+    file: "file.content.json",
+    dependsOn: "worktree",
+    url: (base, ctx) =>
+      `${base}/file/content?directory=${encodeURIComponent(ctx.worktree)}&path=README.md`,
+  },
+  {
+    keys: ["file.status"],
+    file: "file.status.json",
+    dependsOn: "worktree",
+    url: (base, ctx) => `${base}/file/status?directory=${encodeURIComponent(ctx.worktree)}`,
+  },
+  {
+    keys: ["vcs"],
+    file: "vcs.json",
+    dependsOn: "worktree",
+    url: (base, ctx) => `${base}/vcs?directory=${encodeURIComponent(ctx.worktree)}`,
+  },
+  {
+    keys: ["vcs.status"],
+    file: "vcs.status.json",
+    dependsOn: "worktree",
+    url: (base, ctx) => `${base}/vcs/status?directory=${encodeURIComponent(ctx.worktree)}`,
+  },
+  {
+    keys: ["vcs.diff"],
+    file: "vcs.diff.json",
+    dependsOn: "worktree",
+    url: (base, ctx) => `${base}/vcs/diff?directory=${encodeURIComponent(ctx.worktree)}&mode=git`,
   },
   { keys: ["pty.list"], file: "pty.list.json", url: (base) => `${base}/pty` },
 ];

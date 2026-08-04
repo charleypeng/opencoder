@@ -12,5 +12,13 @@
   "session.todo": "todo.json",
   "find": "find.json",
   "find.file": "find.file.json",
-  "find.symbol": "find.symbol.json"
+  "find.symbol": "find.symbol.json",
+  "file.tree": "file.tree.json",
+  "file.content": "file.content.json",
+  "file.status": "file.status.json",
+  "vcs": "vcs.json",
+  "vcs.status": "vcs.status.json",
+  "vcs.diff": "vcs.diff.json",
+  "vcs.diff.raw": "vcs.diff.raw.json",
+  "session.diff": "session.diff.json"
 }

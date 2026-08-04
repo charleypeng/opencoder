@@ -437,6 +437,138 @@ try {
       expect(typeof body[0]?.location?.uri === "string", "symbol must carry a location uri");
     });
 
+    // TASK-M4-01: /file family.
+    await test("file list returns FileNode entries", async () => {
+      const { status, body } = await request(baseUrl, "/file");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const node = body[0];
+      expect(typeof node?.name === "string", "FileNode must carry name");
+      expect(typeof node?.path === "string", "FileNode must carry path");
+      expect(typeof node?.absolute === "string", "FileNode must carry absolute");
+      expect(
+        ["file", "directory"].includes(node?.type),
+        `FileNode type ${JSON.stringify(node?.type)}`,
+      );
+      expect(typeof node?.ignored === "boolean", "FileNode must carry ignored");
+      expect(
+        body.some((n) => n.ignored === true),
+        "fixture must include an ignored node",
+      );
+    });
+
+    await test("file content returns FileContent", async () => {
+      const { status, body } = await request(baseUrl, "/file/content?path=README.md");
+      expect(status === 200, `status ${status}`);
+      expect(["text", "binary"].includes(body?.type), `content type ${JSON.stringify(body?.type)}`);
+      expect(typeof body?.content === "string", "content must be a string");
+    });
+
+    await test("file status returns tracked file statuses", async () => {
+      const { status, body } = await request(baseUrl, "/file/status");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const entry = body[0];
+      expect(typeof entry?.path === "string", "entry must carry path");
+      expect(
+        ["added", "deleted", "modified"].includes(entry?.status),
+        `status ${JSON.stringify(entry?.status)}`,
+      );
+      expect(
+        typeof entry?.added === "number" && typeof entry?.removed === "number",
+        "entry must carry added/removed counts",
+      );
+    });
+
+    // TASK-M4-01: /vcs family.
+    await test("vcs returns branch info", async () => {
+      const { status, body } = await request(baseUrl, "/vcs");
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.branch === "string", `branch ${JSON.stringify(body?.branch)}`);
+      expect(
+        typeof body?.default_branch === "string",
+        `default_branch ${JSON.stringify(body?.default_branch)}`,
+      );
+    });
+
+    await test("vcs status returns the change list", async () => {
+      const { status, body } = await request(baseUrl, "/vcs/status");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const entry = body[0];
+      expect(typeof entry?.file === "string", "entry must carry file");
+      expect(
+        ["added", "deleted", "modified"].includes(entry?.status),
+        `status ${JSON.stringify(entry?.status)}`,
+      );
+      expect(
+        typeof entry?.additions === "number" && typeof entry?.deletions === "number",
+        "entry must carry additions/deletions counts",
+      );
+    });
+
+    await test("vcs diff returns per-file patches", async () => {
+      const { status, body } = await request(baseUrl, "/vcs/diff?mode=git");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const entry = body[0];
+      expect(typeof entry?.file === "string", "entry must carry file");
+      expect(typeof entry?.patch === "string", "entry must carry a unified patch");
+      expect(
+        typeof entry?.additions === "number" && typeof entry?.deletions === "number",
+        "entry must carry additions/deletions counts",
+      );
+    });
+
+    await test("vcs diff raw returns unified diff text", async () => {
+      const res = await fetch(`${baseUrl}/vcs/diff/raw`);
+      const text = await res.text();
+      expect(res.status === 200, `status ${res.status}`);
+      expect(
+        (res.headers.get("content-type") ?? "").startsWith("text/x-diff"),
+        "content type must be text/x-diff",
+      );
+      expect(text.includes("diff --git"), "raw diff must be unified diff text");
+    });
+
+    await test("vcs apply returns the applied result", async () => {
+      const { status, body } = await request(baseUrl, "/vcs/apply", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patch: "--- a/x\n+++ b/x\n" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.applied === "boolean", `applied ${JSON.stringify(body?.applied)}`);
+      expect(body?.applied === true, "mock apply must report success");
+    });
+
+    await test("session diff returns SnapshotFileDiff entries", async () => {
+      const { status, body } = await request(baseUrl, `/session/${SESSION_ID}/diff`);
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
+      const entry = body[0];
+      expect(typeof entry?.file === "string", "entry must carry file");
+      expect(typeof entry?.patch === "string", "entry must carry patch");
+      expect(
+        typeof entry?.additions === "number" && typeof entry?.deletions === "number",
+        "entry must carry additions/deletions counts",
+      );
+    });
+
+    await test("session diff filters by messageID", async () => {
+      const full = await request(baseUrl, `/session/${SESSION_ID}/diff`);
+      const filtered = await request(baseUrl, `/session/${SESSION_ID}/diff?messageID=msg_02`);
+      expect(
+        Array.isArray(filtered.body) && filtered.body.length < full.body.length,
+        `filtered must be a strict subset; got ${filtered.body?.length} of ${full.body?.length}`,
+      );
+      const none = await request(baseUrl, `/session/${SESSION_ID}/diff?messageID=msg_nope`);
+      expect(
+        Array.isArray(none.body) && none.body.length === 0,
+        `unknown messageID must yield []; got ${JSON.stringify(none.body)}`,
+      );
+    });
+
     await test("abort returns true", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/abort", {
         method: "POST",
@@ -688,6 +820,24 @@ try {
     const detail = await request(fixtureUrl, "/session/ses_abc123");
     expect(detail.status === 200, `detail status ${detail.status}`);
     expect(detail.body?.id === "ses_abc123", `detail id ${JSON.stringify(detail.body?.id)}`);
+
+    // The recorded root maps file.tree and session.diff; the remaining M4
+    // routes fall back to the built-in mock fixtures.
+    const fileList = await request(fixtureUrl, "/file");
+    expect(
+      Array.isArray(fileList.body) && fileList.body.length > 0,
+      "file tree must serve in fixture mode",
+    );
+    expect(
+      typeof fileList.body[0]?.absolute === "string",
+      "recorded FileNode must carry an absolute path",
+    );
+    const sessionDiff = await request(fixtureUrl, "/session/ses_abc123/diff");
+    expect(
+      Array.isArray(sessionDiff.body) && sessionDiff.body.length > 0,
+      "session diff must serve in fixture mode",
+    );
+    expect(typeof sessionDiff.body[0]?.file === "string", "recorded diff entry must carry a file");
   });
 
   // ---- Server with auth + cors ----
