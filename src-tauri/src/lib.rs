@@ -3,6 +3,7 @@ mod commands;
 pub mod connections;
 pub mod transport;
 
+use connections::health::HealthMonitor;
 use tauri::Manager;
 
 #[tauri::command]
@@ -17,7 +18,12 @@ pub fn run() {
         .plugin(tauri_plugin_store::Builder::default().build())
         .setup(|app| {
             let registry = connections::ServerRegistry::load(app.handle())?;
+            let monitor = HealthMonitor::new(app.handle());
             app.manage(registry);
+            app.manage(monitor);
+            // Start per-server health polling for every persisted server.
+            let monitor = app.state::<HealthMonitor<tauri::Wry>>();
+            monitor.start_all(&app.state::<connections::ServerRegistry<tauri::Wry>>());
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -30,7 +36,11 @@ pub fn run() {
             commands::add_server,
             commands::update_server,
             commands::remove_server,
-            commands::resolve_server_base_url
+            commands::resolve_server_base_url,
+            commands::get_server_health,
+            commands::probe_server,
+            commands::start_health_monitoring,
+            commands::stop_health_monitoring
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

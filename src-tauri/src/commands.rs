@@ -1,8 +1,9 @@
-//! Tauri command surface for the transport layer (ADR-002 §6.3) and the
-//! server registry (TASK-M1-03). Thin wrappers: the implementation lives in
-//! `crate::transport` / `crate::connections` so it can be unit-tested
-//! without a Tauri runtime.
+//! Tauri command surface for the transport layer (ADR-002 §6.3), the
+//! server registry (TASK-M1-03) and the health monitor (TASK-M1-04). Thin
+//! wrappers: the implementation lives in `crate::transport` /
+//! `crate::connections` so it can be unit-tested without a Tauri runtime.
 
+use crate::connections::health::{HealthMonitor, ServerHealth};
 use crate::connections::registry::{RegistryError, ServerEntry, ServerEntryInput};
 use crate::connections::ServerRegistry;
 use crate::transport::http::{
@@ -73,13 +74,65 @@ pub fn update_server(
     registry.update(id, entry).map_err(map_registry_error)
 }
 
-/// Removes the server with the given id.
+/// Removes the server with the given id and stops its health monitor.
 #[tauri::command]
 pub fn remove_server(
     id: String,
     registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+    monitor: tauri::State<'_, HealthMonitor<tauri::Wry>>,
 ) -> Result<(), ApiError> {
-    registry.remove(id).map_err(map_registry_error)
+    registry.remove(id.clone()).map_err(map_registry_error)?;
+    monitor.stop(&id);
+    Ok(())
+}
+
+/// Latest health snapshot of the server, cached by the running monitor.
+#[tauri::command]
+pub fn get_server_health(
+    server_id: String,
+    monitor: tauri::State<'_, HealthMonitor<tauri::Wry>>,
+) -> Result<ServerHealth, ApiError> {
+    monitor
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("no health state for server {server_id}")))
+}
+
+/// One-shot health probe against an arbitrary server URL (Add Server flow);
+/// the snapshot carries the outcome (`healthy`/`status`/`failCount`).
+#[tauri::command]
+pub async fn probe_server(url: String, auth: Option<Auth>) -> Result<ServerHealth, ApiError> {
+    Ok(crate::connections::health::probe(url, auth).await)
+}
+
+/// Starts the 15s health polling loop for a saved server.
+#[tauri::command]
+pub fn start_health_monitoring(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+    monitor: tauri::State<'_, HealthMonitor<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    monitor.start(
+        server_id,
+        entry.url,
+        Some(Auth {
+            username: entry.username,
+            password: entry.password,
+        }),
+    );
+    Ok(())
+}
+
+/// Stops the health polling loop of the given server (idempotent).
+#[tauri::command]
+pub fn stop_health_monitoring(
+    server_id: String,
+    monitor: tauri::State<'_, HealthMonitor<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    monitor.stop(&server_id);
+    Ok(())
 }
 
 /// Resolves the base URL registered for a server id.

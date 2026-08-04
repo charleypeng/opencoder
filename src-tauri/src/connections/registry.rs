@@ -140,7 +140,9 @@ fn new_id() -> String {
     format!("srv_{millis:013x}_{counter:x}")
 }
 
-fn now_millis() -> i64 {
+/// Shared by the registry and the health monitor (TASK-M1-04) for timestamp
+/// fields.
+pub(crate) fn now_millis() -> i64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|duration| duration.as_millis() as i64)

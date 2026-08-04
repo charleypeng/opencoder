@@ -1,11 +1,14 @@
-//! Server registry (TASK-M1-03).
+//! Server registry (TASK-M1-03) and per-server health monitoring
+//! (TASK-M1-04).
 //!
 //! Pure in-memory registry core (CRUD + serialization, no Tauri
 //! dependencies) plus the managed wrapper that persists changes through a
 //! [`ServerStore`] and notifies the frontend with `servers-changed` events.
 //! The transport channels (http.rs / sse.rs) resolve server base URLs through
-//! this registry instead of the M1-01 placeholder map.
+//! this registry instead of the M1-01 placeholder map. The health monitor
+//! (health.rs) polls each server and emits `server-health` snapshots.
 
+pub mod health;
 pub mod registry;
 pub mod store;
 
@@ -44,7 +47,7 @@ impl<R: tauri::Runtime> ServerRegistry<R> {
     /// file is deliberately left in place so an unreadable startup never
     /// destroys the user's data — the next successful persist overwrites
     /// it.
-    fn load_with(
+    pub(crate) fn load_with(
         store: Box<dyn ServerStore>,
         app: &tauri::AppHandle<R>,
     ) -> Result<Self, PersistError> {

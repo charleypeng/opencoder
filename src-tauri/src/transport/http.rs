@@ -599,7 +599,13 @@ mod tests {
 
     #[test]
     fn cancel_unknown_request_is_a_no_op() {
+        // The global registry is shared across parallel tests, so only the
+        // unknown id itself may be asserted absent (an in-flight request of
+        // another test may legitimately hold a token).
         http_cancel("does-not-exist".to_string());
-        assert!(CANCEL_REGISTRY.lock().unwrap().is_empty());
+        assert!(!CANCEL_REGISTRY
+            .lock()
+            .unwrap()
+            .contains_key("does-not-exist"));
     }
 }
