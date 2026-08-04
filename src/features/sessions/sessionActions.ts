@@ -29,6 +29,23 @@ export async function createSession(
   }
 }
 
+/** Forks a session (optionally from a message point) and opens the child. */
+export async function forkSession(
+  serverId: string,
+  sessionId: string,
+  messageID: string | undefined,
+  sessionService: SessionService,
+): Promise<Session> {
+  try {
+    const child = await sessionService.fork(sessionId, messageID);
+    upsertSession(serverId, child);
+    setActiveSession(serverId, child.id);
+    return child;
+  } catch (err) {
+    throw ApiError.fromUnknown(err);
+  }
+}
+
 /** Renames a session; optimistic with rollback to the captured original. */
 export async function renameSession(
   serverId: string,

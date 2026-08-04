@@ -367,6 +367,58 @@ describe("MessageActions view diff", () => {
   });
 });
 
+describe("MessageActions fork from here (TASK-M6-03)", () => {
+  it("is a disabled placeholder without an onFork callback", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions();
+    await openMenu();
+
+    expect(screen.getByTestId("message-action-fork")).toHaveAttribute("data-disabled");
+  });
+
+  it("calls onFork with the message id when provided", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    let forked: string | undefined;
+    mountActions({ onFork: (id) => void (forked = id) });
+    await openMenu();
+
+    pickMenuAction("message-action-fork");
+    expect(forked).toBe("msg_user");
+  });
+
+  it("forks from an assistant message point too", async () => {
+    mountWithClient();
+    seedAssistant("a reply");
+    let forked: string | undefined;
+    render(() => (
+      <MessageActions
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_asst"
+        partIds={["prt_asst"]}
+        onFork={(id) => void (forked = id)}
+      />
+    ));
+    await openMenu();
+
+    pickMenuAction("message-action-fork");
+    expect(forked).toBe("msg_asst");
+  });
+
+  it("runs from the right-click context menu as well", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    let forked: string | undefined;
+    mountActions({ onFork: (id) => void (forked = id) });
+    await openContextMenu();
+
+    fireEvent.click(screen.getByTestId("message-context-fork"));
+    expect(forked).toBe("msg_user");
+  });
+});
+
 describe("MessageActions context menu", () => {
   it("opens at the cursor on right-click and runs the same actions", async () => {
     mountWithClient();

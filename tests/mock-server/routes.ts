@@ -264,6 +264,40 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     res.json(true);
   });
 
+  // Session fork (TASK-M6-03): accepts the schema's optional { messageID }
+  // body and reports the created child session with parentID set to the
+  // forked session. A present messageID must be a known fixture message
+  // (the fork point must exist) — anything else is a 400 BadRequestError.
+  app.post("/session/:sessionID/fork", (req, res) => {
+    const { messageID } = (req.body ?? {}) as { messageID?: unknown };
+    if (typeof messageID === "string") {
+      const messages = Array.isArray(fixtures["session.messages"])
+        ? fixtures["session.messages"]
+        : [];
+      const known = messages.some((m) => m?.info?.id === messageID);
+      if (!known) {
+        res
+          .status(400)
+          .json({ _tag: "BadRequestError", message: `unknown messageID: ${messageID}` });
+        return;
+      }
+    } else if (messageID !== undefined) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid fork payload" });
+      return;
+    }
+    const updated = base.time.updated + 1;
+    res.json({
+      id: "sess_forked",
+      slug: "forked",
+      projectID: base.projectID,
+      directory: base.directory,
+      parentID: req.params.sessionID,
+      title: `Fork of ${base.title}`,
+      version: base.version,
+      time: { created: updated, updated },
+    });
+  });
+
   // Prompt send (TASK-M2-08): always 204. TASK-M5-08 validates the part
   // array shape so the `@skillName` reference flow is exercised — accepted
   // types are the ones the composer actually sends: text (with a string

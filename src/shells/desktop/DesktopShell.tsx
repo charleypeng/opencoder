@@ -36,8 +36,12 @@ import { subscribeToServersChanged } from "../../services/events";
 import { listServers } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { getApiClient } from "../../services/client";
+import { ApiError } from "../../services/errors";
+import ErrorBanner from "../../components/ErrorBanner.js";
 import { createProjectService } from "../../services/project";
+import { createSessionService } from "../../services/session";
 import { createVcsService } from "../../services/vcs";
+import { forkSession } from "../../features/sessions/sessionActions.js";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
@@ -190,11 +194,29 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Quick open dialog (TASK-M4-04): toggled by the provisional ⌘/Ctrl+P
   // hook below; M8 moves the shortcut into the command-palette registry.
   const [quickOpen, setQuickOpen] = createSignal(false);
+  // Message-fork errors (TASK-M6-03): the inline banner above the chat.
+  const [forkError, setForkError] = createSignal<ApiError | null>(null);
 
   /** Opens the diff view, optionally filtered to one message. */
   function openDiff(messageId?: string) {
     setDiffMessageId(messageId);
     setMainView("diff");
+  }
+
+  /** Forks the session (optionally from a message point); the child opens
+   *  in the store (upsert + set active), a failure surfaces inline. */
+  async function handleFork(sessionId: string, messageID?: string) {
+    setForkError(null);
+    try {
+      await forkSession(
+        activeServerId(),
+        sessionId,
+        messageID,
+        createSessionService(getApiClient()),
+      );
+    } catch (err) {
+      setForkError(ApiError.fromUnknown(err));
+    }
   }
 
   createEffect(() => {
@@ -695,11 +717,18 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       serverId={activeServerId()}
                       sessionId={activeSessionId() as string}
                       onViewDiff={openDiff}
+                      onFork={(messageID) => {
+                        const id = activeSessionId();
+                        if (id !== null) void handleFork(id, messageID);
+                      }}
                     />
                     <SessionErrorBanner
                       serverId={activeServerId()}
                       sessionId={activeSessionId() as string}
                     />
+                    <div class="px-4 pb-2">
+                      <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
+                    </div>
                     <PromptBox
                       serverId={activeServerId()}
                       sessionId={activeSessionId() as string}

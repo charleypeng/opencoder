@@ -157,6 +157,21 @@ function mockHttpRoutes(servers: ServerEntry[]) {
           ),
         );
       }
+      if (request?.method === "POST" && /^\/session\/.+\/fork$/.test(request?.path ?? "")) {
+        // Fork (TASK-M6-03): a child session carrying the forked parent id.
+        return Promise.resolve(
+          httpResponse({
+            id: "sess_forked_01",
+            slug: "forked",
+            projectID: "project-mock-1",
+            directory: DEMO_DIR,
+            parentID: (request?.path ?? "").split("/")[2],
+            title: "",
+            version: "1.18.11",
+            time: { created: 1, updated: 1 },
+          }),
+        );
+      }
       if (request?.path === "/session/status") return Promise.resolve(httpResponse({}));
       if (request?.path === "/file") {
         return Promise.resolve(
@@ -1083,6 +1098,41 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     fireEvent.click(screen.getByTestId("diff-filter-clear"));
     expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+  });
+
+  it("message Fork from here forks the session and opens the child", async () => {
+    const alpha = server({ id: "srv-m6fork", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    // sess_diff_01 has a message route in mockHttpRoutes (msg_02 renders).
+    applySessionList("srv-m6fork", [session("sess_diff_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    await waitFor(() => expect(screen.getByTestId("message-msg_02")).toBeInTheDocument());
+
+    // Message menu → Fork from here: POST /session/{id}/fork with the
+    // messageID; the child enters the store, opens in chat and shows as a
+    // forked row under its parent in the list.
+    fireEvent.pointerDown(screen.getByTestId("message-actions"), { pointerType: "mouse" });
+    const item = await screen.findByTestId("message-action-fork");
+    expect(item).not.toBeDisabled();
+    fireEvent.pointerUp(item, { pointerType: "mouse" });
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-m6fork").sessions["sess_forked_01"]).toBeDefined(),
+    );
+    const forkCalls = invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/fork$/.test(call[1].request?.path ?? ""),
+    );
+    expect(forkCalls).toHaveLength(1);
+    expect(forkCalls[0][1].request.body).toEqual({ messageID: "msg_02" });
+    expect(getServerSessionState("srv-m6fork").activeSessionId).toBe("sess_forked_01");
+    const childRow = await screen.findByTestId("session-item-sess_forked_01");
+    expect(within(childRow).getByTestId("session-fork-badge")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("chat-session-title")).toHaveTextContent("forked"),
+    );
   });
 });
 

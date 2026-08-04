@@ -176,6 +176,34 @@ describe("session service (invoke payload assembly)", () => {
     ).resolves.toEqual(body);
   });
 
+  it("fork POSTs /session/{id}/fork with an empty body by default", async () => {
+    invokeMock.mockResolvedValue(
+      httpResponse({ body: { id: "sess_forked", parentID: "sess_01" } }),
+    );
+    const result = await createSessionService(makeClient()).fork("sess_01");
+    expect(result.parentID).toBe("sess_01");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/session/sess_01/fork", body: {} },
+    });
+  });
+
+  it("fork carries the messageID and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_forked" } }));
+    await createSessionService(makeClient()).fork(
+      "sess_01",
+      "msg_02",
+      "/mock/projects/opencode-demo",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/fork",
+        body: { messageID: "msg_02" },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -258,5 +286,21 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
     expect(result.info.role).toBe("assistant");
     expect(result.info.sessionID).toBe("sess_01");
     expect(Array.isArray(result.parts)).toBe(true);
+  });
+
+  it("fork creates a child session carrying the parent id", async () => {
+    const child = await service.fork("sess_01");
+    expect(child.id).toBeTypeOf("string");
+    expect(child.parentID).toBe("sess_01");
+    expect(child.time.updated).toBeTypeOf("number");
+  });
+
+  it("fork accepts a known messageID", async () => {
+    const child = await service.fork("sess_01", "msg_02");
+    expect(child.parentID).toBe("sess_01");
+  });
+
+  it("fork rejects an unknown messageID with a 400", async () => {
+    await expect(service.fork("sess_01", "msg_nope")).rejects.toMatchObject({ status: 400 });
   });
 });

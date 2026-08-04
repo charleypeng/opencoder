@@ -667,6 +667,40 @@ try {
       expect(body === true, `body ${JSON.stringify(body)}`);
     });
 
+    // TASK-M6-03: session fork family.
+    await test("session fork creates a child session carrying the parent id", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/fork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(typeof body?.id === "string", "child must carry an id");
+      expect(body?.parentID === "sess_01", `parentID ${JSON.stringify(body?.parentID)}`);
+      expect(typeof body?.time?.updated === "number", "child must carry numeric time.updated");
+      expect(typeof body?.version === "string", "child must carry a version");
+    });
+
+    await test("session fork honors the messageID body", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/fork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_02" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.parentID === "sess_01", `parentID ${JSON.stringify(body?.parentID)}`);
+    });
+
+    await test("session fork rejects an unknown messageID", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/fork", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_nope" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("session messages honors the limit pagination param", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
       expect(status === 200, `status ${status}`);

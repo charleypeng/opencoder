@@ -19,13 +19,14 @@ import { ApiError } from "../../services/errors.js";
 import type { Session } from "../../services/session.js";
 import { createSessionService } from "../../services/session.js";
 import {
+  type ServerSessionState,
   type SessionStatusEntry,
   getServerSessionState,
   setActiveSession,
 } from "../../stores/session.js";
 import { formatRelativeTime } from "../servers/relativeTime.js";
 import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
-import { createSession } from "./sessionActions.js";
+import { createSession, forkSession } from "./sessionActions.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
 
@@ -88,9 +89,10 @@ function StatusBadge(props: { status: SessionStatusEntry | undefined }) {
   );
 }
 
-// Hover actions (TASK-M2-05): the "⋯" trigger opens a rename/delete menu;
-// the dialogs live in SessionList, keyed per target session.
-function SessionRowMenu(props: { onRename: () => void; onDelete: () => void }) {
+// Hover actions (TASK-M2-05 / TASK-M6-03): the "⋯" trigger opens a
+// rename/delete/fork menu; the dialogs live in SessionList, keyed per
+// target session.
+function SessionRowMenu(props: { onRename: () => void; onDelete: () => void; onFork: () => void }) {
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger
@@ -106,6 +108,13 @@ function SessionRowMenu(props: { onRename: () => void; onDelete: () => void }) {
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content class="glass z-50 min-w-36 p-1">
+          <DropdownMenu.Item
+            data-testid="session-menu-fork"
+            class={menuItemClass}
+            onSelect={props.onFork}
+          >
+            Fork
+          </DropdownMenu.Item>
           <DropdownMenu.Item
             data-testid="session-menu-rename"
             class={menuItemClass}
@@ -135,18 +144,25 @@ function SessionRow(props: {
   status: SessionStatusEntry | undefined;
   active: boolean;
   nowMs: number;
+  /** Parent session title for the fork badge tooltip (TASK-M6-03). */
+  parentTitle?: string;
   onSelect: (sessionId: string) => void;
   onRename: (session: Session) => void;
   onDelete: (session: Session) => void;
+  onFork: (session: Session) => void;
 }) {
+  const forked = () => props.session.parentID !== undefined;
   return (
     <div
       role="button"
       tabIndex={0}
       data-testid={`session-item-${props.session.id}`}
       data-active={props.active ? "true" : "false"}
+      data-forked={forked() ? "true" : "false"}
       aria-current={props.active ? "true" : undefined}
-      class="group flex w-full cursor-pointer items-center gap-2 px-3 py-2 outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class={`group flex w-full cursor-pointer items-center gap-2 px-3 py-2 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
+        forked() ? "pl-8" : ""
+      }`}
       onClick={() => props.onSelect(props.session.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -155,6 +171,15 @@ function SessionRow(props: {
         }
       }}
     >
+      <Show when={forked()}>
+        <span
+          data-testid="session-fork-badge"
+          title={props.parentTitle !== undefined ? `Forked from ${props.parentTitle}` : "Forked"}
+          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+        >
+          fork
+        </span>
+      </Show>
       <span class="min-w-0 flex-1">
         <span class="block truncate text-sm">{titleOf(props.session)}</span>
         <span class="block truncate font-code text-xs text-fg-secondary">
@@ -165,8 +190,55 @@ function SessionRow(props: {
       <SessionRowMenu
         onRename={() => props.onRename(props.session)}
         onDelete={() => props.onDelete(props.session)}
+        onFork={() => props.onFork(props.session)}
       />
     </div>
+  );
+}
+
+/** Renders one session row plus its forked children (recursively),
+ *  indented below the parent regardless of time group (TASK-M6-03; M6-07
+ *  replaces this with the full tree view). */
+function SessionNode(props: {
+  session: Session;
+  childrenOf: ReadonlyMap<string, Session[]>;
+  state: ServerSessionState;
+  nowMs: number;
+  onSelect: (sessionId: string) => void;
+  onRename: (session: Session) => void;
+  onDelete: (session: Session) => void;
+  onFork: (session: Session) => void;
+  parentTitleOf: (session: Session) => string | undefined;
+}) {
+  return (
+    <>
+      <SessionRow
+        session={props.session}
+        status={props.state.statuses[props.session.id]}
+        active={props.state.activeSessionId === props.session.id}
+        nowMs={props.nowMs}
+        parentTitle={props.parentTitleOf(props.session)}
+        onSelect={props.onSelect}
+        onRename={props.onRename}
+        onDelete={props.onDelete}
+        onFork={props.onFork}
+      />
+      <For each={props.childrenOf.get(props.session.id) ?? []}>
+        {(child) => (
+          <SessionNode
+            session={child}
+            childrenOf={props.childrenOf}
+            state={props.state}
+            nowMs={props.nowMs}
+            onSelect={props.onSelect}
+            onRename={props.onRename}
+            onDelete={props.onDelete}
+            onFork={props.onFork}
+            parentTitleOf={props.parentTitleOf}
+          />
+        )}
+      </For>
+    </>
   );
 }
 
@@ -176,6 +248,8 @@ const SessionList: Component<SessionListProps> = (props) => {
   const [query, setQuery] = createSignal("");
   const [creating, setCreating] = createSignal(false);
   const [createError, setCreateError] = createSignal<ApiError | null>(null);
+  const [forking, setForking] = createSignal(false);
+  const [forkError, setForkError] = createSignal<ApiError | null>(null);
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
 
@@ -190,7 +264,31 @@ const SessionList: Component<SessionListProps> = (props) => {
     return result;
   });
 
-  const groups = createMemo(() => groupSessionsByTime(filtered(), now()));
+  // Fork children (TASK-M6-03): parentID -> child sessions in store order.
+  // Built over the whole store (not the filtered set) so a search match on
+  // a parent pulls its entire subtree along; a child matching on its own
+  // still stands alone as a root (badge included).
+  const childrenOf = createMemo(() => {
+    const st = state();
+    const map = new Map<string, Session[]>();
+    for (const id of st.order) {
+      const session = st.sessions[id];
+      if (session?.parentID === undefined) continue;
+      const list = map.get(session.parentID);
+      if (list === undefined) map.set(session.parentID, [session]);
+      else list.push(session);
+    }
+    return map;
+  });
+
+  // Top-level rows: sessions without a parent, or whose parent was filtered
+  // out by the search (the child then stands on its own, badge included).
+  const roots = createMemo(() => {
+    const ids = new Set(filtered().map((s) => s.id));
+    return filtered().filter((s) => s.parentID === undefined || !ids.has(s.parentID));
+  });
+
+  const groups = createMemo(() => groupSessionsByTime(roots(), now()));
 
   function select(sessionId: string) {
     setActiveSession(props.serverId, sessionId);
@@ -210,10 +308,40 @@ const SessionList: Component<SessionListProps> = (props) => {
     }
   }
 
+  // Fork (TASK-M6-03): session-level fork (no message point); the child
+  // enters the store and opens, a failure surfaces in the list banner.
+  async function handleFork(session: Session) {
+    if (forking()) return;
+    setForking(true);
+    setForkError(null);
+    try {
+      await forkSession(
+        props.serverId,
+        session.id,
+        undefined,
+        createSessionService(getApiClient()),
+      );
+    } catch (err) {
+      setForkError(ApiError.fromUnknown(err));
+    } finally {
+      setForking(false);
+    }
+  }
+
+  /** Parent title of a forked session (for the badge tooltip), if present. */
+  function parentTitleOf(session: Session): string | undefined {
+    if (session.parentID === undefined) return undefined;
+    const parent = state().sessions[session.parentID];
+    return parent === undefined ? undefined : titleOf(parent);
+  }
+
   return (
     <div data-testid="session-list" class="flex min-h-0 flex-1 flex-col">
       <div class="px-3 pb-2 pt-3">
         <ErrorBanner error={createError()} onDismiss={() => setCreateError(null)} />
+        <div class="pt-2">
+          <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
+        </div>
         <button
           type="button"
           data-testid="new-session-button"
@@ -272,14 +400,16 @@ const SessionList: Component<SessionListProps> = (props) => {
                 </div>
                 <For each={group.sessions}>
                   {(session) => (
-                    <SessionRow
+                    <SessionNode
                       session={session}
-                      status={state().statuses[session.id]}
-                      active={state().activeSessionId === session.id}
+                      childrenOf={childrenOf()}
+                      state={state()}
                       nowMs={now()}
                       onSelect={select}
                       onRename={setRenameTarget}
                       onDelete={setDeleteTarget}
+                      onFork={handleFork}
+                      parentTitleOf={parentTitleOf}
                     />
                   )}
                 </For>

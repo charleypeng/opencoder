@@ -41,6 +41,9 @@ export interface MessageBubbleProps {
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the message menu's "View diff" item stays disabled. */
   onViewDiff?: (messageID: string) => void;
+  /** Forks the session from this message (wired by M6-03); while absent
+   *  the message menu's "Fork from here" item stays disabled. */
+  onFork?: (messageID: string) => void;
 }
 
 type RenderablePart = Extract<
@@ -153,6 +156,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
         messageID={props.messageID}
         partIds={props.partIds}
         onViewDiff={props.onViewDiff}
+        onFork={props.onFork}
       >
         <div
           class={`max-w-[78%] rounded-lg px-3 py-2 ${

@@ -1,7 +1,8 @@
-// L1 tests for the session create/rename/delete actions (TASK-M2-05):
-// create enters the store and becomes the active session; rename and
-// delete apply optimistically and roll back to the captured original when
-// the service rejects, rethrowing an ApiError.
+// L1 tests for the session create/rename/delete/fork actions (TASK-M2-05 /
+// TASK-M6-03): create enters the store and becomes the active session;
+// rename and delete apply optimistically and roll back to the captured
+// original when the service rejects, rethrowing an ApiError; fork opens the
+// created child session.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../services/errors";
@@ -12,7 +13,7 @@ import {
   resetServer,
   setActiveSession,
 } from "../../stores/session";
-import { createSession, deleteSession, renameSession } from "./sessionActions";
+import { createSession, deleteSession, forkSession, renameSession } from "./sessionActions";
 
 const SERVER = "srv-actions";
 
@@ -31,6 +32,7 @@ function session(id: string, title: string, updated = 1000): Session {
 const ORIGINAL = session("sess_1", "Old title");
 const RENAMED = session("sess_1", "New title");
 const CREATED = session("sess_2", "", 2000);
+const CHILD = { ...session("sess_3", "", 3000), parentID: "sess_1" };
 
 /** A SessionService stub with vi.fn create/update/remove and silent rest. */
 function fakeService(overrides: Partial<SessionService> = {}): SessionService {
@@ -43,6 +45,7 @@ function fakeService(overrides: Partial<SessionService> = {}): SessionService {
     statusAll: vi.fn(),
     promptAsync: vi.fn(),
     abort: vi.fn(),
+    fork: vi.fn(),
     ...overrides,
   } as SessionService;
 }
@@ -88,6 +91,44 @@ describe("createSession", () => {
     const service = fakeService({ create: vi.fn().mockRejectedValue(new Error("network")) });
 
     await expect(createSession(SERVER, service)).rejects.toBeInstanceOf(ApiError);
+  });
+});
+
+describe("forkSession", () => {
+  it("forks without a message point, enters the child and opens it", async () => {
+    const service = fakeService({ fork: vi.fn().mockResolvedValue(CHILD) });
+
+    const result = await forkSession(SERVER, "sess_1", undefined, service);
+
+    expect(service.fork).toHaveBeenCalledWith("sess_1", undefined);
+    expect(result).toBe(CHILD);
+    const state = getServerSessionState(SERVER);
+    expect(state.sessions["sess_3"]).toEqual(CHILD);
+    expect(state.activeSessionId).toBe("sess_3");
+  });
+
+  it("forks from a message point and passes the messageID through", async () => {
+    const service = fakeService({ fork: vi.fn().mockResolvedValue(CHILD) });
+
+    await forkSession(SERVER, "sess_1", "msg_02", service);
+
+    expect(service.fork).toHaveBeenCalledWith("sess_1", "msg_02");
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_3");
+  });
+
+  it("throws ApiError and leaves the store untouched when the fork fails", async () => {
+    const service = fakeService({
+      fork: vi.fn().mockRejectedValue(new ApiError(404, "http", "missing", false)),
+    });
+    const before = getServerSessionState(SERVER);
+
+    await expect(forkSession(SERVER, "sess_1", undefined, service)).rejects.toMatchObject({
+      code: "http",
+      status: 404,
+    });
+
+    expect(getServerSessionState(SERVER)).toEqual(before);
+    expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
   });
 });
 

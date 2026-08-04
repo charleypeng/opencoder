@@ -26,6 +26,10 @@ export type ShellRunInput = NonNullable<
 /** Response of `POST /session/{id}/shell` (the created assistant message). */
 export type ShellRunResult =
   operations["session.shell"]["responses"]["200"]["content"]["application/json"];
+/** Request body of `POST /session/{id}/fork` (optional fork-point message). */
+export type SessionForkInput = NonNullable<
+  operations["session.fork"]["requestBody"]
+>["content"]["application/json"];
 
 // Explicit directory only when provided; the client's global directory
 // injection handles the rest (TASK-M2-03 wires it up).
@@ -68,6 +72,17 @@ export function createSessionService(client: ApiClient) {
     shell: (sessionID: string, input: ShellRunInput, dir?: string) =>
       client.post<ShellRunResult>(sessionPath(sessionID, "/shell"), {
         body: input satisfies ShellRunInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
+    /**
+     * Fork the session — optionally from a message point (POST
+     * /session/{id}/fork). Resolves the created child session, whose
+     * parentID points back at the forked session. The body is empty when
+     * no messageID is given.
+     */
+    fork: (sessionID: string, messageID?: string, dir?: string) =>
+      client.post<Session>(sessionPath(sessionID, "/fork"), {
+        body: (messageID === undefined ? {} : { messageID }) satisfies SessionForkInput,
         ...(dirQuery(dir) ?? {}),
       }),
   };

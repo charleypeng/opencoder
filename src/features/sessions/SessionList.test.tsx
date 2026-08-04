@@ -244,8 +244,94 @@ describe("SessionList", () => {
     const menu = within(screen.getByTestId("session-item-a")).getByTestId("session-row-menu");
     expect(menu).toBeEnabled();
     await openActionsMenu("a");
+    expect(screen.getByTestId("session-menu-fork")).toHaveTextContent("Fork");
     expect(screen.getByTestId("session-menu-rename")).toHaveTextContent("Rename");
     expect(screen.getByTestId("session-menu-delete")).toHaveTextContent("Delete");
+  });
+});
+
+describe("SessionList forks (TASK-M6-03)", () => {
+  it("renders forked children indented below their parent with a fork badge", () => {
+    const parent = session("parent", TODAY, "Parent session");
+    const child = { ...session("child", TODAY + 1000, "Child session"), parentID: "parent" };
+    applySessionList(SERVER, [parent, child]);
+    renderList();
+
+    const rows = screen.getAllByTestId(/^session-item-/);
+    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual([
+      "session-item-parent",
+      "session-item-child",
+    ]);
+    const parentRow = screen.getByTestId("session-item-parent");
+    const childRow = screen.getByTestId("session-item-child");
+    expect(childRow).toHaveAttribute("data-forked", "true");
+    expect(parentRow).toHaveAttribute("data-forked", "false");
+    expect(within(childRow).getByTestId("session-fork-badge")).toHaveTextContent("fork");
+    expect(within(childRow).getByTestId("session-fork-badge")).toHaveAttribute(
+      "title",
+      "Forked from Parent session",
+    );
+    expect(within(childRow).queryByText("Child session")).toBeInTheDocument();
+    // The child is not a separate time-group row: only one group header.
+    expect(screen.getAllByTestId(/^session-group-/)).toHaveLength(1);
+  });
+
+  it("keeps children with their parent when a search matches the parent", () => {
+    const parent = session("parent", TODAY, "Alpha plan");
+    const child = { ...session("child", TODAY + 1000, "Gamma work"), parentID: "parent" };
+    applySessionList(SERVER, [parent, child]);
+    renderList();
+
+    fireEvent.input(screen.getByTestId("session-search"), { target: { value: "alpha" } });
+    expect(screen.getByTestId("session-item-parent")).toBeInTheDocument();
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+    expect(screen.getByTestId("session-item-child")).toHaveAttribute("data-forked", "true");
+  });
+
+  it("lets a child stand on its own when only it matches the search", () => {
+    const parent = session("parent", TODAY, "Alpha plan");
+    const child = { ...session("child", TODAY + 1000, "Gamma work"), parentID: "parent" };
+    applySessionList(SERVER, [parent, child]);
+    renderList();
+
+    fireEvent.input(screen.getByTestId("session-search"), { target: { value: "gamma" } });
+    expect(screen.queryByTestId("session-item-parent")).not.toBeInTheDocument();
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+    expect(screen.getByTestId("session-item-child")).toHaveAttribute("data-forked", "true");
+  });
+
+  it("forks a session via the row menu and opens the child", async () => {
+    const client = mockClient();
+    const child = { ...session("sess_forked", TODAY + 2000, ""), parentID: "a" };
+    client.post.mockResolvedValue(child);
+    applySessionList(SERVER, [session("a", TODAY, "Parent session")]);
+    renderList();
+
+    await openActionsMenu("a");
+    pickMenuAction("session-menu-fork");
+
+    await waitFor(() => expect(client.post).toHaveBeenCalledWith("/session/a/fork", { body: {} }));
+    const state = getServerSessionState(SERVER);
+    expect(state.sessions["sess_forked"]).toEqual(child);
+    expect(state.activeSessionId).toBe("sess_forked");
+    expect(
+      within(screen.getByTestId("session-item-sess_forked")).getByTestId("session-fork-badge"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows an error banner when the fork fails", async () => {
+    const client = mockClient();
+    client.post.mockRejectedValue(new ApiError(500, "http", "boom", true));
+    applySessionList(SERVER, [session("a", TODAY, "Parent session")]);
+    renderList();
+
+    await openActionsMenu("a");
+    pickMenuAction("session-menu-fork");
+
+    await waitFor(() =>
+      expect(screen.getByTestId("error-banner")).toHaveTextContent("Server error"),
+    );
+    expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
   });
 });
 

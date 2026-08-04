@@ -15,6 +15,8 @@
 //     inline in the still-mounted dialog instead of a silent rollback.
 //   - View diff: placeholder until M4-07 wires the diff view; disabled while
 //     no onViewDiff callback is provided.
+//   - Fork from here (TASK-M6-03): forks the session at this message point;
+//     disabled while no onFork callback is provided.
 //
 // The component owns the bubble column (MessageBubble passes its body as
 // children), so hover state, the context menu and the store-driven role
@@ -43,6 +45,9 @@ export interface MessageActionsProps {
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the "View diff" item stays disabled. */
   onViewDiff?: (messageID: string) => void;
+  /** Forks the session from this message (wired by M6-03); while absent
+   *  the "Fork from here" item stays disabled. */
+  onFork?: (messageID: string) => void;
   /** Bubble body (bubble + timestamp). */
   children?: JSX.Element;
 }
@@ -417,6 +422,12 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
       label: "View diff",
       disabled: props.onViewDiff === undefined,
       onSelect: () => props.onViewDiff?.(props.messageID),
+    },
+    {
+      id: "fork",
+      label: "Fork from here",
+      disabled: props.onFork === undefined,
+      onSelect: () => props.onFork?.(props.messageID),
     },
   ]);
 
