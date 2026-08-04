@@ -131,9 +131,9 @@ describe("MessageList", () => {
     expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("Completed");
 
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
+    expect(within(completed).getByTestId("tool-terminal")).toBeInTheDocument();
     expect(within(completed).getByText(/ls src/)).toBeInTheDocument();
     expect(within(completed).getByText(/auth/)).toBeInTheDocument();
-    expect(within(completed).getByText("Output")).toBeInTheDocument();
   });
 
   it("renders every supported part from the all-parts fixture and skips the rest", async () => {
@@ -147,7 +147,7 @@ describe("MessageList", () => {
       screen.getByText("Let me check the existing project structure first."),
     ).toBeInTheDocument();
     expect(screen.getByText("Reasoning")).toBeInTheDocument();
-    expect(screen.getAllByTestId("tool-part")).toHaveLength(2);
+    expect(screen.getAllByTestId("tool-part")).toHaveLength(9);
     expect(screen.queryByText(/Implement the auth API client/)).not.toBeInTheDocument();
   });
 
@@ -307,10 +307,14 @@ describe("MessageList", () => {
 
   it("matches the fixture history snapshot", async () => {
     const timeSpy = vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue("10:26");
+    // The running tool card ticks its elapsed time from Date.now(); pin the
+    // clock so the snapshot stays deterministic (start 1750000014000 -> 500ms).
+    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1750000014500);
     mockClient(historyFixture);
     const { container } = renderList();
     await waitFor(() => expect(screen.getByTestId("message-msg_m4")).toBeInTheDocument());
     expect(container).toMatchSnapshot();
     timeSpy.mockRestore();
+    nowSpy.mockRestore();
   });
 });

@@ -137,7 +137,9 @@ describe("recorded fixtures (tests/fixtures)", () => {
       .filter((part) => part.type === "tool")
       .map((part) => (part as { state: { status: string } }).state.status)
       .sort();
-    expect(toolStates).toEqual(["completed", "running"]);
+    // Tool parts cover every state of the four-state state machine plus
+    // every tool family the renderers specialize (TASK-M3-01).
+    expect(new Set(toolStates)).toEqual(new Set(["completed", "error", "pending", "running"]));
   });
 
   it("session fixtures carry required fields", () => {

@@ -104,6 +104,35 @@
   }
 }
 
+/*
+ * M3-01 tool card affordance: the running shimmer sweep across the tool
+ * card header. Pure CSS so the WebView does no per-frame work, and it
+ * collapses to nothing under prefers-reduced-motion.
+ */
+
+.tool-shimmer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    110deg,
+    transparent 30%,
+    color-mix(in srgb, var(--accent) 12%, transparent) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: tool-shimmer-sweep 1.6s linear infinite;
+}
+
+@keyframes tool-shimmer-sweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing-cursor {
     animation: none;
@@ -114,5 +143,10 @@
     animation: none;
     background: var(--accent);
     opacity: 0.5;
+  }
+
+  .tool-shimmer {
+    animation: none;
+    background: transparent;
   }
 }

@@ -1,12 +1,17 @@
-// Tool call card (TASK-M2-06, v1): renders a ToolPart as a collapsible card
-// showing the tool name, a status icon (pending clock, running spinner,
-// completed check, error cross) and a status label. Expanding reveals the
-// call input as pretty JSON plus the raw output (completed) or error
-// (error state) text. Icons are inline SVGs / CSS spinners — no emoji.
+// Tool call card (TASK-M3-01, full): renders a ToolPart through the full
+// four-state machine (pending / running / completed / error) with per-tool
+// renderers from tools/ (bash terminal, edit diff, read/write code blocks,
+// glob/grep result lists, generic JSON fallback). Shared chrome: status
+// icon, per-tool icon, running shimmer sweep, live elapsed time while
+// running, a collapsible raw-input disclosure, and the error message for
+// failed calls. Icons are inline SVGs / CSS spinners — no emoji.
 
-import { createMemo, createSignal, Show } from "solid-js";
-import type { Component } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import type { Component, JSX } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { resolveToolCard } from "./tools/registry.js";
+import { durationLabel, InputDisclosure, StatusIcon, ToolIcon } from "./tools/shared.js";
+import type { ToolCard } from "./tools/shared.js";
 
 export type ToolPartData = Extract<Part, { type: "tool" }>;
 export type ToolStatus = ToolPartData["state"]["status"];
@@ -16,97 +21,44 @@ export interface ToolPartProps {
 }
 
 const statusLabel: Record<ToolStatus, string> = {
-  pending: "Pending",
+  pending: "Waiting…",
   running: "Running…",
   completed: "Completed",
   error: "Failed",
 };
 
-function StatusIcon(props: { status: ToolStatus }) {
-  // Memoized so the switch stays inside a tracked scope (the status of a
-  // part identity never changes while rendering).
-  const icon = createMemo(() => {
-    switch (props.status) {
-      case "running":
-        return (
-          <span
-            aria-hidden
-            class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
-          />
-        );
-      case "completed":
-        return (
-          <svg
-            aria-hidden
-            class="h-3.5 w-3.5 shrink-0 text-success"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <path d="M3 8.5l3.5 3.5L13 5" />
-          </svg>
-        );
-      case "error":
-        return (
-          <svg
-            aria-hidden
-            class="h-3.5 w-3.5 shrink-0 text-danger"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-          >
-            <path d="M4 4l8 8M12 4l-8 8" />
-          </svg>
-        );
-      default:
-        return (
-          <svg
-            aria-hidden
-            class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-          >
-            <circle cx="8" cy="8" r="5.5" />
-            <path d="M8 5v3l2 1.5" />
-          </svg>
-        );
-    }
-  });
-  return <>{icon()}</>;
-}
-
-function ToolSection(props: { label: string; code: string }) {
-  return (
-    <div>
-      <p class="mb-0.5 text-[10px] uppercase tracking-wide text-fg-faint">{props.label}</p>
-      <pre class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">
-        {props.code}
-      </pre>
-    </div>
-  );
-}
-
-/** Completed-state output text, narrowed for the section render. */
-function toolOutputText(part: ToolPartData): string {
-  return part.state.status === "completed" ? part.state.output : "";
-}
+const ELAPSED_TICK_MS = 250;
 
 /** Error-state text, narrowed for the section render. */
 function toolErrorText(part: ToolPartData): string {
   return part.state.status === "error" ? part.state.error : "";
 }
 
+function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
+  // Memoized so the registry lookup stays inside a tracked scope.
+  const view = createMemo<JSX.Element>(() => {
+    const Card = props.card;
+    return <Card part={props.part} />;
+  });
+  return <>{view()}</>;
+}
+
 const ToolPart: Component<ToolPartProps> = (props) => {
   const [expanded, setExpanded] = createSignal(false);
   const status = () => props.part.state.status;
+
+  // Live elapsed clock: ticks only while running; the interval is cleaned
+  // up on every status change and on dispose, so it never outlives the part.
+  const [now, setNow] = createSignal(Date.now());
+  createEffect(() => {
+    if (status() !== "running") return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), ELAPSED_TICK_MS);
+    onCleanup(() => clearInterval(timer));
+  });
+
+  const duration = createMemo(() => durationLabel(props.part.state, now()));
+  const card = createMemo(() => resolveToolCard(props.part.tool));
 
   return (
     <div
@@ -118,7 +70,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         type="button"
         data-testid="tool-toggle"
         aria-expanded={expanded()}
-        class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+        class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
         onClick={() => setExpanded((value) => !value)}
       >
         <span
@@ -130,19 +82,31 @@ const ToolPart: Component<ToolPartProps> = (props) => {
           ▸
         </span>
         <StatusIcon status={status()} />
+        <ToolIcon tool={props.part.tool} />
         <span class="truncate font-code font-medium text-fg-primary">{props.part.tool}</span>
+        <Show when={duration() !== undefined}>
+          <span data-testid="tool-duration" class="shrink-0 font-code text-fg-faint">
+            {duration()}
+          </span>
+        </Show>
         <span data-testid="tool-status-label" class="ml-auto shrink-0 text-fg-faint">
           {statusLabel[status()]}
         </span>
+        <Show when={status() === "running"}>
+          <span data-testid="tool-shimmer" class="tool-shimmer" aria-hidden />
+        </Show>
       </button>
       <Show when={expanded()}>
         <div class="space-y-2 border-t border-bg-sunken px-2 py-2">
-          <ToolSection label="Input" code={JSON.stringify(props.part.state.input, null, 2)} />
-          <Show when={props.part.state.status === "completed"}>
-            <ToolSection label="Output" code={toolOutputText(props.part)} />
-          </Show>
-          <Show when={props.part.state.status === "error"}>
-            <ToolSection label="Error" code={toolErrorText(props.part)} />
+          <InputDisclosure input={props.part.state.input} />
+          <ToolCardView card={card()} part={props.part} />
+          <Show when={status() === "error"}>
+            <div
+              data-testid="tool-error"
+              class="whitespace-pre-wrap break-words rounded-sm bg-danger/10 px-2 py-1.5 text-xs leading-relaxed text-danger"
+            >
+              {toolErrorText(props.part)}
+            </div>
           </Show>
         </div>
       </Show>

@@ -186,6 +186,150 @@
           "write": 50
         }
       }
+    },
+    {
+      "id": "prt_p13",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c2",
+      "tool": "edit",
+      "state": {
+        "status": "completed",
+        "input": {
+          "filePath": "src/auth/login.ts",
+          "oldString": "  return false;",
+          "newString": "  return true;"
+        },
+        "output": "function login() {\n  return true;\n}",
+        "title": "edit",
+        "metadata": {},
+        "time": {
+          "start": 1750000015000,
+          "end": 1750000018000
+        }
+      }
+    },
+    {
+      "id": "prt_p14",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c3",
+      "tool": "read",
+      "state": {
+        "status": "completed",
+        "input": {
+          "filePath": "src/auth/session.ts"
+        },
+        "output": "export const session = {\n  id: 'ses_1',\n  expiresAt: Date.now() + 86400000,\n};\n",
+        "title": "read",
+        "metadata": {},
+        "time": {
+          "start": 1750000018000,
+          "end": 1750000019000
+        }
+      }
+    },
+    {
+      "id": "prt_p15",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c4",
+      "tool": "write",
+      "state": {
+        "status": "completed",
+        "input": {
+          "filePath": "src/auth/api.ts",
+          "content": "export const api = {\n  login: async (email: string, password: string) => {\n    return { ok: true };\n  },\n};\n"
+        },
+        "output": "export const api = {\n  login: async (email: string, password: string) => {\n    return { ok: true };\n  },\n};\n",
+        "title": "write",
+        "metadata": {},
+        "time": {
+          "start": 1750000019000,
+          "end": 1750000020000
+        }
+      }
+    },
+    {
+      "id": "prt_p16",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c5",
+      "tool": "glob",
+      "state": {
+        "status": "completed",
+        "input": {
+          "pattern": "src/**/*.ts"
+        },
+        "output": "src/auth/login.ts\nsrc/auth/session.ts\nsrc/components/App.tsx\n",
+        "title": "glob",
+        "metadata": {},
+        "time": {
+          "start": 1750000020000,
+          "end": 1750000021000
+        }
+      }
+    },
+    {
+      "id": "prt_p17",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c6",
+      "tool": "grep",
+      "state": {
+        "status": "completed",
+        "input": {
+          "pattern": "TODO",
+          "path": "src"
+        },
+        "output": "src/auth/login.ts:12: // TODO: rate limit the login endpoint\nsrc/services/errors.ts:3: // TODO: document error codes\n",
+        "title": "grep",
+        "metadata": {},
+        "time": {
+          "start": 1750000021000,
+          "end": 1750000023000
+        }
+      }
+    },
+    {
+      "id": "prt_p18",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c7",
+      "tool": "bash",
+      "state": {
+        "status": "error",
+        "input": {
+          "command": "npm test"
+        },
+        "error": "npm: command not found",
+        "metadata": {},
+        "time": {
+          "start": 1750000023000,
+          "end": 1750000024000
+        }
+      }
+    },
+    {
+      "id": "prt_p19",
+      "sessionID": "ses_abc123",
+      "messageID": "msg_m2",
+      "type": "tool",
+      "callID": "call_c8",
+      "tool": "bash",
+      "state": {
+        "status": "pending",
+        "input": {
+          "command": "ls src"
+        },
+        "raw": "bash ls src"
+      }
     }
   ]
 }

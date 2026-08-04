@@ -116,7 +116,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 <button
                   aria-expanded="false"
-                  class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
                   data-testid="tool-toggle"
                   type="button"
                 >
@@ -130,10 +130,26 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     aria-hidden=""
                     class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
                   />
+                  <svg
+                    aria-hidden=""
+                    class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    viewBox="0 0 16 16"
+                  />
                   <span
                     class="truncate font-code font-medium text-fg-primary"
                   >
                     bash
+                  </span>
+                  <span
+                    class="shrink-0 font-code text-fg-faint"
+                    data-testid="tool-duration"
+                  >
+                    500ms
                   </span>
                   <span
                     class="ml-auto shrink-0 text-fg-faint"
@@ -141,6 +157,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                   >
                     Running…
                   </span>
+                  <span
+                    aria-hidden=""
+                    class="tool-shimmer"
+                    data-testid="tool-shimmer"
+                  />
                 </button>
                 
               </div>
@@ -151,7 +172,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 <button
                   aria-expanded="false"
-                  class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
                   data-testid="tool-toggle"
                   type="button"
                 >
@@ -175,10 +196,33 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                       d="M3 8.5l3.5 3.5L13 5"
                     />
                   </svg>
+                  <svg
+                    aria-hidden=""
+                    class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="1.5"
+                    viewBox="0 0 16 16"
+                  >
+                    <path
+                      d="M2.5 3.5 6.5 8l-4 4.5"
+                    />
+                    <path
+                      d="M8 12.5h5.5"
+                    />
+                  </svg>
                   <span
                     class="truncate font-code font-medium text-fg-primary"
                   >
                     bash
+                  </span>
+                  <span
+                    class="shrink-0 font-code text-fg-faint"
+                    data-testid="tool-duration"
+                  >
+                    3s
                   </span>
                   <span
                     class="ml-auto shrink-0 text-fg-faint"
@@ -186,6 +230,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                   >
                     Completed
                   </span>
+                  
                 </button>
                 
               </div>
