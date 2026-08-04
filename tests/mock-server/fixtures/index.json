@@ -4,6 +4,7 @@
   "project.current": "project.current.json",
   "path": "path.json",
   "session.list": "session.list.json",
+  "session.list.labs": "session.list.labs.json",
   "session.detail": "session.detail.json",
   "session.status": "session.status.json",
   "session.messages": "session.messages.json",

@@ -58,13 +58,24 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages } = deps;
+  const { session, messages, project } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
     case "todo.updated":
       // server.connected triggers syncAll in subscribeToServerEvents;
       // todos land in M3-07.
+      return;
+    case "project.updated":
+    case "project.directories.updated":
+      // Project list refresh (api-coverage §7). Only full `projects`
+      // arrays are applied; single-project envelopes (e.g. the global
+      // event stream) are ignored until a list arrives.
+      if (Array.isArray(p.projects)) {
+        project.applyProjects(serverId, p.projects as Project[]);
+      } else if (import.meta.env.DEV) {
+        console.debug(`[stores] ignoring "${event.type}" without a projects list`);
+      }
       return;
     case "session.created":
     case "session.updated":
@@ -193,13 +204,18 @@ export async function subscribeToServerEvents(
 ): Promise<SubscribeToServerEventsResult> {
   const services = options.services ?? defaultSyncServices();
   const deps = options.deps ?? defaultEventStores;
-  const unsubscribe = await sseSubscribe(serverId, directoryProvider(), (event) => {
+  // Capture the directory once: the stream, its manual syncs and the
+  // server.connected re-sync all share the context the stream was opened
+  // with. Directory changes are handled upstream by rebuilding the
+  // subscription (DesktopShell, TASK-M2-03).
+  const directory = directoryProvider();
+  const unsubscribe = await sseSubscribe(serverId, directory, (event) => {
     if (event.type === "server.connected") {
       // Drop local per-server state, then pull fresh snapshots (see syncAll).
       deps.session.resetServer(serverId);
       deps.messages.resetServer(serverId);
       deps.project.resetServer(serverId);
-      syncAll(serverId, directoryProvider(), services, deps).catch(() => {
+      syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.
       });
@@ -208,6 +224,6 @@ export async function subscribeToServerEvents(
   });
   return {
     unsubscribe,
-    sync: () => syncAll(serverId, directoryProvider(), services, deps),
+    sync: () => syncAll(serverId, directory, services, deps),
   };
 }

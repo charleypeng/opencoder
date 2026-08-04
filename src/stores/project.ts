@@ -5,6 +5,7 @@
 
 import { createStore, produce } from "solid-js/store";
 import type { Project } from "../services/project.js";
+import { getActiveServerId } from "./registry.js";
 
 export interface ServerProjectState {
   /** Projects opened with this server, in list order. */
@@ -64,4 +65,13 @@ export function resetServer(serverId: string): void {
       delete draft[serverId];
     }),
   );
+}
+
+/** Active directory of the current server context; undefined when no server
+ * is open or nothing is loaded yet. Feeds the client's global `?directory=`
+ * injection. */
+export function getActiveDirectory(): string | undefined {
+  const serverId = getActiveServerId();
+  if (serverId === null) return undefined;
+  return getServerProjectState(serverId).current ?? undefined;
 }

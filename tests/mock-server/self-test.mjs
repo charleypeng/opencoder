@@ -203,8 +203,40 @@ try {
       const { status, body } = await request(baseUrl, "/project");
       expect(status === 200, `status ${status}`);
       expect(Array.isArray(body), "body must be an array");
+      expect(body.length >= 2, `dual-project fixture must have >= 2 projects, got ${body.length}`);
       expect(typeof body[0]?.id === "string", "first item must have string id");
       expect(typeof body[0]?.worktree === "string", "first item must have string worktree");
+    });
+
+    await test("directory-aware contexts isolate project data", async () => {
+      const labs = encodeURIComponent("/mock/projects/opencode-labs");
+      const demo = encodeURIComponent("/mock/projects/opencode-demo");
+
+      const current = await request(baseUrl, `/project/current?directory=${labs}`);
+      expect(
+        current.body?.id === "project-mock-2",
+        `labs current id ${JSON.stringify(current.body?.id)}`,
+      );
+      const fallback = await request(baseUrl, "/project/current");
+      expect(
+        fallback.body?.id === "project-mock-1",
+        `default current id ${JSON.stringify(fallback.body?.id)}`,
+      );
+
+      const sessions = await request(baseUrl, `/session?directory=${labs}`);
+      expect(
+        sessions.body?.[0]?.projectID === "project-mock-2",
+        "labs sessions must belong to project-mock-2",
+      );
+      expect(
+        sessions.body?.[0]?.directory === "/mock/projects/opencode-labs",
+        "labs sessions must carry the labs directory",
+      );
+      const demoSessions = await request(baseUrl, `/session?directory=${demo}`);
+      expect(
+        demoSessions.body?.[0]?.id === "sess_01",
+        "demo sessions must stay on the default fixture",
+      );
     });
 
     await test("session list returns session array", async () => {

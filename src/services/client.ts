@@ -12,6 +12,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { ApiError } from "./errors.js";
 import type { paths } from "./api/schema.js";
+import { getActiveDirectory } from "../stores/project.js";
 
 export type ApiPath = keyof paths;
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -177,8 +178,12 @@ export class ApiClient {
     options: RequestOptions,
   ): TransportRequest {
     const query = { ...options.query };
+    // An explicit per-call directory wins over the global context; the
+    // global value only fills in for callers without one (TASK-M2-03).
     const directory = this.options.getDirectory?.();
-    if (directory) query.directory = directory;
+    if (directory !== undefined && query.directory === undefined) {
+      query.directory = directory;
+    }
     const request: TransportRequest = { method, path };
     if (options.serverID) request.serverID = options.serverID;
     if (Object.keys(query).length > 0) request.query = query;
@@ -196,8 +201,11 @@ function defaultTransport(): Transport {
 
 let apiClient: ApiClient | undefined;
 
-/** Singleton client. Directory injection is wired up when M1-04 lands. */
+/**
+ * Singleton client. The global `?directory=` injection reads the active
+ * server's current project directory from the project store (TASK-M2-03).
+ */
 export function getApiClient(): ApiClient {
-  apiClient ??= new ApiClient(defaultTransport());
+  apiClient ??= new ApiClient(defaultTransport(), { getDirectory: getActiveDirectory });
   return apiClient;
 }

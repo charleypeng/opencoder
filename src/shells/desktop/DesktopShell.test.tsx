@@ -1,24 +1,34 @@
 // L2 tests for the desktop workspace shell (TASK-M1-08): mounting activates
 // the server context, the rail renders one icon per server with health dots,
 // servers switch via rail clicks and ⌘/Ctrl+1..9 keys with an active
-// highlight, and exiting / unmounting clears the context.
+// highlight, and exiting / unmounting clears the context. TASK-M2-03 adds
+// the project switcher in the sidebar and the per-directory SSE wiring:
+// the stream is (re)built when the active server or directory changes, and
+// switching projects re-syncs isolated session/message state.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import DesktopShell from "./DesktopShell";
 import type { ServerEntry } from "../../services/servers";
 import { getActiveServerId, registry, setActiveServer } from "../../stores/registry";
+import { getServerProjectState, resetServer as resetProjects } from "../../stores/project";
+import { sessions, resetServer as resetSessions } from "../../stores/session";
+import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
+import type { components } from "../../services/api/schema.js";
+import type { Project } from "../../services/project";
+import type { Session } from "../../services/session";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
 
-const { invokeMock, listenMock } = vi.hoisted(() => {
+const { invokeMock, listenMock, sseSubscribeMock } = vi.hoisted(() => {
   const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
-  return { invokeMock: vi.fn(), listenMock };
+  return { invokeMock: vi.fn(), listenMock, sseSubscribeMock: vi.fn() };
 });
 
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
+vi.mock("../../services/sse.js", () => ({ sseSubscribe: sseSubscribeMock }));
 
 function server(overrides: Partial<ServerEntry>): ServerEntry {
   return {
@@ -37,18 +47,112 @@ function handlerFor(event: string): (payload: unknown) => void {
   return (payload: unknown) => call[1]({ payload });
 }
 
+const DEMO_DIR = "/mock/projects/opencode-demo";
+const LABS_DIR = "/mock/projects/opencode-labs";
+
+function project(id: string, worktree: string, name: string): Project {
+  return {
+    id,
+    worktree,
+    name,
+    time: { created: 1, updated: 1 },
+    sandboxes: [],
+  } as Project;
+}
+
+const DEMO_PROJECT = project("project-mock-1", DEMO_DIR, "opencode-demo");
+const LABS_PROJECT = project("project-mock-2", LABS_DIR, "opencode-labs");
+
+function session(id: string, directory: string, projectID = "project-mock-1"): Session {
+  return {
+    id,
+    slug: id,
+    projectID,
+    directory,
+    title: id,
+    version: "1.18.11",
+    time: { created: 1, updated: 1 },
+  } as Session;
+}
+
+function httpResponse(body: unknown) {
+  return { status: 200, headers: {}, body, bodyText: undefined };
+}
+
+// Routes the Tauri invoke calls the services make: server registry + the
+// dual-project REST fixture. `/project/current` and `/session` are
+// directory-aware so switching projects returns isolated data.
+function mockHttpRoutes(servers: ServerEntry[]) {
+  invokeMock.mockImplementation((cmd: string, payload: unknown) => {
+    if (cmd === "list_servers") return Promise.resolve(servers);
+    if (cmd === "http_request") {
+      const request = (
+        payload as {
+          request?: { method?: string; path?: string; query?: Record<string, string> };
+        }
+      ).request;
+      const directory = request?.query?.directory;
+      if (request?.path === "/project") {
+        return Promise.resolve(httpResponse([DEMO_PROJECT, LABS_PROJECT]));
+      }
+      if (request?.path === "/project/current") {
+        return Promise.resolve(httpResponse(directory === LABS_DIR ? LABS_PROJECT : DEMO_PROJECT));
+      }
+      if (request?.path === "/session") {
+        return Promise.resolve(
+          httpResponse(
+            directory === LABS_DIR
+              ? [session("sess_labs_01", LABS_DIR, "project-mock-2")]
+              : [session("sess_demo_01", DEMO_DIR)],
+          ),
+        );
+      }
+      if (request?.path === "/session/status") return Promise.resolve(httpResponse({}));
+    }
+    return Promise.resolve(httpResponse(undefined));
+  });
+}
+
+let unsubscribes: (() => Promise<void>)[] = [];
+
+/** Returns the most recent sseSubscribe call as [serverId, directory, handler]. */
+function lastSseCall(): [string, string | undefined, unknown] {
+  const calls = sseSubscribeMock.mock.calls as [string, string | undefined, unknown][];
+  return calls[calls.length - 1];
+}
+
 beforeEach(() => {
   window.__TAURI_INTERNALS__ = {};
   invokeMock.mockClear();
-  // Default: an empty registry; tests override with mockResolvedValueOnce.
-  invokeMock.mockImplementation(() => Promise.resolve([]));
+  // Default: an empty registry; REST calls resolve to empty payloads so the
+  // mount-time re-syncs stay clean; tests override with mockResolvedValueOnce
+  // or mockHttpRoutes.
+  invokeMock.mockImplementation((cmd: string) =>
+    cmd === "http_request" ? Promise.resolve(httpResponse([])) : Promise.resolve([]),
+  );
   listenMock.mockClear();
   setActiveServer(null);
+  unsubscribes = [];
+  sseSubscribeMock.mockClear();
+  sseSubscribeMock.mockImplementation(async () => {
+    const unsubscribe = vi.fn(async () => {});
+    unsubscribes.push(unsubscribe);
+    return unsubscribe;
+  });
 });
 
 afterEach(() => {
   delete window.__TAURI_INTERNALS__;
   setActiveServer(null);
+  resetSessions("srv-sse");
+  resetSessions("srv-switch");
+  resetSessions("srv-rail-a");
+  resetSessions("srv-rail-b");
+  resetMessages("srv-switch");
+  resetProjects("srv-sse");
+  resetProjects("srv-switch");
+  resetProjects("srv-rail-a");
+  resetProjects("srv-rail-b");
 });
 
 describe("DesktopShell workspace", () => {
@@ -164,5 +268,90 @@ describe("DesktopShell workspace", () => {
 
     fireEvent.click(screen.getByTestId("rail-add"));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
+  it("mounts the project switcher and opens the server's per-directory stream", async () => {
+    const alpha = server({ id: "srv-sse", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    await waitFor(() => expect(screen.getByTestId("project-switcher")).toBeInTheDocument());
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    expect(lastSseCall()[0]).toBe("srv-sse");
+    expect(lastSseCall()[1]).toBe(DEMO_DIR);
+
+    // The switcher's load seeded the store with both fixture projects.
+    await waitFor(() =>
+      expect(getServerProjectState("srv-sse").projects.map((p) => p.id)).toEqual([
+        "project-mock-1",
+        "project-mock-2",
+      ]),
+    );
+    expect(screen.getByText("opencode-demo")).toBeInTheDocument();
+    expect(screen.getByText(DEMO_DIR)).toBeInTheDocument();
+  });
+
+  it("switching projects rebuilds the stream, unsubscribes the old one and re-syncs isolated sessions", async () => {
+    const alpha = server({ id: "srv-switch", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    // Demo context is synced; seed stale message state to prove it is dropped.
+    await waitFor(() => expect(sessions["srv-switch"]?.order).toEqual(["sess_demo_01"]));
+    const staleMessage: components["schemas"]["Message"] = {
+      id: "m1",
+      sessionID: "sess_demo_01",
+      role: "user",
+      time: { created: 1 },
+    } as components["schemas"]["Message"];
+    upsertMessage("srv-switch", "sess_demo_01", staleMessage);
+    expect(messages["srv-switch"]).toBeDefined();
+
+    const callsBefore = sseSubscribeMock.mock.calls.length;
+    const previousUnsubscribe = unsubscribes[unsubscribes.length - 1];
+
+    fireEvent.pointerDown(screen.getByTestId("project-switcher-trigger"), {
+      pointerType: "mouse",
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
+      pointerType: "mouse",
+    });
+
+    // Context switched in the project store.
+    await waitFor(() => expect(getServerProjectState("srv-switch").current).toBe(LABS_DIR));
+    // Old subscription torn down, new one opened for the labs directory.
+    await waitFor(() => expect(sseSubscribeMock.mock.calls.length).toBe(callsBefore + 1));
+    expect(lastSseCall()).toEqual(["srv-switch", LABS_DIR, expect.any(Function)]);
+    expect(previousUnsubscribe).toHaveBeenCalled();
+    // Re-sync replaced the session list; stale messages were dropped.
+    await waitFor(() => expect(sessions["srv-switch"]?.order).toEqual(["sess_labs_01"]));
+    expect(sessions["srv-switch"]?.sessions["sess_demo_01"]).toBeUndefined();
+    expect(messages["srv-switch"]).toBeUndefined();
+  });
+
+  it("switching servers via the rail rebuilds the stream for the new server", async () => {
+    const alpha = server({ id: "srv-rail-a", name: "Alpha" });
+    const beta = server({ id: "srv-rail-b", name: "Beta" });
+    mockHttpRoutes([alpha, beta]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    expect(lastSseCall()[0]).toBe("srv-rail-a");
+
+    const previousUnsubscribe = unsubscribes[unsubscribes.length - 1];
+
+    fireEvent.click(screen.getByTestId("rail-item-srv-rail-b"));
+    // The new server's context resolves asynchronously (current project
+    // fetch + store seed), so at least the last subscription must target
+    // srv-b and the srv-a stream must have been torn down.
+    await waitFor(() => expect(lastSseCall()[0]).toBe("srv-rail-b"));
+    expect(lastSseCall()[1]).toBe(DEMO_DIR);
+    expect(previousUnsubscribe).toHaveBeenCalled();
   });
 });

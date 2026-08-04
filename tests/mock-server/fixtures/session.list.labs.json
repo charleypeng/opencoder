@@ -1,0 +1,19 @@
+[
+  {
+    "id": "sess_labs_01",
+    "slug": "refactor-prompts",
+    "projectID": "project-mock-2",
+    "directory": "/mock/projects/opencode-labs",
+    "title": "Refactor the prompt templates",
+    "agent": "build",
+    "model": {
+      "id": "gpt-5",
+      "providerID": "openai"
+    },
+    "version": "1.18.11",
+    "time": {
+      "created": 1750001000000,
+      "updated": 1750001100000
+    }
+  }
+]

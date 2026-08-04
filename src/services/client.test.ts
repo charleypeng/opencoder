@@ -81,6 +81,19 @@ describe("ApiClient invoke transport (payload assembly)", () => {
     });
   });
 
+  it("an explicit query.directory wins over the global directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse());
+    const client = makeClient(() => "/project/alpha");
+    await client.get("/session", { query: { directory: "/override" } });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "GET",
+        path: "/session",
+        query: { directory: "/override" },
+      },
+    });
+  });
+
   it("returns the raw response through request()", async () => {
     const response = httpResponse({ status: 201, headers: { "x-test": "1" }, body: { ok: true } });
     invokeMock.mockResolvedValue(response);

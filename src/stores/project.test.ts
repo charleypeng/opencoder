@@ -1,15 +1,18 @@
 // L1 tests for the project store (TASK-M2-02): project list replacement,
-// active directory setting and per-server reset.
+// active directory setting, per-server reset and the active-directory
+// client-injection helper (TASK-M2-03).
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { Project } from "../services/project.js";
 import {
   applyProjects,
+  getActiveDirectory,
   getServerProjectState,
   projects,
   resetServer,
   setCurrent,
 } from "./project.js";
+import { getActiveServerId, setActiveServer } from "./registry.js";
 
 function project(id: string, worktree: string): Project {
   return {
@@ -23,6 +26,7 @@ function project(id: string, worktree: string): Project {
 afterEach(() => {
   resetServer("srv-prj");
   resetServer("srv-prj-b");
+  setActiveServer(null);
 });
 
 describe("project store", () => {
@@ -51,5 +55,19 @@ describe("project store", () => {
     resetServer("srv-prj");
     expect(projects["srv-prj"]).toBeUndefined();
     expect(projects["srv-prj-b"].projects[0].id).toBe("p2");
+  });
+
+  it("getActiveDirectory reads the active server's current directory", () => {
+    expect(getActiveServerId()).toBeNull();
+    expect(getActiveDirectory()).toBeUndefined();
+
+    setActiveServer("srv-prj");
+    expect(getActiveDirectory()).toBeUndefined();
+
+    setCurrent("srv-prj", "/mock/projects/opencode-demo");
+    expect(getActiveDirectory()).toBe("/mock/projects/opencode-demo");
+
+    setCurrent("srv-prj", null);
+    expect(getActiveDirectory()).toBeUndefined();
   });
 });

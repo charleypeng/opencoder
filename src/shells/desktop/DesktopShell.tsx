@@ -1,17 +1,28 @@
 // Desktop workspace shell (TASK-M1-08): the three-column skeleton (Rail |
 // Sidebar | Main) mounted when a server is opened from ServerHome. Mounting
 // sets the active server context (registry store); unmounting clears it and
-// is the hook point for disconnecting that server's SSE stream (M2). The
-// rail mirrors the server list (listServers + servers-changed) with a health
-// dot per server and offers ⌘/Ctrl+1..9 switching in list order.
+// tears down that server's SSE stream. The rail mirrors the server list
+// (listServers + servers-changed) with a health dot per server and offers
+// ⌘/Ctrl+1..9 switching in list order. The sidebar top section is the
+// project/folder switcher (TASK-M2-03); this shell owns the per-directory
+// SSE subscription and rebuilds it whenever the active server or the active
+// directory changes, re-syncing the stores so sessions and messages never
+// mix across contexts.
 
-import { createSignal, For, onCleanup, onMount } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount } from "solid-js";
 import type { Component } from "solid-js";
 import { subscribeToServersChanged } from "../../services/events";
 import { listServers } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
+import { getApiClient } from "../../services/client";
+import { createProjectService } from "../../services/project";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
+import { getServerProjectState } from "../../stores/project";
+import { resetServer as resetSessions } from "../../stores/session";
+import { resetServer as resetMessages } from "../../stores/messages";
+import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
+import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -53,6 +64,72 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     setActiveServer(target.id);
   }
 
+  // SSE wiring (TASK-M2-03): one subscription per (server, directory)
+  // context. The effect re-runs when the active server or its active
+  // directory changes, tearing down the old stream and opening a new one
+  // for the new context before re-syncing. A version counter rejects
+  // stale async rebuilds so rapid switches never leak subscriptions.
+  let sse: SubscribeToServerEventsResult | undefined;
+  let rebuildVersion = 0;
+
+  async function rebuild(
+    serverId: string | null,
+    directory: string | undefined,
+    version: number,
+  ): Promise<void> {
+    const previous = sse;
+    sse = undefined;
+    if (previous) await previous.unsubscribe();
+    if (serverId === null || version !== rebuildVersion) return;
+    // Drop the previous context's sessions and messages so the new
+    // directory's data can never mix with the old one; the re-sync
+    // re-applies fresh snapshots right after the stream is up.
+    resetSessions(serverId);
+    resetMessages(serverId);
+    let dir = directory;
+    if (dir === undefined) {
+      // Context not seeded yet (mount / server switch): resolve the current
+      // project so the per-directory stream is opened instead of the global
+      // one; the re-sync fills the store from the same lookup.
+      try {
+        const currentProject = await createProjectService(getApiClient()).current();
+        if (version !== rebuildVersion) return;
+        dir = currentProject?.worktree;
+      } catch {
+        // Unreachable server: stay without a directory stream; the next
+        // context change rebuilds it.
+      }
+    }
+    const subscription = await subscribeToServerEvents(
+      serverId,
+      () => getServerProjectState(serverId).current ?? undefined,
+    );
+    if (version !== rebuildVersion) {
+      await subscription.unsubscribe();
+      return;
+    }
+    sse = subscription;
+    void subscription.sync().catch(() => {
+      // A failed re-sync must not break the stream; the next context
+      // change (or a server.connected event) heals the stores.
+    });
+  }
+
+  createEffect(() => {
+    const serverId = registry.activeServerId;
+    const directory =
+      serverId === null ? undefined : (getServerProjectState(serverId).current ?? undefined);
+    const version = ++rebuildVersion;
+    void rebuild(serverId, directory, version);
+  });
+
+  onCleanup(() => {
+    rebuildVersion += 1;
+    const current = sse;
+    sse = undefined;
+    if (current) void current.unsubscribe();
+  });
+
   onMount(() => {
     setActiveServer(props.server.id);
     window.addEventListener("keydown", onKeyDown);
@@ -63,8 +140,6 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       window.removeEventListener("keydown", onKeyDown);
       stopHealth();
       stopChanged();
-      // M2 hook point: unsubscribe this server's SSE stream (sseUnsubscribe)
-      // before clearing the active context so events never cross servers.
       setActiveServer(null);
     });
   });
@@ -136,6 +211,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             Back to servers
           </button>
         </header>
+        <ProjectSwitcher serverId={registry.activeServerId ?? props.server.id} />
         <div class="flex flex-1 items-center justify-center p-4">
           <p class="text-sm text-fg-secondary">Chat sessions — M2</p>
         </div>

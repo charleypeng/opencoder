@@ -9,5 +9,16 @@
       "updated": 1750000000000
     },
     "sandboxes": []
+  },
+  {
+    "id": "project-mock-2",
+    "worktree": "/mock/projects/opencode-labs",
+    "vcs": "git",
+    "name": "opencode-labs",
+    "time": {
+      "created": 1750001000000,
+      "updated": 1750001000000
+    },
+    "sandboxes": []
   }
 ]

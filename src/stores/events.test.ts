@@ -158,6 +158,19 @@ describe("applyEvent — edge routes", () => {
     expect(messages[SERVER]).toBeUndefined();
     expect(projects[SERVER]).toBeUndefined();
   });
+
+  it("maps project.updated with a projects array to the project store", () => {
+    const list = [project("p1", "/a"), project("p2", "/b")];
+    applyEvent(SERVER, { type: "project.updated", properties: { projects: list } });
+    expect(projects[SERVER].projects).toEqual(list);
+
+    const refreshed = [project("p3", "/c")];
+    applyEvent(SERVER, {
+      type: "project.directories.updated",
+      properties: { projects: refreshed },
+    });
+    expect(projects[SERVER].projects).toEqual(refreshed);
+  });
 });
 
 describe("syncAll", () => {

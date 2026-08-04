@@ -21,17 +21,13 @@ export interface Route {
 }
 
 // P0 — core loop (M1–M2): health, project, session family.
+// `/project/current` and `/session` are directory-aware and handled
+// dynamically (see registerDynamic): they resolve the `directory` query so
+// dual-project switching (TASK-M2-03) returns isolated data per context.
 const P0_CORE_LOOP: Route[] = [
   { method: "get", path: "/global/health", operation: "global.health", fixture: "health" },
   { method: "get", path: "/project", operation: "project.list", fixture: "project.list" },
-  {
-    method: "get",
-    path: "/project/current",
-    operation: "project.current",
-    fixture: "project.current",
-  },
   { method: "get", path: "/path", operation: "path.get", fixture: "path" },
-  { method: "get", path: "/session", operation: "session.list", fixture: "session.list" },
   // `/session/status` must precede `/session/:sessionID` (express matches in
   // registration order).
   {
@@ -111,6 +107,34 @@ function slugify(title: string): string {
 // imperatively; the declarative fixture table cannot express them.
 function registerDynamic(app: Express, fixtures: Fixtures): void {
   const base = baseOf(fixtures);
+
+  const LABS_DIRECTORY = "/mock/projects/opencode-labs";
+
+  function queryString(req: Request, name: string): string | undefined {
+    const value = req.query[name];
+    return typeof value === "string" ? value : undefined;
+  }
+
+  // `/project/current` and `/session` resolve the `directory` query so
+  // switching projects (TASK-M2-03) returns the target project's data.
+  // Unknown directories fall back to the default (demo) context.
+  function projectByDirectory(directory: string | undefined): Record<string, unknown> | undefined {
+    if (directory === undefined) return undefined;
+    const list = Array.isArray(fixtures["project.list"]) ? fixtures["project.list"] : [];
+    return (list as Record<string, unknown>[]).find((p) => p.worktree === directory);
+  }
+
+  app.get("/project/current", (req, res) => {
+    const byDirectory = projectByDirectory(queryString(req, "directory"));
+    res.json(byDirectory ?? fixtures["project.current"]);
+  });
+
+  app.get("/session", (req, res) => {
+    const directory = queryString(req, "directory");
+    res.json(
+      directory === LABS_DIRECTORY ? fixtures["session.list.labs"] : fixtures["session.list"],
+    );
+  });
 
   app.post("/session", (req, res) => {
     const { parentID, title } = (req.body ?? {}) as { parentID?: string; title?: string };
