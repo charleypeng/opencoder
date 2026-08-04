@@ -19,3 +19,4 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bilingual engineering docs skeleton: README / CHANGELOG (en + zh) and CONTRIBUTING (TASK-M0-08)
 - Rust REST transport channel (reqwest/rustls, Basic Auth, timeouts, cancellation, error classification) and a TS ApiClient facade with dual invoke/fetch transports (TASK-M1-01)
 - Rust SSE subscription manager (line parsing across chunk boundaries, `tui.*`/`workspace.*` event filtering, 16ms batched Channel pushes, exponential-backoff reconnect, heartbeat timeout) with a TS subscription facade over tauri Channels (TASK-M1-02)
+- Rust server registry: persistent CRUD commands (`list_servers`, `add_server`, `update_server`, `remove_server`, `resolve_server_base_url`) backed by tauri-plugin-store, with `servers-changed` sync events; transport channels now resolve server base URLs through the registry (TASK-M1-03)

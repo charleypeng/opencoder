@@ -37,9 +37,9 @@ pub struct HttpRequest {
     pub request_id: Option<String>,
 }
 
-/// Error classification serialized to the frontend. `status` is only set for
-/// HTTP error responses; `code` is one of "network", "timeout", "http",
-/// "invalid_url", "cancelled".
+/// Error classification serialized to the frontend. `status` is set for HTTP
+/// error responses and registry lookups (404); `code` is one of "network",
+/// "timeout", "http", "invalid_url", "cancelled", "not_found", "persist".
 #[derive(Debug, Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ApiError {
@@ -78,6 +78,16 @@ impl ApiError {
     fn http(status: u16, message: impl Into<String>) -> Self {
         Self::new("http", Some(status), message, status >= 500)
     }
+
+    /// Server registry lookup failed (unknown id).
+    pub(crate) fn not_found(message: impl Into<String>) -> Self {
+        Self::new("not_found", Some(404), message, false)
+    }
+
+    /// Server registry persistence failed.
+    pub(crate) fn persist(message: impl Into<String>) -> Self {
+        Self::new("persist", Some(500), message, false)
+    }
 }
 
 /// Response of a successful request; `body` is the parsed JSON (when the
@@ -91,40 +101,15 @@ pub struct HttpResponse {
     pub body_text: Option<String>,
 }
 
-/// Placeholder in-memory server base URL registry. M1-03 replaces this with
-/// the persistent server registry; until then only `url` requests work unless
-/// a base URL was registered (used by unit tests).
-static BASE_URL_REGISTRY: LazyLock<Mutex<HashMap<String, String>>> =
-    LazyLock::new(|| Mutex::new(HashMap::new()));
-
 /// Per-request cancellation tokens keyed by `requestID`.
 static CANCEL_REGISTRY: LazyLock<Mutex<HashMap<String, CancellationToken>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
-/// Resolves the registered base URL for a server id; shared with the SSE
-/// manager (sse.rs) so both transports hit the same placeholder registry.
-pub(crate) fn resolve_server_base_url(server_id: &str) -> Option<String> {
-    BASE_URL_REGISTRY.lock().unwrap().get(server_id).cloned()
-}
-
+/// The base URL comes from the request's `url` field; `serverID`-based
+/// requests are resolved against the server registry in the commands layer
+/// (TASK-M1-03) before reaching the transport.
 fn resolve_base_url(request: &HttpRequest) -> Option<String> {
-    if let Some(url) = &request.url {
-        return Some(url.clone());
-    }
-    request
-        .server_id
-        .as_deref()
-        .and_then(resolve_server_base_url)
-}
-
-/// Registers a base URL for a server id. Only used by tests today; the real
-/// registry lands in M1-03.
-#[cfg(test)]
-pub(crate) fn register_server_base_url(server_id: &str, url: &str) {
-    BASE_URL_REGISTRY
-        .lock()
-        .unwrap()
-        .insert(server_id.to_string(), url.to_string());
+    request.url.clone()
 }
 
 fn register_cancellation(request_id: Option<&str>) -> Option<CancellationToken> {
@@ -402,23 +387,21 @@ mod tests {
     }
 
     #[test]
-    fn resolves_server_id_from_placeholder_registry() {
-        register_server_base_url("srv-1", "http://localhost:9999");
+    fn server_id_is_not_a_base_url_in_the_transport() {
+        // serverID resolution happens in the commands layer via the server
+        // registry; the transport itself only accepts concrete URLs.
         let runtime = tokio::runtime::Runtime::new().unwrap();
-        let url = runtime.block_on(async {
+        let err = runtime.block_on(async {
             let client = reqwest::Client::new();
             let request = HttpRequest {
-                server_id: Some("srv-1".to_string()),
+                server_id: Some("nope".to_string()),
                 method: "GET".to_string(),
                 path: "/project".to_string(),
                 ..HttpRequest::default()
             };
-            assemble_request(&client, &request)
-                .unwrap()
-                .url()
-                .to_string()
+            assemble_request(&client, &request).unwrap_err()
         });
-        assert_eq!(url, "http://localhost:9999/project");
+        assert_eq!(err.code, "invalid_url");
     }
 
     #[test]

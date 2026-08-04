@@ -13,7 +13,7 @@
 //! (>64KB) are forwarded as raw JSON strings (`{ "__raw": ... }`) so the TS
 //! side lazy-parses them instead of paying double serialization.
 
-use crate::transport::http::{resolve_server_base_url, ApiError, Auth};
+use crate::transport::http::{ApiError, Auth};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, LazyLock, Mutex};
@@ -145,18 +145,18 @@ static SSE_REGISTRY: LazyLock<SseRegistry> = LazyLock::new(SseRegistry::new);
 /// Subscribes to a server's SSE stream and returns a subscription id.
 ///
 /// `directory` selects `/event?directory=...`; without one the global
-/// `/global/event` stream is used. Base URLs come from the placeholder server
-/// registry shared with the REST channel (http.rs); the real registry lands
-/// in M1-03. Events arrive on `channel` as single parsed values or 16ms
+/// `/global/event` stream is used. The base URL is resolved against the
+/// server registry in the commands layer (TASK-M1-03) and passed in
+/// directly. Events arrive on `channel` as single parsed values or 16ms
 /// batches of arrays.
 pub fn sse_subscribe(
-    server_id: String,
+    base_url: String,
     directory: Option<String>,
     channel: tauri::ipc::Channel<serde_json::Value>,
     auth: Option<Auth>,
 ) -> Result<u64, ApiError> {
     subscribe_with_config(
-        server_id,
+        base_url,
         directory,
         Arc::new(channel),
         auth,
@@ -175,16 +175,14 @@ pub fn sse_unsubscribe(subscription_id: u64) {
 
 /// Testable variant of `sse_subscribe` with a pluggable sink and timers.
 pub(crate) fn subscribe_with_config(
-    server_id: String,
+    base_url: String,
     directory: Option<String>,
     sink: Arc<dyn SseSink>,
     auth: Option<Auth>,
     config: SseConfig,
 ) -> Result<u64, ApiError> {
-    let base = resolve_server_base_url(&server_id)
-        .ok_or_else(|| ApiError::invalid_url(format!("unknown server id: {server_id}")))?;
     let params = SubscribeParams {
-        url: build_url(&base, directory.as_deref())?,
+        url: build_url(&base_url, directory.as_deref())?,
         auth,
     };
     Ok(spawn_subscription(config, params, sink))
@@ -924,10 +922,10 @@ mod tests {
     }
 
     #[test]
-    fn unknown_server_id_is_invalid() {
+    fn invalid_base_url_is_invalid() {
         let sink = TestSink::new();
         let err = subscribe_with_config(
-            "nope".to_string(),
+            "not a url".to_string(),
             None,
             Arc::new(sink),
             None,
@@ -1031,10 +1029,7 @@ mod tests {
                 )
             }
         });
-        crate::transport::http::register_server_base_url(
-            "srv-reconnect",
-            &format!("http://{}", server.addr),
-        );
+        let base_url = format!("http://{}", server.addr);
 
         let sink = TestSink::new();
         let config = SseConfig {
@@ -1043,7 +1038,7 @@ mod tests {
             ..SseConfig::default()
         };
         let id = subscribe_with_config(
-            "srv-reconnect".to_string(),
+            base_url,
             Some("/proj".to_string()),
             Arc::new(sink.clone()),
             None,
@@ -1099,10 +1094,7 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn heartbeat_timeout_forces_reconnect() {
         let server = SseTestServer::start(|_| ScriptedResponse::ok(Vec::new(), false));
-        crate::transport::http::register_server_base_url(
-            "srv-heartbeat",
-            &format!("http://{}", server.addr),
-        );
+        let base_url = format!("http://{}", server.addr);
 
         let sink = TestSink::new();
         let config = SseConfig {
@@ -1110,14 +1102,8 @@ mod tests {
             heartbeat_timeout: Duration::from_millis(200),
             ..SseConfig::default()
         };
-        let id = subscribe_with_config(
-            "srv-heartbeat".to_string(),
-            None,
-            Arc::new(sink.clone()),
-            None,
-            config,
-        )
-        .unwrap();
+        let id =
+            subscribe_with_config(base_url, None, Arc::new(sink.clone()), None, config).unwrap();
 
         // A silent stream trips the heartbeat timeout and reconnects.
         let reconnected = sink
@@ -1155,10 +1141,7 @@ mod tests {
             // Stays open so the test observes the reset reconnect.
             _ => ScriptedResponse::ok(vec![event("e2")], false),
         });
-        crate::transport::http::register_server_base_url(
-            "srv-backoff-reset",
-            &format!("http://{}", server.addr),
-        );
+        let base_url = format!("http://{}", server.addr);
 
         let sink = TestSink::new();
         let config = SseConfig {
@@ -1167,14 +1150,8 @@ mod tests {
             heartbeat_timeout: Duration::from_secs(2),
             ..SseConfig::default()
         };
-        let id = subscribe_with_config(
-            "srv-backoff-reset".to_string(),
-            None,
-            Arc::new(sink.clone()),
-            None,
-            config,
-        )
-        .unwrap();
+        let id =
+            subscribe_with_config(base_url, None, Arc::new(sink.clone()), None, config).unwrap();
 
         let reconnected = sink
             .wait_until(Duration::from_secs(5), || server.connection_count() >= 3)
@@ -1229,10 +1206,7 @@ mod tests {
                 false,
             ),
         });
-        crate::transport::http::register_server_base_url(
-            "srv-first-fail",
-            &format!("http://{}", server.addr),
-        );
+        let base_url = format!("http://{}", server.addr);
 
         let sink = TestSink::new();
         let config = SseConfig {
@@ -1240,14 +1214,8 @@ mod tests {
             heartbeat_timeout: Duration::from_secs(2),
             ..SseConfig::default()
         };
-        let id = subscribe_with_config(
-            "srv-first-fail".to_string(),
-            None,
-            Arc::new(sink.clone()),
-            None,
-            config,
-        )
-        .unwrap();
+        let id =
+            subscribe_with_config(base_url, None, Arc::new(sink.clone()), None, config).unwrap();
 
         let arrived = sink
             .wait_until(Duration::from_secs(5), || {
@@ -1287,14 +1255,11 @@ mod tests {
     #[tokio::test(flavor = "multi_thread")]
     async fn auth_failure_terminates_without_reconnect() {
         let server = SseTestServer::start(|_| ScriptedResponse::status_only(401));
-        crate::transport::http::register_server_base_url(
-            "srv-auth",
-            &format!("http://{}", server.addr),
-        );
+        let base_url = format!("http://{}", server.addr);
 
         let sink = TestSink::new();
         let id = subscribe_with_config(
-            "srv-auth".to_string(),
+            base_url,
             None,
             Arc::new(sink.clone()),
             None,
