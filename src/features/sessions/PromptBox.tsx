@@ -22,17 +22,30 @@
 // File objects from a WebView drop carry no absolute path; when Tauri
 // v2's onDragDropEvent is wired the path could be attached there. The
 // image picker button is a disabled M7 placeholder (mobile dialog plugin).
+//
+// TASK-M5-03 (slash commands): a leading `/` opens a filtered command menu
+// over GET /command (name/description/argument hints; the command list is
+// fetched once per mount on first trigger, in-flight guarded). ↑↓/Enter/
+// Esc navigate like the @ menu; selection fills the input with the
+// command template (name plus the first argument hint as editable text).
+// Submitting a message that matches a known command runs
+// POST /session/{id}/command (arguments = text after the name) instead of
+// the prompt path, and the reply renders through the normal SSE flow; an
+// unmatched `/…` message stays a plain prompt. The two input-triggered
+// menus are mutually exclusive: the @ condition wins while it holds.
 
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
+import { createCommandService, type Command } from "../../services/command.js";
 import { createFindService } from "../../services/find.js";
 import { createSessionService } from "../../services/session.js";
 import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
 import { type Attachment, fileToAttachment } from "./attachments.js";
+import { commandTemplate, matchCommand, type CommandMatch } from "../commands/commands.js";
 import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
 
@@ -53,6 +66,14 @@ interface AtMenuState {
   /** The word after the triggering `@`. */
   query: string;
   items: string[];
+  selected: number;
+}
+
+/** Open `/` command menu state (TASK-M5-03). */
+interface SlashMenuState {
+  /** The text after the triggering `/`. */
+  query: string;
+  items: Command[];
   selected: number;
 }
 
@@ -166,9 +187,11 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // -1 = not browsing; >= 0 = index into the history list (0 is most recent).
   const [browseIndex, setBrowseIndex] = createSignal(-1);
   const [atMenu, setAtMenu] = createSignal<AtMenuState | null>(null);
+  const [slashMenu, setSlashMenu] = createSignal<SlashMenuState | null>(null);
   let textareaRef: HTMLTextAreaElement | undefined;
   let fileInputRef: HTMLInputElement | undefined;
   let atListRef: HTMLDivElement | undefined;
+  let slashListRef: HTMLDivElement | undefined;
   // Debounce timer + request sequence for the @-reference search: the
   // sequence invalidates in-flight responses so a stale reply never lands.
   let atTimer: ReturnType<typeof setTimeout> | undefined;
@@ -176,6 +199,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // Suppresses one refresh after a path insert so the inserted `@path`
   // does not immediately reopen the menu.
   let suppressAtRefresh = false;
+  // Command list cache (TASK-M5-03): fetched once per mount on the first
+  // `/` trigger; the in-flight promise collapses concurrent opens.
+  let commandCache: Command[] | null = null;
+  let commandFetch: Promise<Command[]> | null = null;
+  // Suppresses one refresh after a command insert so the filled template
+  // (e.g. `/init`) does not immediately reopen the menu.
+  let suppressSlashRefresh = false;
 
   // Store-driven generating lock: busy/retry means the session is streaming.
   const status = createMemo(() => getServerSessionState(props.serverId).statuses[props.sessionId]);
@@ -268,8 +298,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
 
   // Keeps the keyboard-selected option visible inside the scrollable list.
   createEffect(() => {
-    if (atMenu() === null) return;
-    const selected = atListRef?.querySelector<HTMLElement>('[aria-selected="true"]');
+    if (atMenu() === null && slashMenu() === null) return;
+    const selected =
+      atListRef?.querySelector<HTMLElement>('[aria-selected="true"]') ??
+      slashListRef?.querySelector<HTMLElement>('[aria-selected="true"]');
     // Optional call: jsdom lacks scrollIntoView; the WebView supports it.
     selected?.scrollIntoView?.({ block: "nearest" });
   });
@@ -339,6 +371,90 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     closeAtMenu();
   }
 
+  function closeSlashMenu(): void {
+    setSlashMenu(null);
+  }
+
+  // Fetches the command list once per mount on the first `/` trigger and
+  // caches it; a failed fetch resets the in-flight guard so the next
+  // trigger retries.
+  function loadCommands(): Promise<Command[]> {
+    if (commandCache !== null) return Promise.resolve(commandCache);
+    if (commandFetch === null) {
+      commandFetch = createCommandService(getApiClient())
+        .list()
+        .then((commands) => {
+          commandCache = commands;
+          return commands;
+        })
+        .catch((err: unknown) => {
+          commandFetch = null;
+          throw err;
+        });
+    }
+    return commandFetch;
+  }
+
+  function filterCommands(commands: readonly Command[], query: string): Command[] {
+    const needle = query.toLowerCase();
+    return commands.filter((command) => command.name.toLowerCase().includes(needle));
+  }
+
+  async function refreshSlashResults(query: string): Promise<void> {
+    try {
+      const commands = await loadCommands();
+      setSlashMenu((prev) =>
+        prev === null || prev.query !== query
+          ? prev
+          : { ...prev, items: filterCommands(commands, query) },
+      );
+    } catch {
+      // Command list failures close the menu silently; typing is unaffected.
+      setSlashMenu(null);
+    }
+  }
+
+  function refreshSlashMenu(el: HTMLTextAreaElement): void {
+    if (suppressSlashRefresh) {
+      suppressSlashRefresh = false;
+      return;
+    }
+    // The @-reference menu owns the input while open; a `/`-prefixed line
+    // can only win once the @ condition is gone (TASK-M5-03 coordination).
+    if (atMenu() !== null) {
+      closeSlashMenu();
+      return;
+    }
+    const before = el.value.slice(0, el.selectionStart);
+    if (!before.startsWith("/")) {
+      closeSlashMenu();
+      return;
+    }
+    const query = before.slice(1);
+    if (query.includes(" ")) {
+      closeSlashMenu();
+      return;
+    }
+    const prev = slashMenu();
+    if (prev === null || prev.query !== query) {
+      setSlashMenu({ query, items: [], selected: 0 });
+    }
+    void refreshSlashResults(query);
+  }
+
+  function insertSlashCommand(command: Command): void {
+    const el = textareaRef;
+    const template = commandTemplate(command);
+    if (el !== undefined) {
+      el.value = template;
+      setText(template);
+      el.selectionStart = el.selectionEnd = template.length;
+      applyHeight(el);
+    }
+    suppressSlashRefresh = true;
+    closeSlashMenu();
+  }
+
   async function addFileAttachment(file: File): Promise<void> {
     try {
       const attachment = await fileToAttachment(file);
@@ -355,6 +471,30 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // The `/` command menu owns arrow/enter/escape keys while open; the @
+    // menu below can never be open at the same time (refreshSlashMenu
+    // defers to it), so the two checks are exclusive in practice.
+    const slash = slashMenu();
+    if (slash !== null) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeSlashMenu();
+        return;
+      }
+      if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+        event.preventDefault();
+        const delta = event.key === "ArrowDown" ? 1 : -1;
+        const count = slash.items.length;
+        const selected = count === 0 ? 0 : (slash.selected + delta + count) % count;
+        setSlashMenu({ ...slash, selected });
+        return;
+      }
+      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && slash.items.length > 0) {
+        event.preventDefault();
+        insertSlashCommand(slash.items[slash.selected]);
+        return;
+      }
+    }
     // The @-reference menu owns arrow/enter/escape keys while open.
     const menu = atMenu();
     if (menu !== null) {
@@ -413,6 +553,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     if (browseIndex() >= 0) exitBrowse();
     resizeToContent(el);
     refreshAtMenu(el);
+    refreshSlashMenu(el);
   }
 
   function onPaste(event: ClipboardEvent) {
@@ -443,12 +584,38 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     el.value = "";
   }
 
+  /**
+   * Runs a known command through POST /session/{id}/command (TASK-M5-03);
+   * the reply streams in over SSE like a prompt. On failure the input is
+   * restored to the submitted text so the user can retry (the plain prompt
+   * path rolls back its optimistic message instead).
+   */
+  async function runCommand(match: CommandMatch, rawMessage: string): Promise<ApiError | null> {
+    try {
+      await createCommandService(getApiClient()).run(props.sessionId, {
+        command: match.command.name,
+        arguments: match.args,
+      });
+      return null;
+    } catch (err) {
+      const el = textareaRef;
+      if (el !== undefined) {
+        el.value = rawMessage;
+        setText(rawMessage);
+        el.selectionStart = el.selectionEnd = rawMessage.length;
+        applyHeight(el);
+      }
+      return ApiError.fromUnknown(err);
+    }
+  }
+
   async function send() {
     const message = text().trim();
     const atts = attachments();
     if ((message === "" && atts.length === 0) || disabled()) return;
     closeAtMenu();
-    // Clear the input immediately; sendPrompt handles the store side.
+    closeSlashMenu();
+    // Clear the input immediately; the pipeline handles the store side.
     setText("");
     const el = textareaRef;
     if (el !== undefined) {
@@ -460,7 +627,21 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setInlineError(null);
     setAttachError(null);
     try {
-      const err = await sendPrompt(props.serverId, props.sessionId, message, atts);
+      let err: ApiError | null;
+      if (message.startsWith("/")) {
+        // Commands load lazily on the first `/` keystroke; a paste-and-send
+        // can beat that fetch, so wait for it before classifying the input.
+        // A message that matches a known command runs it; anything else
+        // starting with `/` falls back to the plain prompt path.
+        const commands = await loadCommands().catch(() => []);
+        const match = matchCommand(message, commands);
+        err =
+          match === null
+            ? await sendPrompt(props.serverId, props.sessionId, message, atts)
+            : await runCommand(match, message);
+      } else {
+        err = await sendPrompt(props.serverId, props.sessionId, message, atts);
+      }
       // Chips clear on success only; a failed send keeps them for retry.
       if (err === null) setAttachments([]);
       setInlineError(err);
@@ -488,6 +669,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // signal twice inside a JSX conditional can tear when it flips between
   // the reads — memos cache their value, so both issues are avoided.
   const menu = createMemo(() => atMenu());
+  const slash = createMemo(() => slashMenu());
   const atts = createMemo(() => attachments());
 
   return (
@@ -528,6 +710,50 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                           }`}
                         >
                           <span class="truncate font-mono text-fg-default">{path}</span>
+                        </button>
+                      )}
+                    </For>
+                  </Show>
+                </div>
+              )}
+            </Show>
+            <Show when={slash()} fallback={null}>
+              {(m) => (
+                <div
+                  data-testid="prompt-slash-menu"
+                  role="listbox"
+                  aria-label="Commands"
+                  ref={slashListRef}
+                  class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-full overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
+                >
+                  <Show
+                    when={m().items.length > 0}
+                    fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No matches</div>}
+                  >
+                    <For each={m().items}>
+                      {(command, index) => (
+                        <button
+                          type="button"
+                          data-testid="prompt-slash-item"
+                          role="option"
+                          aria-selected={index() === m().selected}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => insertSlashCommand(command)}
+                          class={`flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-left text-xs ${
+                            index() === m().selected ? "bg-bg-sunken" : ""
+                          }`}
+                        >
+                          <span class="flex w-full items-baseline gap-2">
+                            <span class="shrink-0 font-mono text-fg-default">{command.name}</span>
+                            <Show when={command.description !== undefined}>
+                              <span class="truncate text-fg-faint">{command.description}</span>
+                            </Show>
+                          </span>
+                          <Show when={command.hints.length > 0}>
+                            <span class="truncate font-mono text-fg-faint">
+                              {command.hints.join(" ")}
+                            </span>
+                          </Show>
                         </button>
                       )}
                     </For>
@@ -612,7 +838,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               onInput={onInput}
               onKeyDown={onKeyDown}
               onPaste={onPaste}
-              onBlur={closeAtMenu}
+              onBlur={() => {
+                closeAtMenu();
+                closeSlashMenu();
+              }}
               class="max-h-[220px] min-h-[2rem] flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 outline-none placeholder:text-fg-faint disabled:cursor-not-allowed"
             />
             {busy() ? (

@@ -1,0 +1,26 @@
+[
+  {
+    "name": "init",
+    "description": "Initialize a CLAUDE.md file with a summary of the codebase",
+    "template": "Create a CLAUDE.md file describing this project and its architecture.",
+    "hints": ["A summary of the codebase"]
+  },
+  {
+    "name": "compact",
+    "description": "Compress the conversation history",
+    "template": "Summarize this conversation and suggest how to continue.",
+    "hints": []
+  },
+  {
+    "name": "help",
+    "description": "Show help about OpenCode commands",
+    "template": "Explain the available commands and how to use them.",
+    "hints": []
+  },
+  {
+    "name": "think",
+    "description": "Think about a question (custom server command)",
+    "template": "Think deeply about: $ARGUMENT",
+    "hints": ["What should I think about?"]
+  }
+]

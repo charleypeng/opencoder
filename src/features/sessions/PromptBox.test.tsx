@@ -567,3 +567,225 @@ describe("PromptBox", () => {
     expect(input()).not.toBeDisabled();
   });
 });
+
+// TASK-M5-03: `/` command menu and command execution.
+describe("PromptBox slash commands", () => {
+  const COMMANDS = [
+    {
+      name: "init",
+      description: "Initialize a CLAUDE.md file",
+      template: "Create a CLAUDE.md file describing this project.",
+      hints: ["A summary of the codebase"],
+    },
+    {
+      name: "compact",
+      description: "Compress the conversation history",
+      template: "Summarize this conversation.",
+      hints: [],
+    },
+    {
+      name: "think",
+      description: "Think about a question (custom server command)",
+      template: "Think deeply about: $ARGUMENT",
+      hints: ["What should I think about?"],
+    },
+  ];
+
+  beforeEach(() => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/command") return COMMANDS;
+      return [];
+    });
+  });
+
+  it("`/` opens the command menu listing name, description and hint (fetched once)", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/" } });
+
+    await waitFor(() => expect(screen.getByTestId("prompt-slash-menu")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(3));
+    expect(client.get).toHaveBeenCalledWith("/command", undefined);
+    expect(screen.getByText("init")).toBeInTheDocument();
+    expect(screen.getByText(/Initialize a CLAUDE\.md file/)).toBeInTheDocument();
+    expect(screen.getByText("A summary of the codebase")).toBeInTheDocument();
+
+    // The command list is cached per mount: more typing does not refetch.
+    fireEvent.input(input(), { target: { value: "/i" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(2));
+    expect(client.get).toHaveBeenCalledTimes(1);
+  });
+
+  it("filters the menu by the query after `/`", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/com" } });
+
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(1));
+    expect(screen.getByText("compact")).toBeInTheDocument();
+  });
+
+  it("select fills the template with the argument hint as editable text", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(3));
+
+    fireEvent.keyDown(input(), { key: "Enter" });
+
+    expect(input().value).toBe("/init A summary of the codebase");
+    expect(screen.queryByTestId("prompt-slash-menu")).not.toBeInTheDocument();
+  });
+
+  it("↑↓ navigate and Enter fills the template without a hint", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(3));
+    expect(screen.getAllByTestId("prompt-slash-item")[0]).toHaveAttribute("aria-selected", "true");
+
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    expect(screen.getAllByTestId("prompt-slash-item")[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    fireEvent.keyDown(input(), { key: "ArrowUp" });
+    expect(screen.getAllByTestId("prompt-slash-item")[1]).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(input(), { key: "Enter" });
+
+    expect(input().value).toBe("/compact");
+    expect(screen.queryByTestId("prompt-slash-menu")).not.toBeInTheDocument();
+  });
+
+  it("Esc closes the command menu without filling anything", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/in" } });
+    await waitFor(() => expect(screen.getByTestId("prompt-slash-menu")).toBeInTheDocument());
+
+    fireEvent.keyDown(input(), { key: "Escape" });
+
+    expect(screen.queryByTestId("prompt-slash-menu")).not.toBeInTheDocument();
+    expect(input().value).toBe("/in");
+  });
+
+  it("does not open for `/` mid-text", () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "see /init" } });
+
+    expect(screen.queryByTestId("prompt-slash-menu")).not.toBeInTheDocument();
+  });
+
+  it("@-menu coordination: the @ condition wins on a mixed line", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    // `/init @x` matches both trigger shapes on paper; the @ reference at a
+    // word start wins and the slash query (containing a space) stays quiet.
+    fireEvent.input(input(), { target: { value: "/init @x" } });
+
+    await waitFor(() => expect(screen.getByTestId("prompt-at-menu")).toBeInTheDocument());
+    expect(screen.queryByTestId("prompt-slash-menu")).not.toBeInTheDocument();
+  });
+
+  it("@-menu coordination: clearing an open @ menu lets `/` take over", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "see @find" } });
+    await waitFor(() => expect(screen.getByTestId("prompt-at-menu")).toBeInTheDocument());
+
+    fireEvent.input(input(), { target: { value: "/x" } });
+
+    await waitFor(() => expect(screen.getByTestId("prompt-slash-menu")).toBeInTheDocument());
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+  });
+
+  it("submitting a known command POSTs /session/{id}/command and clears the input", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/init" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-slash-item")).toHaveLength(1));
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/command`, {
+        body: { command: "init", arguments: "" },
+      }),
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+    expect(input().value).toBe("");
+  });
+
+  it("submitting a command with arguments sends the text after the name", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/think what is a tenbagger?" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/command`, {
+        body: { command: "think", arguments: "what is a tenbagger?" },
+      }),
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+  });
+
+  it("an unmatched `/` message falls back to the plain prompt path", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/does-not-exist hello" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: { parts: [{ type: "text", text: "/does-not-exist hello" }] },
+      }),
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+  });
+
+  it("a failed command run shows the error banner and keeps the input", async () => {
+    client.post.mockRejectedValueOnce(new ApiError(500, "http", "command boom", true));
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "/init" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("error-banner-title")).toHaveTextContent("Server error");
+    // The text survives for a retry; no plain prompt was sent.
+    expect(input().value).toBe("/init");
+    expect(client.post).toHaveBeenCalledTimes(1);
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/command`, {
+      body: { command: "init", arguments: "" },
+    });
+  });
+
+  it("full chain: a run command's reply renders through the SSE message flow", async () => {
+    applySessionList(SERVER, [
+      { ...sessionFixture(), id: "ses_abc123", slug: "happy-chat", title: "Happy chat" },
+    ]);
+    render(() => (
+      <>
+        <MessageList serverId={SERVER} sessionId="ses_abc123" />
+        <PromptBox serverId={SERVER} sessionId="ses_abc123" />
+      </>
+    ));
+
+    fireEvent.input(input(), { target: { value: "/init" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/ses_abc123/command`, {
+        body: { command: "init", arguments: "" },
+      }),
+    );
+
+    const happyChat = scenarios["happy-chat"];
+    for (const step of happyChat) {
+      if (step.event) applyEvent(SERVER, step.event as SseEvent);
+    }
+
+    await waitFor(() =>
+      expect(screen.getByText(/Hello! I can help with that/)).toBeInTheDocument(),
+    );
+    expect(input()).not.toBeDisabled();
+  });
+});

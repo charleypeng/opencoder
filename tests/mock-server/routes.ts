@@ -92,6 +92,12 @@ const QUESTION_ROUTES: Route[] = [
   { method: "get", path: "/question", operation: "question.list", fixture: "question" },
 ];
 
+// P3 — commands (M5): the available slash-command list is a static fixture;
+// running one is dynamic (body validation, TASK-M5-03).
+const COMMAND_ROUTES: Route[] = [
+  { method: "get", path: "/command", operation: "command.list", fixture: "command" },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
@@ -99,6 +105,7 @@ const ROUTES: Route[] = [
   ...VCS_ROUTES,
   ...PERMISSION_ROUTES,
   ...QUESTION_ROUTES,
+  ...COMMAND_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.
@@ -389,6 +396,38 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   // Question reject (TASK-M5-02): no body, always reports success.
   app.post("/question/:requestID/reject", (_req, res) => {
     res.json(true);
+  });
+
+  // Command run (TASK-M5-03): accepts the schema's { command, arguments }
+  // body and reports the created assistant message (info + parts; the real
+  // reply then streams in over SSE). A payload missing either string is a
+  // 400 BadRequestError.
+  app.post("/session/:sessionID/command", (req, res) => {
+    const { command, arguments: args } = (req.body ?? {}) as {
+      command?: unknown;
+      arguments?: unknown;
+    };
+    if (typeof command !== "string" || command === "" || typeof args !== "string") {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid command payload" });
+      return;
+    }
+    res.json({
+      info: {
+        id: `msg_asst_cmd_${command}`,
+        sessionID: req.params.sessionID,
+        role: "assistant",
+        time: { created: base.time.updated },
+        parentID: `msg_user_${command}`,
+        modelID: "gpt-5",
+        providerID: "openai",
+        mode: "primary",
+        agent: "build",
+        path: { cwd: base.directory, root: base.directory },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      },
+      parts: [],
+    });
   });
 }
 

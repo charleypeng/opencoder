@@ -826,6 +826,53 @@ try {
       expect(body === true, `body ${JSON.stringify(body)}`);
     });
 
+    // TASK-M5-03: /command family.
+    await test("command list returns available slash commands", async () => {
+      const { status, body } = await request(baseUrl, "/command");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 3, "body must have >= 3 commands");
+      const c = body[0];
+      expect(typeof c?.name === "string" && c.name !== "", "command must carry a name");
+      expect(typeof c?.template === "string", "command must carry a template");
+      expect(Array.isArray(c?.hints), "command must carry a hints array");
+      // The fixture covers both forms: a command with an argument hint and
+      // one without (custom server commands ride the same list).
+      const withHint = body.find((cmd) => Array.isArray(cmd?.hints) && cmd.hints.length > 0);
+      expect(withHint !== undefined, "fixture must include a command with an arg hint");
+    });
+
+    await test("command run returns the created assistant message", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "init", arguments: "A summary of the codebase" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.info?.role === "assistant", `role ${JSON.stringify(body?.info?.role)}`);
+      expect(typeof body?.info?.id === "string", "info must carry an id");
+      expect(body?.info?.sessionID === "sess_01", "info must echo the session id");
+      expect(Array.isArray(body?.parts), "response must carry a parts array");
+    });
+
+    await test("command run accepts empty arguments", async () => {
+      const { status } = await request(baseUrl, "/session/sess_01/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "compact", arguments: "" }),
+      });
+      expect(status === 200, `status ${status}`);
+    });
+
+    await test("command run rejects an invalid payload", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "init" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     await test("unimplemented endpoint returns 501", async () => {
       const { status, body } = await request(baseUrl, "/agent");
       expect(status === 501, `status ${status}`);
