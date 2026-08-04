@@ -29,5 +29,33 @@
       "created": 1750000000000,
       "updated": 1750000200000
     }
+  },
+  {
+    "id": "sess_03",
+    "slug": "refactor-login-form",
+    "projectID": "project-mock-1",
+    "directory": "/mock/projects/opencode-demo",
+    "parentID": "sess_02",
+    "title": "Refactor the login form",
+    "agent": "build",
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000300000
+    }
+  },
+  {
+    "id": "sess_04",
+    "slug": "add-form-validation",
+    "projectID": "project-mock-1",
+    "directory": "/mock/projects/opencode-demo",
+    "parentID": "sess_03",
+    "title": "Add form validation",
+    "agent": "build",
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000400000
+    }
   }
 ]

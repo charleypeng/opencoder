@@ -298,6 +298,61 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     });
   });
 
+  // Session children (TASK-M6-07): the direct children of a session — the
+  // fixture sessions carrying the parent id, in fixture order (a multi-level
+  // tree: sess_01 → sess_02 → sess_03 → sess_04). Unknown sessions are a
+  // 404 NotFoundError (contract).
+  app.get("/session/:sessionID/children", (req, res) => {
+    const sessions = Array.isArray(fixtures["session.list"])
+      ? (fixtures["session.list"] as Record<string, unknown>[])
+      : [];
+    const known = sessions.some((s) => s?.id === req.params.sessionID);
+    if (!known) {
+      res.status(404).json({
+        _tag: "NotFoundError",
+        message: `session ${req.params.sessionID} not found`,
+      });
+      return;
+    }
+    res.json(sessions.filter((s) => s?.parentID === req.params.sessionID));
+  });
+
+  // Session sync message (TASK-M6-07): the same part validation as
+  // prompt_async, but the endpoint waits for the full reply — it reports
+  // the created assistant message ({ info, parts }) directly, like shell.
+  app.post("/session/:sessionID/message", (req, res) => {
+    const { parts } = (req.body ?? {}) as { parts?: unknown };
+    if (!Array.isArray(parts) || parts.some((part) => !isValidPartInput(part))) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid prompt payload" });
+      return;
+    }
+    res.json({
+      info: {
+        id: "msg_asst_sync",
+        sessionID: req.params.sessionID,
+        role: "assistant",
+        time: { created: base.time.updated },
+        parentID: "msg_user_sync",
+        modelID: "gpt-5",
+        providerID: "openai",
+        mode: "primary",
+        agent: "build",
+        path: { cwd: base.directory, root: base.directory },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      },
+      parts: [
+        {
+          id: "prt_sync",
+          sessionID: req.params.sessionID,
+          messageID: "msg_asst_sync",
+          type: "text",
+          text: "(mock sync reply)",
+        },
+      ],
+    });
+  });
+
   // Session revert (TASK-M6-04): accepts the schema's { messageID } body
   // and reports the updated session carrying the `revert` marker (the
   // revert point). A missing/malformed messageID or one that is not a

@@ -52,7 +52,11 @@ import ShareSessionDialog from "../../features/sessions/ShareSessionDialog";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
-import { getServerSessionState, resetServer as resetSessions } from "../../stores/session";
+import {
+  getServerSessionState,
+  resetServer as resetSessions,
+  setActiveSession,
+} from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer } from "../../stores/viewer";
@@ -274,6 +278,20 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       await unrevertSession(activeServerId(), sessionId, createSessionService(getApiClient()));
     } catch (err) {
       setRevertError(ApiError.fromUnknown(err));
+    }
+  }
+
+  /** Opens the FIRST child session of the given session (TASK-M6-07): the
+   *  subtask part cannot reference its child directly (no child id in the
+   *  1.18.11 schema), so the handler targets the first child in store
+   *  order and ignores the click when there is none. */
+  function openChildSession(sessionId: string) {
+    const st = getServerSessionState(activeServerId());
+    for (const id of st.order) {
+      if (st.sessions[id]?.parentID === sessionId) {
+        setActiveSession(activeServerId(), id);
+        return;
+      }
     }
   }
 
@@ -826,6 +844,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       }}
                       onRevert={requestRevert}
                       onUnrevert={() => void handleUnrevert()}
+                      onOpenChild={openChildSession}
                     />
                     <SessionErrorBanner
                       serverId={activeServerId()}

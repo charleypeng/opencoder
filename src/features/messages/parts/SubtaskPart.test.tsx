@@ -1,11 +1,12 @@
-// L2 tests for the subtask card (TASK-M3-03): the header shows the prompt
-// and the agent chip, collapsed by default; expanding reveals the
-// description, model and command meta plus the M6 child-session placeholder
-// note. The 1.18.11 SubtaskPart schema carries no status or child session
-// id, so no status badge or navigation is rendered. The snapshot uses the
-// all-parts fixture's subtask part (prt_p7).
+// L2 tests for the subtask card (TASK-M3-03, TASK-M6-07): the header shows
+// the prompt and the agent chip, collapsed by default; expanding reveals the
+// description, model and command meta plus the "Open child session" button
+// (only while an onOpenChild callback is provided — the 1.18.11 SubtaskPart
+// schema carries no child session id, so the wired handler targets the first
+// child of the part's session; without a callback no button renders). The
+// snapshot uses the all-parts fixture's subtask part (prt_p7).
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import SubtaskPart from "./SubtaskPart";
 import type { SubtaskPartData } from "./SubtaskPart";
@@ -35,7 +36,7 @@ describe("SubtaskPart", () => {
     expect(screen.queryByTestId("subtask-body")).not.toBeInTheDocument();
   });
 
-  it("expands to show description, model and the M6 child-session note", () => {
+  it("expands to show description and model; no child button without a callback", () => {
     render(() => <SubtaskPart part={subtaskPart()} />);
     fireEvent.click(screen.getByTestId("subtask-toggle"));
     expect(screen.getByTestId("subtask-toggle")).toHaveAttribute("aria-expanded", "true");
@@ -43,10 +44,18 @@ describe("SubtaskPart", () => {
       "Create the auth service and wire it into the login form",
     );
     expect(screen.getByTestId("subtask-model")).toHaveTextContent("openai/gpt-5");
-    expect(screen.getByTestId("subtask-child-note")).toHaveTextContent("M6");
+    expect(screen.queryByTestId("subtask-open-child")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("subtask-toggle"));
     expect(screen.queryByTestId("subtask-body")).not.toBeInTheDocument();
+  });
+
+  it("shows the open-child button and calls onOpenChild on click (TASK-M6-07)", () => {
+    const opened = vi.fn();
+    render(() => <SubtaskPart part={subtaskPart()} onOpenChild={opened} />);
+    fireEvent.click(screen.getByTestId("subtask-toggle"));
+    fireEvent.click(screen.getByTestId("subtask-open-child"));
+    expect(opened).toHaveBeenCalledTimes(1);
   });
 
   it("shows the command row when the part carries one", () => {

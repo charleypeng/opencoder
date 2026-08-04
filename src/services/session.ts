@@ -19,6 +19,14 @@ export type SessionUpdateInput = NonNullable<
 export type PromptAsyncInput = NonNullable<
   operations["session.prompt_async"]["requestBody"]
 >["content"]["application/json"];
+/** Request body of `POST /session/{id}/message` (sync prompt, parts + options —
+ *  the same shape as prompt_async, but the server waits for the full reply). */
+export type PromptSyncInput = NonNullable<
+  operations["session.prompt"]["requestBody"]
+>["content"]["application/json"];
+/** Response of `POST /session/{id}/message` (the created assistant message). */
+export type PromptSyncResult =
+  operations["session.prompt"]["responses"]["200"]["content"]["application/json"];
 /** Request body of `POST /session/{id}/shell` (command + agent/model). */
 export type ShellRunInput = NonNullable<
   operations["session.shell"]["requestBody"]
@@ -73,6 +81,21 @@ export function createSessionService(client: ApiClient) {
     /** Send a message asynchronously; the streamed reply arrives via SSE. */
     promptAsync: (sessionID: string, body: PromptAsyncInput) =>
       client.post<void>(sessionPath(sessionID, "/prompt_async"), { body }),
+    /**
+     * Send a message synchronously (POST /session/{id}/message): the body
+     * matches prompt_async, but the endpoint waits for the full reply and
+     * resolves the created assistant message ({ info, parts }) directly —
+     * for simple one-shot calls that do not need SSE streaming.
+     */
+    sendSync: (sessionID: string, body: PromptSyncInput, dir?: string) =>
+      client.post<PromptSyncResult>(sessionPath(sessionID, "/message"), {
+        body: body satisfies PromptSyncInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
+    /** List the direct child sessions of a session (GET /session/{id}/
+     *  children); the response is an array of full Session objects. */
+    children: (sessionID: string, dir?: string) =>
+      client.get<Session[]>(sessionPath(sessionID, "/children"), dirQuery(dir)),
     /** Abort an active session and stop any ongoing processing. */
     abort: (sessionID: string) => client.post<boolean>(sessionPath(sessionID, "/abort")),
     /**

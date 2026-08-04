@@ -1,9 +1,11 @@
-// Subtask card (TASK-M3-03): a bordered card whose header shows the prompt
-// (title), a branch icon and the agent chip; expanding reveals the
-// description plus the model/command meta rows and the M6 child-session
-// placeholder note. The 1.18.11 SubtaskPart schema carries no status field
-// (so no status badge) and no child session id (so navigation is deferred):
-// M6 wires `onOpenChild` once the children relation lands.
+// Subtask card (TASK-M3-03, TASK-M6-07): a bordered card whose header shows
+// the prompt (title), a branch icon and the agent chip; expanding reveals
+// the description plus the model/command meta rows and an "Open child
+// session" button that jumps to the subtask's session. The 1.18.11
+// SubtaskPart schema carries no status field (so no status badge) and NO
+// child session id (verified against the OpenAPI), so the wired handler
+// opens the FIRST child of the part's own session — the caller (M6) knows
+// which session that is; without a callback the button is hidden.
 
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -14,7 +16,9 @@ export type SubtaskPartData = Extract<Part, { type: "subtask" }>;
 
 export interface SubtaskPartProps {
   part: SubtaskPartData;
-  /** Navigates to the child session; wired by M6's children relation. */
+  /** Navigates to the child session of the session containing this part
+   *  (the part's own sessionID); the schema carries no child id, so the
+   *  wired handler targets the first child session. Hidden when absent. */
   onOpenChild?: () => void;
 }
 
@@ -95,9 +99,16 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
               </Show>
             </dl>
           </Show>
-          <p data-testid="subtask-child-note" class="mt-1.5 text-fg-faint">
-            Child session navigation lands in M6.
-          </p>
+          <Show when={props.onOpenChild !== undefined}>
+            <button
+              type="button"
+              data-testid="subtask-open-child"
+              class="mt-1.5 w-full rounded-md border border-accent bg-accent-soft px-2 py-1 text-left text-xs font-medium text-accent outline-none hover:bg-accent/15 focus:bg-accent/15"
+              onClick={() => props.onOpenChild?.()}
+            >
+              Open child session
+            </button>
+          </Show>
         </div>
       </Show>
     </div>

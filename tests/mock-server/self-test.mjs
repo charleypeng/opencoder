@@ -701,6 +701,65 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
+    // TASK-M6-07: session children family.
+    await test("session children lists the direct children with the parent id", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/children");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body), "children must be an array");
+      expect(
+        body.length === 1 && body[0]?.id === "sess_02" && body[0]?.parentID === "sess_01",
+        `children ${JSON.stringify(body)}`,
+      );
+    });
+
+    await test("session children descend the multi-level tree", async () => {
+      const level2 = await request(baseUrl, "/session/sess_02/children");
+      const level3 = await request(baseUrl, "/session/sess_03/children");
+      const level4 = await request(baseUrl, "/session/sess_04/children");
+      expect(
+        level2.body?.[0]?.id === "sess_03" && level2.body?.[0]?.parentID === "sess_02",
+        `level2 ${JSON.stringify(level2.body)}`,
+      );
+      expect(
+        level3.body?.[0]?.id === "sess_04" && level3.body?.[0]?.parentID === "sess_03",
+        `level3 ${JSON.stringify(level3.body)}`,
+      );
+      expect(
+        Array.isArray(level4.body) && level4.body.length === 0,
+        `leaf must yield []; got ${JSON.stringify(level4.body)}`,
+      );
+    });
+
+    await test("session children 404 for an unknown session", async () => {
+      const { status } = await request(baseUrl, "/session/sess_nope/children");
+      expect(status === 404, `status ${status}`);
+    });
+
+    // TASK-M6-07: sync message family.
+    await test("sync message reports the created assistant message", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parts: [{ type: "text", text: "hello" }] }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(
+        body?.info?.role === "assistant" && body?.info?.sessionID === "sess_01",
+        `info ${JSON.stringify(body?.info)}`,
+      );
+      expect(Array.isArray(body?.parts), "parts must be an array");
+    });
+
+    await test("sync message rejects a malformed payload", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     // TASK-M6-04: session revert family.
     await test("session revert sets the revert point on the session", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/revert", {

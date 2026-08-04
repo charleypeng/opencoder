@@ -54,6 +54,9 @@ export interface MessageListProps {
   onRevert?: (messageID: string) => void;
   /** Unreverts the session in one click (wired by M6-04). */
   onUnrevert?: () => void;
+  /** Opens the child session of a session owning a subtask part (wired by
+   *  M6-07). */
+  onOpenChild?: (sessionId: string) => void;
 }
 
 interface MessageGroup {
@@ -431,6 +434,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                           onViewDiff={props.onViewDiff}
                           onFork={props.onFork}
                           onRevert={props.onRevert}
+                          onOpenChild={props.onOpenChild}
                         />
                       </div>
                     )}

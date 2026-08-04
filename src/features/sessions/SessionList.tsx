@@ -1,10 +1,15 @@
-// Session list (TASK-M2-04/05): the sidebar's lower section. Renders the
-// server's sessions grouped by local time (Today / Yesterday / This Week /
-// Earlier) with a status badge per session (busy spinner, idle dot, error
-// red dot), a local search filter, the active-session highlight, a
-// per-row actions menu (rename / delete dialogs) and a "+ New session"
-// button (header + empty state). The store is SSE-driven, so grouping and
-// badges update live without polling.
+// Session list (TASK-M2-04/05, TASK-M6-03/07): the sidebar's lower section.
+// Renders the server's sessions as a PARENT-CHILD TREE (M6-07): parents show
+// a chevron, children indent below them with a left connector border, and
+// collapsed subtrees hide; the rows group by local time (Today / Yesterday /
+// This Week / Earlier) partitioning the tree roots only. Each row has a
+// status badge (busy spinner, idle dot, error red dot), a fork badge for
+// children, a shared badge, a local search filter, the active-session
+// highlight, a per-row actions menu (rename / delete dialogs) and a
+// "+ New session" button (header + empty state). The store is SSE-driven,
+// so grouping, badges and the tree update live without polling; re-expanding
+// a parent asks GET /session/{id}/children once so subagent sessions not yet
+// in the store join the tree.
 //
 // Virtual scroll preparation: rows render plainly today; when session
 // counts grow, swap the <For> bodies for a virtualized list (e.g.
@@ -23,9 +28,11 @@ import {
   type SessionStatusEntry,
   getServerSessionState,
   setActiveSession,
+  upsertSession,
 } from "../../stores/session.js";
 import { formatRelativeTime } from "../servers/relativeTime.js";
 import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
+import { buildSessionTree, topLevelRoots, type SessionTreeNode } from "./sessionTree.js";
 import { createSession, forkSession } from "./sessionActions.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
@@ -175,6 +182,14 @@ function SessionRow(props: {
   status: SessionStatusEntry | undefined;
   active: boolean;
   nowMs: number;
+  /** Tree depth of this row (0 = a top-level root). */
+  depth: number;
+  /** Whether the session has children in the store (chevron shows). */
+  hasChildren: boolean;
+  /** Whether the children are currently visible. */
+  expanded: boolean;
+  /** Toggles expand/collapse of this node's subtree. */
+  onToggle: () => void;
   /** Parent session title for the fork badge tooltip (TASK-M6-03). */
   parentTitle?: string;
   onSelect: (sessionId: string) => void;
@@ -189,17 +204,22 @@ function SessionRow(props: {
   // Shared state derives from the contract's Session.share marker
   // (TASK-M6-05), like the fork badge derives from parentID.
   const shared = () => props.session.share !== undefined;
+  // Tree mode (TASK-M6-07): depth drives the indent, and every nested row
+  // carries a left connector border (CSS border, no connector glyphs).
+  const indent = () => 12 + props.depth * 14;
   return (
     <div
       role="button"
       tabIndex={0}
       data-testid={`session-item-${props.session.id}`}
+      data-depth={props.depth}
       data-active={props.active ? "true" : "false"}
       data-forked={forked() ? "true" : "false"}
       aria-current={props.active ? "true" : undefined}
-      class={`group flex w-full cursor-pointer items-center gap-2 px-3 py-2 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
-        forked() ? "pl-8" : ""
+      class={`group flex w-full cursor-pointer items-center gap-2 py-2 pr-3 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
+        props.depth > 0 ? "border-l border-bg-sunken" : ""
       }`}
+      style={{ "padding-left": `${indent()}px` }}
       onClick={() => props.onSelect(props.session.id)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -208,6 +228,23 @@ function SessionRow(props: {
         }
       }}
     >
+      <Show when={props.hasChildren}>
+        <button
+          type="button"
+          data-testid="session-tree-toggle"
+          aria-expanded={props.expanded ? "true" : "false"}
+          aria-label={props.expanded ? "Collapse" : "Expand"}
+          class={`shrink-0 rounded-sm p-0.5 text-xs leading-none text-fg-faint outline-none hover:text-fg-primary focus:text-fg-primary ${
+            props.expanded ? "rotate-90" : ""
+          }`}
+          onClick={(event) => {
+            event.stopPropagation();
+            props.onToggle();
+          }}
+        >
+          ▸
+        </button>
+      </Show>
       <Show when={forked()}>
         <span
           data-testid="session-fork-badge"
@@ -245,14 +282,14 @@ function SessionRow(props: {
   );
 }
 
-/** Renders one session row plus its forked children (recursively),
- *  indented below the parent regardless of time group (TASK-M6-03; M6-07
- *  replaces this with the full tree view). */
-function SessionNode(props: {
-  session: Session;
-  childrenOf: ReadonlyMap<string, Session[]>;
+/** Renders one tree node: its row (chevron + depth indent + connectors)
+ *  plus, while expanded, its children recursively (TASK-M6-07). */
+function SessionTreeNodeView(props: {
+  node: SessionTreeNode;
   state: ServerSessionState;
   nowMs: number;
+  collapsed: ReadonlySet<string>;
+  onToggle: (session: Session) => void;
   onSelect: (sessionId: string) => void;
   onRename: (session: Session) => void;
   onDelete: (session: Session) => void;
@@ -262,14 +299,22 @@ function SessionNode(props: {
   onInit: (session: Session) => void;
   parentTitleOf: (session: Session) => string | undefined;
 }) {
+  // Getters (not consts): collapse state and store children change after
+  // mount, and the props must track those signals reactively.
+  const hasChildren = () => props.node.children.length > 0;
+  const expanded = () => hasChildren() && !props.collapsed.has(props.node.session.id);
   return (
     <>
       <SessionRow
-        session={props.session}
-        status={props.state.statuses[props.session.id]}
-        active={props.state.activeSessionId === props.session.id}
+        session={props.node.session}
+        status={props.state.statuses[props.node.session.id]}
+        active={props.state.activeSessionId === props.node.session.id}
         nowMs={props.nowMs}
-        parentTitle={props.parentTitleOf(props.session)}
+        depth={props.node.depth}
+        hasChildren={hasChildren()}
+        expanded={expanded()}
+        onToggle={() => props.onToggle(props.node.session)}
+        parentTitle={props.parentTitleOf(props.node.session)}
         onSelect={props.onSelect}
         onRename={props.onRename}
         onDelete={props.onDelete}
@@ -278,24 +323,27 @@ function SessionNode(props: {
         onSummarize={props.onSummarize}
         onInit={props.onInit}
       />
-      <For each={props.childrenOf.get(props.session.id) ?? []}>
-        {(child) => (
-          <SessionNode
-            session={child}
-            childrenOf={props.childrenOf}
-            state={props.state}
-            nowMs={props.nowMs}
-            onSelect={props.onSelect}
-            onRename={props.onRename}
-            onDelete={props.onDelete}
-            onFork={props.onFork}
-            onShare={props.onShare}
-            onSummarize={props.onSummarize}
-            onInit={props.onInit}
-            parentTitleOf={props.parentTitleOf}
-          />
-        )}
-      </For>
+      <Show when={expanded()}>
+        <For each={props.node.children}>
+          {(child) => (
+            <SessionTreeNodeView
+              node={child}
+              state={props.state}
+              nowMs={props.nowMs}
+              collapsed={props.collapsed}
+              onToggle={props.onToggle}
+              onSelect={props.onSelect}
+              onRename={props.onRename}
+              onDelete={props.onDelete}
+              onFork={props.onFork}
+              onShare={props.onShare}
+              onSummarize={props.onSummarize}
+              onInit={props.onInit}
+              parentTitleOf={props.parentTitleOf}
+            />
+          )}
+        </For>
+      </Show>
     </>
   );
 }
@@ -316,43 +364,58 @@ const SessionList: Component<SessionListProps> = (props) => {
   // "Compress context" and "Generate AGENTS.md" items.
   const [summarizeTarget, setSummarizeTarget] = createSignal<Session | null>(null);
   const [initTarget, setInitTarget] = createSignal<Session | null>(null);
+  // Tree mode (TASK-M6-07): the set of collapsed subtree roots (children
+  // stay hidden until the chevron re-expands them), plus the set of parents
+  // whose server-side children were already fetched (one-shot completeness).
+  const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
+  const [childrenFetched, setChildrenFetched] = createSignal<ReadonlySet<string>>(new Set());
+
+  // The store's sessions in render order.
+  const storeSessions = createMemo(() => {
+    const st = state();
+    return st.order.map((id) => st.sessions[id]).filter((s): s is Session => s !== undefined);
+  });
 
   const filtered = createMemo(() => {
     const q = query().trim().toLowerCase();
-    const st = state();
-    const result: Session[] = [];
-    for (const id of st.order) {
-      const session = st.sessions[id];
-      if (session !== undefined && matchesQuery(session, q)) result.push(session);
-    }
-    return result;
+    if (q === "") return storeSessions();
+    return storeSessions().filter((session) => matchesQuery(session, q));
   });
 
-  // Fork children (TASK-M6-03): parentID -> child sessions in store order.
-  // Built over the whole store (not the filtered set) so a search match on
-  // a parent pulls its entire subtree along; a child matching on its own
-  // still stands alone as a root (badge included).
-  const childrenOf = createMemo(() => {
-    const st = state();
-    const map = new Map<string, Session[]>();
-    for (const id of st.order) {
-      const session = st.sessions[id];
-      if (session?.parentID === undefined) continue;
-      const list = map.get(session.parentID);
-      if (list === undefined) map.set(session.parentID, [session]);
-      else list.push(session);
-    }
-    return map;
-  });
-
-  // Top-level rows: sessions without a parent, or whose parent was filtered
-  // out by the search (the child then stands on its own, badge included).
-  const roots = createMemo(() => {
-    const ids = new Set(filtered().map((s) => s.id));
-    return filtered().filter((s) => s.parentID === undefined || !ids.has(s.parentID));
-  });
-
+  // Tree mode (TASK-M6-07): roots are the matched sessions with NO
+  // transitively matched ancestor — a deep match under a matched grandparent
+  // renders inside that subtree instead of duplicating as a standalone root
+  // (the TASK-M6-03 carry-over fix, see sessionTree.topLevelRoots). Children
+  // are looked up over the whole store, so a matched root pulls its entire
+  // subtree along. Time groups partition the roots only; subtrees render
+  // directly under their parent regardless of group.
+  const roots = createMemo(() => topLevelRoots(filtered(), storeSessions()));
+  const tree = createMemo(() => buildSessionTree(storeSessions(), roots()));
   const groups = createMemo(() => groupSessionsByTime(roots(), now()));
+
+  /** Toggles a node's expand state. Re-EXPANDING a parent asks the server's
+   *  /children endpoint ONCE and upserts the returned sessions, so the tree
+   *  stays complete (subagent sessions that have not arrived via SSE yet
+   *  join on expand). Fetch failures are ignored — the store is the truth. */
+  function toggleNode(session: Session) {
+    const id = session.id;
+    const next = new Set(collapsed());
+    const nowExpanded = next.has(id);
+    if (nowExpanded) next.delete(id);
+    else next.add(id);
+    setCollapsed(next);
+    const fetched = childrenFetched();
+    if (nowExpanded && !fetched.has(id)) {
+      setChildrenFetched(new Set(fetched).add(id));
+      const serverId = props.serverId;
+      void createSessionService(getApiClient())
+        .children(id)
+        .then((children) => {
+          for (const child of children ?? []) upsertSession(serverId, child);
+        })
+        .catch(() => undefined);
+    }
+  }
 
   function select(sessionId: string) {
     setActiveSession(props.serverId, sessionId);
@@ -462,13 +525,14 @@ const SessionList: Component<SessionListProps> = (props) => {
                 >
                   {group.label}
                 </div>
-                <For each={group.sessions}>
-                  {(session) => (
-                    <SessionNode
-                      session={session}
-                      childrenOf={childrenOf()}
+                <For each={tree().filter((node) => group.sessions.includes(node.session))}>
+                  {(node) => (
+                    <SessionTreeNodeView
+                      node={node}
                       state={state()}
                       nowMs={now()}
+                      collapsed={collapsed()}
+                      onToggle={toggleNode}
                       onSelect={select}
                       onRename={setRenameTarget}
                       onDelete={setDeleteTarget}

@@ -48,6 +48,9 @@ export interface MessageBubbleProps {
    *  the message menu's "Revert to here" item and the snapshot chip stay
    *  disabled/inert. */
   onRevert?: (messageID: string) => void;
+  /** Opens the child session of the session containing a subtask part
+   *  (wired by M6-07); while absent the part's button stays hidden. */
+  onOpenChild?: (sessionId: string) => void;
 }
 
 type RenderablePart = Extract<
@@ -93,6 +96,7 @@ function PartView(props: {
   part: Part | undefined;
   streaming?: boolean;
   onRevert?: (messageID: string) => void;
+  onOpenChild?: (sessionId: string) => void;
 }) {
   // Memoized dispatch so the type switch stays inside a tracked scope; a
   // part's type is immutable for a given identity.
@@ -116,7 +120,18 @@ function PartView(props: {
       case "step-finish":
         return <StepFinishPart part={props.part} />;
       case "subtask":
-        return <SubtaskPart part={props.part} />;
+        // M6-07: the subtask part's session id is the session that owns the
+        // part; the wired handler resolves the child session from it.
+        return (
+          <SubtaskPart
+            part={props.part}
+            onOpenChild={
+              props.onOpenChild === undefined
+                ? undefined
+                : () => props.onOpenChild?.(props.part?.sessionID ?? "")
+            }
+          />
+        );
       case "agent":
         return <AgentPart part={props.part} />;
       case "retry":
@@ -183,6 +198,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                   part={part()}
                   streaming={props.typing === true && lastTextPartId() === partId}
                   onRevert={props.onRevert}
+                  onOpenChild={props.onOpenChild}
                 />
               );
             }}

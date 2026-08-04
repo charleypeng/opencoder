@@ -118,6 +118,79 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("sendSync POSTs the parts body to /session/{id}/message", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { info: {}, parts: [] } }));
+    await createSessionService(makeClient()).sendSync("sess_01", {
+      parts: [{ type: "text", text: "hello" }],
+    });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/message",
+        body: { parts: [{ type: "text", text: "hello" }] },
+      },
+    });
+  });
+
+  it("sendSync carries the model and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { info: {}, parts: [] } }));
+    await createSessionService(makeClient()).sendSync(
+      "sess_01",
+      {
+        parts: [{ type: "text", text: "hello" }],
+        agent: "plan",
+        model: { providerID: "openai", modelID: "gpt-5" },
+      },
+      "/mock/projects/opencode-demo",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/message",
+        body: {
+          parts: [{ type: "text", text: "hello" }],
+          agent: "plan",
+          model: { providerID: "openai", modelID: "gpt-5" },
+        },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
+  it("sendSync resolves the created assistant message info + parts", async () => {
+    const body = {
+      info: { id: "msg_asst_sync", sessionID: "sess_01", role: "assistant" },
+      parts: [{ id: "prt_sync", type: "text", text: "(mock sync reply)" }],
+    };
+    invokeMock.mockResolvedValue(httpResponse({ body }));
+    await expect(
+      createSessionService(makeClient()).sendSync("sess_01", {
+        parts: [{ type: "text", text: "hello" }],
+      }),
+    ).resolves.toEqual(body);
+  });
+
+  it("children GETs /session/{id}/children and resolves the child sessions", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [{ id: "sess_02", parentID: "sess_01" }] }));
+    const result = await createSessionService(makeClient()).children("sess_01");
+    expect(result).toEqual([{ id: "sess_02", parentID: "sess_01" }]);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session/sess_01/children" },
+    });
+  });
+
+  it("children carries an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createSessionService(makeClient()).children("sess_01", "/mock/projects/opencode-demo");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "GET",
+        path: "/session/sess_01/children",
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
   it("abort POSTs to the session abort endpoint", async () => {
     invokeMock.mockResolvedValue(httpResponse({ body: true }));
     const result = await createSessionService(makeClient()).abort("sess_01");
@@ -436,6 +509,42 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
     await expect(
       service.promptAsync("sess_01", { parts: [{ type: "text", text: "hi" }] }),
     ).resolves.toBeUndefined();
+  });
+
+  it("sendSync resolves the created assistant message", async () => {
+    const result = await service.sendSync("sess_01", { parts: [{ type: "text", text: "hi" }] });
+    expect(result.info.role).toBe("assistant");
+    expect(result.info.sessionID).toBe("sess_01");
+    expect(Array.isArray(result.parts)).toBe(true);
+  });
+
+  it("sendSync rejects a malformed payload with a 400", async () => {
+    await expect(
+      service.sendSync("sess_01", {
+        parts: [{ type: "nope", text: "x" }] as never,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("children lists the direct children carrying the parent id", async () => {
+    const children = await service.children("sess_01");
+    expect(children.length).toBeGreaterThan(0);
+    for (const child of children) expect(child.parentID).toBe("sess_01");
+  });
+
+  it("children descends the multi-level tree", async () => {
+    const level2 = await service.children("sess_02");
+    const level3 = await service.children("sess_03");
+    expect(level2.map((s) => s.id)).toContain("sess_03");
+    expect(level3.map((s) => s.id)).toContain("sess_04");
+  });
+
+  it("children returns an empty list for a leaf session", async () => {
+    expect(await service.children("sess_04")).toEqual([]);
+  });
+
+  it("children rejects an unknown session with a 404", async () => {
+    await expect(service.children("sess_nope")).rejects.toMatchObject({ status: 404 });
   });
 
   it("abort stops the session", async () => {

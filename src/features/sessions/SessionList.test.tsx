@@ -346,6 +346,142 @@ describe("SessionList forks (TASK-M6-03)", () => {
   });
 });
 
+describe("SessionList tree (TASK-M6-07)", () => {
+  it("renders a multi-level tree with depth and connector marking", () => {
+    const root = session("root", TODAY, "Root plan");
+    const child = { ...session("child", TODAY + 1000, "Child work"), parentID: "root" };
+    const grand = { ...session("grand", TODAY + 2000, "Grand detail"), parentID: "child" };
+    applySessionList(SERVER, [root, child, grand]);
+    renderList();
+
+    const rows = screen.getAllByTestId(/^session-item-/);
+    expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual([
+      "session-item-root",
+      "session-item-child",
+      "session-item-grand",
+    ]);
+    expect(screen.getByTestId("session-item-root")).toHaveAttribute("data-depth", "0");
+    expect(screen.getByTestId("session-item-child")).toHaveAttribute("data-depth", "1");
+    expect(screen.getByTestId("session-item-grand")).toHaveAttribute("data-depth", "2");
+    // Nested rows carry the left connector border.
+    expect(screen.getByTestId("session-item-child")).toHaveClass("border-l");
+    expect(screen.getByTestId("session-item-grand")).toHaveClass("border-l");
+    expect(screen.getByTestId("session-item-root")).not.toHaveClass("border-l");
+    // Only the root is a group row; children hang directly under it.
+    expect(screen.getAllByTestId(/^session-group-/)).toHaveLength(1);
+  });
+
+  it("collapses and re-expands a subtree via the parent chevron", () => {
+    const root = session("root", TODAY, "Root plan");
+    const child = { ...session("child", TODAY + 1000, "Child work"), parentID: "root" };
+    const grand = { ...session("grand", TODAY + 2000, "Grand detail"), parentID: "child" };
+    applySessionList(SERVER, [root, child, grand]);
+    renderList();
+
+    const rootToggle = () =>
+      within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    expect(rootToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+
+    fireEvent.click(rootToggle());
+    expect(rootToggle()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("session-item-child")).toBeNull();
+    expect(screen.queryByTestId("session-item-grand")).toBeNull();
+    expect(screen.getByTestId("session-item-root")).toBeInTheDocument();
+
+    fireEvent.click(rootToggle());
+    expect(rootToggle()).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+    expect(screen.getByTestId("session-item-grand")).toBeInTheDocument();
+  });
+
+  it("shows no chevron for leaf rows and keeps the fork badge on children", () => {
+    const root = session("root", TODAY, "Root plan");
+    const child = { ...session("child", TODAY + 1000, "Child work"), parentID: "root" };
+    applySessionList(SERVER, [root, child]);
+    renderList();
+
+    const rootRow = screen.getByTestId("session-item-root");
+    expect(within(rootRow).getByTestId("session-tree-toggle")).toBeInTheDocument();
+    expect(
+      within(screen.getByTestId("session-item-child")).queryByTestId("session-tree-toggle"),
+    ).toBeNull();
+    expect(
+      within(screen.getByTestId("session-item-child")).getByTestId("session-fork-badge"),
+    ).toHaveTextContent("fork");
+  });
+
+  it("selecting a parent via its row does not toggle the subtree", () => {
+    const root = session("root", TODAY, "Root plan");
+    const child = { ...session("child", TODAY + 1000, "Child work"), parentID: "root" };
+    applySessionList(SERVER, [root, child]);
+    const onSelect = renderList();
+
+    fireEvent.click(screen.getByTestId("session-item-root"));
+    expect(onSelect).toHaveBeenCalledWith("root");
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("root");
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+  });
+
+  it("does not duplicate a deep match under its matched ancestor (carry-over fix)", () => {
+    const gp = session("gp", TODAY, "Alpha Gamma plan");
+    const parent = { ...session("parent", TODAY + 1000, "Beta work"), parentID: "gp" };
+    const grand = { ...session("grand", TODAY + 2000, "Gamma detail"), parentID: "parent" };
+    applySessionList(SERVER, [gp, parent, grand]);
+    renderList();
+
+    fireEvent.input(screen.getByTestId("session-search"), { target: { value: "gamma" } });
+    // gp AND grand match; the intermediate parent does not. The grandchild
+    // must render ONCE, inside the grandparent's subtree, not also alone.
+    expect(screen.getAllByTestId("session-item-grand")).toHaveLength(1);
+    expect(screen.getByTestId("session-item-grand")).toHaveAttribute("data-depth", "2");
+    expect(screen.getByTestId("session-item-gp")).toHaveAttribute("data-depth", "0");
+    expect(screen.getByTestId("session-item-parent")).toHaveAttribute("data-depth", "1");
+  });
+
+  it("completes a parent's subtree from the server on re-expand", async () => {
+    const client = mockClient();
+    const known = { ...session("known", TODAY + 1000, "Known child"), parentID: "root" };
+    const remote = { ...session("remote", TODAY + 3000, "Remote child"), parentID: "root" };
+    // The server's authoritative list adds a child the store does not know.
+    client.get.mockResolvedValue([known, remote]);
+    applySessionList(SERVER, [session("root", TODAY, "Root plan"), known]);
+    renderList();
+
+    const toggle = () =>
+      within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    expect(screen.queryByTestId("session-item-remote")).toBeNull();
+
+    // Collapse, then expand: the re-expand fires the one-shot /children
+    // fetch and the unknown child joins the tree.
+    fireEvent.click(toggle());
+    fireEvent.click(toggle());
+
+    await waitFor(() => expect(screen.getByTestId("session-item-remote")).toBeInTheDocument());
+    expect(client.get).toHaveBeenCalledWith("/session/root/children", undefined);
+    expect(screen.getByTestId("session-item-remote")).toHaveAttribute("data-depth", "1");
+    expect(screen.getByTestId("session-item-remote")).toHaveAttribute("data-forked", "true");
+  });
+
+  it("keeps the tree intact when the children fetch fails", async () => {
+    const client = mockClient();
+    client.get.mockRejectedValue(new ApiError(500, "http", "boom", true));
+    applySessionList(SERVER, [
+      session("root", TODAY, "Root plan"),
+      { ...session("child", TODAY + 1000, "Child work"), parentID: "root" },
+    ]);
+    renderList();
+
+    const toggle = () =>
+      within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    fireEvent.click(toggle());
+    fireEvent.click(toggle());
+    // The failure is ignored (the store is the truth); the tree survives.
+    expect(screen.getByTestId("session-item-root")).toBeInTheDocument();
+    expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+  });
+});
+
 describe("SessionList session actions (TASK-M2-05)", () => {
   it("renames a session via the dialog; Enter submits and closes it", async () => {
     applySessionList(SERVER, [session("a", TODAY, "Old title")]);
