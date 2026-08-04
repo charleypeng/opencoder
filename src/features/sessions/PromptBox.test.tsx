@@ -147,13 +147,16 @@ describe("PromptBox", () => {
     expect(input().value).toBe("line one");
   });
 
-  it("locks the input while the session is busy or retry, with a generating indicator", () => {
+  it("locks the input while the session is busy or retry", () => {
+    // TASK-M2-09: the thin streaming progress bar moved to the top of the
+    // chat area (MessageList, "streaming-progress"); the input lock below is
+    // what PromptBox itself owns.
     setSessionStatus(SERVER, SESSION, { type: "busy" });
     const { unmount } = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
 
     expect(input()).toBeDisabled();
     expect(input()).toHaveAttribute("placeholder", "Generating…");
-    expect(screen.getByTestId("prompt-generating")).toBeInTheDocument();
+    expect(screen.queryByTestId("prompt-generating")).not.toBeInTheDocument();
 
     unmount();
     setSessionStatus(SERVER, SESSION, {

@@ -10,11 +10,13 @@
 // leaving a duplicate (see trackPendingLocalMessage in the messages store);
 // a prompt the server never echoes keeps its optimistic bubble, same as a
 // silent server. While the session is generating (busy/retry
-// status from the store) the input is locked with a "Generating…" placeholder
-// and a thin progress bar; the Esc abort and stop button land in M2-10. The
-// attachment button is a disabled placeholder for M3 (file parts).
+// status from the store) the input is locked with a "Generating…" placeholder;
+// the thin streaming progress bar lives at the top of the chat area in
+// MessageList (TASK-M2-09, single source: session busy status). The Esc abort
+// and stop button land in M2-10. The attachment button is a disabled
+// placeholder for M3 (file parts).
 
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
@@ -235,13 +237,6 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
 
   return (
     <div data-testid="prompt-box" class="shrink-0 border-t border-bg-sunken bg-bg-elevated">
-      <Show when={busy()}>
-        <div
-          data-testid="prompt-generating"
-          class="h-0.5 animate-pulse bg-accent"
-          aria-hidden="true"
-        />
-      </Show>
       <div class="flex items-end gap-2 px-4 py-3">
         <div class="min-w-0 flex-1">
           <ErrorBanner error={sendError()} onDismiss={() => setSendError(null)} />

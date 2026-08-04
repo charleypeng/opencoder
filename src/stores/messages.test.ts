@@ -2,11 +2,15 @@
 // stable order), delta appends with O(1) single-part updates, stub creation
 // when a delta arrives before its part, part/message removal and per-server
 // reset. TASK-M2-08: optimistic local messages reconcile onto their server
-// echo through upsertMessage.
+// echo through upsertMessage. TASK-M2-09: the `messageParts` grouping map
+// (replaced only on membership changes, untouched by text deltas),
+// `lastDeltaAt` streaming timestamps, the batched applyMessageBatch, and a
+// 1000-delta performance bound.
 
 import { afterEach, describe, expect, it } from "vitest";
 import type { Message, Part } from "./messages.js";
 import {
+  applyMessageBatch,
   applyPartDelta,
   applyTextDelta,
   getServerMessages,
@@ -418,5 +422,186 @@ describe("messages store", () => {
     expect("local-1" in entry.infos).toBe(false);
     expect(entry.order).toEqual(["prt-msg_echo_1"]);
     expect(textOf(entry.parts["prt-msg_echo_1"])).toBe("hello");
+  });
+
+  describe("TASK-M2-09 streaming grouping", () => {
+    it("groups parts by message id in first-appearance order", () => {
+      applyPartDelta("srv-msg", SESSION, textPart("prt_a", "a"));
+      applyPartDelta("srv-msg", SESSION, { ...textPart("prt_b", "b"), messageID: "msg_asst_002" });
+      applyPartDelta("srv-msg", SESSION, textPart("prt_c", "c"));
+      const entry = messages["srv-msg"][SESSION];
+      expect(entry.messageParts).toEqual({
+        [MSG_ASSISTANT]: ["prt_a", "prt_c"],
+        msg_asst_002: ["prt_b"],
+      });
+      // First-appearance order preserved across interleaved messages.
+      expect(Object.keys(entry.messageParts)).toEqual([MSG_ASSISTANT, "msg_asst_002"]);
+    });
+
+    it("keeps the messageParts map identity untouched by text deltas", () => {
+      applyPartDelta("srv-msg", SESSION, textPart("prt_a", "a"));
+      const entryBefore = messages["srv-msg"][SESSION];
+      const mapBefore = entryBefore.messageParts;
+      applyTextDelta("srv-msg", SESSION, {
+        messageID: MSG_ASSISTANT,
+        partID: "prt_a",
+        field: "text",
+        delta: " extra",
+      });
+      // The map object (and its arrays) survive text mutations so grouping
+      // subscribers never re-run per token; only the part node fires.
+      expect(messages["srv-msg"][SESSION].messageParts).toBe(mapBefore);
+      expect(textOf(messages["srv-msg"][SESSION].parts["prt_a"])).toBe("a extra");
+    });
+
+    it("replaces messageParts only when part membership changes", () => {
+      applyPartDelta("srv-msg", SESSION, textPart("prt_a", "a"));
+      const mapBefore = messages["srv-msg"][SESSION].messageParts;
+      applyPartDelta("srv-msg", SESSION, textPart("prt_b", "b"));
+      expect(messages["srv-msg"][SESSION].messageParts).not.toBe(mapBefore);
+      expect(messages["srv-msg"][SESSION].messageParts).toEqual({
+        [MSG_ASSISTANT]: ["prt_a", "prt_b"],
+      });
+    });
+
+    it("keeps messageParts in sync on removal and message removal", () => {
+      applyPartDelta("srv-msg", SESSION, textPart("prt_a", "a"));
+      applyPartDelta("srv-msg", SESSION, { ...textPart("prt_b", "b"), messageID: "msg_other" });
+      applyPartDelta("srv-msg", SESSION, textPart("prt_c", "c"));
+
+      removePart("srv-msg", SESSION, "prt_a");
+      expect(messages["srv-msg"][SESSION].messageParts).toEqual({
+        [MSG_ASSISTANT]: ["prt_c"],
+        msg_other: ["prt_b"],
+      });
+
+      removePartsForMessage("srv-msg", SESSION, MSG_ASSISTANT);
+      expect(messages["srv-msg"][SESSION].messageParts).toEqual({ msg_other: ["prt_b"] });
+      expect(messages["srv-msg"][SESSION].order).toEqual(["prt_b"]);
+    });
+
+    it("updates lastDeltaAt on part updates and deltas, not on upsert-only", () => {
+      upsertMessage("srv-msg", SESSION, userMessage("msg_1"));
+      expect(messages["srv-msg"][SESSION].lastDeltaAt).toBe(0);
+
+      applyTextDelta("srv-msg", SESSION, {
+        messageID: MSG_ASSISTANT,
+        partID: "prt_stream",
+        field: "text",
+        delta: "tok",
+      });
+      expect(messages["srv-msg"][SESSION].lastDeltaAt).toBeGreaterThan(0);
+
+      const before = messages["srv-msg"][SESSION].lastDeltaAt;
+      applyPartDelta("srv-msg", SESSION, textPart("prt_full", "full"));
+      expect(messages["srv-msg"][SESSION].lastDeltaAt).toBeGreaterThanOrEqual(before);
+    });
+
+    it("applies a batch in one pass with message order and reconciliation", () => {
+      // A history payload: two messages with their parts.
+      const historyItems = [
+        { type: "message" as const, info: userMessage("msg_1") },
+        {
+          type: "part" as const,
+          part: { ...textPart("prt_1", "prompt"), messageID: "msg_1" } as Part,
+        },
+        { type: "message" as const, info: assistantMessage("msg_2") },
+        {
+          type: "part" as const,
+          part: { ...textPart("prt_2", "reply"), messageID: "msg_2" } as Part,
+        },
+        {
+          type: "delta" as const,
+          delta: { messageID: "msg_2", partID: "prt_2", field: "text", delta: "!" },
+        },
+      ];
+      applyMessageBatch("srv-msg", SESSION, historyItems);
+
+      const entry = messages["srv-msg"][SESSION];
+      expect(entry.order).toEqual(["prt_1", "prt_2"]);
+      expect(entry.messageParts).toEqual({ msg_1: ["prt_1"], msg_2: ["prt_2"] });
+      expect(textOf(entry.parts["prt_2"])).toBe("reply!");
+      expect(Object.keys(entry.infos)).toEqual(["msg_1", "msg_2"]);
+      expect(entry.lastDeltaAt).toBeGreaterThan(0);
+    });
+
+    it("reconciles a pending local message through a batch like single items", () => {
+      upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+      applyPartDelta("srv-msg", SESSION, {
+        id: "local-part-1",
+        sessionID: SESSION,
+        messageID: "local-1",
+        type: "text",
+        text: "hello",
+      } as Part);
+      trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+      // The echo message + its part in one pass.
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: userMessage("msg_echo_1") },
+        { type: "part", part: { ...textPart("prt_echo_1", ""), messageID: "msg_echo_1" } },
+      ]);
+
+      const entry = messages["srv-msg"][SESSION];
+      expect("local-1" in entry.infos).toBe(false);
+      expect(entry.messageParts).toEqual({ msg_echo_1: ["prt-msg_echo_1", "prt_echo_1"] });
+      expect(entry.order).toEqual(["prt-msg_echo_1", "prt_echo_1"]);
+      expect(textOf(entry.parts["prt-msg_echo_1"])).toBe("hello");
+      expect(entry.order).toHaveLength(new Set(entry.order).size);
+    });
+  });
+
+  describe("TASK-M2-09 delta merge benchmark", () => {
+    it("appends 1000 deltas to 1000 parts well under the CI bound", () => {
+      // 100 messages x 10 parts, applied through the batched history path.
+      const items: Parameters<typeof applyMessageBatch>[2] = [];
+      for (let m = 1; m <= 100; m++) {
+        items.push({ type: "message", info: userMessage(`msg_${m}`) });
+        for (let p = 0; p < 10; p++) {
+          items.push({ type: "part", part: textPart(`prt_${m}_${p}`, "") });
+        }
+      }
+      const batchStart = performance.now();
+      applyMessageBatch("srv-msg", SESSION, items);
+      const batchMs = performance.now() - batchStart;
+
+      const deltaStart = performance.now();
+      for (let m = 1; m <= 100; m++) {
+        for (let p = 0; p < 10; p++) {
+          applyTextDelta("srv-msg", SESSION, {
+            messageID: `msg_${m}`,
+            partID: `prt_${m}_${p}`,
+            field: "text",
+            delta: "tok",
+          });
+        }
+      }
+      const deltaMs = performance.now() - deltaStart;
+
+      // Generous bounds so CI machines and debug builds never flake; the
+      // real 60fps target is covered by the component-level granularity
+      // tests (one part node fires per delta, nothing else re-renders).
+      expect(batchMs).toBeLessThan(500);
+      expect(deltaMs).toBeLessThan(500);
+      expect(messages["srv-msg"][SESSION].order).toHaveLength(1000);
+      expect(textOf(messages["srv-msg"][SESSION].parts["prt_100_9"])).toBe("tok");
+    });
+
+    it("appends 1000 deltas to a single streaming part (O(1) path)", () => {
+      applyPartDelta("srv-msg", SESSION, textPart("prt_solo", ""));
+      const start = performance.now();
+      for (let i = 0; i < 1000; i++) {
+        applyTextDelta("srv-msg", SESSION, {
+          messageID: MSG_ASSISTANT,
+          partID: "prt_solo",
+          field: "text",
+          delta: "x",
+        });
+      }
+      const ms = performance.now() - start;
+      expect(ms).toBeLessThan(500);
+      expect(textOf(messages["srv-msg"][SESSION].parts["prt_solo"])).toHaveLength(1000);
+      expect(messages["srv-msg"][SESSION].order).toEqual(["prt_solo"]);
+    });
   });
 });

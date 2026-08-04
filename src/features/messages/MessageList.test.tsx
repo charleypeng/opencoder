@@ -1,17 +1,21 @@
-// L2 tests for the message history list (TASK-M2-06): history fetch on
-// mount merged into the messages store, user/assistant bubble distinction
-// with timestamps, the reasoning fold (collapsed by default, expand on
-// click), tool cards in their v1 states, graceful skipping of unsupported
-// part types, loading / empty / error + retry states, the streaming
-// fallback for parts without message info, auto-scroll pause with the
-// "New messages" jump button, and a fixture snapshot.
+// L2 tests for the message history list (TASK-M2-06 / M2-09): history fetch
+// on mount merged into the messages store via the batched applyMessageBatch,
+// user/assistant bubble distinction with timestamps, the reasoning fold
+// (collapsed by default, expand on click), tool cards in their v1 states,
+// graceful skipping of unsupported part types, loading / empty / error +
+// retry states, the streaming fallback for parts without message info,
+// auto-scroll pause with the "New messages" jump button, the M2-09 streaming
+// pipeline (virtualization of long transcripts, the thin top progress bar,
+// the breathing typing caret driven by the streaming indicator), and a
+// fixture snapshot.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import MessageList from "./MessageList";
 import type { SessionMessage } from "../../services/message";
 import { ApiError } from "../../services/errors";
-import { applyPartDelta, applyTextDelta, resetServer } from "../../stores/messages";
+import { applyTextDelta, resetServer as resetMessages } from "../../stores/messages";
+import { resetServer as resetSessions, setSessionStatus } from "../../stores/session";
 
 import historyFixtureJson from "../../../tests/fixtures/session.messages.json";
 import allPartsFixtureJson from "../../../tests/fixtures/message.stream.all-parts.json";
@@ -38,13 +42,42 @@ function mockClient(history: SessionMessage[]) {
   return client;
 }
 
+/** Builds `count` single-part user/assistant messages for long lists. */
+function syntheticHistory(count: number): SessionMessage[] {
+  const out: SessionMessage[] = [];
+  for (let i = 1; i <= count; i++) {
+    const id = `msg_s${i}`;
+    out.push({
+      info: {
+        id,
+        sessionID: SESSION,
+        role: i % 2 === 1 ? "user" : "assistant",
+        time: { created: i * 1000 },
+        agent: "build",
+        model: { providerID: "openai", modelID: "gpt-5" },
+      } as SessionMessage["info"],
+      parts: [
+        {
+          id: `prt_s${i}`,
+          sessionID: SESSION,
+          messageID: id,
+          type: "text",
+          text: `Synthetic message ${i}`,
+        },
+      ],
+    });
+  }
+  return out;
+}
+
 beforeEach(() => {
   getApiClientMock.mockReset();
   mockClient([]);
 });
 
 afterEach(() => {
-  resetServer(SERVER);
+  resetMessages(SERVER);
+  resetSessions(SERVER);
 });
 
 function renderList(serverId = SERVER, sessionId = SESSION) {
@@ -154,27 +187,122 @@ describe("MessageList", () => {
   });
 
   it("pauses auto-scroll on scroll-up and offers a New messages jump button", async () => {
-    await renderHistory();
+    mockClient(syntheticHistory(60));
+    renderList();
     const scroll = screen.getByTestId("message-list-scroll");
-    Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 1000 });
     Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 400 });
-    Object.defineProperty(scroll, "scrollTop", { configurable: true, value: 100, writable: true });
-
+    Object.defineProperty(scroll, "scrollTop", { configurable: true, value: 5760, writable: true });
+    await waitFor(() => expect(screen.getByTestId("message-msg_s60")).toBeInTheDocument());
+    // First pass measures the viewport (0 in jsdom until defined); the
+    // follow effect re-pins to 60*96 - 400. Then simulate the scroll-up.
+    fireEvent.scroll(scroll);
+    scroll.scrollTop = 2000;
     fireEvent.scroll(scroll);
     expect(screen.queryByTestId("message-jump")).not.toBeInTheDocument();
 
     // Content arriving while paused flags the jump button.
-    applyPartDelta(SERVER, SESSION, {
-      id: "prt_new",
-      sessionID: SESSION,
-      messageID: "msg_m4",
-      type: "text",
-      text: "extra reply",
+    applyTextDelta(SERVER, SESSION, {
+      messageID: "msg_s60",
+      partID: "prt_s60",
+      field: "text",
+      delta: " extra reply",
     });
     await waitFor(() => expect(screen.getByTestId("message-jump")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("message-jump"));
     await waitFor(() => expect(screen.queryByTestId("message-jump")).not.toBeInTheDocument());
+    // Jump anchors the last row to the viewport bottom (60 rows x 96px).
+    expect(scroll.scrollTop).toBe(60 * 96 - 400);
+  });
+
+  it("virtualizes long transcripts to a constant number of mounted rows", async () => {
+    mockClient(syntheticHistory(300));
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 300 });
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      value: 28800,
+      writable: true,
+    });
+    // The history load auto-follows to the bottom (last row mounted).
+    await waitFor(() => expect(screen.getByTestId("message-msg_s300")).toBeInTheDocument());
+    expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(30);
+
+    // Measure pass (viewport 0 until defined) re-pins to the bottom; then
+    // scroll to the top: only the head rows stay mounted.
+    fireEvent.scroll(scroll);
+    scroll.scrollTop = 0;
+    fireEvent.scroll(scroll);
+    expect(screen.getByTestId("message-msg_s1")).toBeInTheDocument();
+    expect(screen.queryByTestId("message-msg_s300")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(30);
+
+    // Middle of the transcript: neither end is mounted.
+    scroll.scrollTop = 14400;
+    fireEvent.scroll(scroll);
+    expect(screen.queryByTestId("message-msg_s1")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-msg_s300")).not.toBeInTheDocument();
+
+    // Bottom again.
+    scroll.scrollTop = 300 * 96 - 300;
+    fireEvent.scroll(scroll);
+    expect(screen.getByTestId("message-msg_s300")).toBeInTheDocument();
+    expect(screen.queryByTestId("message-msg_s1")).not.toBeInTheDocument();
+    expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(30);
+  });
+
+  it("shows the streaming progress bar at the top while the session is busy", async () => {
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
+    expect(screen.queryByTestId("streaming-progress")).not.toBeInTheDocument();
+
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    expect(screen.getByTestId("streaming-progress")).toBeInTheDocument();
+
+    setSessionStatus(SERVER, SESSION, { type: "idle" });
+    expect(screen.queryByTestId("streaming-progress")).not.toBeInTheDocument();
+  });
+
+  it("shows the breathing typing caret on the streaming message while deltas flow", async () => {
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    try {
+      setSessionStatus(SERVER, SESSION, { type: "busy" });
+      applyTextDelta(SERVER, SESSION, {
+        messageID: "msg_stream",
+        partID: "prt_stream",
+        field: "text",
+        delta: "streaming",
+      });
+
+      const bubble = screen.getByTestId("message-msg_stream");
+      const caret = within(bubble).getByTestId("typing-cursor");
+      // The caret lives inside the last markdown paragraph, i.e. inline at
+      // the end of the last rendered token.
+      expect(caret.closest('[data-testid="markdown-text"]')).not.toBeNull();
+
+      // Deltas keep the caret in place (re-appended after each re-render).
+      applyTextDelta(SERVER, SESSION, {
+        messageID: "msg_stream",
+        partID: "prt_stream",
+        field: "text",
+        delta: " more",
+      });
+      expect(
+        within(screen.getByTestId("message-msg_stream")).getByTestId("typing-cursor"),
+      ).toBeInTheDocument();
+
+      // The 5s streaming window closes without new deltas: caret disappears.
+      vi.advanceTimersByTime(6000);
+      expect(
+        within(screen.getByTestId("message-msg_stream")).queryByTestId("typing-cursor"),
+      ).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("matches the fixture history snapshot", async () => {

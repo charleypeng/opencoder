@@ -10,12 +10,28 @@
 // TASK-M2-08 optimistic reconciliation: a local-* message inserted by the
 // prompt box is tracked here until its server echo arrives; the first user
 // echo for the session rolls it over onto the echoed message (see
-// reconcilePending, called from upsertMessage and from the part-first
-// paths). An echo that already carries its own text replaces the optimistic
-// message entirely; a non-user message leaves both the marker and the local
-// message pending until the real echo arrives. A prompt the server never
-// echoes keeps its optimistic bubble and marker until the next send
+// reconcilePendingDraft, called from upsertMessageDraft and from the
+// part-first paths). An echo that already carries its own text replaces the
+// optimistic message entirely; a non-user message leaves both the marker and
+// the local message pending until the real echo arrives. A prompt the server
+// never echoes keeps its optimistic bubble and marker until the next send
 // replaces it — same as a silent server.
+//
+// TASK-M2-09 streaming rendering support:
+// - `messageParts` (messageID -> ordered part ids) is the render grouping
+//   structure. It is REPLACED wholesale (new object identity) only when part
+//   membership changes, so a component memo keyed on it re-runs on new/removed
+//   parts but NOT on text deltas — the per-part granularity that keeps a
+//   1000-part transcript at 60fps.
+// - `lastDeltaAt` is bumped by every part mutation; the UI derives its
+//   "streaming" indicator from it (busy + recent delta).
+// - `applyMessageBatch` applies a history payload in ONE produce pass instead
+//   of one produce per message/part (history fetch on session open).
+//
+// All mutations run through draft-level helpers (putPartDraft, ...) so the
+// single-item API and applyMessageBatch share the exact same semantics; the
+// helpers operate on the produce draft bucket and may be called any number of
+// times inside one updateServer pass.
 
 import { createStore, produce } from "solid-js/store";
 import type { components } from "../services/api/schema.js";
@@ -32,6 +48,10 @@ export interface SessionMessages {
   parts: Record<string, Part>;
   /** Render order of part ids. */
   order: string[];
+  /** Part ids grouped by message id, in first-appearance order (M2-09). */
+  messageParts: Record<string, string[]>;
+  /** Epoch ms of the last part mutation; 0 until the first one (M2-09). */
+  lastDeltaAt: number;
 }
 
 export type MessagesMap = Record<string, Record<string, SessionMessages>>;
@@ -49,7 +69,7 @@ export function getServerMessages(serverId: string): Record<string, SessionMessa
 // Fresh nested containers per update: the produce draft must never share
 // (and thereby mutate) the module-level EMPTY_* constants.
 function freshSessionMessages(): SessionMessages {
-  return { info: null, infos: {}, parts: {}, order: [] };
+  return { info: null, infos: {}, parts: {}, order: [], messageParts: {}, lastDeltaAt: 0 };
 }
 
 // Pending optimistic local message ids per (server, session), registered by
@@ -92,12 +112,68 @@ function updateServer(
   );
 }
 
-/** Inserts a part into the normalized table, appending to order when new. */
-function putPart(bucket: Record<string, SessionMessages>, sessionId: string, part: Part): void {
+/**
+ * Rebuilds `messageParts` from the current order/parts tables. Used after
+ * structural mutations that cannot be expressed as single-map edits
+ * (reconciliation); ordinary insert/remove paths edit the map directly.
+ */
+function rebuildMessageParts(entry: SessionMessages): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const id of entry.order) {
+    const part = entry.parts[id];
+    if (part === undefined) continue;
+    (out[part.messageID] ??= []).push(id);
+  }
+  return out;
+}
+
+/** Cheap structural equality for the messageParts map (key sets + arrays). */
+function messagePartsEqual(a: Record<string, string[]>, b: Record<string, string[]>): boolean {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  for (const key of keysA) {
+    const va = a[key];
+    const vb = b[key];
+    if (vb === undefined || va.length !== vb.length) return false;
+    for (let i = 0; i < va.length; i++) {
+      if (va[i] !== vb[i]) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Replaces `messageParts` after a structural mutation. The assignment is
+ * skipped when the rebuilt map matches the current one so the grouping memo
+ * (which subscribes to the map node) is not fired needlessly.
+ */
+function syncMessageParts(entry: SessionMessages): void {
+  const rebuilt = rebuildMessageParts(entry);
+  if (!messagePartsEqual(rebuilt, entry.messageParts)) {
+    entry.messageParts = rebuilt;
+  }
+}
+
+/**
+ * Inserts a part into the normalized table, appending to order when new.
+ * A new part id also updates `messageParts` (replacing the map wholesale, so
+ * grouping subscribers fire once) and bumps `lastDeltaAt`.
+ */
+function putPartDraft(
+  bucket: Record<string, SessionMessages>,
+  sessionId: string,
+  part: Part,
+): void {
   if (typeof part?.id !== "string") return;
   const entry = bucket[sessionId] ?? freshSessionMessages();
-  if (!(part.id in entry.parts)) entry.order.push(part.id);
+  if (!(part.id in entry.parts)) {
+    entry.order.push(part.id);
+    const ids = entry.messageParts[part.messageID] ?? [];
+    entry.messageParts = { ...entry.messageParts, [part.messageID]: [...ids, part.id] };
+  }
   entry.parts[part.id] = part;
+  entry.lastDeltaAt = Date.now();
   bucket[sessionId] = entry;
 }
 
@@ -106,37 +182,30 @@ function putPart(bucket: Record<string, SessionMessages>, sessionId: string, par
  * most-recent slot and the per-message table) and normalizes any parts
  * carried on the info payload (recorded session messages use a
  * { info, parts } shape; the event schema itself has no parts), then runs
- * the pending-message reconciliation (TASK-M2-08, see reconcilePending).
+ * the pending-message reconciliation (TASK-M2-08, see reconcilePendingDraft).
  */
-export function upsertMessage(serverId: string, sessionId: string, info: Message): void {
-  updateServer(serverId, (bucket) => {
-    const entry = bucket[sessionId] ?? freshSessionMessages();
-    entry.info = info;
-    entry.infos[info.id] = info;
-    bucket[sessionId] = entry;
-    const carried = (info as Message & { parts?: unknown }).parts;
-    if (Array.isArray(carried)) {
-      for (const part of carried) putPart(bucket, sessionId, part as Part);
-    }
-  });
+function upsertMessageDraft(
+  bucket: Record<string, SessionMessages>,
+  sessionId: string,
+  key: string,
+  info: Message,
+): void {
+  const entry = bucket[sessionId] ?? freshSessionMessages();
+  entry.info = info;
+  entry.infos[info.id] = info;
+  bucket[sessionId] = entry;
   const carried = (info as Message & { parts?: unknown }).parts;
-  reconcilePending(
-    serverId,
-    sessionId,
-    info.id,
-    info.role,
-    Array.isArray(carried) ? (carried as Part[]) : undefined,
-  );
+  if (Array.isArray(carried)) {
+    for (const part of carried) putPartDraft(bucket, sessionId, part as Part);
+  }
+  reconcilePendingDraft(bucket, sessionId, key, info.id, info.role, carried as Part[] | undefined);
 }
 
-/**
- * True while the tracked local message still owns parts in the bucket
- * (i.e. its marker has not been consumed by an earlier reconciliation).
- */
-function pendingLocalPartsExist(serverId: string, sessionId: string, pendingId: string): boolean {
-  const entry = messages[serverId]?.[sessionId];
-  if (entry === undefined) return false;
-  return entry.order.some((id) => entry.parts[id]?.messageID === pendingId);
+/** Draft-level wrapper (TASK-M2-09 batching shares this exact path). */
+export function upsertMessage(serverId: string, sessionId: string, info: Message): void {
+  updateServer(serverId, (bucket) => {
+    upsertMessageDraft(bucket, sessionId, pendingKey(serverId, sessionId), info);
+  });
 }
 
 /**
@@ -144,20 +213,26 @@ function pendingLocalPartsExist(serverId: string, sessionId: string, pendingId: 
  * message.part.delta for the echo can arrive before message.updated. When a
  * part for a server message lands while the session's marker is pending and
  * the local parts still exist, the same reconcile-if-safe logic runs.
+ * Draft variant: reads the in-progress bucket so batching sees the items
+ * applied earlier in the same pass.
  */
-function maybeReconcileOnPart(
-  serverId: string,
+function maybeReconcileOnPartDraft(
+  bucket: Record<string, SessionMessages>,
   sessionId: string,
+  key: string,
   messageId: string,
   part?: Part,
 ): void {
   if (typeof messageId !== "string") return;
-  const pendingId = pendingLocalMessages.get(pendingKey(serverId, sessionId));
+  const pendingId = pendingLocalMessages.get(key);
   if (pendingId === undefined || pendingId === messageId) return;
-  if (!pendingLocalPartsExist(serverId, sessionId, pendingId)) return;
-  reconcilePending(
-    serverId,
+  const entry = bucket[sessionId];
+  if (entry === undefined) return;
+  if (!entry.order.some((id) => entry.parts[id]?.messageID === pendingId)) return;
+  reconcilePendingDraft(
+    bucket,
     sessionId,
+    key,
     messageId,
     undefined,
     part === undefined ? undefined : [part],
@@ -166,9 +241,9 @@ function maybeReconcileOnPart(
 
 /**
  * Reconciles the pending optimistic local message against the incoming
- * server message (TASK-M2-08), called from upsertMessage and, via
- * maybeReconcileOnPart, from the part-first paths. Idempotent: the marker
- * is cleared once a reconciliation applies, so later messages upsert
+ * server message (TASK-M2-08), called from upsertMessageDraft and, via
+ * maybeReconcileOnPartDraft, from the part-first paths. Idempotent: the
+ * marker is cleared once a reconciliation applies, so later messages upsert
  * normally.
  *
  * Reconcile-if-safe conditions, all required:
@@ -187,80 +262,90 @@ function maybeReconcileOnPart(
  * replay) leaves both the marker and the local message in place — the
  * server will send its own user echo later.
  */
-function reconcilePending(
-  serverId: string,
+function reconcilePendingDraft(
+  bucket: Record<string, SessionMessages>,
   sessionId: string,
+  key: string,
   incomingMessageId: string,
   incomingRole: string | undefined,
   incomingParts: Part[] | undefined,
 ): void {
-  const key = pendingKey(serverId, sessionId);
-  updateServer(serverId, (bucket) => {
-    const entry = bucket[sessionId];
-    const pendingId = pendingLocalMessages.get(key);
-    if (entry === undefined || pendingId === undefined) return;
-    if (pendingId === incomingMessageId) return;
-    // Only the user echo consumes the marker; an assistant or history
-    // message leaves the optimistic message pending for its own echo.
-    if (incomingRole !== undefined && incomingRole !== "user") return;
-    const echoHasOwnParts =
-      (incomingParts?.length ?? 0) > 0 ||
-      entry.order.some((id) => entry.parts[id]?.messageID === incomingMessageId);
-    if (echoHasOwnParts) {
-      // The echo carries its own text: the optimistic bubble is replaced,
-      // local-* info, parts and order entries all go away.
-      for (const partId of [...entry.order]) {
-        if (entry.parts[partId]?.messageID === pendingId) delete entry.parts[partId];
-      }
-      entry.order = entry.order.filter((id) => id in entry.parts);
-      if (entry.info?.id === pendingId) entry.info = null;
-      delete entry.infos[pendingId];
-      pendingLocalMessages.delete(key);
-      bucket[sessionId] = entry;
-      return;
-    }
-    // The echo is metadata-only: re-issue the local text under its prt-*
-    // ids. A target id that already exists wins — drop the local part
-    // instead of overwriting the server's part.
-    const renames = new Map<string, string>();
+  const entry = bucket[sessionId];
+  const pendingId = pendingLocalMessages.get(key);
+  if (entry === undefined || pendingId === undefined) return;
+  if (pendingId === incomingMessageId) return;
+  // Only the user echo consumes the marker; an assistant or history
+  // message leaves the optimistic message pending for its own echo.
+  if (incomingRole !== undefined && incomingRole !== "user") return;
+  const echoHasOwnParts =
+    (incomingParts?.length ?? 0) > 0 ||
+    entry.order.some((id) => entry.parts[id]?.messageID === incomingMessageId);
+  if (echoHasOwnParts) {
+    // The echo carries its own text: the optimistic bubble is replaced,
+    // local-* info, parts and order entries all go away.
     for (const partId of [...entry.order]) {
-      const part = entry.parts[partId];
-      if (part === undefined || part.messageID !== pendingId) continue;
-      const to =
-        renames.size === 0
-          ? `prt-${incomingMessageId}`
-          : `prt-${incomingMessageId}-${renames.size}`;
-      if (to in entry.parts) {
-        delete entry.parts[partId];
-        continue;
-      }
-      renames.set(partId, to);
+      if (entry.parts[partId]?.messageID === pendingId) delete entry.parts[partId];
     }
-    for (const [from, to] of renames) {
-      const part = entry.parts[from];
-      if (part === undefined) continue;
-      delete entry.parts[from];
-      entry.parts[to] = { ...part, id: to, messageID: incomingMessageId };
-    }
-    if (renames.size > 0 || entry.order.some((id) => !(id in entry.parts))) {
-      // Dropped locals leave the order: filter and dedupe in one pass.
-      entry.order = entry.order
-        .map((id) => renames.get(id) ?? id)
-        .filter((id, index, all) => id in entry.parts && all.indexOf(id) === index);
-    }
+    entry.order = entry.order.filter((id) => id in entry.parts);
+    syncMessageParts(entry);
+    if (entry.info?.id === pendingId) entry.info = null;
     delete entry.infos[pendingId];
     pendingLocalMessages.delete(key);
     bucket[sessionId] = entry;
-  });
+    return;
+  }
+  // The echo is metadata-only: re-issue the local text under its prt-*
+  // ids. A target id that already exists wins — drop the local part
+  // instead of overwriting the server's part.
+  const renames = new Map<string, string>();
+  for (const partId of [...entry.order]) {
+    const part = entry.parts[partId];
+    if (part === undefined || part.messageID !== pendingId) continue;
+    const to =
+      renames.size === 0 ? `prt-${incomingMessageId}` : `prt-${incomingMessageId}-${renames.size}`;
+    if (to in entry.parts) {
+      delete entry.parts[partId];
+      continue;
+    }
+    renames.set(partId, to);
+  }
+  for (const [from, to] of renames) {
+    const part = entry.parts[from];
+    if (part === undefined) continue;
+    delete entry.parts[from];
+    entry.parts[to] = { ...part, id: to, messageID: incomingMessageId };
+  }
+  if (renames.size > 0 || entry.order.some((id) => !(id in entry.parts))) {
+    // Dropped locals leave the order: filter and dedupe in one pass.
+    entry.order = entry.order
+      .map((id) => renames.get(id) ?? id)
+      .filter((id, index, all) => id in entry.parts && all.indexOf(id) === index);
+  }
+  syncMessageParts(entry);
+  delete entry.infos[pendingId];
+  pendingLocalMessages.delete(key);
+  bucket[sessionId] = entry;
 }
 
-/** Replaces one part with its full state (message.part.updated). */
+/**
+ * Replaces one part with its full state (message.part.updated) and bumps
+ * the streaming timestamp.
+ */
+function applyPartDeltaDraft(
+  bucket: Record<string, SessionMessages>,
+  sessionId: string,
+  key: string,
+  part: Part,
+): void {
+  putPartDraft(bucket, sessionId, part);
+  maybeReconcileOnPartDraft(bucket, sessionId, key, part.messageID, part);
+}
+
+/** Draft-level wrapper (TASK-M2-09 batching shares this exact path). */
 export function applyPartDelta(serverId: string, sessionId: string, part: Part): void {
   updateServer(serverId, (bucket) => {
-    putPart(bucket, sessionId, part);
+    applyPartDeltaDraft(bucket, sessionId, pendingKey(serverId, sessionId), part);
   });
-  // TASK-M2-08: a part for the echo may arrive before message.updated.
-  maybeReconcileOnPart(serverId, sessionId, part.messageID, part);
 }
 
 export interface PartDelta {
@@ -275,39 +360,92 @@ export interface PartDelta {
  * append to the existing string (O(1) single-node update); any other field
  * replaces its value. When the delta arrives before the part, a text stub
  * is created so the UI can stream immediately; the later `part.updated`
- * replaces the stub with the full part state.
+ * replaces the stub with the full part state. Every application bumps
+ * `lastDeltaAt` (the streaming indicator).
  */
-export function applyTextDelta(serverId: string, sessionId: string, delta: PartDelta): void {
+function applyTextDeltaDraft(
+  bucket: Record<string, SessionMessages>,
+  sessionId: string,
+  delta: PartDelta,
+): void {
   if (typeof delta?.partID !== "string" || typeof delta.delta !== "string") return;
-  updateServer(serverId, (bucket) => {
-    const entry = bucket[sessionId] ?? freshSessionMessages();
-    const existing = entry.parts[delta.partID];
-    if (existing) {
-      if (delta.field === "text") {
-        const part = existing as Part & { text?: string };
-        part.text = (part.text ?? "") + delta.delta;
-      } else if (delta.field === "output") {
-        const part = existing as Part & { output?: string };
-        part.output = (part.output ?? "") + delta.delta;
-      } else {
-        (existing as unknown as Record<string, unknown>)[delta.field] = delta.delta;
-      }
+  const entry = bucket[sessionId] ?? freshSessionMessages();
+  const existing = entry.parts[delta.partID];
+  if (existing) {
+    if (delta.field === "text") {
+      const part = existing as Part & { text?: string };
+      part.text = (part.text ?? "") + delta.delta;
+    } else if (delta.field === "output") {
+      const part = existing as Part & { output?: string };
+      part.output = (part.output ?? "") + delta.delta;
     } else {
-      // Delta before part.updated: stub a text part so the stream renders.
-      const stub: Part = {
-        id: delta.partID,
-        sessionID: sessionId,
-        messageID: delta.messageID,
-        type: "text",
-        text: delta.field === "text" || delta.field === "output" ? delta.delta : "",
-      };
-      putPart(bucket, sessionId, stub);
-      return;
+      (existing as unknown as Record<string, unknown>)[delta.field] = delta.delta;
     }
-    bucket[sessionId] = entry;
+    entry.lastDeltaAt = Date.now();
+  } else {
+    // Delta before part.updated: stub a text part so the stream renders.
+    const stub: Part = {
+      id: delta.partID,
+      sessionID: sessionId,
+      messageID: delta.messageID,
+      type: "text",
+      text: delta.field === "text" || delta.field === "output" ? delta.delta : "",
+    };
+    putPartDraft(bucket, sessionId, stub);
+    return;
+  }
+  bucket[sessionId] = entry;
+}
+
+/** Draft-level wrapper (TASK-M2-09 batching shares this exact path). */
+export function applyTextDelta(serverId: string, sessionId: string, delta: PartDelta): void {
+  // Malformed deltas are dropped wholesale (no stub, no reconciliation).
+  if (typeof delta?.partID !== "string" || typeof delta.delta !== "string") return;
+  const key = pendingKey(serverId, sessionId);
+  updateServer(serverId, (bucket) => {
+    applyTextDeltaDraft(bucket, sessionId, delta);
+    maybeReconcileOnPartDraft(bucket, sessionId, key, delta.messageID);
   });
-  // TASK-M2-08: a delta for the echo may arrive before message.updated.
-  maybeReconcileOnPart(serverId, sessionId, delta.messageID);
+}
+
+/**
+ * Batch mutation (TASK-M2-09): applies a history payload (messages with
+ * their parts) in a SINGLE produce pass instead of one setMessages per item.
+ * Item order is preserved; reconciliation semantics are identical to the
+ * single-item API (each item is applied as if it were the only one, in
+ * sequence). Used by MessageList's history fetch.
+ */
+export type MessageBatchItem =
+  | { type: "message"; info: Message }
+  | { type: "part"; part: Part }
+  | { type: "delta"; delta: PartDelta };
+
+export function applyMessageBatch(
+  serverId: string,
+  sessionId: string,
+  items: MessageBatchItem[],
+): void {
+  if (items.length === 0) return;
+  const key = pendingKey(serverId, sessionId);
+  updateServer(serverId, (bucket) => {
+    for (const item of items) {
+      switch (item.type) {
+        case "message":
+          upsertMessageDraft(bucket, sessionId, key, item.info);
+          break;
+        case "part":
+          applyPartDeltaDraft(bucket, sessionId, key, item.part);
+          break;
+        case "delta":
+          if (typeof item.delta?.partID !== "string" || typeof item.delta.delta !== "string") {
+            break;
+          }
+          applyTextDeltaDraft(bucket, sessionId, item.delta);
+          maybeReconcileOnPartDraft(bucket, sessionId, key, item.delta.messageID);
+          break;
+      }
+    }
+  });
 }
 
 /** Removes one part (message.part.removed). */
@@ -315,8 +453,17 @@ export function removePart(serverId: string, sessionId: string, partId: string):
   updateServer(serverId, (bucket) => {
     const entry = bucket[sessionId];
     if (!entry || !(partId in entry.parts)) return;
+    const messageID = entry.parts[partId].messageID;
     delete entry.parts[partId];
     entry.order = entry.order.filter((id) => id !== partId);
+    const ids = entry.messageParts[messageID];
+    if (ids !== undefined) {
+      const next = ids.filter((id) => id !== partId);
+      const rest = { ...entry.messageParts };
+      if (next.length === 0) delete rest[messageID];
+      else rest[messageID] = next;
+      entry.messageParts = rest;
+    }
     bucket[sessionId] = entry;
   });
 }
@@ -336,6 +483,9 @@ export function removePartsForMessage(
       }
     }
     entry.order = entry.order.filter((id) => id in entry.parts);
+    const rest = { ...entry.messageParts };
+    delete rest[messageId];
+    entry.messageParts = rest;
     if (entry.info?.id === messageId) entry.info = null;
     delete entry.infos[messageId];
     bucket[sessionId] = entry;
