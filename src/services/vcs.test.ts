@@ -90,9 +90,18 @@ describe("createVcsService (invoke payload assembly)", () => {
     });
   });
 
-  it("diffRaw falls back to a JSON-wrapped body", async () => {
+  it("diffRaw prefers a parsed string body over the JSON-quoted bodyText", async () => {
     const raw = "diff --git a/y b/y\n";
-    invokeMock.mockResolvedValue(httpResponse({ body: raw }));
+    // fetchTransport always sets bodyText (the quoted wire form); the parsed
+    // string on body must win so the result is not JSON-encoded.
+    invokeMock.mockResolvedValue(httpResponse({ body: raw, bodyText: JSON.stringify(raw) }));
+
+    await expect(createVcsService(makeClient()).diffRaw()).resolves.toBe(raw);
+  });
+
+  it("diffRaw returns a raw string body when bodyText is absent", async () => {
+    const raw = "diff --git a/y b/y\n";
+    invokeMock.mockResolvedValue(httpResponse({ body: raw, bodyText: undefined }));
 
     await expect(createVcsService(makeClient()).diffRaw()).resolves.toBe(raw);
   });

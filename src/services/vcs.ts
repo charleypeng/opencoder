@@ -55,12 +55,12 @@ export function createVcsService(client: ApiClient) {
       }),
     /**
      * Raw unified diff text for the whole working tree. The endpoint serves
-     * text/x-diff (not JSON), so the payload arrives on bodyText; a
-     * JSON-wrapped string falls back for odd servers.
+     * text/x-diff (not JSON): a parsed string body wins, and bodyText covers
+     * transports that only expose the raw (JSON-quoted) wire form.
      */
     diffRaw: async (dir?: string) => {
       const response = await client.request("GET", "/vcs/diff/raw", dirQuery(dir));
-      return (typeof response.bodyText === "string" ? response.bodyText : response.body) as string;
+      return (typeof response.body === "string" ? response.body : response.bodyText) as string;
     },
     /** Apply a patch to the working tree; resolves to applied: true/false. */
     apply: (patch: string, dir?: string) =>
