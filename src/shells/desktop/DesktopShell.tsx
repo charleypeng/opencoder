@@ -41,7 +41,12 @@ import ErrorBanner from "../../components/ErrorBanner.js";
 import { createProjectService } from "../../services/project";
 import { createSessionService } from "../../services/session";
 import { createVcsService } from "../../services/vcs";
-import { forkSession } from "../../features/sessions/sessionActions.js";
+import {
+  forkSession,
+  revertSession,
+  unrevertSession,
+} from "../../features/sessions/sessionActions.js";
+import RevertMessageDialog from "../../features/messages/RevertMessageDialog";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
 import { getServerProjectState } from "../../stores/project";
@@ -196,6 +201,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [quickOpen, setQuickOpen] = createSignal(false);
   // Message-fork errors (TASK-M6-03): the inline banner above the chat.
   const [forkError, setForkError] = createSignal<ApiError | null>(null);
+  // Revert flow (TASK-M6-04): the message awaiting confirmation, and the
+  // banner for unrevert failures (revert failures stay in the dialog).
+  const [revertTarget, setRevertTarget] = createSignal<{
+    sessionId: string;
+    messageID: string;
+  } | null>(null);
+  const [revertError, setRevertError] = createSignal<ApiError | null>(null);
 
   /** Opens the diff view, optionally filtered to one message. */
   function openDiff(messageId?: string) {
@@ -216,6 +228,42 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       );
     } catch (err) {
       setForkError(ApiError.fromUnknown(err));
+    }
+  }
+
+  /** Opens the revert confirm dialog for a message (message menu item or
+   *  the snapshot chip). Captures the session so a mid-flight session
+   *  switch cannot reroute the confirmation. */
+  function requestRevert(messageID: string) {
+    const sessionId = activeSessionId();
+    if (sessionId === null) return;
+    setRevertError(null);
+    setRevertTarget({ sessionId, messageID });
+  }
+
+  /** Runs the confirmed revert (POST /session/{id}/revert); the updated
+   *  session replaces the stored one (its revert marker drives the bar and
+   *  the graying). Rejections propagate to the dialog's inline error. */
+  async function confirmRevert(): Promise<void> {
+    const target = revertTarget();
+    if (target === null) return;
+    await revertSession(
+      activeServerId(),
+      target.sessionId,
+      target.messageID,
+      createSessionService(getApiClient()),
+    );
+  }
+
+  /** Unreverts the session in one click; a failure surfaces in the banner. */
+  async function handleUnrevert() {
+    const sessionId = activeSessionId();
+    if (sessionId === null) return;
+    setRevertError(null);
+    try {
+      await unrevertSession(activeServerId(), sessionId, createSessionService(getApiClient()));
+    } catch (err) {
+      setRevertError(ApiError.fromUnknown(err));
     }
   }
 
@@ -721,6 +769,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         const id = activeSessionId();
                         if (id !== null) void handleFork(id, messageID);
                       }}
+                      onRevert={requestRevert}
+                      onUnrevert={() => void handleUnrevert()}
                     />
                     <SessionErrorBanner
                       serverId={activeServerId()}
@@ -728,6 +778,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     />
                     <div class="px-4 pb-2">
                       <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
+                    </div>
+                    <div class="px-4 pb-2">
+                      <ErrorBanner error={revertError()} onDismiss={() => setRevertError(null)} />
                     </div>
                     <PromptBox
                       serverId={activeServerId()}
@@ -904,6 +957,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           server's pending question queue; renders only while a question
           is waiting (the mobile bottom-sheet variant lands in M7). */}
       <QuestionSheet serverId={activeServerId()} variant="overlay" />
+
+      {/* Revert confirm (TASK-M6-04): one dialog for every entry point —
+          the message menu's "Revert to here" and the snapshot chip. */}
+      <Show when={revertTarget() !== null}>
+        <RevertMessageDialog
+          messageID={revertTarget()!.messageID}
+          onConfirm={confirmRevert}
+          onClose={() => setRevertTarget(null)}
+        />
+      </Show>
     </div>
   );
 };

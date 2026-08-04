@@ -204,6 +204,59 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("revert POSTs the messageID body to /session/{id}/revert", async () => {
+    invokeMock.mockResolvedValue(
+      httpResponse({ body: { id: "sess_01", revert: { messageID: "msg_02" } } }),
+    );
+    const result = await createSessionService(makeClient()).revert("sess_01", "msg_02");
+    expect(result.revert?.messageID).toBe("msg_02");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/revert",
+        body: { messageID: "msg_02" },
+      },
+    });
+  });
+
+  it("revert carries the optional partID and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    await createSessionService(makeClient()).revert(
+      "sess_01",
+      "msg_02",
+      "/mock/projects/opencode-demo",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/revert",
+        body: { messageID: "msg_02" },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
+  it("unrevert POSTs /session/{id}/unrevert without a body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    const result = await createSessionService(makeClient()).unrevert("sess_01");
+    expect(result.id).toBe("sess_01");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/session/sess_01/unrevert" },
+    });
+  });
+
+  it("unrevert carries an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01" } }));
+    await createSessionService(makeClient()).unrevert("sess_01", "/mock/projects/opencode-demo");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/unrevert",
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -302,5 +355,23 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
 
   it("fork rejects an unknown messageID with a 400", async () => {
     await expect(service.fork("sess_01", "msg_nope")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("revert sets the revert point on the updated session", async () => {
+    const updated = await service.revert("sess_01", "msg_02");
+    expect(updated.id).toBe("sess_01");
+    expect(updated.revert?.messageID).toBe("msg_02");
+    expect(updated.time.updated).toBeTypeOf("number");
+  });
+
+  it("revert rejects an unknown messageID with a 400", async () => {
+    await expect(service.revert("sess_01", "msg_nope")).rejects.toMatchObject({ status: 400 });
+  });
+
+  it("unrevert clears the revert marker", async () => {
+    await service.revert("sess_01", "msg_02");
+    const updated = await service.unrevert("sess_01");
+    expect(updated.id).toBe("sess_01");
+    expect(updated.revert).toBeUndefined();
   });
 });

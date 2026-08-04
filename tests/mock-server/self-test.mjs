@@ -701,6 +701,48 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
+    // TASK-M6-04: session revert family.
+    await test("session revert sets the revert point on the session", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_02" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "sess_01", `id ${JSON.stringify(body?.id)}`);
+      expect(body?.revert?.messageID === "msg_02", `revert ${JSON.stringify(body?.revert)}`);
+    });
+
+    await test("session revert requires a messageID", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("session revert rejects an unknown messageID", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/revert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageID: "msg_nope" }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("session unrevert clears the revert marker", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/unrevert", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.id === "sess_01", `id ${JSON.stringify(body?.id)}`);
+      expect(body?.revert === undefined, `revert ${JSON.stringify(body?.revert)}`);
+    });
+
     await test("session messages honors the limit pagination param", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01/message?limit=1");
       expect(status === 200, `status ${status}`);

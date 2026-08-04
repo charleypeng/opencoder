@@ -125,7 +125,12 @@ function mockHttpRoutes(servers: ServerEntry[]) {
     if (cmd === "http_request") {
       const request = (
         payload as {
-          request?: { method?: string; path?: string; query?: Record<string, string> };
+          request?: {
+            method?: string;
+            path?: string;
+            query?: Record<string, string>;
+            body?: unknown;
+          };
         }
       ).request;
       const directory = request?.query?.directory;
@@ -170,6 +175,24 @@ function mockHttpRoutes(servers: ServerEntry[]) {
             version: "1.18.11",
             time: { created: 1, updated: 1 },
           }),
+        );
+      }
+      if (request?.method === "POST" && /^\/session\/.+\/revert$/.test(request?.path ?? "")) {
+        // Revert (TASK-M6-04): the updated session carries the revert point.
+        const sessionID = (request?.path ?? "").split("/")[2];
+        return Promise.resolve(
+          httpResponse({
+            ...session(sessionID, DEMO_DIR),
+            time: { created: 1, updated: 2 },
+            revert: { messageID: (request?.body as { messageID?: string })?.messageID },
+          }),
+        );
+      }
+      if (request?.method === "POST" && /^\/session\/.+\/unrevert$/.test(request?.path ?? "")) {
+        // Unrevert (TASK-M6-04): the updated session without a revert marker.
+        const sessionID = (request?.path ?? "").split("/")[2];
+        return Promise.resolve(
+          httpResponse({ ...session(sessionID, DEMO_DIR), time: { created: 1, updated: 3 } }),
         );
       }
       if (request?.path === "/session/status") return Promise.resolve(httpResponse({}));
@@ -294,6 +317,72 @@ function mockHttpRoutes(servers: ServerEntry[]) {
                   messageID: "msg_02",
                   type: "text",
                   text: "hello",
+                },
+              ],
+            },
+          ]),
+        );
+      }
+      if (request?.path === "/session/sess_revert_01/message") {
+        // Revert history (TASK-M6-04): three messages, the middle one
+        // carrying a snapshot part (the M6-04 snapshot-chip entry point).
+        return Promise.resolve(
+          httpResponse([
+            {
+              info: {
+                id: "msg_r1",
+                sessionID: "sess_revert_01",
+                role: "user",
+                time: { created: 1, updated: 1 },
+              },
+              parts: [
+                {
+                  id: "prt_r1",
+                  sessionID: "sess_revert_01",
+                  messageID: "msg_r1",
+                  type: "text",
+                  text: "first",
+                },
+              ],
+            },
+            {
+              info: {
+                id: "msg_r2",
+                sessionID: "sess_revert_01",
+                role: "assistant",
+                time: { created: 2, updated: 2 },
+              },
+              parts: [
+                {
+                  id: "prt_r2",
+                  sessionID: "sess_revert_01",
+                  messageID: "msg_r2",
+                  type: "text",
+                  text: "second",
+                },
+                {
+                  id: "prt_snap",
+                  sessionID: "sess_revert_01",
+                  messageID: "msg_r2",
+                  type: "snapshot",
+                  snapshot: "snp_a1b2c3d4e5f6",
+                },
+              ],
+            },
+            {
+              info: {
+                id: "msg_r3",
+                sessionID: "sess_revert_01",
+                role: "assistant",
+                time: { created: 3, updated: 3 },
+              },
+              parts: [
+                {
+                  id: "prt_r3",
+                  sessionID: "sess_revert_01",
+                  messageID: "msg_r3",
+                  type: "text",
+                  text: "third",
                 },
               ],
             },
@@ -1133,6 +1222,132 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("chat-session-title")).toHaveTextContent("forked"),
     );
+  });
+});
+
+describe("DesktopShell message revert (TASK-M6-04)", () => {
+  const SESSION_REVERT = "sess_revert_01";
+
+  async function openRevertChat(serverId: string) {
+    applySessionList(serverId, [session(SESSION_REVERT, DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_REVERT}`));
+    await waitFor(() => expect(screen.getByTestId("message-msg_r3")).toBeInTheDocument());
+  }
+
+  /** Opens the "⋯" menu of a specific message and clicks a menu item. */
+  async function pickMessageAction(messageId: string, actionTestId: string) {
+    const row = screen.getByTestId(`message-${messageId}`);
+    fireEvent.pointerDown(within(row).getByTestId("message-actions"), { pointerType: "mouse" });
+    const item = await screen.findByTestId(actionTestId);
+    expect(item).not.toBeDisabled();
+    fireEvent.pointerUp(item, { pointerType: "mouse" });
+  }
+
+  function revertCalls() {
+    return invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/revert$/.test(call[1].request?.path ?? ""),
+    );
+  }
+
+  it("revert warns about file changes; cancel makes no call", async () => {
+    const alpha = server({ id: "srv-m6rev", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openRevertChat("srv-m6rev");
+
+    await pickMessageAction("msg_r2", "message-action-revert");
+
+    const dialog = await screen.findByTestId("revert-message-dialog");
+    expect(dialog).toHaveTextContent(/file changes/i);
+    expect(dialog).toHaveTextContent("msg_r2");
+    fireEvent.click(screen.getByTestId("revert-message-cancel"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("revert-message-dialog")).not.toBeInTheDocument(),
+    );
+    expect(revertCalls()).toHaveLength(0);
+    // Re-seed: the mount-time session re-sync (server.connected) replaced
+    // the seeded list; assert on the current entry, not a stale one.
+    applySessionList("srv-m6rev", [session(SESSION_REVERT, DEMO_DIR)]);
+    expect(getServerSessionState("srv-m6rev").sessions[SESSION_REVERT].revert).toBeUndefined();
+  });
+
+  it("confirm reverts: POST with the messageID, store marker, reverted bar, grayed later messages", async () => {
+    const alpha = server({ id: "srv-m6rev2", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openRevertChat("srv-m6rev2");
+
+    await pickMessageAction("msg_r2", "message-action-revert");
+    fireEvent.click(await screen.findByTestId("revert-message-confirm"));
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-m6rev2").sessions[SESSION_REVERT].revert?.messageID).toBe(
+        "msg_r2",
+      ),
+    );
+    const calls = revertCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1].request.body).toEqual({ messageID: "msg_r2" });
+
+    // The reverted bar names the point; the row AFTER it is grayed, the
+    // point row and the rows before it stay active.
+    const bar = await screen.findByTestId("reverted-bar");
+    expect(bar).toHaveTextContent("msg_r2");
+    const revertedOf = (id: string) =>
+      screen.getByTestId(`message-${id}`).closest("[data-reverted]") as HTMLElement;
+    expect(revertedOf("msg_r1")).toHaveAttribute("data-reverted", "false");
+    expect(revertedOf("msg_r2")).toHaveAttribute("data-reverted", "false");
+    expect(revertedOf("msg_r3")).toHaveAttribute("data-reverted", "true");
+  });
+
+  it("unrevert restores the session in one click", async () => {
+    const alpha = server({ id: "srv-m6rev3", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openRevertChat("srv-m6rev3");
+    // Seed the revert marker (as if a revert just completed server-side).
+    applySessionList("srv-m6rev3", [
+      { ...session(SESSION_REVERT, DEMO_DIR), revert: { messageID: "msg_r2" } },
+    ]);
+    await waitFor(() => expect(screen.getByTestId("reverted-bar")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("unrevert"));
+
+    await waitFor(() => expect(screen.queryByTestId("reverted-bar")).not.toBeInTheDocument());
+    expect(getServerSessionState("srv-m6rev3").sessions[SESSION_REVERT].revert).toBeUndefined();
+    const unrevertCalls = invokeMock.mock.calls.filter(
+      (call) =>
+        call[0] === "http_request" && /^\/session\/.+\/unrevert$/.test(call[1].request?.path ?? ""),
+    );
+    expect(unrevertCalls).toHaveLength(1);
+  });
+
+  it("snapshot chip opens the revert flow for its containing message", async () => {
+    const alpha = server({ id: "srv-m6rev4", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openRevertChat("srv-m6rev4");
+
+    // The snapshot chip inside msg_r2 is a revert trigger: the confirm flow
+    // runs against the message that carries the snapshot.
+    fireEvent.click(screen.getByTestId("snapshot-part"));
+    const dialog = await screen.findByTestId("revert-message-dialog");
+    expect(dialog).toHaveTextContent("msg_r2");
+    fireEvent.click(screen.getByTestId("revert-message-confirm"));
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-m6rev4").sessions[SESSION_REVERT].revert?.messageID).toBe(
+        "msg_r2",
+      ),
+    );
+    const calls = revertCalls();
+    expect(calls).toHaveLength(1);
+    expect(calls[0][1].request.body).toEqual({ messageID: "msg_r2" });
   });
 });
 

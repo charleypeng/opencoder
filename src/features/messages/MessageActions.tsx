@@ -17,6 +17,10 @@
 //     no onViewDiff callback is provided.
 //   - Fork from here (TASK-M6-03): forks the session at this message point;
 //     disabled while no onFork callback is provided.
+//   - Revert to here (TASK-M6-04): rolls the session back to this message
+//     (file changes made after it are undone on the server); the confirm
+//     dialog lives with the caller that wires onRevert (DesktopShell), so
+//     the item is disabled while no onRevert callback is provided.
 //
 // The component owns the bubble column (MessageBubble passes its body as
 // children), so hover state, the context menu and the store-driven role
@@ -48,6 +52,10 @@ export interface MessageActionsProps {
   /** Forks the session from this message (wired by M6-03); while absent
    *  the "Fork from here" item stays disabled. */
   onFork?: (messageID: string) => void;
+  /** Reverts the session to this message (wired by M6-04 — the caller
+   *  shows the confirm dialog); while absent the "Revert to here" item
+   *  stays disabled. */
+  onRevert?: (messageID: string) => void;
   /** Bubble body (bubble + timestamp). */
   children?: JSX.Element;
 }
@@ -428,6 +436,13 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
       label: "Fork from here",
       disabled: props.onFork === undefined,
       onSelect: () => props.onFork?.(props.messageID),
+    },
+    {
+      id: "revert",
+      label: "Revert to here",
+      danger: true,
+      disabled: props.onRevert === undefined,
+      onSelect: () => props.onRevert?.(props.messageID),
     },
   ]);
 

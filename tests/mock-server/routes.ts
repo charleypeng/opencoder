@@ -298,6 +298,42 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     });
   });
 
+  // Session revert (TASK-M6-04): accepts the schema's { messageID } body
+  // and reports the updated session carrying the `revert` marker (the
+  // revert point). A missing/malformed messageID or one that is not a
+  // known fixture message is a 400 BadRequestError.
+  app.post("/session/:sessionID/revert", (req, res) => {
+    const { messageID } = (req.body ?? {}) as { messageID?: unknown };
+    if (typeof messageID !== "string") {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid revert payload" });
+      return;
+    }
+    const messages = Array.isArray(fixtures["session.messages"])
+      ? fixtures["session.messages"]
+      : [];
+    const known = messages.some((m) => m?.info?.id === messageID);
+    if (!known) {
+      res.status(400).json({ _tag: "BadRequestError", message: `unknown messageID: ${messageID}` });
+      return;
+    }
+    res.json({
+      ...base,
+      id: req.params.sessionID,
+      time: { ...base.time, updated: base.time.updated + 1 },
+      revert: { messageID },
+    });
+  });
+
+  // Session unrevert (TASK-M6-04): reports the updated session without
+  // the revert marker (all previously reverted messages restored).
+  app.post("/session/:sessionID/unrevert", (req, res) => {
+    res.json({
+      ...base,
+      id: req.params.sessionID,
+      time: { ...base.time, updated: base.time.updated + 1 },
+    });
+  });
+
   // Prompt send (TASK-M2-08): always 204. TASK-M5-08 validates the part
   // array shape so the `@skillName` reference flow is exercised — accepted
   // types are the ones the composer actually sends: text (with a string

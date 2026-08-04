@@ -46,6 +46,39 @@ export async function forkSession(
   }
 }
 
+/** Reverts the session to a message point; the server's updated session
+ *  (carrying the `revert` marker) replaces the stored one. */
+export async function revertSession(
+  serverId: string,
+  sessionId: string,
+  messageID: string,
+  sessionService: SessionService,
+): Promise<Session> {
+  try {
+    const updated = await sessionService.revert(sessionId, messageID);
+    upsertSession(serverId, updated);
+    return updated;
+  } catch (err) {
+    throw ApiError.fromUnknown(err);
+  }
+}
+
+/** Unreverts a session (one click); the server's updated session (revert
+ *  marker cleared) replaces the stored one. */
+export async function unrevertSession(
+  serverId: string,
+  sessionId: string,
+  sessionService: SessionService,
+): Promise<Session> {
+  try {
+    const updated = await sessionService.unrevert(sessionId);
+    upsertSession(serverId, updated);
+    return updated;
+  } catch (err) {
+    throw ApiError.fromUnknown(err);
+  }
+}
+
 /** Renames a session; optimistic with rollback to the captured original. */
 export async function renameSession(
   serverId: string,

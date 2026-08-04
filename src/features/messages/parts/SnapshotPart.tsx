@@ -1,7 +1,9 @@
-// Snapshot marker (TASK-M3-02): renders a SnapshotPart as a subtle chip
-// with a camera icon, the "Snapshot" label and the short snapshot id.
-// M6 wires the revert action (restore snapshot) here; until then the chip
-// is inert and explains itself via its tooltip.
+// Snapshot marker (TASK-M3-02 / M6-04): renders a SnapshotPart as a subtle
+// chip with a camera icon, the "Snapshot" label and the short snapshot id.
+// M6 wires the revert action here: when an `onRevert` callback is provided
+// the chip becomes a revert trigger for the MESSAGE that carries the
+// snapshot (the callback reports the containing message id); without it the
+// chip stays inert and explains itself via its tooltip.
 
 import { createMemo } from "solid-js";
 import type { Component } from "solid-js";
@@ -11,16 +13,44 @@ export type SnapshotPartData = Extract<Part, { type: "snapshot" }>;
 
 export interface SnapshotPartProps {
   part: SnapshotPartData;
+  /** Reverts the session to the message carrying this snapshot (wired by
+   *  M6-04, the caller shows the confirm dialog); while absent the chip
+   *  stays inert. */
+  onRevert?: (messageID: string) => void;
 }
 
 const SnapshotPart: Component<SnapshotPartProps> = (props) => {
   const shortId = createMemo(() => props.part.snapshot.slice(0, 12));
+  // The callback never changes for a mounted chip, so a memo is cheap and
+  // keeps the template fully tracked.
+  const wired = createMemo(() => props.onRevert !== undefined);
 
   return (
     <span
       data-testid="snapshot-part"
-      class="my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-sunken/60 px-2 py-0.5 text-xs text-fg-secondary"
-      title="Reverting to a snapshot lands in M6"
+      role={wired() ? "button" : undefined}
+      tabIndex={wired() ? 0 : undefined}
+      class={
+        "my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-bg-sunken " +
+        "bg-bg-sunken/60 px-2 py-0.5 text-xs text-fg-secondary" +
+        (wired()
+          ? " cursor-pointer outline-none hover:border-accent hover:text-accent focus-visible:border-accent"
+          : "")
+      }
+      title={
+        wired()
+          ? "Revert to this point — file changes made after it will be rolled back"
+          : "Reverting to a snapshot lands in M6"
+      }
+      onClick={() => {
+        if (wired()) props.onRevert?.(props.part.messageID);
+      }}
+      onKeyDown={(event) => {
+        if (wired() && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          props.onRevert?.(props.part.messageID);
+        }
+      }}
     >
       <svg
         aria-hidden

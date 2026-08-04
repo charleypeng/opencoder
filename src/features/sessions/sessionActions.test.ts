@@ -13,7 +13,14 @@ import {
   resetServer,
   setActiveSession,
 } from "../../stores/session";
-import { createSession, deleteSession, forkSession, renameSession } from "./sessionActions";
+import {
+  createSession,
+  deleteSession,
+  forkSession,
+  renameSession,
+  revertSession,
+  unrevertSession,
+} from "./sessionActions";
 
 const SERVER = "srv-actions";
 
@@ -210,5 +217,63 @@ describe("deleteSession", () => {
       code: "unknown",
     });
     expect(service.remove).not.toHaveBeenCalled();
+  });
+});
+
+describe("revertSession / unrevertSession (TASK-M6-04)", () => {
+  const REVERTED = {
+    ...ORIGINAL,
+    time: { created: ORIGINAL.time.created, updated: 2000 },
+    revert: { messageID: "msg_02" },
+  } as Session;
+
+  it("reverts to the message and replaces the stored session with the server state", async () => {
+    const service = fakeService({ revert: vi.fn().mockResolvedValue(REVERTED) });
+
+    const result = await revertSession(SERVER, "sess_1", "msg_02", service);
+
+    expect(service.revert).toHaveBeenCalledWith("sess_1", "msg_02");
+    expect(result).toBe(REVERTED);
+    expect(getServerSessionState(SERVER).sessions["sess_1"]).toEqual(REVERTED);
+    expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
+  });
+
+  it("throws ApiError and leaves the store untouched when the revert fails", async () => {
+    const service = fakeService({
+      revert: vi.fn().mockRejectedValue(new ApiError(400, "http", "unknown messageID", false)),
+    });
+    const before = getServerSessionState(SERVER);
+
+    await expect(revertSession(SERVER, "sess_1", "msg_nope", service)).rejects.toMatchObject({
+      code: "http",
+      status: 400,
+    });
+
+    expect(service.revert).toHaveBeenCalledWith("sess_1", "msg_nope");
+    expect(getServerSessionState(SERVER)).toEqual(before);
+  });
+
+  it("unreverts and clears the revert marker in the store", async () => {
+    applySessionList(SERVER, [REVERTED]);
+    const service = fakeService({ unrevert: vi.fn().mockResolvedValue(ORIGINAL) });
+
+    const result = await unrevertSession(SERVER, "sess_1", service);
+
+    expect(service.unrevert).toHaveBeenCalledWith("sess_1");
+    expect(result).toBe(ORIGINAL);
+    expect(getServerSessionState(SERVER).sessions["sess_1"].revert).toBeUndefined();
+  });
+
+  it("throws ApiError and keeps the revert marker when the unrevert fails", async () => {
+    applySessionList(SERVER, [REVERTED]);
+    const service = fakeService({
+      unrevert: vi.fn().mockRejectedValue(new ApiError(500, "http", "boom", true)),
+    });
+
+    await expect(unrevertSession(SERVER, "sess_1", service)).rejects.toMatchObject({
+      code: "http",
+    });
+
+    expect(getServerSessionState(SERVER).sessions["sess_1"].revert?.messageID).toBe("msg_02");
   });
 });

@@ -3,7 +3,7 @@
 // tooltip, plus a snapshot of the fixture's snapshot part.
 
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@solidjs/testing-library";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
 import SnapshotPart, { type SnapshotPartData } from "./SnapshotPart";
 import allPartsFixtureJson from "../../../../tests/fixtures/message.stream.all-parts.json";
 
@@ -38,6 +38,23 @@ describe("SnapshotPart", () => {
       "title",
       expect.stringContaining("M6"),
     );
+  });
+
+  it("stays inert without an onRevert callback (not focusable)", () => {
+    render(() => <SnapshotPart part={snapshotPart("snp_a1b2c3d4")} />);
+    expect(screen.getByTestId("snapshot-part")).not.toHaveAttribute("tabindex");
+  });
+
+  it("becomes a revert trigger with onRevert, reporting its message id", () => {
+    let reverted: string | undefined;
+    render(() => (
+      <SnapshotPart part={snapshotPart("snp_a1b2c3d4")} onRevert={(id) => void (reverted = id)} />
+    ));
+    const chip = screen.getByTestId("snapshot-part");
+    expect(chip).toHaveAttribute("role", "button");
+    expect(chip).toHaveAttribute("title", expect.stringContaining("Revert"));
+    fireEvent.click(chip);
+    expect(reverted).toBe("msg_1");
   });
 });
 

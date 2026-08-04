@@ -34,6 +34,7 @@ import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { ApiError } from "../../services/errors.js";
 import { messages } from "../../stores/messages.js";
+import { sessions } from "../../stores/session.js";
 import MessageBubble from "./MessageBubble.js";
 import { createVirtualList } from "./useVirtualList.js";
 import { usePaginatedMessages } from "./usePaginatedMessages.js";
@@ -48,6 +49,11 @@ export interface MessageListProps {
   onViewDiff?: (messageID: string) => void;
   /** Forks the session from a message point (wired by M6-03). */
   onFork?: (messageID: string) => void;
+  /** Reverts the session to a message point (wired by M6-04 — the caller
+   *  shows the confirm dialog). */
+  onRevert?: (messageID: string) => void;
+  /** Unreverts the session in one click (wired by M6-04). */
+  onUnrevert?: () => void;
 }
 
 interface MessageGroup {
@@ -72,6 +78,8 @@ interface MessageRow {
   messageID: string;
   partIds: string[];
   typing: boolean;
+  /** True when this message sits AFTER the session's revert point (M6-04). */
+  reverted: boolean;
 }
 
 const MessageList: Component<MessageListProps> = (props) => {
@@ -145,6 +153,26 @@ const MessageList: Component<MessageListProps> = (props) => {
     return undefined;
   });
 
+  // Revert point (TASK-M6-04): the session's `revert.messageID` — set by
+  // the revert response (and cleared by unrevert), both stored via
+  // upsertSession. Messages AFTER the point were undone server-side and
+  // render grayed behind the reverted bar.
+  const revertMessageId = createMemo(
+    () => sessions[props.serverId]?.sessions[props.sessionId]?.revert?.messageID,
+  );
+
+  // Index of the revert point within the loaded groups; -1 when the point
+  // message is not (yet) loaded or the session is not reverted.
+  const revertIndex = createMemo(() => {
+    const point = revertMessageId();
+    if (point === undefined) return -1;
+    const gs = groups();
+    for (let i = 0; i < gs.length; i++) {
+      if (gs[i].messageID === point) return i;
+    }
+    return -1;
+  });
+
   // Mounted rows: virtual positions resolved against the current groups.
   // Row objects keep their identity while start/height/partIds/typing stay
   // unchanged, so per-token deltas (which touch none of these) leave every
@@ -154,11 +182,13 @@ const MessageList: Component<MessageListProps> = (props) => {
     const virtual = list.rows();
     const gs = groups();
     const cursor = cursorMessageId();
+    const revert = revertIndex();
     const out: MessageRow[] = [];
     for (const v of virtual) {
       const group = gs[v.index];
       if (group === undefined) continue;
       const typing = cursor === group.messageID;
+      const reverted = revert >= 0 && v.index > revert;
       const prev = rowCache.get(v.index);
       if (
         prev !== undefined &&
@@ -166,7 +196,8 @@ const MessageList: Component<MessageListProps> = (props) => {
         prev.height === v.height &&
         prev.messageID === group.messageID &&
         prev.partIds === group.partIds &&
-        prev.typing === typing
+        prev.typing === typing &&
+        prev.reverted === reverted
       ) {
         out.push(prev);
         continue;
@@ -178,6 +209,7 @@ const MessageList: Component<MessageListProps> = (props) => {
         messageID: group.messageID,
         partIds: group.partIds,
         typing,
+        reverted,
       };
       rowCache.set(v.index, row);
       out.push(row);
@@ -329,6 +361,27 @@ const MessageList: Component<MessageListProps> = (props) => {
           <span class="inline-block h-3 w-3 animate-n rounded-full border-2 border-accent border-t-transparent" />
         </div>
       </Show>
+      {/* M6-04: the reverted bar — visible while the session carries a
+          revert marker; the one-click Unrevert restores the session. */}
+      <Show when={revertMessageId() !== undefined}>
+        <div
+          data-testid="reverted-bar"
+          class="flex shrink-0 items-center gap-3 border-b border-bg-sunken bg-bg-sunken/60 px-4 py-1.5"
+        >
+          <span class="min-w-0 flex-1 truncate text-xs text-fg-secondary">
+            Reverted to message {revertMessageId()} — later messages are inactive and file changes
+            were rolled back.
+          </span>
+          <button
+            type="button"
+            data-testid="unrevert"
+            class="shrink-0 rounded-md border border-accent/40 px-2.5 py-0.5 text-xs text-accent outline-none hover:border-accent focus:border-accent"
+            onClick={() => props.onUnrevert?.()}
+          >
+            Unrevert
+          </button>
+        </div>
+      </Show>
       <div
         ref={scrollRef}
         data-testid="message-list-scroll"
@@ -363,7 +416,10 @@ const MessageList: Component<MessageListProps> = (props) => {
                       <div
                         ref={(el) => list.measureRow(row.messageID, el)}
                         data-virtual-row={row.index}
-                        class={`absolute left-0 right-0 px-4 pb-4 ${row.index === 0 ? "pt-4" : ""}`}
+                        data-reverted={row.reverted ? "true" : "false"}
+                        class={`absolute left-0 right-0 px-4 pb-4${row.index === 0 ? " pt-4" : ""}${
+                          row.reverted ? " opacity-45 saturate-50" : ""
+                        }`}
                         style={{ top: `${row.start}px` }}
                       >
                         <MessageBubble
@@ -374,6 +430,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                           typing={row.typing}
                           onViewDiff={props.onViewDiff}
                           onFork={props.onFork}
+                          onRevert={props.onRevert}
                         />
                       </div>
                     )}

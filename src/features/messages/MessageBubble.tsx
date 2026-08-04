@@ -44,6 +44,10 @@ export interface MessageBubbleProps {
   /** Forks the session from this message (wired by M6-03); while absent
    *  the message menu's "Fork from here" item stays disabled. */
   onFork?: (messageID: string) => void;
+  /** Reverts the session to this message (wired by M6-04); while absent
+   *  the message menu's "Revert to here" item and the snapshot chip stay
+   *  disabled/inert. */
+  onRevert?: (messageID: string) => void;
 }
 
 type RenderablePart = Extract<
@@ -85,7 +89,11 @@ function formatMessageTime(timestampMs: number): string {
   return new Date(timestampMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-function PartView(props: { part: Part | undefined; streaming?: boolean }) {
+function PartView(props: {
+  part: Part | undefined;
+  streaming?: boolean;
+  onRevert?: (messageID: string) => void;
+}) {
   // Memoized dispatch so the type switch stays inside a tracked scope; a
   // part's type is immutable for a given identity.
   const view = createMemo<JSX.Element>(() => {
@@ -101,7 +109,8 @@ function PartView(props: { part: Part | undefined; streaming?: boolean }) {
       case "patch":
         return <PatchPart part={props.part} />;
       case "snapshot":
-        return <SnapshotPart part={props.part} />;
+        // M6-04: the snapshot chip reverts its containing message.
+        return <SnapshotPart part={props.part} onRevert={props.onRevert} />;
       case "step-start":
         return <StepStartPart part={props.part} />;
       case "step-finish":
@@ -157,6 +166,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
         partIds={props.partIds}
         onViewDiff={props.onViewDiff}
         onFork={props.onFork}
+        onRevert={props.onRevert}
       >
         <div
           class={`max-w-[78%] rounded-lg px-3 py-2 ${
@@ -172,6 +182,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                 <PartView
                   part={part()}
                   streaming={props.typing === true && lastTextPartId() === partId}
+                  onRevert={props.onRevert}
                 />
               );
             }}

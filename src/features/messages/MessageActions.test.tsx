@@ -419,6 +419,58 @@ describe("MessageActions fork from here (TASK-M6-03)", () => {
   });
 });
 
+describe("MessageActions revert to here (TASK-M6-04)", () => {
+  it("is a disabled placeholder without an onRevert callback", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    mountActions();
+    await openMenu();
+
+    expect(screen.getByTestId("message-action-revert")).toHaveAttribute("data-disabled");
+  });
+
+  it("calls onRevert with the message id when provided", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    let reverted: string | undefined;
+    mountActions({ onRevert: (id) => void (reverted = id) });
+    await openMenu();
+
+    pickMenuAction("message-action-revert");
+    expect(reverted).toBe("msg_user");
+  });
+
+  it("reverts from an assistant message point too", async () => {
+    mountWithClient();
+    seedAssistant("a reply");
+    let reverted: string | undefined;
+    render(() => (
+      <MessageActions
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_asst"
+        partIds={["prt_asst"]}
+        onRevert={(id) => void (reverted = id)}
+      />
+    ));
+    await openMenu();
+
+    pickMenuAction("message-action-revert");
+    expect(reverted).toBe("msg_asst");
+  });
+
+  it("runs from the right-click context menu as well", async () => {
+    mountWithClient();
+    seedUser([["prt_1", "hello world"]]);
+    let reverted: string | undefined;
+    mountActions({ onRevert: (id) => void (reverted = id) });
+    await openContextMenu();
+
+    fireEvent.click(screen.getByTestId("message-context-revert"));
+    expect(reverted).toBe("msg_user");
+  });
+});
+
 describe("MessageActions context menu", () => {
   it("opens at the cursor on right-click and runs the same actions", async () => {
     mountWithClient();

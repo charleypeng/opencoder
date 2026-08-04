@@ -20,7 +20,11 @@ import {
   getServerMessages,
   resetServer as resetMessages,
 } from "../../stores/messages";
-import { resetServer as resetSessions, setSessionStatus } from "../../stores/session";
+import {
+  applySessionList,
+  resetServer as resetSessions,
+  setSessionStatus,
+} from "../../stores/session";
 import { HISTORY_PAGE_SIZE } from "./usePaginatedMessages";
 
 import historyFixtureJson from "../../../tests/fixtures/session.messages.json";
@@ -579,4 +583,65 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     fireEvent.scroll(scroll);
     expect(client.get.mock.calls.length).toBe(21);
   }, 15000);
+});
+
+describe("MessageList revert state (TASK-M6-04)", () => {
+  const REVERTED_SESSION = {
+    id: SESSION,
+    slug: SESSION,
+    projectID: "project-mock-1",
+    directory: "/mock/projects/opencode-demo",
+    title: SESSION,
+    version: "1.18.11",
+    time: { created: 1, updated: 1 },
+    revert: { messageID: "msg_m2" },
+  } as import("../../services/session").Session;
+
+  it("shows the reverted bar and grays the messages after the revert point", async () => {
+    applySessionList(SERVER, [REVERTED_SESSION]);
+    await renderHistory();
+
+    const bar = screen.getByTestId("reverted-bar");
+    expect(bar).toHaveTextContent("Reverted");
+    expect(within(bar).getByTestId("unrevert")).toBeInTheDocument();
+
+    // The revert point itself stays active; later messages are grayed (the
+    // flag lives on the row wrapper, not the bubble itself).
+    const revertedOf = (id: string) =>
+      screen.getByTestId(`message-${id}`).closest("[data-reverted]") as HTMLElement;
+    expect(revertedOf("msg_m1")).toHaveAttribute("data-reverted", "false");
+    expect(revertedOf("msg_m2")).toHaveAttribute("data-reverted", "false");
+    expect(revertedOf("msg_m3")).toHaveAttribute("data-reverted", "true");
+    expect(revertedOf("msg_m4")).toHaveAttribute("data-reverted", "true");
+  });
+
+  it("hides the bar when the session has no revert marker", async () => {
+    applySessionList(SERVER, [REVERTED_SESSION]);
+    await renderHistory();
+
+    // The store's revert marker is the only source: clearing it removes the
+    // bar and un-grays every message (revert + unrevert both land here via
+    // upsertSession with the server's updated session).
+    applySessionList(SERVER, [{ ...REVERTED_SESSION, revert: undefined }]);
+    await waitFor(() => expect(screen.queryByTestId("reverted-bar")).not.toBeInTheDocument());
+    const rowEl = screen.getByTestId("message-msg_m4").closest("[data-reverted]");
+    expect(rowEl).toHaveAttribute("data-reverted", "false");
+  });
+
+  it("calls onUnrevert when the one-click Unrevert button is pressed", async () => {
+    applySessionList(SERVER, [REVERTED_SESSION]);
+    mockClient(historyFixture);
+    let unreverted = 0;
+    render(() => (
+      <MessageList
+        serverId={SERVER}
+        sessionId={SESSION}
+        onUnrevert={() => void (unreverted += 1)}
+      />
+    ));
+    await waitFor(() => expect(screen.getByTestId("reverted-bar")).toBeInTheDocument());
+
+    fireEvent.click(within(screen.getByTestId("reverted-bar")).getByTestId("unrevert"));
+    expect(unreverted).toBe(1);
+  });
 });

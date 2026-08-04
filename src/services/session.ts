@@ -30,6 +30,10 @@ export type ShellRunResult =
 export type SessionForkInput = NonNullable<
   operations["session.fork"]["requestBody"]
 >["content"]["application/json"];
+/** Request body of `POST /session/{id}/revert` ({ messageID, partID? }). */
+export type SessionRevertInput = NonNullable<
+  operations["session.revert"]["requestBody"]
+>["content"]["application/json"];
 
 // Explicit directory only when provided; the client's global directory
 // injection handles the rest (TASK-M2-03 wires it up).
@@ -83,6 +87,25 @@ export function createSessionService(client: ApiClient) {
     fork: (sessionID: string, messageID?: string, dir?: string) =>
       client.post<Session>(sessionPath(sessionID, "/fork"), {
         body: (messageID === undefined ? {} : { messageID }) satisfies SessionForkInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
+    /**
+     * Revert a specific message in a session (POST /session/{id}/revert):
+     * the server rolls back the file changes made after it. Resolves the
+     * updated session, whose `revert` field carries the revert point.
+     */
+    revert: (sessionID: string, messageID: string, dir?: string) =>
+      client.post<Session>(sessionPath(sessionID, "/revert"), {
+        body: { messageID } satisfies SessionRevertInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
+    /**
+     * Restore all previously reverted messages in a session (POST
+     * /session/{id}/unrevert, no body). Resolves the updated session with
+     * the `revert` marker cleared.
+     */
+    unrevert: (sessionID: string, dir?: string) =>
+      client.post<Session>(sessionPath(sessionID, "/unrevert"), {
         ...(dirQuery(dir) ?? {}),
       }),
   };
