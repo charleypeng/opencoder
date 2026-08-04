@@ -20,6 +20,7 @@ import * as sessionStore from "./session.js";
 import * as messagesStore from "./messages.js";
 import * as projectStore from "./project.js";
 import * as todosStore from "./todos.js";
+import * as filesStore from "./files.js";
 
 type Message = components["schemas"]["Message"];
 type Part = components["schemas"]["Part"];
@@ -31,6 +32,7 @@ export interface EventStoreDeps {
   messages: typeof messagesStore;
   project: typeof projectStore;
   todos: typeof todosStore;
+  files: typeof filesStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -38,6 +40,7 @@ export const defaultEventStores: EventStoreDeps = {
   messages: messagesStore,
   project: projectStore,
   todos: todosStore,
+  files: filesStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -62,7 +65,7 @@ export function applyEvent(
   event: SseEvent,
   deps: EventStoreDeps = defaultEventStores,
 ): void {
-  const { session, messages, project, todos } = deps;
+  const { session, messages, project, todos, files } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
     case "server.connected":
@@ -139,6 +142,13 @@ export function applyEvent(
       return;
     case "session.diff":
       // No-op for now: M4 wires the diff view.
+      return;
+    case "file.watcher.updated":
+    case "file.edited":
+      // Workspace change (schema properties: file path, optionally an
+      // add/change/unlink event kind): bump the files store version so a
+      // mounted FileTree refetches tree + statuses (M4-02).
+      if (typeof p.file === "string") files.applyWatcher(serverId, p.file);
       return;
     default:
       if (import.meta.env.DEV) {
@@ -229,6 +239,7 @@ export async function subscribeToServerEvents(
       deps.messages.resetServer(serverId);
       deps.project.resetServer(serverId);
       deps.todos.resetServer(serverId);
+      deps.files.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

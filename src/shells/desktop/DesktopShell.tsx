@@ -4,7 +4,8 @@
 // tears down that server's SSE stream. The rail mirrors the server list
 // (listServers + servers-changed) with a health dot per server and offers
 // ⌘/Ctrl+1..9 switching in list order. The sidebar holds the project/folder
-// switcher (TASK-M2-03) on top and the session list (TASK-M2-04) below; the
+// switcher (TASK-M2-03) on top and, below, a view switch (TASK-M4-02)
+// toggling between the session list (TASK-M2-04) and the files tree; the
 // main pane shows the chat transcript (TASK-M2-06) for the store's active
 // session id (set by row selection and by the "New session" flow,
 // TASK-M2-05), keeping a placeholder only while no session is open. This
@@ -32,6 +33,7 @@ import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
 import SessionList from "../../features/sessions/SessionList";
 import TodoPanel from "../../features/sessions/TodoPanel";
 import MessageList from "../../features/messages/MessageList";
+import FileTree from "../../features/files/FileTree";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -71,6 +73,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Todo drawer (TASK-M3-07): local open state; closes on Esc or backdrop.
   const [todosOpen, setTodosOpen] = createSignal(false);
   const closeTodos = () => setTodosOpen(false);
+  // Sidebar view switch (TASK-M4-02): Sessions list or the Files tree.
+  const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
 
   createEffect(() => {
     if (!todosOpen()) return;
@@ -246,8 +250,47 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             Back to servers
           </button>
         </header>
+        <div
+          role="tablist"
+          aria-label="Sidebar view"
+          class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
+        >
+          <button
+            type="button"
+            role="tab"
+            data-testid="sidebar-view-sessions"
+            aria-selected={sidebarView() === "sessions" ? "true" : "false"}
+            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+              sidebarView() === "sessions"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSidebarView("sessions")}
+          >
+            Sessions
+          </button>
+          <button
+            type="button"
+            role="tab"
+            data-testid="sidebar-view-files"
+            aria-selected={sidebarView() === "files" ? "true" : "false"}
+            class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+              sidebarView() === "files"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSidebarView("files")}
+          >
+            Files
+          </button>
+        </div>
         <ProjectSwitcher serverId={activeServerId()} />
-        <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+        <Show
+          when={sidebarView() === "sessions"}
+          fallback={<FileTree serverId={activeServerId()} />}
+        >
+          <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+        </Show>
       </aside>
 
       <main class="flex min-w-0 flex-1 flex-col">

@@ -11,6 +11,7 @@ import { sessions, resetServer as resetSessions } from "./session.js";
 import { messages, resetServer as resetMessages } from "./messages.js";
 import { projects, resetServer as resetProjects } from "./project.js";
 import { todos, resetServer as resetTodos } from "./todos.js";
+import { files, resetServer as resetFiles, setTree } from "./files.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
 
@@ -59,6 +60,7 @@ afterEach(() => {
   resetMessages(SERVER);
   resetProjects(SERVER);
   resetTodos(SERVER);
+  resetFiles(SERVER);
   sseSubscribeMock.mockReset();
 });
 
@@ -217,6 +219,43 @@ describe("applyEvent — edge routes", () => {
     });
     expect(projects[SERVER].projects).toEqual(refreshed);
   });
+
+  it("maps file.watcher.updated to a files-store version bump", () => {
+    setTree(SERVER, undefined, [
+      {
+        name: "a.ts",
+        path: "a.ts",
+        absolute: "/mock/projects/demo/a.ts",
+        type: "file",
+        ignored: false,
+      },
+    ]);
+    expect(files[SERVER].version).toBe(0);
+
+    applyEvent(SERVER, {
+      type: "file.watcher.updated",
+      properties: { file: "a.ts", event: "change" },
+    });
+    applyEvent(SERVER, {
+      type: "file.watcher.updated",
+      properties: { file: "b.ts", event: "add" },
+    });
+    expect(files[SERVER].version).toBe(2);
+    // The tree is untouched; the refetch triggered by the version is the
+    // source of truth for the delta.
+    expect(files[SERVER].tree[0].path).toBe("a.ts");
+  });
+
+  it("maps file.edited to a files-store version bump", () => {
+    setTree(SERVER, undefined, []);
+    applyEvent(SERVER, { type: "file.edited", properties: { file: "a.ts" } });
+    expect(files[SERVER].version).toBe(1);
+  });
+
+  it("ignores file watcher events without a file path", () => {
+    applyEvent(SERVER, { type: "file.watcher.updated", properties: {} });
+    expect(files[SERVER]).toBeUndefined();
+  });
 });
 
 describe("syncAll", () => {
@@ -268,8 +307,10 @@ describe("subscribeToServerEvents", () => {
         todos: [{ content: "a", status: "pending", priority: "high" }],
       },
     });
+    setTree(SERVER, undefined, []);
     expect(sessions[SERVER].sessions["ses_stale"]).toBeDefined();
     expect(todos[SERVER]["ses_stale"]).toBeDefined();
+    expect(files[SERVER]).toBeDefined();
 
     onEvent?.({ type: "server.connected", properties: {} });
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -279,6 +320,7 @@ describe("subscribeToServerEvents", () => {
     expect("ses_stale" in sessions[SERVER].sessions).toBe(false);
     expect(projects[SERVER].current).toBe("/sync/proj");
     expect(todos[SERVER]).toBeUndefined();
+    expect(files[SERVER]).toBeUndefined();
 
     // Events keep flowing after the re-sync.
     onEvent?.({

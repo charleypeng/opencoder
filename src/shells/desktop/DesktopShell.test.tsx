@@ -440,6 +440,30 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     expect(screen.queryByTestId("prompt-box")).not.toBeInTheDocument();
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
+
+  it("switches the sidebar between Sessions and Files (TASK-M4-02)", async () => {
+    const alpha = server({ id: "srv-files", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // Sessions is the default view.
+    expect(screen.getByTestId("sidebar-view-sessions")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("file-tree")).not.toBeInTheDocument();
+
+    // The Files view mounts the tree (empty workspace renders the empty state).
+    fireEvent.click(screen.getByTestId("sidebar-view-files"));
+    expect(screen.getByTestId("sidebar-view-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("file-tree")).toBeInTheDocument();
+    expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("file-tree-empty")).toBeInTheDocument());
+
+    // Back to sessions.
+    fireEvent.click(screen.getByTestId("sidebar-view-sessions"));
+    expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    expect(screen.queryByTestId("file-tree")).not.toBeInTheDocument();
+  });
 });
 
 describe("DesktopShell todo drawer (TASK-M3-07)", () => {
