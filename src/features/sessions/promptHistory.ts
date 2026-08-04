@@ -25,6 +25,11 @@ export function promptAt(serverId: string, index: number): string | undefined {
   return readPrompts(serverId)[index];
 }
 
+/** Most recently sent prompt for a server; undefined when nothing was sent. */
+export function getLastPrompt(serverId: string): string | undefined {
+  return readPrompts(serverId)[0];
+}
+
 /** Drops a server's history (e.g. when the server context is torn down). */
 export function clearPrompts(serverId: string): void {
   history.delete(serverId);

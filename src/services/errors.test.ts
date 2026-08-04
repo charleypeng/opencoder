@@ -19,6 +19,23 @@ describe("errorTitle mapping matrix", () => {
     expect(errorTitle(error(401, "http"))).toBe("Authentication required");
   });
 
+  it("maps 429 to the rate-limit title", () => {
+    expect(errorTitle(error(429, "http"))).toBe("Rate limited — try again shortly");
+  });
+
+  it("classifies messages containing rate-limit hints", () => {
+    expect(errorTitle(error(undefined, "session", "provider: rate limit exceeded"))).toBe(
+      "Rate limited — try again shortly",
+    );
+    expect(errorTitle(error(undefined, "session", "HTTP 429 from provider"))).toBe(
+      "Rate limited — try again shortly",
+    );
+  });
+
+  it("does not classify unrelated messages as rate limits", () => {
+    expect(errorTitle(error(undefined, "session", "provider: boom"))).toBe("Request failed");
+  });
+
   it("maps network failures to Cannot reach server", () => {
     expect(errorTitle(error(undefined, "network"))).toBe("Cannot reach server");
   });

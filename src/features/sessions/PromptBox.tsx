@@ -1,20 +1,16 @@
 // Prompt input box (TASK-M2-08): the chat composer pinned below the message
 // list. An auto-growing textarea sends on ⌘/Ctrl+Enter (plain Enter inserts
 // a newline); ↑ on an empty input recalls the last sent prompt and keeps
-// cycling through the per-server history. Sending is optimistic: the user
-// message is inserted into the messages store immediately, the textarea is
-// cleared, and the POST /session/{id}/prompt_async round-trip happens in the
-// background — on failure the optimistic message is rolled back and an
-// inline banner shows the error. The server echo (message.updated under a
-// real id) reconciles the local bubble onto the echoed message instead of
-// leaving a duplicate (see trackPendingLocalMessage in the messages store);
-// a prompt the server never echoes keeps its optimistic bubble, same as a
-// silent server. While the session is generating (busy/retry
-// status from the store) the input is locked with a "Generating…" placeholder;
-// the thin streaming progress bar lives at the top of the chat area in
-// MessageList (TASK-M2-09, single source: session busy status). The Esc abort
-// and stop button land in M2-10. The attachment button is a disabled
-// placeholder for M3 (file parts).
+// cycling through the per-server history. Sending goes through the shared
+// sendPrompt pipeline (optimistic user message, rollback + inline banner on
+// failure); while the session is generating (busy/retry status from the
+// store) the input is locked with a "Generating…" placeholder and the Send
+// button is replaced by a Stop button — Esc does the same — which calls
+// POST /session/{id}/abort (TASK-M2-10; a local aborting lock prevents
+// double clicks; an abort failure surfaces as the inline banner). The thin
+// streaming progress bar lives at the top of the chat area in MessageList
+// (TASK-M2-09, single source: session busy status). The attachment button is
+// a disabled placeholder for M3 (file parts).
 
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import type { Component } from "solid-js";
@@ -22,16 +18,10 @@ import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createSessionService } from "../../services/session.js";
-import type { Message, Part } from "../../stores/messages.js";
-import {
-  applyPartDelta,
-  removePartsForMessage,
-  trackPendingLocalMessage,
-  untrackPendingLocalMessage,
-  upsertMessage,
-} from "../../stores/messages.js";
+import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
-import { promptAt, pushPrompt } from "./promptHistory.js";
+import { promptAt } from "./promptHistory.js";
+import { sendPrompt } from "./sendPrompt.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -61,6 +51,14 @@ function PaperclipIcon() {
   );
 }
 
+function SquareIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5">
+      <rect x="7" y="7" width="10" height="10" rx="1.5" />
+    </svg>
+  );
+}
+
 /** Grows the textarea to its content, capped at the max box height. */
 function resizeToContent(el: HTMLTextAreaElement): void {
   el.style.height = "auto";
@@ -70,7 +68,9 @@ function resizeToContent(el: HTMLTextAreaElement): void {
 const PromptBox: Component<PromptBoxProps> = (props) => {
   const [text, setText] = createSignal("");
   const [sending, setSending] = createSignal(false);
-  const [sendError, setSendError] = createSignal<ApiError | null>(null);
+  const [inlineError, setInlineError] = createSignal<ApiError | null>(null);
+  // Local lock while an abort request is in flight (no double stops).
+  const [aborting, setAborting] = createSignal(false);
   // -1 = not browsing; >= 0 = index into the history list (0 is most recent).
   const [browseIndex, setBrowseIndex] = createSignal(-1);
   let textareaRef: HTMLTextAreaElement | undefined;
@@ -87,6 +87,21 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   createEffect(() => {
     const sessionId = props.sessionId;
     onCleanup(() => untrackPendingLocalMessage(props.serverId, sessionId));
+  });
+
+  // Esc aborts generation from anywhere while the session is generating
+  // (the textarea is disabled then and cannot receive the key itself); a
+  // focused widget that handled the key (e.g. a dialog) wins via the
+  // defaultPrevented check.
+  createEffect(() => {
+    if (!busy()) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      event.preventDefault();
+      void stopGeneration();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
   });
 
   function applyHeight(el: HTMLTextAreaElement): void {
@@ -137,8 +152,8 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   }
 
   function onKeyDown(event: KeyboardEvent) {
-    // Esc: M2-10 wires the abort here; for now it only exits prompt history
-    // browsing (and the browser default, e.g. closing overlays, is kept).
+    // Esc exits prompt history browsing (the browser default, e.g. closing
+    // overlays, is kept when not browsing).
     if (event.key === "Escape") {
       if (browseIndex() >= 0) {
         event.preventDefault();
@@ -177,38 +192,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   async function send() {
     const message = text().trim();
     if (message === "" || disabled()) return;
-    const now = Date.now();
-    const localMessageId = `local-${now}`;
-    const localPartId = `local-part-${now}`;
-    const session = getServerSessionState(props.serverId).sessions[props.sessionId];
-
-    // Optimistic local insert so the bubble appears before the server echoes
-    // it back through SSE; the tracked pending id lets the first real
-    // message.updated roll this local message over onto the echo.
-    // The session's model uses { id, providerID } while a user message
-    // expects { providerID, modelID }, so the fields are mapped.
-    const optimistic: Message = {
-      id: localMessageId,
-      sessionID: props.sessionId,
-      role: "user",
-      time: { created: now },
-      agent: session?.agent ?? "",
-      model: {
-        providerID: session?.model?.providerID ?? "",
-        modelID: session?.model?.id ?? "",
-      },
-    };
-    const part: Part = {
-      id: localPartId,
-      sessionID: props.sessionId,
-      messageID: localMessageId,
-      type: "text",
-      text: message,
-    };
-    upsertMessage(props.serverId, props.sessionId, optimistic);
-    applyPartDelta(props.serverId, props.sessionId, part);
-    trackPendingLocalMessage(props.serverId, props.sessionId, localMessageId);
-
+    // Clear the input immediately; sendPrompt handles the store side.
     setText("");
     const el = textareaRef;
     if (el !== undefined) {
@@ -216,22 +200,27 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       applyHeight(el);
     }
     exitBrowse();
-    pushPrompt(props.serverId, message);
-
     setSending(true);
-    setSendError(null);
+    setInlineError(null);
     try {
-      await createSessionService(getApiClient()).promptAsync(props.sessionId, {
-        parts: [{ type: "text", text: message }],
-      });
-    } catch (err) {
-      // Roll the optimistic message back; on success the SSE echo would
-      // have reconciled it. The pending marker is dropped either way.
-      removePartsForMessage(props.serverId, props.sessionId, localMessageId);
-      untrackPendingLocalMessage(props.serverId, props.sessionId);
-      setSendError(ApiError.fromUnknown(err));
+      setInlineError(await sendPrompt(props.serverId, props.sessionId, message));
     } finally {
       setSending(false);
+    }
+  }
+
+  async function stopGeneration() {
+    if (aborting() || !busy()) return;
+    setAborting(true);
+    setInlineError(null);
+    try {
+      // The server answers with session.status idle via SSE, which flips
+      // the busy lock and restores the Send button.
+      await createSessionService(getApiClient()).abort(props.sessionId);
+    } catch (err) {
+      setInlineError(ApiError.fromUnknown(err));
+    } finally {
+      setAborting(false);
     }
   }
 
@@ -239,7 +228,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     <div data-testid="prompt-box" class="shrink-0 border-t border-bg-sunken bg-bg-elevated">
       <div class="flex items-end gap-2 px-4 py-3">
         <div class="min-w-0 flex-1">
-          <ErrorBanner error={sendError()} onDismiss={() => setSendError(null)} />
+          <ErrorBanner error={inlineError()} onDismiss={() => setInlineError(null)} />
           <div class="flex items-end gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">
             <button
               type="button"
@@ -263,18 +252,33 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               onKeyDown={onKeyDown}
               class="max-h-[220px] min-h-[2rem] flex-1 resize-none bg-transparent py-1.5 text-sm leading-5 outline-none placeholder:text-fg-faint disabled:cursor-not-allowed"
             />
-            <button
-              type="button"
-              data-testid="prompt-send"
-              disabled={!canSend()}
-              onClick={() => void send()}
-              class="mb-0.5 shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-            >
-              Send
-            </button>
+            {busy() ? (
+              <button
+                type="button"
+                data-testid="prompt-stop"
+                aria-label="Stop generating"
+                title="Stop (Esc)"
+                disabled={aborting()}
+                onClick={() => void stopGeneration()}
+                class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <SquareIcon />
+                Stop
+              </button>
+            ) : (
+              <button
+                type="button"
+                data-testid="prompt-send"
+                disabled={!canSend()}
+                onClick={() => void send()}
+                class="mb-0.5 shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Send
+              </button>
+            )}
           </div>
           <p class="mt-1 px-1 text-xs text-fg-faint">
-            {busy() ? "Generating — Esc to stop (M2-10)" : "⌘/Ctrl+Enter to send"}
+            {busy() ? "Generating — Esc to stop" : "⌘/Ctrl+Enter to send"}
           </p>
         </div>
       </div>

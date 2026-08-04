@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Session, SessionStatus } from "../services/session.js";
 import {
   applySessionList,
+  dismissSessionError,
   getServerSessionState,
   removeSession,
   resetServer,
@@ -92,6 +93,21 @@ describe("session store", () => {
     const map: Record<string, SessionStatus> = { ses_2: { type: "idle" } };
     setStatusMap("srv-ses", map);
     expect(sessions["srv-ses"].statuses).toEqual({ ses_2: { type: "idle" } });
+  });
+
+  it("dismissSessionError reverts an error status to idle", () => {
+    setSessionStatus("srv-ses", "ses_1", { type: "error", message: "boom" });
+    dismissSessionError("srv-ses", "ses_1");
+    expect(sessions["srv-ses"].statuses["ses_1"]).toEqual({ type: "idle" });
+  });
+
+  it("dismissSessionError is a no-op for non-error statuses", () => {
+    setSessionStatus("srv-ses", "ses_1", { type: "busy" });
+    dismissSessionError("srv-ses", "ses_1");
+    expect(sessions["srv-ses"].statuses["ses_1"]).toEqual({ type: "busy" });
+
+    dismissSessionError("srv-ses", "ses_missing");
+    expect("ses_missing" in sessions["srv-ses"].statuses).toBe(false);
   });
 
   it("setActiveSession sets and clears the viewed session", () => {

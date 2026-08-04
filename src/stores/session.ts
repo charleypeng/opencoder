@@ -123,6 +123,14 @@ export function setStatusMap(serverId: string, statuses: Record<string, SessionS
   });
 }
 
+/** Clears a session error (banner dismiss): the "error" status reverts to idle. */
+export function dismissSessionError(serverId: string, sessionId: string): void {
+  updateServer(serverId, (state) => {
+    if (state.statuses[sessionId]?.type !== "error") return;
+    state.statuses[sessionId] = { type: "idle" };
+  });
+}
+
 /** Sets the currently viewed session (null clears it). */
 export function setActiveSession(serverId: string, sessionId: string | null): void {
   updateServer(serverId, (state) => {

@@ -1,7 +1,7 @@
-// L2 tests for the prompt box (TASK-M2-08): ⌘/Ctrl+Enter sends (plain Enter
-// only inserts a newline), the POST body carries the text part, the
-// optimistic user message lands in the store and the textarea clears, the
-// input locks while the session is busy/retry or a send is in flight, a
+// L2 tests for the prompt box (TASK-M2-08 / M2-10): ⌘/Ctrl+Enter sends
+// (plain Enter only inserts a newline), the POST body carries the text part,
+// the optimistic user message lands in the store and the textarea clears,
+// the input locks while the session is busy/retry or a send is in flight, a
 // failed POST rolls the optimistic message back and shows an error banner,
 // ↑ on an empty input recalls and cycles the per-server prompt history, the
 // attachment button is a disabled M3 placeholder, and an integration-style
@@ -9,7 +9,10 @@
 // store/render) ends with the sent prompt and the assistant reply on screen,
 // with the optimistic bubble reconciled onto the server-issued user message
 // (no local-* duplicates; full-chain E2E E03 itself lands with the M10
-// infra).
+// infra). M2-10 additions: while busy the Send button is replaced by a Stop
+// button that POSTs /session/{id}/abort (double-clicks collapsed to one
+// call), Esc does the same, an abort failure surfaces as the inline banner,
+// and the Send button returns once the session turns idle.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -122,9 +125,11 @@ describe("PromptBox", () => {
       role: "user",
       sessionID: SESSION,
     });
-    // Input cleared and re-enabled after the round-trip.
+    // Input cleared and re-enabled after the round-trip (the shared
+    // sendPrompt pipeline resolves a microtask later than the old inline
+    // flow, so the re-enable is awaited).
     expect(input().value).toBe("");
-    expect(input()).not.toBeDisabled();
+    await waitFor(() => expect(input()).not.toBeDisabled());
   });
 
   it("sends with Ctrl+Enter as well", async () => {
@@ -172,6 +177,58 @@ describe("PromptBox", () => {
   it("locks the input when disabled by prop", () => {
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} disabled />);
     expect(input()).toBeDisabled();
+  });
+
+  it("replaces Send with a Stop button while busy and aborts on click (no double stop)", async () => {
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    const stop = screen.getByTestId("prompt-stop") as HTMLButtonElement;
+    expect(screen.queryByTestId("prompt-send")).not.toBeInTheDocument();
+    expect(stop).not.toBeDisabled();
+
+    fireEvent.click(stop);
+    fireEvent.click(stop);
+
+    await waitFor(() => expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/abort`));
+    expect(client.post).toHaveBeenCalledTimes(1);
+    // Still busy until the server answers with idle via SSE.
+    expect(screen.getByTestId("prompt-stop")).toBeInTheDocument();
+  });
+
+  it("Esc aborts while the session is generating", async () => {
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/abort`));
+    expect(client.post).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores the Send button and unlocks the input once the session turns idle", () => {
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    expect(screen.getByTestId("prompt-stop")).toBeInTheDocument();
+
+    setSessionStatus(SERVER, SESSION, { type: "idle" });
+
+    expect(screen.queryByTestId("prompt-stop")).not.toBeInTheDocument();
+    expect(screen.getByTestId("prompt-send")).toBeInTheDocument();
+    expect(input()).not.toBeDisabled();
+  });
+
+  it("shows an inline banner when the abort request fails", async () => {
+    client.post.mockRejectedValueOnce(new ApiError(500, "http", "abort boom", true));
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.click(screen.getByTestId("prompt-stop"));
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("error-banner-title")).toHaveTextContent("Server error");
+    // The session is still generating: stop stays available for another try.
+    expect(screen.getByTestId("prompt-stop")).toBeInTheDocument();
   });
 
   it("rolls back the optimistic message and shows an error banner on POST failure", async () => {

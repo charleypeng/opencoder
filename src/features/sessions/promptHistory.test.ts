@@ -3,7 +3,7 @@
 // isolation and clearing.
 
 import { afterEach, describe, expect, it } from "vitest";
-import { clearPrompts, promptAt, pushPrompt, readPrompts } from "./promptHistory";
+import { clearPrompts, getLastPrompt, promptAt, pushPrompt, readPrompts } from "./promptHistory";
 
 afterEach(() => clearPrompts("srv-history"));
 
@@ -53,5 +53,12 @@ describe("promptHistory", () => {
   it("returns an empty list for unknown servers", () => {
     expect(readPrompts("srv-none")).toEqual([]);
     expect(promptAt("srv-none", 0)).toBeUndefined();
+  });
+
+  it("getLastPrompt returns the most recent prompt or undefined", () => {
+    expect(getLastPrompt("srv-history")).toBeUndefined();
+    pushPrompt("srv-history", "first");
+    pushPrompt("srv-history", "second");
+    expect(getLastPrompt("srv-history")).toBe("second");
   });
 });
