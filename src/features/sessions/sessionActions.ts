@@ -53,11 +53,13 @@ export async function deleteSession(
   sessionService: SessionService,
 ): Promise<void> {
   const original = requireSession(serverId, sessionId);
+  const wasActive = getServerSessionState(serverId).activeSessionId === sessionId;
   removeSession(serverId, sessionId);
   try {
     await sessionService.remove(sessionId);
   } catch (err) {
     upsertSession(serverId, original);
+    if (wasActive) setActiveSession(serverId, sessionId);
     throw ApiError.fromUnknown(err);
   }
 }

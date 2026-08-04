@@ -148,6 +148,20 @@ describe("deleteSession", () => {
     expect(getServerSessionState(SERVER).order).toContain("sess_1");
   });
 
+  it("restores the active id when deleting the active session fails", async () => {
+    setActiveSession(SERVER, "sess_1");
+    const service = fakeService({
+      remove: vi.fn().mockRejectedValue(new ApiError(500, "http", "boom", true)),
+    });
+
+    await expect(deleteSession(SERVER, "sess_1", service)).rejects.toMatchObject({ code: "http" });
+
+    const state = getServerSessionState(SERVER);
+    expect(state.sessions["sess_1"]).toEqual(ORIGINAL);
+    expect(state.order).toContain("sess_1");
+    expect(state.activeSessionId).toBe("sess_1");
+  });
+
   it("throws a not-found ApiError when the session is not in the store", async () => {
     const service = fakeService();
 
