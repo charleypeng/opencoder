@@ -25,6 +25,7 @@
   "question": "question.json",
   "command": "command.json",
   "agent": "agent.json",
+  "skill": "skill.json",
   "provider": "provider.json",
   "config.providers": "config.providers.json",
   "provider.auth": "provider.auth.json"

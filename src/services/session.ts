@@ -19,6 +19,13 @@ export type SessionUpdateInput = NonNullable<
 export type PromptAsyncInput = NonNullable<
   operations["session.prompt_async"]["requestBody"]
 >["content"]["application/json"];
+/** Request body of `POST /session/{id}/shell` (command + agent/model). */
+export type ShellRunInput = NonNullable<
+  operations["session.shell"]["requestBody"]
+>["content"]["application/json"];
+/** Response of `POST /session/{id}/shell` (the created assistant message). */
+export type ShellRunResult =
+  operations["session.shell"]["responses"]["200"]["content"]["application/json"];
 
 // Explicit directory only when provided; the client's global directory
 // injection handles the rest (TASK-M2-03 wires it up).
@@ -52,6 +59,17 @@ export function createSessionService(client: ApiClient) {
       client.post<void>(sessionPath(sessionID, "/prompt_async"), { body }),
     /** Abort an active session and stop any ongoing processing. */
     abort: (sessionID: string) => client.post<boolean>(sessionPath(sessionID, "/abort")),
+    /**
+     * Execute a shell command in the session (POST /session/{id}/shell);
+     * resolves the created assistant message ({ info, parts }) directly —
+     * the endpoint is synchronous, unlike prompt_async. The contract
+     * requires `agent`; `command` is the text after the `!` prefix.
+     */
+    shell: (sessionID: string, input: ShellRunInput, dir?: string) =>
+      client.post<ShellRunResult>(sessionPath(sessionID, "/shell"), {
+        body: input satisfies ShellRunInput,
+        ...(dirQuery(dir) ?? {}),
+      }),
   };
 }
 

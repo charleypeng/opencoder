@@ -104,6 +104,13 @@ const AGENT_ROUTES: Route[] = [
   { method: "get", path: "/agent", operation: "app.agents", fixture: "agent" },
 ];
 
+// P3 — skills (M5): the skill list is a static fixture (three visible
+// skills, TASK-M5-08). The 1.18.11 schema has no hidden flag — hidden
+// skills are filtered server-side and simply never reach this list.
+const SKILL_ROUTES: Route[] = [
+  { method: "get", path: "/skill", operation: "app.skills", fixture: "skill" },
+];
+
 // P3 — models (M5): the provider catalog with per-provider default models
 // and connected ids (TASK-M5-05); /config/providers carries the config
 // default record the picker's Default marker follows. TASK-M5-06 adds the
@@ -130,6 +137,7 @@ const ROUTES: Route[] = [
   ...QUESTION_ROUTES,
   ...COMMAND_ROUTES,
   ...AGENT_ROUTES,
+  ...SKILL_ROUTES,
   ...PROVIDER_ROUTES,
 ];
 
@@ -245,8 +253,81 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     res.json(true);
   });
 
-  app.post("/session/:sessionID/prompt_async", (_req, res) => {
+  // Prompt send (TASK-M2-08): always 204. TASK-M5-08 validates the part
+  // array shape so the `@skillName` reference flow is exercised — accepted
+  // types are the ones the composer actually sends: text (with a string
+  // text), file (with a string filename) and agent (with a string name —
+  // the AgentPartInput the server would echo for an `@skill` mention).
+  function isValidPartInput(part: unknown): boolean {
+    if (typeof part !== "object" || part === null) return false;
+    const { type } = part as { type?: unknown };
+    if (type === "text") return typeof (part as { text?: unknown }).text === "string";
+    if (type === "file") return typeof (part as { filename?: unknown }).filename === "string";
+    if (type === "agent") return typeof (part as { name?: unknown }).name === "string";
+    return false;
+  }
+
+  app.post("/session/:sessionID/prompt_async", (req, res) => {
+    const { parts } = (req.body ?? {}) as { parts?: unknown };
+    if (!Array.isArray(parts) || parts.some((part) => !isValidPartInput(part))) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid prompt payload" });
+      return;
+    }
     res.status(204).end();
+  });
+
+  // Shell run (TASK-M5-08): accepts the schema's { command, agent, model? }
+  // body and reports the created assistant message (info + parts) directly
+  // — the endpoint is synchronous, unlike prompt_async. A payload missing
+  // either required string is a 400 BadRequestError; a present model must
+  // carry string providerID/modelID.
+  app.post("/session/:sessionID/shell", (req, res) => {
+    const { command, agent, model } = (req.body ?? {}) as {
+      command?: unknown;
+      agent?: unknown;
+      model?: unknown;
+    };
+    const validModel =
+      model === undefined ||
+      (typeof model === "object" &&
+        model !== null &&
+        typeof (model as { providerID?: unknown }).providerID === "string" &&
+        typeof (model as { modelID?: unknown }).modelID === "string");
+    if (
+      typeof command !== "string" ||
+      command === "" ||
+      typeof agent !== "string" ||
+      agent === "" ||
+      !validModel
+    ) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid shell payload" });
+      return;
+    }
+    res.json({
+      info: {
+        id: `msg_asst_shell_${command}`,
+        sessionID: req.params.sessionID,
+        role: "assistant",
+        time: { created: base.time.updated },
+        parentID: `msg_user_shell_${command}`,
+        modelID: "gpt-5",
+        providerID: "openai",
+        mode: "primary",
+        agent,
+        path: { cwd: base.directory, root: base.directory },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      },
+      parts: [
+        {
+          id: `prt_shell_${command}`,
+          sessionID: req.params.sessionID,
+          messageID: `msg_asst_shell_${command}`,
+          type: "text",
+          text: `$ ${command}\n(mock shell output)`,
+        },
+      ],
+    });
   });
 
   // Fuzzy file search (TASK-M3-08): the fixture path list is filtered by a

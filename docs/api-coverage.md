@@ -35,12 +35,22 @@
 | `GET /provider` / `GET /config/providers` | provider/模型列表与默认模型 | M5 |
 | `GET /command` | 斜杠命令列表 | M5 |
 | `POST /session/{id}/command` | 执行斜杠命令 | M5 |
+| `GET /skill` | 服务端 skills 列表（`@` 引用候选；隐藏技能由服务端过滤，1.18.11 契约无 hidden 字段） | M5 |
+| `POST /session/{id}/shell` | 会话内执行 shell 命令（`!` 前缀；同步返回 `{ info, parts }` 消息） | M5 |
 | `GET /permission` / `POST /permission/{requestID}/reply` | 权限请求队列与应答（remember 记忆） | M5 |
 | `GET /question` / `POST /question/{id}/reply` / `…/reject` | Agent 提问卡片与回答/拒绝 | M5 |
 | `GET /session/{id}/todo` | Todo 面板（实时任务清单） | M3 |
 | `GET /session/{id}/message/{messageID}` | 单条消息详情 | M3 |
 | `DELETE /session/{id}/message/{messageID}` | 删除消息 | M3 |
 | `PATCH,DELETE /session/{id}/message/{mid}/part/{partID}` | 编辑/删除消息 Part（重问的基础） | M3 |
+
+> Skill 引用与 shell 说明（TASK-M5-08）：`@` 菜单的 skills 分组插入纯文本
+> `@skillName` 引用（与 `@path` 文件引用一致）——服务端在回显消息中把
+> `@name` 提及解析为 `AgentPartInput` part（契约的 `source { value, start, end }`
+> 即文本跨度），客户端不做 part 映射。`!` 前缀走 `POST /session/{id}/shell`
+>（body `{ command, agent, model? }`，`agent` 为契约必填），同步返回创建的
+> assistant 消息 `{ info, parts }` 直接写入消息 store（无 SSE 回显）；`!`
+> 条目不记入提示历史。
 
 ## 3. P2 — 效率工具（M4）
 
@@ -77,7 +87,6 @@
 | `POST /session/{id}/summarize` | 会话摘要压缩 | M6 |
 | `POST /session/{id}/init` | 生成 AGENTS.md | M6 |
 | `GET /session/{id}/children` | 子会话树（subagent 任务可视化） | M6 |
-| `POST /session/{id}/shell` | 会话内执行 shell 命令 | M6 |
 | `POST /session/{id}/message` | 同步发消息（等待完整响应，供简单场景/脚本化） | M6 |
 
 ## 5. P4 — 管理与配置（M5、M9）
@@ -94,7 +103,6 @@
 | `POST,DELETE /mcp/{name}/auth` + `…/authenticate` / `…/callback` | MCP OAuth | M9 |
 | `GET /lsp` / `GET /formatter` | LSP/格式化器状态（状态栏展示） | M9 |
 | `POST /log` | 前端日志回传服务端 | M9 |
-| `GET /skill` | 服务端 skills 列表（@ 引用候选） | M5 |
 | `POST /instance/dispose` / `POST /global/dispose` | 实例释放 | M9 |
 | `POST /global/upgrade` | 服务端自升级触发（谨慎，仅桌面显示入口） | M9 |
 | `GET /api/permission/saved` / `DELETE /api/permission/saved/{id}` ★ | 已保存权限规则管理 | M9 |

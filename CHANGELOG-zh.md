@@ -9,6 +9,7 @@
 
 ### 新增
 
+- Skill 引用与会话内 shell 命令 (TASK-M5-08)：输入框 `@` 引用菜单新增 skills 分组（位于文件结果上方）——技能目录（`src/services/skill.ts`，GET /skill）在首次 `@` 触发时拉取一次（按挂载缓存、请求中防重），查询按客户端本地过滤，行内显示技能名与描述，选中插入纯文本 `@skillName` 引用（服务端在回显消息中将 `@name` 提及解析为 AgentPartInput part，与 `@path` 解析为文件 part 一致——客户端不做 part 映射，见 docs/api-coverage.md 说明）；`!` 前缀将发送路由到 `POST /session/{id}/shell` 而非普通提示（`src/features/sessions/sendShell.ts`——`shellCommandOf` 为纯路由函数，单独的 `!` 回退到普通提示路径）：请求体携带会话当前 agent（1.18.11 契约必填）与当前 model，同步返回的 `{ info, parts }` 消息一次性写入消息 store（回复以普通 assistant 消息渲染，无 SSE 回显），`!` 条目不记入提示历史，失败时恢复已提交文本并显示内联错误横幅；会话服务新增 `shell` 封装（schema 派生的 ShellRunInput/ShellRunResult 类型）；Mock Server 提供 3 技能 fixture（契约无 hidden 字段——隐藏技能由服务端过滤）、带校验的 shell 端点（缺 agent/command 或 model 形状错误 → 400，返回创建的 assistant 消息），以及接受 AgentPartInput 形状的 prompt_async part 校验，均含自测断言；L1（技能服务载荷组装、shell 服务载荷组装、`shellCommandOf` 路由 + `runShell` store 应用、@ 菜单 `atEntriesFor`/`atInsertText` 纯函数）、L2（@ 菜单 skills 分组过滤/插入/按挂载一次拉取、shell 发送携带 agent+model、回复经 MessageList 渲染、失败恢复、单独 `!` 回退、普通提示不受影响）与 L3（skills 列表 + shell 执行契约）测试覆盖全链路
 - Tauri 2 + SolidJS 工程脚手架，devtools 仅限 debug 构建启用 (TASK-M0-01)
 - 设计令牌与 Tailwind CSS v4 基座，支持深浅色主题切换 (TASK-M0-02)
 - OpenAPI 类型生成管线：`openapi-typescript` 从版本锁定契约生成类型，带漂移检测 (TASK-M0-03)

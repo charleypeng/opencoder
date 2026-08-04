@@ -127,6 +127,55 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("shell POSTs the command + agent body to /session/{id}/shell", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { info: {}, parts: [] } }));
+    await createSessionService(makeClient()).shell("sess_01", {
+      command: "ls -la",
+      agent: "build",
+    });
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/shell",
+        body: { command: "ls -la", agent: "build" },
+      },
+    });
+  });
+
+  it("shell carries the optional model and an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { info: {}, parts: [] } }));
+    await createSessionService(makeClient()).shell(
+      "sess_01",
+      { command: "git status", agent: "plan", model: { providerID: "openai", modelID: "gpt-5" } },
+      "/mock/projects/opencode-demo",
+    );
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "POST",
+        path: "/session/sess_01/shell",
+        body: {
+          command: "git status",
+          agent: "plan",
+          model: { providerID: "openai", modelID: "gpt-5" },
+        },
+        query: { directory: "/mock/projects/opencode-demo" },
+      },
+    });
+  });
+
+  it("shell resolves the created assistant message info + parts", async () => {
+    const body = {
+      info: { id: "msg_asst_shell_1", sessionID: "sess_01", role: "assistant" },
+      parts: [{ id: "prt_shell_1", type: "text", text: "$ ls\nout" }],
+    };
+    invokeMock.mockResolvedValue(httpResponse({ body }));
+    await expect(
+      createSessionService(makeClient()).shell("sess_01", { command: "ls", agent: "build" }),
+    ).resolves.toEqual(body);
+  });
+
   it("passes ApiError rejections through unchanged", async () => {
     invokeMock.mockRejectedValue({
       status: 404,
@@ -198,5 +247,16 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
   it("abort stops the session", async () => {
     const aborted = await service.abort("sess_01");
     expect(aborted).toBe(true);
+  });
+
+  it("shell runs a command and resolves the assistant message", async () => {
+    const result = await service.shell("sess_01", {
+      command: "ls -la",
+      agent: "build",
+      model: { providerID: "openai", modelID: "gpt-5" },
+    });
+    expect(result.info.role).toBe("assistant");
+    expect(result.info.sessionID).toBe("sess_01");
+    expect(Array.isArray(result.parts)).toBe(true);
   });
 });

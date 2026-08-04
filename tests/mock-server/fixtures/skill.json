@@ -1,0 +1,19 @@
+[
+  {
+    "name": "research",
+    "description": "Deep research workflow",
+    "location": "/mock/skills/research/SKILL.md",
+    "content": "# research\n\nDeep research workflow."
+  },
+  {
+    "name": "code-review",
+    "description": "Pre-ship code review checklist",
+    "location": "/mock/skills/code-review/SKILL.md",
+    "content": "# code-review\n\nPre-ship code review checklist."
+  },
+  {
+    "name": "sql-analyzer",
+    "location": "/mock/skills/sql-analyzer/SKILL.md",
+    "content": "# sql-analyzer\n\nAnalyze SQL queries."
+  }
+]

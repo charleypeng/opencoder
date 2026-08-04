@@ -1141,3 +1141,262 @@ describe("PromptBox model selector", () => {
     expect(activeModelFor(SERVER, SESSION)).toEqual({ providerID: "openai", modelID: "gpt-5" });
   });
 });
+
+// TASK-M5-08: `@`-menu skills group and `!` shell command execution.
+describe("PromptBox skill references and shell commands", () => {
+  const SKILLS = [
+    {
+      name: "research",
+      description: "Deep research workflow",
+      location: "/mock/skills/research/SKILL.md",
+      content: "# research\n",
+    },
+    {
+      name: "code-review",
+      description: "Pre-ship code review checklist",
+      location: "/mock/skills/code-review/SKILL.md",
+      content: "# code-review\n",
+    },
+    {
+      name: "sql-analyzer",
+      location: "/mock/skills/sql-analyzer/SKILL.md",
+      content: "# sql-analyzer\n",
+    },
+  ];
+  const AGENTS = [
+    {
+      name: "build",
+      description: "General-purpose coding agent",
+      mode: "primary",
+      color: "#E5B83C",
+      permission: [],
+      options: {},
+    },
+  ];
+
+  beforeEach(() => {
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/skill") return SKILLS;
+      if (path === "/agent") return AGENTS;
+      if (path === "/find/file") return ["src/services/find.ts"];
+      return [];
+    });
+  });
+
+  it("@ opens the menu with a filtered skills group above the file results", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@res" } });
+
+    await waitFor(() => expect(screen.getByTestId("prompt-at-menu")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("prompt-at-skill")).toBeInTheDocument());
+    expect(client.get).toHaveBeenCalledWith("/skill", undefined);
+
+    const skills = screen.getAllByTestId("prompt-at-skill");
+    expect(skills).toHaveLength(1);
+    expect(skills[0]).toHaveTextContent("research");
+    expect(skills[0]).toHaveTextContent("Deep research workflow");
+    // The skills group leads the list; files follow below (debounced fetch).
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(1));
+    expect(skills[0]).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("the skills catalog is fetched once per mount and reused for later queries", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@res" } });
+    await waitFor(() => expect(screen.getByTestId("prompt-at-skill")).toBeInTheDocument());
+    fireEvent.input(input(), { target: { value: "@research" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-skill")).toHaveLength(1));
+
+    const skillCalls = client.get.mock.calls.filter(([path]) => path === "/skill");
+    expect(skillCalls).toHaveLength(1);
+  });
+
+  it("Enter on a skill row inserts a plain @name reference", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "see @res" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-skill")).toHaveLength(1));
+    fireEvent.keyDown(input(), { key: "Enter" });
+
+    expect(input().value).toBe("see @research");
+    expect(screen.queryByTestId("prompt-at-menu")).not.toBeInTheDocument();
+  });
+
+  it("a query without skill matches hides the group but keeps the file rows", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "@zzz" } });
+    await waitFor(() => expect(screen.getAllByTestId("prompt-at-item")).toHaveLength(1));
+
+    expect(screen.queryByTestId("prompt-at-skill")).not.toBeInTheDocument();
+    expect(screen.queryByText("Skills")).not.toBeInTheDocument();
+  });
+
+  it("`!` runs POST /session/{id}/shell with the effective agent, applies the reply and clears the input", async () => {
+    const shellReply = {
+      info: {
+        id: "msg_asst_shell_1",
+        sessionID: SESSION,
+        role: "assistant",
+        time: { created: 2 },
+        modelID: "gpt-5",
+        providerID: "openai",
+        mode: "primary",
+        agent: "build",
+        path: { cwd: DEMO_DIR, root: DEMO_DIR },
+        cost: 0,
+        tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+      },
+      parts: [
+        {
+          id: "prt_shell_1",
+          sessionID: SESSION,
+          messageID: "msg_asst_shell_1",
+          type: "text",
+          text: "$ ls\nsrc",
+        },
+      ],
+    };
+    client.post.mockImplementation(async (path: string) =>
+      path === `/session/${SESSION}/shell` ? shellReply : undefined,
+    );
+    render(() => (
+      <>
+        <MessageList serverId={SERVER} sessionId={SESSION} />
+        <PromptBox serverId={SERVER} sessionId={SESSION} />
+      </>
+    ));
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.input(input(), { target: { value: "!ls" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/shell`, {
+        body: { command: "ls", agent: "build" },
+      }),
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+    expect(input().value).toBe("");
+
+    // The synchronous reply renders as an assistant message (no SSE).
+    await waitFor(() => expect(screen.getByText(/\$ ls/)).toBeInTheDocument());
+    const entry = messages[SERVER]?.[SESSION];
+    expect(Object.keys(entry?.infos ?? {})).toEqual(["msg_asst_shell_1"]);
+    expect(entry?.parts[entry?.order[0] ?? ""]).toMatchObject({ type: "text", text: "$ ls\nsrc" });
+  });
+
+  it("`!` carries the effective model in the shell body when a model is active", async () => {
+    const MODELS = {
+      gpt5: {
+        id: "gpt-5",
+        providerID: "openai",
+        name: "GPT-5",
+        api: { id: "gpt-5", url: "https://example.com/v1", npm: "@ai-sdk/openai" },
+        capabilities: {
+          temperature: true,
+          reasoning: true,
+          attachment: true,
+          toolcall: true,
+          input: { text: true, audio: false, image: true, video: false, pdf: false },
+          output: { text: true, audio: false, image: false, video: false, pdf: false },
+          interleaved: false,
+        },
+        cost: { input: 1.25, output: 10, cache: { read: 0.625, write: 1.25 } },
+        limit: { context: 400000, output: 128000 },
+        status: "active",
+        options: {},
+        headers: {},
+        release_date: "2025-08-07",
+      },
+    };
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/skill") return SKILLS;
+      if (path === "/agent") return AGENTS;
+      if (path === "/provider")
+        return {
+          all: [
+            {
+              id: "openai",
+              name: "OpenAI",
+              source: "env",
+              env: [],
+              options: {},
+              models: { "gpt-5": MODELS.gpt5 },
+            },
+          ],
+          default: { openai: "gpt-5" },
+          connected: ["openai"],
+        };
+      if (path === "/config/providers")
+        return {
+          providers: [
+            {
+              id: "openai",
+              name: "OpenAI",
+              source: "env",
+              env: [],
+              options: {},
+              models: { "gpt-5": MODELS.gpt5 },
+            },
+          ],
+          default: { openai: "gpt-5" },
+        };
+      return [];
+    });
+    client.post.mockResolvedValue({
+      info: { id: "msg_asst_shell_2", sessionID: SESSION, role: "assistant", time: { created: 2 } },
+      parts: [],
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("model-chip-name")).toHaveTextContent("GPT-5"));
+
+    fireEvent.input(input(), { target: { value: "!pwd" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/shell`, {
+        body: {
+          command: "pwd",
+          agent: "build",
+          model: { providerID: "openai", modelID: "gpt-5" },
+        },
+      }),
+    );
+  });
+
+  it("a failed shell run restores the input and shows the error banner", async () => {
+    client.post.mockRejectedValueOnce(new ApiError(500, "http", "shell boom", true));
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.input(input(), { target: { value: "!ls" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("error-banner-title")).toHaveTextContent("Server error");
+    // The text survives for retry; no prompt_async was sent.
+    expect(input().value).toBe("!ls");
+    expect(client.post).toHaveBeenCalledTimes(1);
+    expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/shell`, {
+      body: { command: "ls", agent: "build" },
+    });
+  });
+
+  it("a bare `!` falls back to the plain prompt path", async () => {
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    await waitFor(() => expect(screen.getByTestId("agent-chip-name")).toHaveTextContent("build"));
+
+    fireEvent.input(input(), { target: { value: "!" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: { parts: [{ type: "text", text: "!" }], agent: "build" },
+      }),
+    );
+    expect(client.post).toHaveBeenCalledTimes(1);
+  });
+});

@@ -23,6 +23,20 @@
 // v2's onDragDropEvent is wired the path could be attached there. The
 // image picker button is a disabled M7 placeholder (mobile dialog plugin).
 //
+// TASK-M5-08 (skill references): the `@` menu gains a skills group above
+// the file results — the skill catalog (GET /skill) is fetched once per
+// mount on the first `@` trigger (in-flight guarded, same pattern as the
+// commands) and filtered client-side by the query; rows show the skill
+// name plus its description. Selecting a skill inserts a plain `@name`
+// text reference — the server resolves `@name` mentions into AgentPartInput
+// parts in the echoed message, exactly like `@path` resolves into file
+// parts (the 1.18.11 contract exposes no client-side mapping surface).
+// A leading `!` submits POST /session/{id}/shell instead of the prompt
+// path: the synchronous response ({ info, parts }) is applied to the
+// messages store directly, the session's effective agent (required by the
+// contract) and model ride in the body, `!` entries skip the prompt
+// history, and a failure restores the input text for retry.
+//
 // TASK-M5-03 (slash commands): a leading `/` opens a filtered command menu
 // over GET /command (name/description/argument hints; the command list is
 // fetched once per mount on first trigger, in-flight guarded). ↑↓/Enter/
@@ -66,6 +80,7 @@ import { ApiError } from "../../services/errors.js";
 import { createCommandService, type Command } from "../../services/command.js";
 import { createFindService } from "../../services/find.js";
 import { createSessionService } from "../../services/session.js";
+import { createSkillService, type Skill } from "../../services/skill.js";
 import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getServerSessionState } from "../../stores/session.js";
 import { agentColor, cycleAgentName, visibleAgents } from "../models/agents.js";
@@ -85,8 +100,10 @@ import { modelName } from "../models/models.js";
 import ModelPicker from "../models/ModelPicker.js";
 import { type Attachment, fileToAttachment } from "./attachments.js";
 import { commandTemplate, matchCommand, type CommandMatch } from "../commands/commands.js";
+import { atEntriesFor, atInsertText, type AtEntry } from "../commands/skills.js";
 import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
+import { runShell, shellCommandOf } from "./sendShell.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -100,11 +117,14 @@ export interface PromptBoxProps {
 const MAX_TEXTAREA_HEIGHT = 220; // ~10 lines, then the box scrolls internally
 const AT_DEBOUNCE_MS = 150;
 
-/** Open @-reference menu state (TASK-M3-08). */
+/** Open @-reference menu state (TASK-M3-08 + TASK-M5-08 skills group). */
 interface AtMenuState {
   /** The word after the triggering `@`. */
   query: string;
-  items: string[];
+  /** File paths from GET /find/file (already filtered server-side). */
+  files: string[];
+  /** Skills from GET /skill (client-side query filter, TASK-M5-08). */
+  skills: Skill[];
   selected: number;
 }
 
@@ -230,6 +250,23 @@ function CheckIcon() {
   );
 }
 
+function SparkleIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-3 w-3 shrink-0 text-fg-faint"
+    >
+      <path d="m12 3-1.9 5.8a2 2 0 0 1-1.287 1.288L3 12l5.8 1.9a2 2 0 0 1 1.288 1.287L12 21l1.9-5.8a2 2 0 0 1 1.287-1.288L21 12l-5.8-1.9a2 2 0 0 1-1.288-1.287Z" />
+    </svg>
+  );
+}
+
 /** Grows the textarea to its content, capped at the max box height. */
 function resizeToContent(el: HTMLTextAreaElement): void {
   el.style.height = "auto";
@@ -276,6 +313,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // `/` trigger; the in-flight promise collapses concurrent opens.
   let commandCache: Command[] | null = null;
   let commandFetch: Promise<Command[]> | null = null;
+  // Skill catalog cache (TASK-M5-08): fetched once per mount on the first
+  // `@` trigger, same pattern as the commands.
+  let skillCache: Skill[] | null = null;
+  let skillFetch: Promise<Skill[]> | null = null;
   // Suppresses one refresh after a command insert so the filled template
   // (e.g. `/init`) does not immediately reopen the menu.
   let suppressSlashRefresh = false;
@@ -469,12 +510,42 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   async function fetchAtResults(query: string): Promise<void> {
     const seq = ++atFetchSeq;
     try {
-      const items = await createFindService(getApiClient()).files(query);
+      const files = await createFindService(getApiClient()).files(query);
       if (seq !== atFetchSeq) return; // stale response; a newer query owns the menu
-      setAtMenu((prev) => (prev?.query === query ? { query, items, selected: 0 } : prev));
+      setAtMenu((prev) => (prev?.query === query ? { ...prev, files, selected: 0 } : prev));
     } catch {
       // Search failures close the menu silently; typing is unaffected.
       if (seq === atFetchSeq) setAtMenu(null);
+    }
+  }
+
+  // Fetches the skill catalog once per mount on the first `@` trigger and
+  // caches it; a failed fetch resets the in-flight guard so the next
+  // trigger retries (same pattern as loadCommands). No debounce — the
+  // catalog is a small, per-mount list.
+  function loadSkills(): Promise<Skill[]> {
+    if (skillCache !== null) return Promise.resolve(skillCache);
+    if (skillFetch === null) {
+      skillFetch = createSkillService(getApiClient())
+        .list()
+        .then((skills) => {
+          skillCache = skills;
+          return skills;
+        })
+        .catch((err: unknown) => {
+          skillFetch = null;
+          throw err;
+        });
+    }
+    return skillFetch;
+  }
+
+  async function refreshAtSkills(query: string): Promise<void> {
+    try {
+      const skills = await loadSkills();
+      setAtMenu((prev) => (prev?.query === query ? { ...prev, skills, selected: 0 } : prev));
+    } catch {
+      // Catalog failures degrade to file-only results; typing is unaffected.
     }
   }
 
@@ -494,24 +565,28 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     }
     setAtMenu((prev) =>
       prev === null || prev.query !== hit.query
-        ? { query: hit.query, items: [], selected: 0 }
+        ? { query: hit.query, files: [], skills: [], selected: 0 }
         : prev,
     );
+    // The skills group resolves immediately (cached list, client-side
+    // filter) while the file search debounces below.
+    void refreshAtSkills(hit.query);
     atTimer = setTimeout(() => {
       atTimer = undefined;
       void fetchAtResults(hit.query);
     }, AT_DEBOUNCE_MS);
   }
 
-  function insertAtReference(path: string): void {
+  function insertAtReference(entry: AtEntry): void {
     const el = textareaRef;
+    const reference = atInsertText(entry);
     if (el !== undefined) {
       const caret = el.selectionStart;
       const hit = atQueryAt(el);
       if (hit !== null) {
         // Caret still on the `@query` word: replace the query up to the
         // caret and keep the rest of the text.
-        const next = `${el.value.slice(0, hit.atIndex)}@${path}${el.value.slice(caret)}`;
+        const next = `${el.value.slice(0, hit.atIndex)}${reference}${el.value.slice(caret)}`;
         el.value = next;
         setText(next);
         el.selectionStart = el.selectionEnd = next.length;
@@ -520,7 +595,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         // The caret moved off the query while the menu stayed open: insert
         // at the caret instead of splicing at a stale position (which could
         // duplicate the text before the old `@`).
-        const next = `${el.value.slice(0, caret)}@${path}${el.value.slice(caret)}`;
+        const next = `${el.value.slice(0, caret)}${reference}${el.value.slice(caret)}`;
         el.value = next;
         setText(next);
         el.selectionStart = el.selectionEnd = next.length;
@@ -658,6 +733,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     // The @-reference menu owns arrow/enter/escape keys while open.
     const menu = atMenu();
     if (menu !== null) {
+      const entries = atEntries();
       if (event.key === "Escape") {
         event.preventDefault();
         closeAtMenu();
@@ -666,14 +742,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       if (event.key === "ArrowDown" || event.key === "ArrowUp") {
         event.preventDefault();
         const delta = event.key === "ArrowDown" ? 1 : -1;
-        const count = menu.items.length;
+        const count = entries.length;
         const selected = count === 0 ? 0 : (menu.selected + delta + count) % count;
         setAtMenu({ ...menu, selected });
         return;
       }
-      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && menu.items.length > 0) {
+      if (event.key === "Enter" && !event.metaKey && !event.ctrlKey && entries.length > 0) {
         event.preventDefault();
-        insertAtReference(menu.items[menu.selected]);
+        insertAtReference(entries[menu.selected] ?? entries[0]);
         return;
       }
     }
@@ -798,7 +874,32 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setAttachError(null);
     try {
       let err: ApiError | null;
-      if (message.startsWith("/")) {
+      // TASK-M5-08: a leading `!` with a command routes to the shell path
+      // (POST /session/{id}/shell, synchronous — the response applies to
+      // the store directly); the session's effective agent rides in the
+      // body (required by the contract) with the effective model. A bare
+      // `!` falls back to the plain prompt path.
+      const shellCommand = shellCommandOf(message);
+      if (shellCommand !== null) {
+        err = await runShell(
+          props.serverId,
+          props.sessionId,
+          shellCommand,
+          agentName() ?? sessionAgent() ?? "",
+          modelRef() ?? undefined,
+        );
+        // A failed shell run restores the submitted text so the user can
+        // retry (the synchronous endpoint created no optimistic bubble).
+        if (err !== null) {
+          const el = textareaRef;
+          if (el !== undefined) {
+            el.value = message;
+            setText(message);
+            el.selectionStart = el.selectionEnd = message.length;
+            applyHeight(el);
+          }
+        }
+      } else if (message.startsWith("/")) {
         // Commands load lazily on the first `/` keystroke; a paste-and-send
         // can beat that fetch, so wait for it before classifying the input.
         // A message that matches a known command runs it; anything else
@@ -855,6 +956,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const menu = createMemo(() => atMenu());
   const slash = createMemo(() => slashMenu());
   const atts = createMemo(() => attachments());
+  // Combined @-menu rows: matching skills first, then the file paths
+  // (TASK-M5-08). Derived so either async source (skills / files) can land
+  // without the other; the selected index is kept in sync by the fetches.
+  const atEntries = createMemo(() => {
+    const m = menu();
+    return m === null ? [] : atEntriesFor(m.skills, m.files, m.query);
+  });
 
   return (
     <div
@@ -978,30 +1086,66 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <div
                   data-testid="prompt-at-menu"
                   role="listbox"
-                  aria-label="File references"
+                  aria-label="References"
                   ref={atListRef}
                   class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-full overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
                 >
                   <Show
-                    when={m().items.length > 0}
+                    when={atEntries().length > 0}
                     fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No matches</div>}
                   >
-                    <For each={m().items}>
-                      {(path, index) => (
-                        <button
-                          type="button"
-                          data-testid="prompt-at-item"
-                          role="option"
-                          aria-selected={index() === m().selected}
-                          onMouseDown={(event) => event.preventDefault()}
-                          onClick={() => insertAtReference(path)}
-                          class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
-                            index() === m().selected ? "bg-bg-sunken" : ""
-                          }`}
-                        >
-                          <span class="truncate font-mono text-fg-default">{path}</span>
-                        </button>
-                      )}
+                    {/* Skills group (TASK-M5-08): matching skills first, a
+                      plain `@name` reference on select; files follow. */}
+                    <Show when={atEntries().some((entry) => entry.kind === "skill")}>
+                      <div class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint">
+                        Skills
+                      </div>
+                    </Show>
+                    <Show when={atEntries().some((entry) => entry.kind === "file")}>
+                      <div class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint">
+                        Files
+                      </div>
+                    </Show>
+                    <For each={atEntries()}>
+                      {(entry, index) =>
+                        entry.kind === "skill" ? (
+                          <button
+                            type="button"
+                            data-testid="prompt-at-skill"
+                            role="option"
+                            aria-selected={index() === m().selected}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => insertAtReference(entry)}
+                            class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                              index() === m().selected ? "bg-bg-sunken" : ""
+                            }`}
+                          >
+                            <SparkleIcon />
+                            <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
+                              <span class="shrink-0 font-mono text-fg-default">{entry.name}</span>
+                              <Show when={entry.description !== undefined}>
+                                <span class="w-full truncate text-fg-faint">
+                                  {entry.description}
+                                </span>
+                              </Show>
+                            </span>
+                          </button>
+                        ) : (
+                          <button
+                            type="button"
+                            data-testid="prompt-at-item"
+                            role="option"
+                            aria-selected={index() === m().selected}
+                            onMouseDown={(event) => event.preventDefault()}
+                            onClick={() => insertAtReference(entry)}
+                            class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs ${
+                              index() === m().selected ? "bg-bg-sunken" : ""
+                            }`}
+                          >
+                            <span class="truncate font-mono text-fg-default">{entry.path}</span>
+                          </button>
+                        )
+                      }
                     </For>
                   </Show>
                 </div>

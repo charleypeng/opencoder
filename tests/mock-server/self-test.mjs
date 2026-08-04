@@ -873,6 +873,88 @@ try {
       expect(typeof body?.message === "string", "400 must carry an error message");
     });
 
+    // TASK-M5-08: /skill family + shell execution.
+    await test("skill list returns available skills", async () => {
+      const { status, body } = await request(baseUrl, "/skill");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length >= 3, "body must have >= 3 skills");
+      for (const skill of body) {
+        expect(typeof skill?.name === "string" && skill.name !== "", "skill must carry a name");
+        expect(typeof skill?.location === "string", "skill must carry a location");
+        expect(typeof skill?.content === "string", "skill must carry a content");
+        // The 1.18.11 contract has no hidden flag: every served skill is
+        // visible (hidden skills are filtered server-side).
+        expect(!("hidden" in (skill ?? {})), "skill schema carries no hidden field");
+      }
+    });
+
+    await test("shell run returns the created assistant message", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/shell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "ls -la", agent: "build" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.info?.role === "assistant", `role ${JSON.stringify(body?.info?.role)}`);
+      expect(typeof body?.info?.id === "string", "info must carry an id");
+      expect(body?.info?.sessionID === "sess_01", "info must echo the session id");
+      expect(Array.isArray(body?.parts) && body.parts.length > 0, "response must carry parts");
+      const part = body?.parts?.[0];
+      expect(part?.type === "text" && typeof part?.text === "string", "part must be a text part");
+    });
+
+    await test("shell run accepts the optional model", async () => {
+      const { status } = await request(baseUrl, "/session/sess_01/shell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          command: "git status",
+          agent: "plan",
+          model: { providerID: "openai", modelID: "gpt-5" },
+        }),
+      });
+      expect(status === 200, `status ${status}`);
+    });
+
+    await test("shell run rejects a payload missing agent or command", async () => {
+      const missingAgent = await request(baseUrl, "/session/sess_01/shell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ command: "ls" }),
+      });
+      expect(missingAgent.status === 400, `status ${missingAgent.status}`);
+      const missingCommand = await request(baseUrl, "/session/sess_01/shell", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "build" }),
+      });
+      expect(missingCommand.status === 400, `status ${missingCommand.status}`);
+    });
+
+    await test("prompt_async accepts an agent part (AgentPartInput shape)", async () => {
+      const { status } = await request(baseUrl, "/session/sess_01/prompt_async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          parts: [
+            { type: "text", text: "analyze @research" },
+            { type: "agent", name: "research" },
+          ],
+        }),
+      });
+      expect(status === 204, `status ${status}`);
+    });
+
+    await test("prompt_async rejects a malformed part", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_01/prompt_async", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ parts: [{ type: "agent" }] }),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
     // TASK-M5-04: /agent family.
     await test("agent list returns the agent catalog", async () => {
       const { status, body } = await request(baseUrl, "/agent");
