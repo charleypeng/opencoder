@@ -2,6 +2,7 @@ node_modules
 dist
 opencode.json
 src-tauri/target
+src-tauri/gen
 docs
 tests/fixtures
 src/services/api/schema.d.ts
