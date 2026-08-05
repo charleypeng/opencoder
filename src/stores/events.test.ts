@@ -24,6 +24,7 @@ import {
   setAgents,
 } from "./agents.js";
 import { ptys, resetServer as resetPtys } from "./ptys.js";
+import { serverUpdate, resetServerUpdate } from "./serverUpdate.js";
 import { resetTokenRate, tokenRateStore } from "../features/pet/tokenRate.js";
 import type { Pty } from "../services/pty.js";
 import type { Session } from "../services/session.js";
@@ -94,6 +95,8 @@ afterEach(() => {
   resetAgents(SERVER);
   resetPtys(SERVER);
   resetTokenRate();
+  resetServerUpdate(SERVER);
+  resetServerUpdate("srv-upd");
   sseSubscribeMock.mockReset();
 });
 
@@ -769,5 +772,29 @@ describe("applyEvent — pet token rate (TASK-M8-08)", () => {
       properties: { sessionID: "ses_tokens", info: { id: "m1", role: "user" } },
     });
     expect(tokenRateStore.rate).toBe(0);
+  });
+});
+
+describe("applyEvent — installation update hints (TASK-M8-09)", () => {
+  it("maps installation.update-available to the serverUpdate store", () => {
+    applyEvent("srv-upd", {
+      type: "installation.update-available",
+      properties: { version: "1.19.0" },
+    });
+    expect(serverUpdate["srv-upd"]).toEqual({ version: "1.19.0" });
+  });
+
+  it("ignores installation.update-available without a version", () => {
+    applyEvent("srv-upd", { type: "installation.update-available", properties: {} });
+    expect(serverUpdate["srv-upd"]).toBeUndefined();
+  });
+
+  it("installation.updated clears the hint (the server upgraded itself)", () => {
+    applyEvent("srv-upd", {
+      type: "installation.update-available",
+      properties: { version: "1.19.0" },
+    });
+    applyEvent("srv-upd", { type: "installation.updated", properties: { version: "1.19.0" } });
+    expect(serverUpdate["srv-upd"]).toBeNull();
   });
 });

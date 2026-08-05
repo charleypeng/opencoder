@@ -108,6 +108,13 @@ import { showPet } from "../../services/pet.js";
 import { startNotifications } from "../../services/notificationEvents.js";
 import { startPetWatcher } from "../../features/pet/petEvents.js";
 import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
+import {
+  checkForUpdates,
+  loadLastCheck,
+  recordLastCheck,
+  shouldAutoCheck,
+} from "../../services/updates.js";
+import { serverUpdate, clearServerUpdate } from "../../stores/serverUpdate.js";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -627,6 +634,24 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         // blocks the workspace.
       });
     }
+    // Application auto-update (TASK-M8-09): a background check runs at most
+    // once per day (timestamp recorded BEFORE the check so a slow/failing
+    // endpoint cannot retry every launch); a found update surfaces as a
+    // toast — the Updates settings section owns the install flow. Outside
+    // Tauri / without a release published the check resolves null or fails,
+    // both silent here.
+    if (shouldAutoCheck(loadLastCheck(), Date.now())) {
+      recordLastCheck();
+      void checkForUpdates()
+        .then((found) => {
+          if (found !== null) {
+            createToast(`Update available: v${found.version} — install it in Settings → Updates`);
+          }
+        })
+        .catch(() => {
+          // Unreachable endpoint (no release published yet): silent.
+        });
+    }
     onCleanup(() => {
       stopHealth();
       stopChanged();
@@ -647,6 +672,36 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       data-testid="desktop-shell"
       data-active-scope={activeScope()}
     >
+      {/* Server update hint (TASK-M8-09): `installation.update-available`
+        SSE events mark the SERVER as needing an upgrade — the app cannot
+        update it, the banner is informational only; dismissing clears the
+        hint for the active server. */}
+      <Show when={serverUpdate[activeServerId()]}>
+        <div
+          data-testid="server-update-banner"
+          class="flex shrink-0 items-center gap-2 border-b border-bg-sunken bg-accent-soft px-4 py-2"
+        >
+          <p
+            data-testid="server-update-banner-text"
+            class="min-w-0 flex-1 truncate text-xs text-fg-primary"
+          >
+            Server update available: v{serverUpdate[activeServerId()]?.version}
+            {serverUpdate[activeServerId()]?.current !== undefined
+              ? ` (running v${serverUpdate[activeServerId()]?.current})`
+              : ""}{" "}
+            — restart opencode serve to apply.
+          </p>
+          <button
+            type="button"
+            data-testid="server-update-banner-dismiss"
+            aria-label="Dismiss server update hint"
+            class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+            onClick={() => clearServerUpdate(activeServerId())}
+          >
+            ×
+          </button>
+        </div>
+      </Show>
       <div class="flex min-h-0 flex-1">
         <nav
           class="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"

@@ -28,6 +28,8 @@ import * as questionStore from "./question.js";
 import * as agentsStore from "./agents.js";
 import * as ptysStore from "./ptys.js";
 import { bumpTokenRate } from "../features/pet/tokenRate.js";
+import { applyServerUpdate, clearServerUpdate } from "./serverUpdate.js";
+import { connections } from "./connection.js";
 import type { Pty } from "../services/pty.js";
 
 type Message = components["schemas"]["Message"];
@@ -250,6 +252,22 @@ export function applyEvent(
     case "pty.deleted":
       // The PTY was removed (schema properties: id): drop it from the list.
       if (typeof p.id === "string") ptys.removePty(serverId, p.id);
+      return;
+    case "installation.update-available":
+      // The SERVER has a newer version available (api-coverage §7): the app
+      // cannot upgrade it, the banner only hints at restarting the server.
+      // The payload carries `version` only; the running version is filled
+      // from the health monitor snapshot when it already reported one.
+      if (typeof p.version === "string") {
+        applyServerUpdate(serverId, {
+          version: p.version,
+          current: connections[serverId]?.version,
+        });
+      }
+      return;
+    case "installation.updated":
+      // The server upgraded itself: the update hint no longer applies.
+      clearServerUpdate(serverId);
       return;
     default:
       if (import.meta.env.DEV) {

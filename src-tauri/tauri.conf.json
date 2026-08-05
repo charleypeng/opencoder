@@ -22,6 +22,15 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://github.com/charleypeng/opencoder/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDZDMkNCRDI2MjE4REEwMTMKUldRVG9JMGhKcjBzYk4rN2plWkdtQnc0a2NEdkpjV1QyTUFLSlRabGxsOUJwcHlBQU0zMk1yWWwK"
+    }
+  },
   "bundle": {
     "active": true,
     "targets": "all",

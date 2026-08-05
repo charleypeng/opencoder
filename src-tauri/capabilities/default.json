@@ -14,6 +14,8 @@
     "haptics:allow-impact-feedback",
     "haptics:allow-notification-feedback",
     "notification:default",
+    "updater:default",
+    "process:default",
     "barcode-scanner:default"
   ]
 }

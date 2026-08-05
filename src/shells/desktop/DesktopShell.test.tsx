@@ -40,6 +40,7 @@ import { combo } from "../../features/settings/shortcuts";
 import { resetAllShortcuts, saveShortcutCombo } from "../../features/settings/shortcutStore";
 import { enqueue, resetServer as resetPermissions } from "../../stores/permission";
 import type { PermissionRequest } from "../../services/permission";
+import { resetServerUpdate } from "../../stores/serverUpdate";
 
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
@@ -85,6 +86,17 @@ vi.mock("../../features/pet/petEvents.js", () => ({
 vi.mock("../../services/notifications.js", () => ({
   subscribeToNotificationClick: subscribeToNotificationClickMock,
   focusWindow: focusWindowMock,
+}));
+// The application updater facade (TASK-M8-09): the shell's once-a-day
+// startup auto-check is inert in tests — the real facade would hit the
+// updater IPC through the generic invoke mock and emit a bogus toast.
+vi.mock("../../services/updates.js", () => ({
+  checkForUpdates: vi.fn(async () => null),
+  getAppVersion: vi.fn(async () => null),
+  installAndRelaunch: vi.fn(async () => {}),
+  loadLastCheck: vi.fn(() => undefined),
+  recordLastCheck: vi.fn(),
+  shouldAutoCheck: vi.fn(() => false),
 }));
 vi.mock("../../services/pet.js", () => ({
   showPet: showPetMock,
@@ -569,8 +581,11 @@ afterEach(() => {
   resetTodos("srv-m8scope");
   resetAllShortcuts();
   localStorage.removeItem("oc-recent-files:srv-m4quick");
+  resetServerUpdate("srv-m8upd1");
+  resetServerUpdate("srv-m8upd2");
+  resetServerUpdate("srv-m8upd3");
+  resetServerUpdate("srv-m8upd4");
 });
-
 describe("DesktopShell workspace", () => {
   it("mounts the shell, activates the server context and shows placeholders", () => {
     const alpha = server({ id: "srv-alpha", name: "Alpha" });
@@ -2089,5 +2104,65 @@ describe("DesktopShell pet watcher (TASK-M8-08)", () => {
     await waitFor(() => expect(startPetWatcherMock).toHaveBeenCalledWith("srv-m8p3"));
     // The stale server's watcher was torn down before the new one started.
     expect(firstDispose).toHaveBeenCalled();
+  });
+});
+
+describe("DesktopShell server update hint (TASK-M8-09)", () => {
+  it("shows the banner on installation.update-available and dismisses it", async () => {
+    const alpha = server({ id: "srv-m8upd1", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: unknown }) => void;
+    handler({ type: "installation.update-available", properties: { version: "1.19.0" } });
+    await waitFor(() => expect(screen.getByTestId("server-update-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("server-update-banner-text")).toHaveTextContent(
+      "Server update available: v1.19.0",
+    );
+    expect(screen.getByTestId("server-update-banner-text")).toHaveTextContent(
+      "restart opencode serve to apply",
+    );
+
+    fireEvent.click(screen.getByTestId("server-update-banner-dismiss"));
+    expect(screen.queryByTestId("server-update-banner")).not.toBeInTheDocument();
+  });
+
+  it("omits the running version when the health snapshot never reported one", async () => {
+    const alpha = server({ id: "srv-m8upd2", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: unknown }) => void;
+    handler({ type: "installation.update-available", properties: { version: "1.19.0" } });
+    await waitFor(() => expect(screen.getByTestId("server-update-banner")).toBeInTheDocument());
+    expect(screen.getByTestId("server-update-banner-text")).not.toHaveTextContent("running v");
+  });
+
+  it("is per-server: the hint follows the active server", async () => {
+    const alpha = server({ id: "srv-m8upd3", name: "Alpha" });
+    const beta = server({ id: "srv-m8upd4", name: "Beta" });
+    mockHttpRoutes([alpha, beta]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // Feed the event through ALPHA's stream (the first subscription).
+    const alphaHandler = sseSubscribeMock.mock.calls[0]?.[2] as (event: {
+      type: string;
+      properties?: unknown;
+    }) => void;
+    alphaHandler({ type: "installation.update-available", properties: { version: "1.19.0" } });
+    await waitFor(() => expect(screen.getByTestId("server-update-banner")).toBeInTheDocument());
+
+    // Beta has no hint: the banner disappears while it is active.
+    fireEvent.click(await screen.findByTestId("rail-item-srv-m8upd4"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("server-update-banner")).not.toBeInTheDocument(),
+    );
+
+    // Back to Alpha: the persisted hint returns.
+    fireEvent.click(screen.getByTestId("rail-item-srv-m8upd3"));
+    await waitFor(() => expect(screen.getByTestId("server-update-banner")).toBeInTheDocument());
   });
 });
