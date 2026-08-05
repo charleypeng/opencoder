@@ -14,6 +14,46 @@
     <meta name="theme-color" content="#000000" />
     <link rel="icon" type="image/svg+xml" href="/src/assets/logo.svg" />
     <title>opencoder</title>
+    <script>
+      // TASK-M9-03 no-flicker theme pre-read: resolve the persisted theme
+      // (oc-theme, system preference when absent) and accent (oc-accent)
+      // BEFORE the app bundle runs, so the first paint is already themed.
+      // Mirrors src/stores/theme.ts; OLED true-black applies on mobile UA.
+      (function () {
+        try {
+          var doc = document.documentElement;
+          var mode = localStorage.getItem("oc-theme");
+          var isDark =
+            mode === "dark" ||
+            (mode !== "light" &&
+              !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches));
+          var theme = isDark ? "dark" : "light";
+          if (
+            isDark &&
+            localStorage.getItem("oc-oled") === "1" &&
+            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+          ) {
+            theme = "oled";
+          }
+          doc.dataset.theme = theme;
+          var accent = localStorage.getItem("oc-accent");
+          if (accent) {
+            var PRESETS = {
+              indigo: "#7c8cff",
+              emerald: "#34d399",
+              amber: "#fbbf24",
+              coral: "#f87171",
+              cyan: "#22d3ee",
+              purple: "#c084fc",
+            };
+            var color = PRESETS[accent] || (/^#[0-9a-f]{3,8}$/i.test(accent) ? accent : null);
+            if (color) doc.style.setProperty("--accent", color);
+          }
+        } catch (e) {
+          // A failing pre-read must never block startup.
+        }
+      })();
+    </script>
   </head>
 
   <body>

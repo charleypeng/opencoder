@@ -71,6 +71,19 @@ describe("SettingsPage", () => {
     expect(onBack).toHaveBeenCalledTimes(1);
   });
 
+  it("switches to the Appearance section", () => {
+    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+
+    const appearanceNav = screen.getByTestId("settings-section-appearance");
+    expect(appearanceNav).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(appearanceNav);
+    expect(appearanceNav).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("appearance-section")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-dark")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-server-override")).toBeInTheDocument();
+    expect(screen.queryByTestId("provider-key-row-openai")).not.toBeInTheDocument();
+  });
+
   it("switches to the Shortcuts section and back to Providers", async () => {
     render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
     await screen.findByTestId("provider-key-row-openai");

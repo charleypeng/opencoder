@@ -1,4 +1,4 @@
-import { createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onMount, Show } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ServerHome from "./features/servers/ServerHome";
 import DesktopShell from "./shells/desktop/DesktopShell";
@@ -7,6 +7,7 @@ import TitleBar from "./shells/desktop/TitleBar";
 import PetShell from "./features/pet/PetShell";
 import { setGlassBarHidden } from "./shells/mobile/glassControl.js";
 import { platform } from "./platform";
+import { setThemeServer } from "./stores/theme.js";
 import type { ServerEntry } from "./services/servers";
 
 // App shell (TASK-M1-06/08 + M7-03): the server navigation home is the
@@ -35,6 +36,14 @@ import type { ServerEntry } from "./services/servers";
 function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
   const [petWindow, setPetWindow] = createSignal(false);
+
+  // TASK-M9-03: the theme store follows the active server — a per-server
+  // override wins over the global mode and the resolved theme (incl. the
+  // startup default) is re-applied on every switch, matching the no-flicker
+  // pre-read in index.html.
+  createEffect(() => {
+    setThemeServer(selected()?.id);
+  });
 
   onMount(() => {
     if (window.__TAURI_INTERNALS__ !== undefined) {

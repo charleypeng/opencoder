@@ -13,6 +13,7 @@ import DesktopSection from "./DesktopSection.js";
 import NotificationsSection from "./NotificationsSection.js";
 import UpdatesSection from "./UpdatesSection.js";
 import LanguageSection from "./LanguageSection.js";
+import AppearanceSection from "./AppearanceSection.js";
 import { useT } from "../../i18n/index.js";
 
 export interface SettingsPageProps {
@@ -23,7 +24,7 @@ export interface SettingsPageProps {
 }
 
 type SettingsSection =
-  "providers" | "shortcuts" | "desktop" | "notifications" | "updates" | "language";
+  "providers" | "appearance" | "shortcuts" | "desktop" | "notifications" | "updates" | "language";
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
   const t = useT();
@@ -61,6 +62,20 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
             onClick={() => setSection("providers")}
           >
             Providers
+          </button>
+          <button
+            type="button"
+            data-testid="settings-section-appearance"
+            data-active={section() === "appearance" ? "true" : "false"}
+            aria-selected={section() === "appearance" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "appearance"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("appearance")}
+          >
+            {t("settings:appearance")}
           </button>
           <button
             type="button"
@@ -143,28 +158,35 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           when={section() === "providers"}
           fallback={
             <Show
-              when={section() === "shortcuts"}
+              when={section() === "appearance"}
               fallback={
                 <Show
-                  when={section() === "desktop"}
+                  when={section() === "shortcuts"}
                   fallback={
                     <Show
-                      when={section() === "notifications"}
+                      when={section() === "desktop"}
                       fallback={
-                        <Show when={section() === "updates"} fallback={<LanguageSection />}>
-                          <UpdatesSection />
+                        <Show
+                          when={section() === "notifications"}
+                          fallback={
+                            <Show when={section() === "updates"} fallback={<LanguageSection />}>
+                              <UpdatesSection />
+                            </Show>
+                          }
+                        >
+                          <NotificationsSection />
                         </Show>
                       }
                     >
-                      <NotificationsSection />
+                      <DesktopSection />
                     </Show>
                   }
                 >
-                  <DesktopSection />
+                  <ShortcutsSection />
                 </Show>
               }
             >
-              <ShortcutsSection />
+              <AppearanceSection serverId={props.serverId} />
             </Show>
           }
         >

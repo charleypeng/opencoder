@@ -106,6 +106,18 @@
   --glass-blur: 24px;
 }
 
+/* OLED true-black (TASK-M9-03): the mobile-only "oled" theme value — the
+   backgrounds collapse to pure black so OLED pixels stay off, everything
+   else inherits the dark defaults (a dark theme with black surfaces). */
+[data-theme="oled"] {
+  --bg-base: #000000;
+  --bg-elevated: #000000;
+  --bg-sunken: #050507;
+
+  --glass-bg: rgba(0, 0, 0, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+}
+
 /* Glass panel, ui-design.md §5 tier B.
  * PERFORMANCE GUARD (M7-07): backdrop-filter is expensive on mobile GPUs.
  * Keep elements carrying this class to ≤4 ON SCREEN simultaneously
