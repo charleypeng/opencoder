@@ -137,8 +137,12 @@ jobs:
             >> "$GITHUB_ENV"
 
       - name: Build desktop app
-        run: pnpm tauri build --ci --target ${{ matrix.target }} \
-          --bundles ${{ matrix.bundles }}
+        # Literal block: YAML would fold a plain-scalar "run:" line break
+        # into a space, turning the trailing "\" into an escaped space that
+        # mangles "--bundles" (verified against js-yaml folding + bash).
+        run: |
+          pnpm tauri build --ci --target ${{ matrix.target }} \
+            --bundles ${{ matrix.bundles }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
