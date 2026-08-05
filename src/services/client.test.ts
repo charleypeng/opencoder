@@ -18,6 +18,13 @@ function makeClient(getDirectory?: () => string | undefined): ApiClient {
   return new ApiClient(invokeTransport, { getDirectory });
 }
 
+function makeClientWithServer(
+  getServerID?: () => string | undefined,
+  getDirectory?: () => string | undefined,
+): ApiClient {
+  return new ApiClient(invokeTransport, { getDirectory, getServerID });
+}
+
 describe("ApiClient invoke transport (payload assembly)", () => {
   afterEach(() => {
     vi.clearAllMocks();
@@ -78,6 +85,33 @@ describe("ApiClient invoke transport (payload assembly)", () => {
     await client.get("/global/health");
     expect(invokeMock).toHaveBeenCalledWith("http_request", {
       request: { method: "GET", path: "/global/health" },
+    });
+  });
+
+  it("injects the active server id when none is given (TASK-M1-03 registry resolution)", async () => {
+    invokeMock.mockResolvedValue(httpResponse());
+    const client = makeClientWithServer(() => "srv-active");
+    await client.get("/project");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/project", serverID: "srv-active" },
+    });
+  });
+
+  it("an explicit serverID wins over the active server context", async () => {
+    invokeMock.mockResolvedValue(httpResponse());
+    const client = makeClientWithServer(() => "srv-active");
+    await client.get("/session", { serverID: "srv-other" });
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", serverID: "srv-other" },
+    });
+  });
+
+  it("does not inject serverID when none is active", async () => {
+    invokeMock.mockResolvedValue(httpResponse());
+    const client = makeClientWithServer(() => undefined);
+    await client.get("/project");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/project" },
     });
   });
 

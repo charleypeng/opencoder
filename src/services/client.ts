@@ -13,6 +13,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { ApiError } from "./errors.js";
 import type { paths } from "./api/schema.js";
 import { getActiveDirectory } from "../stores/project.js";
+import { getActiveServerId } from "../stores/registry.js";
 
 export type ApiPath = keyof paths;
 export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
@@ -56,6 +57,7 @@ export interface Transport {
 
 export interface ApiClientOptions {
   getDirectory?: () => string | undefined;
+  getServerID?: () => string | undefined;
 }
 
 const DEFAULT_TIMEOUT_MS = 30_000;
@@ -185,7 +187,16 @@ export class ApiClient {
       query.directory = directory;
     }
     const request: TransportRequest = { method, path };
-    if (options.serverID) request.serverID = options.serverID;
+    // The invoke transport resolves the base URL from the server registry,
+    // which requires the serverID; without it Rust answers
+    // "missing url or serverID" and every domain request fails (TASK-M1-03).
+    // Explicit per-call serverID wins; the active-server context fills in
+    // for callers without one. URL-based callers (probes, tests) are left
+    // untouched.
+    const serverID = options.serverID ?? this.options.getServerID?.();
+    if (serverID !== undefined && request.url === undefined) {
+      request.serverID = serverID;
+    }
     if (Object.keys(query).length > 0) request.query = query;
     if (options.body !== undefined) request.body = options.body;
     if (options.auth) request.auth = options.auth;
@@ -203,9 +214,14 @@ let apiClient: ApiClient | undefined;
 
 /**
  * Singleton client. The global `?directory=` injection reads the active
- * server's current project directory from the project store (TASK-M2-03).
+ * server's current project directory from the project store (TASK-M2-03),
+ * and the `serverID` injection reads the active server from the registry
+ * store (TASK-M1-08) so the invoke transport can resolve the base URL.
  */
 export function getApiClient(): ApiClient {
-  apiClient ??= new ApiClient(defaultTransport(), { getDirectory: getActiveDirectory });
+  apiClient ??= new ApiClient(defaultTransport(), {
+    getDirectory: getActiveDirectory,
+    getServerID: () => getActiveServerId() ?? undefined,
+  });
   return apiClient;
 }
