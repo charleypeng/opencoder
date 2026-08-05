@@ -12,6 +12,7 @@ import ShortcutsSection from "./ShortcutsSection.js";
 import DesktopSection from "./DesktopSection.js";
 import NotificationsSection from "./NotificationsSection.js";
 import UpdatesSection from "./UpdatesSection.js";
+import LanguageSection from "./LanguageSection.js";
 
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
@@ -20,7 +21,8 @@ export interface SettingsPageProps {
   onBack: () => void;
 }
 
-type SettingsSection = "providers" | "shortcuts" | "desktop" | "notifications" | "updates";
+type SettingsSection =
+  "providers" | "shortcuts" | "desktop" | "notifications" | "updates" | "language";
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
   const [section, setSection] = createSignal<SettingsSection>("providers");
@@ -114,6 +116,20 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           >
             Updates
           </button>
+          <button
+            type="button"
+            data-testid="settings-section-language"
+            data-active={section() === "language" ? "true" : "false"}
+            aria-selected={section() === "language" ? "true" : "false"}
+            class={`rounded-md px-3 py-1.5 text-left text-xs outline-none transition-colors ${
+              section() === "language"
+                ? "bg-accent-soft text-fg-primary"
+                : "text-fg-secondary hover:text-fg-primary"
+            }`}
+            onClick={() => setSection("language")}
+          >
+            Language
+          </button>
           <span
             data-testid="settings-section-more"
             class="rounded-md px-3 py-1.5 text-xs text-fg-faint"
@@ -130,7 +146,14 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
                 <Show
                   when={section() === "desktop"}
                   fallback={
-                    <Show when={section() === "notifications"} fallback={<UpdatesSection />}>
+                    <Show
+                      when={section() === "notifications"}
+                      fallback={
+                        <Show when={section() === "updates"} fallback={<LanguageSection />}>
+                          <UpdatesSection />
+                        </Show>
+                      }
+                    >
                       <NotificationsSection />
                     </Show>
                   }

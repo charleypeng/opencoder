@@ -116,4 +116,27 @@ describe("SettingsPage", () => {
     expect(screen.getByTestId("notifications-master")).toBeInTheDocument();
     expect(screen.queryByTestId("desktop-section")).not.toBeInTheDocument();
   });
+
+  it("switches the app language from the Language section", () => {
+    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+
+    const languageNav = screen.getByTestId("settings-section-language");
+    expect(languageNav).toHaveAttribute("aria-selected", "false");
+    fireEvent.click(languageNav);
+    expect(languageNav).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("language-section")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Language" })).toBeInTheDocument();
+    expect(screen.getByTestId("language-en")).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByTestId("language-zh"));
+    expect(localStorage.getItem("oc-lang")).toBe("zh-CN");
+    expect(screen.getByTestId("language-zh")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("language-en")).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("heading", { name: "语言" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("language-en"));
+    expect(localStorage.getItem("oc-lang")).toBe("en");
+    expect(screen.getByRole("heading", { name: "Language" })).toBeInTheDocument();
+    localStorage.removeItem("oc-lang");
+  });
 });

@@ -1,0 +1,179 @@
+{
+  "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "close": "Close",
+    "retry": "Retry",
+    "loading": "Loading…",
+    "empty": "No items",
+    "back": "Back",
+    "copied": "Copied!"
+  },
+  "servers": {
+    "addServer": "Add server",
+    "name": "Name",
+    "url": "Server URL",
+    "connect": "Connect",
+    "connecting": "Connecting…",
+    "disconnect": "Disconnect",
+    "remove": "Remove server",
+    "nearby": "Nearby servers",
+    "probeFailed": "Could not reach this server"
+  },
+  "sessions": {
+    "newSession": "New session",
+    "rename": "Rename",
+    "delete": "Delete",
+    "share": "Share",
+    "fork": "Fork",
+    "compress": "Compress context",
+    "generateAgents": "Generate AGENTS.md",
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "thisWeek": "This Week",
+    "earlier": "Earlier",
+    "noSessions": "No sessions yet",
+    "search": "Search sessions"
+  },
+  "messages": {
+    "send": "Send",
+    "stop": "Stop",
+    "generating": "Generating…",
+    "newMessages_one": "{{count}} new message",
+    "newMessages_other": "{{count}} new messages",
+    "copyText": "Copy text",
+    "copyCode": "Copy code",
+    "editResend": "Edit and resend",
+    "deleteMessage": "Delete message",
+    "revertToHere": "Revert to here",
+    "promptPlaceholder": "Type a message…",
+    "noMessages": "No messages yet",
+    "compacted": "Context compacted"
+  },
+  "files": {
+    "fileTree": "Files",
+    "openFile": "Open file",
+    "noFiles": "No files",
+    "searchFiles": "Search files",
+    "recent": "Recent",
+    "noMatches": "No matches",
+    "binaryFile": "Binary file",
+    "copyPath": "Copy path",
+    "reference": "Reference in chat"
+  },
+  "vcs": {
+    "changes": "Changes",
+    "branch": "Branch",
+    "refresh": "Refresh",
+    "apply": "Apply",
+    "applyPatch": "Apply patch",
+    "noChanges": "No changes",
+    "notGit": "Not a git repository",
+    "unified": "Unified",
+    "split": "Split"
+  },
+  "permissions": {
+    "permissionRequest": "Permission request",
+    "allowOnce": "Allow once",
+    "alwaysAllow": "Always allow",
+    "reject": "Reject",
+    "waiting": "{{count}} of {{total}} waiting",
+    "tool": "Tool",
+    "pattern": "Pattern",
+    "metadata": "Details"
+  },
+  "questions": {
+    "question": "Question",
+    "answer": "Answer",
+    "send": "Send",
+    "reject": "Reject",
+    "waiting": "{{count}} of {{total}} waiting",
+    "noQuestions": "No pending questions"
+  },
+  "commands": {
+    "commands": "Commands",
+    "run": "Run command",
+    "description": "Description",
+    "arguments": "Arguments",
+    "noCommands": "No commands"
+  },
+  "models": {
+    "model": "Model",
+    "provider": "Provider",
+    "search": "Search models",
+    "connected": "Connected",
+    "notConnected": "Not connected",
+    "default": "Default",
+    "favorites": "Favorites",
+    "context": "{{count}}K context",
+    "cost": "${{in}}/M in · ${{out}}/M out"
+  },
+  "terminal": {
+    "terminal": "Terminal",
+    "newTerminal": "New terminal",
+    "close": "Close terminal",
+    "shell": "Shell",
+    "processExited": "Process exited (code {{code}})",
+    "create": "Create terminal"
+  },
+  "settings": {
+    "settings": "Settings",
+    "language": "Language",
+    "languageHint": "Choose the language used across the app.",
+    "english": "English",
+    "simplifiedChinese": "简体中文",
+    "providers": "Providers",
+    "shortcuts": "Shortcuts",
+    "desktop": "Desktop",
+    "notifications": "Notifications",
+    "updates": "Updates",
+    "moreSections": "More sections — M9-04"
+  },
+  "pet": {
+    "pet": "Pet",
+    "showPet": "Show pet",
+    "hidePet": "Hide pet",
+    "size": "Size",
+    "opacity": "Opacity",
+    "topmost": "Always on top",
+    "mute": "Muted",
+    "dock": "Dock to edge",
+    "clickThrough": "Click-through"
+  },
+  "mobile": {
+    "sessions": "Sessions",
+    "files": "Files",
+    "terminal": "Terminal",
+    "settings": "Settings",
+    "pullToRefresh": "Pull to refresh",
+    "back": "Back"
+  },
+  "desktop": {
+    "closeToTray": "Close to tray",
+    "globalShortcut": "Global summon shortcut",
+    "summonHint": "Brings the app to the front from anywhere.",
+    "trayBadge": "Pending requests"
+  },
+  "updates": {
+    "checkForUpdates": "Check for updates",
+    "checking": "Checking…",
+    "upToDate": "You're up to date",
+    "updateAvailable": "Update available",
+    "install": "Install",
+    "installAndRestart": "Install & restart",
+    "appVersion": "App version",
+    "serverUpdate": "Server update available",
+    "installFailed": "Install failed"
+  },
+  "errors": {
+    "generic": "Something went wrong",
+    "network": "Network error — check your connection",
+    "timeout": "The request timed out",
+    "unauthorized": "Not authorized",
+    "notFound": "Not found",
+    "rateLimit": "Rate limited — try again shortly",
+    "invalidUrl": "Invalid server URL",
+    "serverError": "Server error"
+  }
+}

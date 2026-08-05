@@ -13,6 +13,7 @@ const steps = [
   { name: "L0 tsc", cmd: "pnpm exec tsc -b" },
   { name: "L0 cargo fmt", cmd: "cargo fmt --check", cwd: "src-tauri" },
   { name: "L0 cargo clippy", cmd: "cargo clippy --all-targets -- -D warnings", cwd: "src-tauri" },
+  { name: "L0 i18n keys", cmd: "pnpm check:i18n" },
   { name: "L1 vitest", cmd: "pnpm test" },
   { name: "L3 mock:test", cmd: "pnpm mock:test" },
   { name: "gen:api:check", cmd: "pnpm gen:api:check" },

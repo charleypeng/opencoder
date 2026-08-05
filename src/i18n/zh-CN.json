@@ -1,0 +1,179 @@
+{
+  "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "save": "保存",
+    "close": "关闭",
+    "retry": "重试",
+    "loading": "加载中…",
+    "empty": "暂无内容",
+    "back": "返回",
+    "copied": "已复制"
+  },
+  "servers": {
+    "addServer": "添加服务器",
+    "name": "名称",
+    "url": "服务器地址",
+    "connect": "连接",
+    "connecting": "连接中…",
+    "disconnect": "断开连接",
+    "remove": "移除服务器",
+    "nearby": "附近服务器",
+    "probeFailed": "无法连接到该服务器"
+  },
+  "sessions": {
+    "newSession": "新建会话",
+    "rename": "重命名",
+    "delete": "删除",
+    "share": "分享",
+    "fork": "派生",
+    "compress": "压缩上下文",
+    "generateAgents": "生成 AGENTS.md",
+    "today": "今天",
+    "yesterday": "昨天",
+    "thisWeek": "本周",
+    "earlier": "更早",
+    "noSessions": "暂无会话",
+    "search": "搜索会话"
+  },
+  "messages": {
+    "send": "发送",
+    "stop": "停止",
+    "generating": "正在生成…",
+    "newMessages_one": "{{count}} 条新消息",
+    "newMessages_other": "{{count}} 条新消息",
+    "copyText": "复制文本",
+    "copyCode": "复制代码",
+    "editResend": "编辑并重新发送",
+    "deleteMessage": "删除消息",
+    "revertToHere": "回滚到此",
+    "promptPlaceholder": "输入消息…",
+    "noMessages": "暂无消息",
+    "compacted": "上下文已压缩"
+  },
+  "files": {
+    "fileTree": "文件",
+    "openFile": "打开文件",
+    "noFiles": "暂无文件",
+    "searchFiles": "搜索文件",
+    "recent": "最近",
+    "noMatches": "无匹配结果",
+    "binaryFile": "二进制文件",
+    "copyPath": "复制路径",
+    "reference": "在对话中引用"
+  },
+  "vcs": {
+    "changes": "更改",
+    "branch": "分支",
+    "refresh": "刷新",
+    "apply": "应用",
+    "applyPatch": "应用补丁",
+    "noChanges": "没有更改",
+    "notGit": "不是 Git 仓库",
+    "unified": "统一",
+    "split": "分栏"
+  },
+  "permissions": {
+    "permissionRequest": "权限请求",
+    "allowOnce": "允许一次",
+    "alwaysAllow": "始终允许",
+    "reject": "拒绝",
+    "waiting": "{{count}} / {{total}} 等待中",
+    "tool": "工具",
+    "pattern": "模式",
+    "metadata": "详情"
+  },
+  "questions": {
+    "question": "问题",
+    "answer": "回答",
+    "send": "发送",
+    "reject": "拒绝",
+    "waiting": "{{count}} / {{total}} 等待中",
+    "noQuestions": "没有待处理的问题"
+  },
+  "commands": {
+    "commands": "命令",
+    "run": "运行命令",
+    "description": "描述",
+    "arguments": "参数",
+    "noCommands": "没有命令"
+  },
+  "models": {
+    "model": "模型",
+    "provider": "模型服务商",
+    "search": "搜索模型",
+    "connected": "已连接",
+    "notConnected": "未连接",
+    "default": "默认",
+    "favorites": "收藏",
+    "context": "{{count}}K 上下文",
+    "cost": "输入 ${{in}}/M · 输出 ${{out}}/M"
+  },
+  "terminal": {
+    "terminal": "终端",
+    "newTerminal": "新建终端",
+    "close": "关闭终端",
+    "shell": "Shell",
+    "processExited": "进程已退出（代码 {{code}}）",
+    "create": "创建终端"
+  },
+  "settings": {
+    "settings": "设置",
+    "language": "语言",
+    "languageHint": "选择应用使用的语言。",
+    "english": "English",
+    "simplifiedChinese": "简体中文",
+    "providers": "模型服务商",
+    "shortcuts": "快捷键",
+    "desktop": "桌面",
+    "notifications": "通知",
+    "updates": "更新",
+    "moreSections": "更多分区 — M9-04"
+  },
+  "pet": {
+    "pet": "宠物",
+    "showPet": "显示宠物",
+    "hidePet": "隐藏宠物",
+    "size": "尺寸",
+    "opacity": "不透明度",
+    "topmost": "窗口置顶",
+    "mute": "静音",
+    "dock": "边缘停靠",
+    "clickThrough": "点击穿透"
+  },
+  "mobile": {
+    "sessions": "会话",
+    "files": "文件",
+    "terminal": "终端",
+    "settings": "设置",
+    "pullToRefresh": "下拉刷新",
+    "back": "返回"
+  },
+  "desktop": {
+    "closeToTray": "关闭到托盘",
+    "globalShortcut": "全局唤起快捷键",
+    "summonHint": "随时随地唤起应用前台。",
+    "trayBadge": "待处理请求"
+  },
+  "updates": {
+    "checkForUpdates": "检查更新",
+    "checking": "检查中…",
+    "upToDate": "已是最新版本",
+    "updateAvailable": "发现新版本",
+    "install": "安装",
+    "installAndRestart": "安装并重启",
+    "appVersion": "应用版本",
+    "serverUpdate": "服务端有可用更新",
+    "installFailed": "安装失败"
+  },
+  "errors": {
+    "generic": "出错了",
+    "network": "网络错误——请检查连接",
+    "timeout": "请求超时",
+    "unauthorized": "未授权",
+    "notFound": "未找到",
+    "rateLimit": "请求过于频繁——请稍后重试",
+    "invalidUrl": "无效的服务器地址",
+    "serverError": "服务器错误"
+  }
+}
