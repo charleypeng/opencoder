@@ -126,6 +126,15 @@ describe("createConfigService (invoke payload assembly)", () => {
     });
   });
 
+  it("disposeGlobal POSTs /global/dispose and resolves the boolean", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await expect(createConfigService(makeClient()).disposeGlobal()).resolves.toBe(true);
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "POST", path: "/global/dispose" },
+    });
+  });
+
   it("passes ApiError through on failure", async () => {
     invokeMock.mockRejectedValue({
       status: 400,
@@ -175,5 +184,9 @@ describe.skipIf(!mockUrl)("L3 contract against live mock server", () => {
 
   it("disposes the instance with a boolean result", async () => {
     await expect(service.dispose()).resolves.toBe(true);
+  });
+
+  it("disposes all instances globally with a boolean result", async () => {
+    await expect(service.disposeGlobal()).resolves.toBe(true);
   });
 });

@@ -1,12 +1,15 @@
 // L2 tests for the Config settings section (TASK-M9-05): the project /
 // global scope tabs loading GET /config and GET /global/config, the
 // formified common fields (model / default_agent / share / autoupdate /
-// permission) with dirty tracking and PATCH-on-save, the advanced JSON
-// editor (parse validation, unknown-key hints, merge-patch save, failure
-// rollback) and the instance-dispose danger zone (confirm panel, POST
-// /instance/dispose, failure inline). The HTTP layer runs through the
-// mocked Tauri invoke transport with in-memory config state, mirroring
-// the mock server's merge semantics.
+// permission) with dirty tracking and PATCH-on-save, the form-driven
+// provider+model dual select (provider changes re-list the models and the
+// picked pair saves as provider/model), the dirty-form scope-switch
+// discard confirmation, the stale-save guard when the scope flips mid-
+// save, the advanced JSON editor (parse validation, unknown-key hints,
+// merge-patch save, failure rollback) and the instance-dispose danger
+// zone (confirm panel, POST /instance/dispose, failure inline). The HTTP
+// layer runs through the mocked Tauri invoke transport with in-memory
+// config state, mirroring the mock server's merge semantics.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -54,6 +57,7 @@ function provider(id: string, name: string, models: Model[]): Provider {
 const OPENAI = provider("openai", "OpenAI", [model("gpt-5", "GPT-5"), model("gpt-4.1", "GPT-4.1")]);
 const ANTHROPIC = provider("anthropic", "Anthropic", [
   model("claude-sonnet-4-5", "Claude Sonnet 4.5"),
+  model("claude-opus-4-1", "Claude Opus 4.1"),
 ]);
 
 const PROJECT_CONFIG = {
@@ -239,6 +243,102 @@ describe("ConfigSection", () => {
     fireEvent.change(screen.getByTestId("config-model-model"), { target: { value: "gpt-4.1" } });
     fireEvent.click(screen.getByTestId("config-save"));
     await waitFor(() => expect(projectConfig.model).toBe("openai/gpt-4.1"));
+  });
+
+  it("switches the model list with the provider and saves the picked pair", async () => {
+    render(() => <ConfigSection serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("config-model-provider")).toHaveValue("openai"));
+    expect(screen.getByTestId("config-model-model")).toHaveValue("gpt-5");
+
+    // A provider change must drive the model select immediately — the
+    // selects used to re-render from the baseline, keeping the old
+    // provider's model list and writing the old provider id on save.
+    fireEvent.change(screen.getByTestId("config-model-provider"), {
+      target: { value: "anthropic" },
+    });
+    expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic");
+    await waitFor(() =>
+      expect(screen.getByTestId("config-model-model")).toHaveValue("claude-sonnet-4-5"),
+    );
+    expect(
+      Array.from(
+        screen.getByTestId("config-model-model").querySelectorAll("option"),
+        (option) => option.value,
+      ),
+    ).toEqual(["claude-sonnet-4-5", "claude-opus-4-1"]);
+
+    fireEvent.change(screen.getByTestId("config-model-model"), {
+      target: { value: "claude-opus-4-1" },
+    });
+    fireEvent.click(screen.getByTestId("config-save"));
+    await waitFor(() => expect(projectConfig.model).toBe("anthropic/claude-opus-4-1"));
+  });
+
+  it("asks before discarding a dirty form on a scope switch", async () => {
+    render(() => <ConfigSection serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("config-share")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("config-share"), { target: { value: "disabled" } });
+    fireEvent.click(screen.getByTestId("config-scope-global"));
+    expect(screen.getByTestId("config-discard-dialog")).toBeInTheDocument();
+    // The switch is deferred until confirmed.
+    expect(screen.getByTestId("config-scope-project")).toHaveAttribute("aria-pressed", "true");
+
+    // Cancel keeps the scope and the dirty form.
+    fireEvent.click(screen.getByTestId("config-discard-cancel"));
+    expect(screen.queryByTestId("config-discard-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("config-dirty")).toBeInTheDocument();
+    expect(screen.getByTestId("config-scope-project")).toHaveAttribute("aria-pressed", "true");
+
+    // Confirming discards and switches.
+    fireEvent.click(screen.getByTestId("config-scope-global"));
+    fireEvent.click(screen.getByTestId("config-discard-confirm"));
+    await waitFor(() =>
+      expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic"),
+    );
+    expect(screen.queryByTestId("config-discard-dialog")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("config-dirty")).not.toBeInTheDocument();
+    expect(projectConfig.share).toBe("manual");
+  });
+
+  it("ignores a stale save response when the scope switched mid-save", async () => {
+    render(() => <ConfigSection serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("config-share")).toBeInTheDocument());
+
+    fireEvent.change(screen.getByTestId("config-share"), { target: { value: "disabled" } });
+
+    // Gate the project PATCH so the scope can flip while it is in flight.
+    let resolvePatch: (value: unknown) => void = () => undefined;
+    const patchGate = new Promise((resolve) => {
+      resolvePatch = resolve;
+    });
+    invokeMock.mockImplementation(
+      (cmd: string, args?: { request?: { method?: string; path?: string } }) => {
+        const { method = "GET", path = "" } = args?.request ?? {};
+        if (cmd !== "http_request") return Promise.resolve(undefined);
+        if (method === "PATCH" && path === "/config")
+          return patchGate.then(() => httpResponse(projectConfig));
+        if (method === "GET" && path === "/global/config")
+          return Promise.resolve(httpResponse(globalConfig));
+        return Promise.resolve(httpResponse({}));
+      },
+    );
+
+    fireEvent.click(screen.getByTestId("config-save"));
+    fireEvent.click(screen.getByTestId("config-scope-global"));
+    fireEvent.click(screen.getByTestId("config-discard-confirm"));
+    await waitFor(() =>
+      expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic"),
+    );
+
+    // Let the stale project PATCH land — it must not overwrite the global
+    // baseline nor toast into it.
+    resolvePatch(httpResponse(projectConfig));
+    await waitFor(() => expect(screen.getByTestId("config-save")).toHaveTextContent("Save"));
+    expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic");
+    expect(screen.getByTestId("config-model-model")).toHaveValue("claude-sonnet-4-5");
+    expect(screen.queryByTestId("config-save-error")).not.toBeInTheDocument();
+    expect(toasts.some((toast) => toast.kind === "success")).toBe(false);
   });
 
   it("keeps the form and surfaces the error when the save fails", async () => {

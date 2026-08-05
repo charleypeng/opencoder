@@ -12,7 +12,13 @@
 // Saving is PATCH-on-demand with dirty tracking (form edits enable Save,
 // success refreshes the baseline + toasts, failure rolls back and shows
 // the error inline); the JSON editor validates parseability inline and
-// warns about unknown top-level keys before applying. The danger zone
+// warns about unknown top-level keys before applying. The model dual
+// select is form-driven once a pick exists (provider changes re-list the
+// new provider's models immediately and the model onChange writes the
+// form's provider, so a save can never pair a model with a stale
+// provider); in-flight save responses are dropped when the scope tab
+// flipped meanwhile, and switching scope with a dirty form asks for
+// confirmation before discarding the picks. The danger zone
 // offers POST /instance/dispose behind a confirm panel — disposing the
 // CONNECTED instance shuts the server down, so the SSE stream drops and
 // the app falls back to the server list (the connection is not
@@ -20,6 +26,7 @@
 
 import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
+import { Dialog } from "@kobalte/core";
 import { createToast } from "../../../stores/toasts.js";
 import { useT } from "../../../i18n/index.js";
 import { getApiClient } from "../../../services/client.js";
@@ -170,6 +177,9 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   const [confirmDispose, setConfirmDispose] = createSignal(false);
   const [disposing, setDisposing] = createSignal(false);
   const [disposeError, setDisposeError] = createSignal<string | null>(null);
+  /** The scope tab whose switch awaits the discard confirmation (a dirty
+   *  form would otherwise be silently lost on the switch). */
+  const [pendingScope, setPendingScope] = createSignal<ConfigScope | null>(null);
 
   const service = createConfigService(getApiClient());
   const modelState = createMemo(() => getServerModelState(props.serverId));
@@ -233,9 +243,15 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
 
   const resolvedModel = createMemo(() => modelRefOf(config()?.model, modelState().providers));
 
+  // The selects are form-driven once a pick exists: the baseline only
+  // seeds them while the form is clean, so a provider change switches the
+  // model list immediately and the model onChange can never pair a model
+  // with a stale provider id.
+  const selectedModel = createMemo(() => form().model ?? resolvedModel());
+
   const providers = createMemo(() => modelState().providers);
   const provider = createMemo(
-    () => providers().find((entry) => entry.id === resolvedModel()?.providerID) ?? null,
+    () => providers().find((entry) => entry.id === selectedModel()?.providerID) ?? null,
   );
   const models = createMemo(() => (provider() === null ? [] : Object.values(provider()!.models)));
 
@@ -284,16 +300,22 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   }
 
   async function saveForm(): Promise<void> {
+    const target = scope();
     setSaving(true);
     setSaveError(null);
     try {
       const updated =
-        scope() === "project"
+        target === "project"
           ? await service.update(patchOf())
           : await service.updateGlobal(patchOf());
+      // The scope tab may have flipped while the PATCH was in flight — the
+      // new scope's load owns the baseline then, so a stale response must
+      // not overwrite it (and must not toast into the new scope either).
+      if (scope() !== target) return;
       applyConfig(updated);
       createToast(t("settings:configSaved"), "success");
     } catch (err) {
+      if (scope() !== target) return;
       setSaveError(err instanceof Error ? err.message : String(err));
       setFormDirty(true);
     } finally {
@@ -328,17 +350,20 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   async function saveJson(): Promise<void> {
     const parsed = parseJson(jsonText());
     if (parsed === null) return;
+    const target = scope();
     setJsonSaving(true);
     setJsonSaveError(null);
     try {
       const updated =
-        scope() === "project"
+        target === "project"
           ? await service.update(parsed as ConfigPatch)
           : await service.updateGlobal(parsed as ConfigPatch);
+      if (scope() !== target) return;
       applyConfig(updated);
       setJsonEdit(false);
       createToast(t("settings:configJsonSaved"), "success");
     } catch (err) {
+      if (scope() !== target) return;
       // Failure rollback: the textarea returns to the last-saved config.
       const last = config();
       if (last !== null) setJsonText(JSON.stringify(last, null, 2));
@@ -371,6 +396,23 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
     }
   }
 
+  /** Switching scope with a dirty form would silently discard the picks,
+   *  so the switch is deferred behind a confirmation dialog instead. */
+  function requestScope(next: ConfigScope): void {
+    if (next === scope() || !formDirty()) {
+      setScope(next);
+      return;
+    }
+    setPendingScope(next);
+  }
+
+  function confirmScopeSwitch(): void {
+    const next = pendingScope();
+    if (next === null) return;
+    setPendingScope(null);
+    setScope(next);
+  }
+
   function row(label: string, hint: string | undefined, control: JSX.Element, testId: string) {
     return (
       <div data-testid={testId} class="border-b border-bg-sunken py-3">
@@ -397,7 +439,7 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
             type="button"
             data-testid="config-scope-project"
             aria-pressed={scope() === "project" ? "true" : "false"}
-            onClick={() => setScope("project")}
+            onClick={() => requestScope("project")}
             class={`rounded-md border px-3 py-1.5 text-xs outline-none transition-colors ${
               scope() === "project"
                 ? "border-accent bg-accent-soft text-fg-primary"
@@ -410,7 +452,7 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
             type="button"
             data-testid="config-scope-global"
             aria-pressed={scope() === "global" ? "true" : "false"}
-            onClick={() => setScope("global")}
+            onClick={() => requestScope("global")}
             class={`rounded-md border px-3 py-1.5 text-xs outline-none transition-colors ${
               scope() === "global"
                 ? "border-accent bg-accent-soft text-fg-primary"
@@ -466,7 +508,7 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
                     data-testid="config-model-provider"
                     aria-label={t("models:providerLabel")}
                     class={selectClass}
-                    value={resolvedModel()?.providerID ?? ""}
+                    value={selectedModel()?.providerID ?? ""}
                     onChange={(event) => changeProvider(event.currentTarget.value)}
                   >
                     <For each={providers()}>
@@ -477,9 +519,9 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
                     data-testid="config-model-model"
                     aria-label={t("models:modelLabel")}
                     class={selectClass}
-                    value={resolvedModel()?.modelID ?? ""}
+                    value={selectedModel()?.modelID ?? ""}
                     onChange={(event) => {
-                      const pid = resolvedModel()?.providerID;
+                      const pid = selectedModel()?.providerID;
                       if (pid !== undefined)
                         changeModel({ providerID: pid, modelID: event.currentTarget.value });
                     }}
@@ -769,6 +811,44 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
           </div>
         </Show>
       </div>
+
+      <Dialog.Root
+        open={pendingScope() !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingScope(null);
+        }}
+      >
+        <Dialog.Portal>
+          <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+          <Dialog.Content
+            data-testid="config-discard-dialog"
+            class="glass fixed left-1/2 top-1/2 z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-3 p-5"
+          >
+            <Dialog.Title class="text-md font-semibold">
+              {t("settings:configDiscardDirtyTitle")}
+            </Dialog.Title>
+            <Dialog.Description class="text-sm text-fg-secondary">
+              {t("settings:configDiscardDirtyExplain")}
+            </Dialog.Description>
+            <div class="flex justify-end gap-2 pt-1">
+              <Dialog.CloseButton
+                data-testid="config-discard-cancel"
+                class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
+              >
+                {t("common:cancel")}
+              </Dialog.CloseButton>
+              <button
+                type="button"
+                data-testid="config-discard-confirm"
+                onClick={confirmScopeSwitch}
+                class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-fg-primary outline-none hover:opacity-90"
+              >
+                {t("settings:configDiscardDirtyConfirm")}
+              </button>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 };

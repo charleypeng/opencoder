@@ -974,7 +974,7 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   });
 
   // ---- TASK-M9-05: config family (GET/PATCH /config + /global/config,
-  //      POST /instance/dispose) ----
+  //      POST /instance/dispose + /global/dispose) ----
 
   // PATCH merge semantics mirror the real server: nested plain objects
   // merge recursively, everything else (arrays included) replaces, and
@@ -1042,6 +1042,12 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   // boolean; the real server then shuts the instance down (the SSE stream
   // drops and the client degrades back to the server home).
   app.post("/instance/dispose", (_req, res) => {
+    res.json(true);
+  });
+
+  // Global dispose (TASK-M9-05): same plain-boolean shape, releasing all
+  // instances.
+  app.post("/global/dispose", (_req, res) => {
     res.json(true);
   });
 }

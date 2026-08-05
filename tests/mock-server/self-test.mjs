@@ -1280,7 +1280,8 @@ try {
       );
     });
 
-    // TASK-M9-05: GET/PATCH /config + /global/config, POST /instance/dispose.
+    // TASK-M9-05: GET/PATCH /config + /global/config, POST /instance/dispose
+    // and /global/dispose.
     await test("config get returns the config object with schema keys", async () => {
       const { status, body } = await request(baseUrl, "/config");
       expect(status === 200, `status ${status}`);
@@ -1366,6 +1367,12 @@ try {
 
     await test("instance dispose returns true", async () => {
       const { status, body } = await request(baseUrl, "/instance/dispose", { method: "POST" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("global dispose returns true", async () => {
+      const { status, body } = await request(baseUrl, "/global/dispose", { method: "POST" });
       expect(status === 200, `status ${status}`);
       expect(body === true, `body ${JSON.stringify(body)}`);
     });

@@ -1,6 +1,7 @@
 // Config domain service (TASK-M9-05): typed wrapper around GET/PATCH
 // /config (project-level), GET/PATCH /global/config and POST
-// /instance/dispose. Verified against the 1.18.11 contract: the Config
+// /instance/dispose + /global/dispose. Verified against the 1.18.11
+// contract: the Config
 // schema is a flat object of 36 known keys (model / default_agent /
 // share / autoupdate / permission / logLevel / …) with
 // additionalProperties: false — there is NO `theme` key (theme is a
@@ -48,6 +49,9 @@ export function createConfigService(client: ApiClient) {
     /** Dispose the connected server instance (POST /instance/dispose);
      *  the server shuts down and the connection drops. */
     dispose: (dir?: string) => client.post<boolean>("/instance/dispose", dirQuery(dir)),
+    /** Dispose all OpenCode instances and release their resources (POST
+     *  /global/dispose — in the 1.18.11 contract, answers a boolean). */
+    disposeGlobal: () => client.post<boolean>("/global/dispose"),
   };
 }
 
