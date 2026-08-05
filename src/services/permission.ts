@@ -12,6 +12,12 @@ export type PermissionReplyInput = NonNullable<
 >["content"]["application/json"];
 /** Reply choices accepted by the reply endpoint. */
 export type PermissionReply = PermissionReplyInput["reply"];
+/** One saved permission rule (V2 directory, TASK-M9-07). */
+export type PermissionSavedInfo = components["schemas"]["PermissionSavedInfo"];
+/** `GET /api/permission/saved` envelope ({ data: PermissionSavedInfo[] }). */
+export interface SavedPermissionList {
+  data: PermissionSavedInfo[];
+}
 
 function dirQuery(dir?: string): RequestOptions | undefined {
   return dir === undefined ? undefined : { query: { directory: dir } };
@@ -34,6 +40,16 @@ export function createPermissionService(client: ApiClient) {
         body: { reply } satisfies PermissionReplyInput,
         ...(dirQuery(dir) ?? {}),
       }),
+    /**
+     * List the saved permission rules (GET /api/permission/saved, V2
+     * directory, TASK-M9-07): the envelope's `data` holds the rules.
+     */
+    savedList: () => client.get<SavedPermissionList>("/api/permission/saved"),
+    /**
+     * Remove one saved permission rule (DELETE /api/permission/saved/{id},
+     * TASK-M9-07); the contract answers 204 with no body.
+     */
+    savedRemove: (id: string) => client.delete<undefined>(`/api/permission/saved/${id}` as ApiPath),
   };
 }
 

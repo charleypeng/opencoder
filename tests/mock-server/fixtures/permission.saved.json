@@ -1,0 +1,22 @@
+{
+  "data": [
+    {
+      "id": "saved_rule_001",
+      "projectID": "project-mock-1",
+      "action": "allow",
+      "resource": "bash"
+    },
+    {
+      "id": "saved_rule_002",
+      "projectID": "project-mock-1",
+      "action": "deny",
+      "resource": "edit:src/secrets"
+    },
+    {
+      "id": "saved_rule_003",
+      "projectID": "project-mock-2",
+      "action": "allow",
+      "resource": "webfetch:opencode.dev"
+    }
+  ]
+}

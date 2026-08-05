@@ -1570,6 +1570,118 @@ try {
       );
     });
 
+    // TASK-M9-07: status bar (LSP + formatter shapes), log forwarding
+    // (POST /log validation), saved permission rules (list + remove) and
+    // the display-only global upgrade endpoint.
+    await test("lsp status lists the fixture servers with their shapes", async () => {
+      const { status, body } = await request(baseUrl, "/lsp");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 3, `lsp list ${JSON.stringify(body)}`);
+      const connected = body.filter((entry) => entry.status === "connected");
+      expect(connected.length === 2, `connected count ${connected.length}`);
+      for (const entry of body) {
+        expect(typeof entry?.id === "string", `id ${JSON.stringify(entry?.id)}`);
+        expect(typeof entry?.name === "string", `name ${JSON.stringify(entry?.name)}`);
+        expect(typeof entry?.root === "string", `root ${JSON.stringify(entry?.root)}`);
+        expect(
+          ["connected", "error"].includes(entry?.status),
+          `status ${JSON.stringify(entry?.status)}`,
+        );
+      }
+    });
+
+    await test("formatter status lists enabled/disabled formatters", async () => {
+      const { status, body } = await request(baseUrl, "/formatter");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length === 2, `formatter list ${JSON.stringify(body)}`);
+      const enabled = body.filter((entry) => entry.enabled === true);
+      expect(enabled.length === 1, `enabled count ${enabled.length}`);
+      expect(
+        Array.isArray(body[0]?.extensions) && typeof body[0]?.name === "string",
+        "formatter shape must carry name + extensions",
+      );
+    });
+
+    await test("log accepts a valid entry and returns true", async () => {
+      const { status, body } = await request(baseUrl, "/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          service: "opencoder-webview",
+          level: "error",
+          message: "test error from the diagnostics console",
+        }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    await test("log rejects entries missing the required fields", async () => {
+      const noService = await request(baseUrl, "/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ level: "error", message: "x" }),
+      });
+      expect(noService.status === 400, `missing service status ${noService.status}`);
+      const noLevel = await request(baseUrl, "/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service: "s", message: "x", level: "fatal" }),
+      });
+      expect(noLevel.status === 400, `invalid level status ${noLevel.status}`);
+      const noMessage = await request(baseUrl, "/log", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ service: "s", level: "info" }),
+      });
+      expect(noMessage.status === 400, `missing message status ${noMessage.status}`);
+    });
+
+    await test("saved permission rules list carries the fixture envelope", async () => {
+      const { status, body } = await request(baseUrl, "/api/permission/saved");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body?.data) && body.data.length === 3, `rules ${JSON.stringify(body)}`);
+      for (const rule of body.data) {
+        expect(typeof rule?.id === "string", `rule id ${JSON.stringify(rule?.id)}`);
+        expect(typeof rule?.projectID === "string", `projectID ${JSON.stringify(rule?.projectID)}`);
+        expect(typeof rule?.action === "string", `action ${JSON.stringify(rule?.action)}`);
+        expect(typeof rule?.resource === "string", `resource ${JSON.stringify(rule?.resource)}`);
+      }
+    });
+
+    await test("saved permission remove answers 204 and shrinks the list", async () => {
+      const before = await request(baseUrl, "/api/permission/saved");
+      const target = before.body?.data?.[0]?.id;
+      expect(typeof target === "string" && target !== "", `target ${JSON.stringify(target)}`);
+      const removed = await request(baseUrl, `/api/permission/saved/${target}`, {
+        method: "DELETE",
+      });
+      expect(removed.status === 204, `remove status ${removed.status}`);
+      const after = await request(baseUrl, "/api/permission/saved");
+      expect(
+        Array.isArray(after.body?.data) && after.body.data.length === before.body.data.length - 1,
+        `list shrank ${JSON.stringify(after.body?.data?.length)}`,
+      );
+      expect(
+        after.body.data.every((rule) => rule.id !== target),
+        `removed rule absent ${JSON.stringify(after.body.data.map((rule) => rule.id))}`,
+      );
+      // A second delete of the same id still answers 204 (contract).
+      const again = await request(baseUrl, `/api/permission/saved/${target}`, {
+        method: "DELETE",
+      });
+      expect(again.status === 204, `second remove status ${again.status}`);
+    });
+
+    await test("global upgrade answers the success result shape", async () => {
+      const { status, body } = await request(baseUrl, "/global/upgrade", { method: "POST" });
+      expect(status === 200, `status ${status}`);
+      expect(
+        body?.success === true && typeof body?.version === "string",
+        `body ${JSON.stringify(body)}`,
+      );
+    });
+
     // TASK-M5-06: /provider/auth + PUT/DELETE /auth/{providerID}.
     await test("provider auth returns the per-provider auth methods", async () => {
       const { status, body } = await request(baseUrl, "/provider/auth");

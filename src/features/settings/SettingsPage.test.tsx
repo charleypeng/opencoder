@@ -101,6 +101,7 @@ describe("SettingsPage", () => {
       "notifications",
       "updates",
       "config",
+      "diagnostics",
       "about",
     ]) {
       expect(screen.getByTestId(`settings-section-${id}`)).toBeInTheDocument();
@@ -131,6 +132,7 @@ describe("SettingsPage", () => {
       ["notifications", "notifications-section"],
       ["updates", "updates-section"],
       ["config", "config-section"],
+      ["diagnostics", "diagnostics-section"],
       ["about", "about-section"],
     ];
     for (const [sectionId, sectionTestId] of cases) {

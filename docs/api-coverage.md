@@ -133,6 +133,20 @@
 > 校验固定码 `mock-oauth-code`。契约 MCPStatus 仅含状态/错误字段（无 tools
 > 计数），`mcp.tools.changed` 事件仅携带 server 名 → 客户端据此刷新列表。
 > 契约无 `DELETE /mcp/{name}`，服务器删除不在本期 UI 范围。
+>
+> 状态栏与诊断（TASK-M9-07）：`EventLspUpdated` 的 properties 为空对象——
+> `lsp.updated` 事件不携带数据，客户端仅 bump 版本后重拉 `GET /lsp`
+> （状态栏指示由此实时更新）；`GET /formatter` 无事件，挂载时拉取一次。
+> `POST /log` body 为 `{ service, level: debug|info|error|warn, message, extra? }`，
+> 单条一次请求（200 返回 boolean）；`GET /api/permission/saved` 返回
+> `{ data: PermissionSavedInfo[] }`（`{ id, projectID, action, resource }`），
+> `DELETE /api/permission/saved/{id}` 答 204 无 body。`POST /global/upgrade`
+> 返回 `{ success: true, version }` 或 `{ success: false, error }`——UI 为
+> **仅展示**（无按钮）：服务端自升级由 `installation.update-available` 事件
+> 提示 + 重启引导覆盖，Mock 注册该端点仅为契约覆盖。会话 tokens/费用指示
+> 直接读 Session schema 的 `tokens`（input/output/reasoning/cache，展示取
+> input+output+reasoning）与 `cost` 字段（服务端计算，`session.updated`
+> 事件保持新鲜），无客户端估算。
 
 ## 6. Backlog（实验面与 TUI 面，本期不实现）
 

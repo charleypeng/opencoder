@@ -32,6 +32,9 @@
   "global.config": "global.config.json",
   "provider.auth": "provider.auth.json",
   "mcp.status": "mcp.status.json",
+  "lsp.status": "lsp.status.json",
+  "formatter": "formatter.json",
+  "permission.saved": "permission.saved.json",
   "pty": "pty.list.json",
   "pty.shells": "pty.shells.json"
 }

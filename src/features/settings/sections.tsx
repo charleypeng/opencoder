@@ -18,6 +18,7 @@ import GeneralSection from "./GeneralSection.js";
 import AboutSection from "./AboutSection.js";
 import ServersSection from "./ServersSection.js";
 import ConfigSection from "./config/ConfigSection.js";
+import DiagnosticsSection from "./diagnostics/DiagnosticsSection.js";
 
 export type SectionId =
   | "general"
@@ -31,6 +32,7 @@ export type SectionId =
   | "notifications"
   | "updates"
   | "config"
+  | "diagnostics"
   | "about";
 
 export interface SettingsSectionDef {
@@ -86,6 +88,9 @@ const ICONS: Record<SectionId, JSX.Element> = {
     <Icon path="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5c0 1.1-.9 2-2 2h-1" />
   ),
   about: <Icon path="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01" />,
+  diagnostics: (
+    <Icon path="M12 3a7 7 0 0 0-7 7c0 2 .9 3.5 1.5 4.5L5 21h14l-1.5-6.5C18.1 13.5 19 12 19 10a7 7 0 0 0-7-7zM8.5 10h7" />
+  ),
 };
 
 /** The ordered section list; SettingsPage defaults to the first entry. */
@@ -177,6 +182,14 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     icon: ICONS.config,
     keywords: ["opencode.json", "json", "global", "dispose", "merge"],
     component: ConfigSection,
+  },
+  {
+    id: "diagnostics",
+    titleKey: "settings:diagnostics",
+    hintKey: "settings:diagnosticsHint",
+    icon: ICONS.diagnostics,
+    keywords: ["log", "console", "lsp", "formatter", "permission", "saved", "server", "upgrade"],
+    component: DiagnosticsSection,
   },
   {
     id: "about",

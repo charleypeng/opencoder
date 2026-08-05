@@ -564,7 +564,28 @@
     "mcpAdded": "MCP server added",
     "mcpAddFailed": "Could not add the server: {{detail}}",
     "mcpConnectFailed": "Could not connect {{name}}: {{detail}}",
-    "mcpDisconnectFailed": "Could not disconnect {{name}}: {{detail}}"
+    "mcpDisconnectFailed": "Could not disconnect {{name}}: {{detail}}",
+    "diagnostics": "Diagnostics",
+    "diagnosticsHint": "Frontend logs, log forwarding and server status.",
+    "diagServerVersion": "Server version",
+    "diagServerUpToDate": "Server v{{version}} — up to date.",
+    "diagServerUpdateHint": "Server v{{current}} — update available: v{{version}} — restart opencode serve to apply.",
+    "diagForwardLogs": "Forward frontend logs",
+    "diagForwardLogsHint": "Sends captured errors and warnings to the server log (POST /log).",
+    "diagLogConsole": "Frontend log console",
+    "diagLogConsoleHint": "Errors and warnings captured from this app window.",
+    "diagLogAll": "All",
+    "diagLogLevelError": "Errors",
+    "diagLogLevelWarn": "Warnings",
+    "diagLogClear": "Clear",
+    "diagLogsEmpty": "No captured logs yet.",
+    "diagSavedPermissions": "Saved permission rules",
+    "diagSavedPermissionsHint": "Rules saved by “always allow/deny” answers; deleting one revokes the saved decision.",
+    "diagRulesEmpty": "No saved permission rules.",
+    "diagRulesLoadFailed": "Could not load saved permission rules: {{detail}}",
+    "diagRuleDelete": "Delete",
+    "diagRuleConfirm": "Confirm",
+    "diagRuleDeleteFailed": "Could not delete the rule: {{detail}}"
   },
   "pet": {
     "size": "Size",
@@ -639,7 +660,10 @@
     "palettePlaceholder": "Search sessions, files, commands, settings…",
     "results": "Results",
     "todos": "Todos",
-    "fullTextSearch": "Full-text search"
+    "fullTextSearch": "Full-text search",
+    "lspHint": "Active language servers",
+    "formatterHint": "Enabled formatter",
+    "usageHint": "Active session tokens and cost"
   },
   "updates": {
     "checkForUpdates": "Check for updates",

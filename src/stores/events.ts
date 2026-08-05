@@ -28,6 +28,7 @@ import * as questionStore from "./question.js";
 import * as agentsStore from "./agents.js";
 import * as ptysStore from "./ptys.js";
 import * as mcpStore from "./mcp.js";
+import * as lspStore from "./lsp.js";
 import { bumpTokenRate } from "../features/pet/tokenRate.js";
 import { applyServerUpdate, clearServerUpdate } from "./serverUpdate.js";
 import { connections } from "./connection.js";
@@ -54,6 +55,7 @@ export interface EventStoreDeps {
   agents: typeof agentsStore;
   ptys: typeof ptysStore;
   mcp: typeof mcpStore;
+  lsp: typeof lspStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -69,6 +71,7 @@ export const defaultEventStores: EventStoreDeps = {
   agents: agentsStore,
   ptys: ptysStore,
   mcp: mcpStore,
+  lsp: lspStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -106,6 +109,7 @@ export function applyEvent(
     agents,
     ptys,
     mcp,
+    lsp,
   } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
@@ -263,6 +267,12 @@ export function applyEvent(
       // refetches GET /mcp — the status map carries no tool counts.
       if (typeof p.server === "string") mcp.bumpMcpVersion(serverId);
       return;
+    case "lsp.updated":
+      // LSP status changed (TASK-M9-07): the schema's properties object is
+      // empty (verified EventLspUpdated), so the event only bumps the
+      // version and the mounted status bar refetches GET /lsp.
+      lsp.bumpLspVersion(serverId);
+      return;
     case "installation.update-available":
       // The SERVER has a newer version available (api-coverage §7): the app
       // cannot upgrade it, the banner only hints at restarting the server.
@@ -376,6 +386,7 @@ export async function subscribeToServerEvents(
       deps.agents.resetServer(serverId);
       deps.ptys.resetServer(serverId);
       deps.mcp.resetServer(serverId);
+      deps.lsp.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

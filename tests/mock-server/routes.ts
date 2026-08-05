@@ -138,6 +138,15 @@ const PTY_ROUTES: Route[] = [
   { method: "get", path: "/pty/shells", operation: "pty.shells", fixture: "pty.shells" },
 ];
 
+// P4 — status bar (M9): LSP and formatter status are static fixtures; the
+// status-bar chips fetch them on mount and the client refetches GET /lsp
+// on every `lsp.updated` SSE event (whose payload is empty — the mock
+// replays the same fixture).
+const STATUS_BAR_ROUTES: Route[] = [
+  { method: "get", path: "/lsp", operation: "lsp.status", fixture: "lsp.status" },
+  { method: "get", path: "/formatter", operation: "formatter.status", fixture: "formatter" },
+];
+
 const ROUTES: Route[] = [
   ...P0_CORE_LOOP,
   ...FIND_ROUTES,
@@ -150,6 +159,7 @@ const ROUTES: Route[] = [
   ...SKILL_ROUTES,
   ...PROVIDER_ROUTES,
   ...PTY_ROUTES,
+  ...STATUS_BAR_ROUTES,
 ];
 
 // SSE endpoints stream events; they are not part of the fixture table.
@@ -1241,6 +1251,71 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     mcpState[req.params.name] = { status: "connected" };
     delete mcpOauth[req.params.name];
     res.json({ status: "connected" });
+  });
+
+  // ---- TASK-M9-07: log forwarding (POST /log) ----
+  // Validates the contract body ({ service, level, message, extra? }; the
+  // level enum is debug|info|error|warn) and answers true. Entries are
+  // discarded — the mock has no log sink.
+  app.post("/log", (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const { service, level, message } = body;
+    const VALID_LEVELS = ["debug", "info", "error", "warn"];
+    if (typeof service !== "string" || service === "") {
+      res.status(400).json({ _tag: "InvalidRequestError", message: "service is required" });
+      return;
+    }
+    if (typeof level !== "string" || !VALID_LEVELS.includes(level)) {
+      res.status(400).json({ _tag: "InvalidRequestError", message: "invalid level" });
+      return;
+    }
+    if (typeof message !== "string" || message === "") {
+      res.status(400).json({ _tag: "InvalidRequestError", message: "message is required" });
+      return;
+    }
+    res.json(true);
+  });
+
+  // ---- TASK-M9-07: saved permission rules (V2 directory) ----
+  // GET lists the fixture rules; DELETE removes one and answers 204
+  // (contract has no error variant for a missing id — any id that is not
+  // in the list still answers 204).
+  const savedRules: Record<
+    string,
+    { id: string; projectID: string; action: string; resource: string }
+  > = Object.fromEntries(
+    ((fixtures["permission.saved"] as { data?: unknown })?.data ?? []).map(
+      (rule: { id?: unknown; projectID?: unknown; action?: unknown; resource?: unknown }) => [
+        String(rule.id),
+        {
+          id: String(rule.id),
+          projectID: String(rule.projectID),
+          action: String(rule.action),
+          resource: String(rule.resource),
+        },
+      ],
+    ),
+  );
+
+  app.get("/api/permission/saved", (_req, res) => {
+    res.json({ data: Object.values(savedRules) });
+  });
+
+  app.delete("/api/permission/saved/:id", (req, res) => {
+    const id = req.params.id;
+    if (typeof id !== "string" || id === "") {
+      res.status(400).json({ _tag: "InvalidRequestError", message: "id is required" });
+      return;
+    }
+    delete savedRules[id];
+    res.status(204).end();
+  });
+
+  // ---- TASK-M9-07: global upgrade (POST /global/upgrade) ----
+  // The diagnostics UI is display-only (no button); the mock documents the
+  // contract shape for future callers.
+  app.post("/global/upgrade", (_req, res) => {
+    res.json({ success: true, version: "1.19.0" });
   });
 }
 

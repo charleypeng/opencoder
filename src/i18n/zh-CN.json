@@ -564,7 +564,28 @@
     "mcpAdded": "MCP 服务器已添加",
     "mcpAddFailed": "无法添加服务器：{{detail}}",
     "mcpConnectFailed": "无法连接 {{name}}：{{detail}}",
-    "mcpDisconnectFailed": "无法断开 {{name}}：{{detail}}"
+    "mcpDisconnectFailed": "无法断开 {{name}}：{{detail}}",
+    "diagnostics": "诊断",
+    "diagnosticsHint": "前端日志、日志回传与服务端状态。",
+    "diagServerVersion": "服务端版本",
+    "diagServerUpToDate": "服务端 v{{version}} — 已是最新。",
+    "diagServerUpdateHint": "服务端 v{{current}} — 有新版本 v{{version}} — 重启 opencode serve 生效。",
+    "diagForwardLogs": "回传前端日志",
+    "diagForwardLogsHint": "将捕获的错误与警告发送至服务端日志（POST /log）。",
+    "diagLogConsole": "前端日志控制台",
+    "diagLogConsoleHint": "本应用窗口捕获的错误与警告。",
+    "diagLogAll": "全部",
+    "diagLogLevelError": "错误",
+    "diagLogLevelWarn": "警告",
+    "diagLogClear": "清空",
+    "diagLogsEmpty": "暂无捕获日志。",
+    "diagSavedPermissions": "已保存的权限规则",
+    "diagSavedPermissionsHint": "「始终允许/拒绝」回答保存的规则；删除将撤销已保存的决定。",
+    "diagRulesEmpty": "暂无已保存的权限规则。",
+    "diagRulesLoadFailed": "无法加载已保存的权限规则：{{detail}}",
+    "diagRuleDelete": "删除",
+    "diagRuleConfirm": "确认",
+    "diagRuleDeleteFailed": "无法删除该规则：{{detail}}"
   },
   "pet": {
     "size": "大小",
@@ -639,7 +660,10 @@
     "palettePlaceholder": "搜索会话、文件、命令、设置…",
     "results": "结果",
     "todos": "待办",
-    "fullTextSearch": "全文搜索"
+    "fullTextSearch": "全文搜索",
+    "lspHint": "活跃语言服务器数",
+    "formatterHint": "已启用的格式化器",
+    "usageHint": "当前会话 tokens 与费用"
   },
   "updates": {
     "checkForUpdates": "检查更新",

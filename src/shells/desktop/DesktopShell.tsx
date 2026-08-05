@@ -105,7 +105,15 @@ import CommandPalette from "./CommandPalette";
 import { subscribeToGlobalSummon, subscribeToTrayNewSession } from "../../services/tray.js";
 import { startTrayBadgeSync } from "../../services/trayBadge.js";
 import { applyDesktopPrefs, petEnabled } from "../../features/settings/desktopPrefs.js";
+import { installLogCapture } from "../../features/settings/diagnostics/logCapture.js";
+import {
+  forwardLogsEnabled,
+  startLogForwarding,
+} from "../../features/settings/diagnostics/logForward.js";
 import { showPet } from "../../services/pet.js";
+import { createLspService } from "../../services/lsp.js";
+import { applyFormatters, applyLsp, getLspState } from "../../stores/lsp.js";
+import { formatCost, formatTokens, usageOf } from "./statusBar.js";
 import { startNotifications } from "../../services/notificationEvents.js";
 import { startPetWatcher } from "../../features/pet/petEvents.js";
 import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
@@ -203,6 +211,150 @@ function StatusBarBranch(props: { serverId: string }) {
           <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
         </svg>
         {branch()}
+      </span>
+    </Show>
+  );
+}
+
+/**
+ * Status-bar LSP chip (TASK-M9-07): shows the number of connected LSP
+ * servers. GET /lsp is fetched on mount and after every context rebuild
+ * (the lsp store bucket is cleared on re-sync); the `lsp.updated` SSE
+ * event carries an empty payload (verified EventLspUpdated), so it only
+ * bumps the store's version counter and the chip refetches. Hidden until
+ * the first fetch lands.
+ */
+function StatusBarLsp(props: { serverId: string }) {
+  const t = useT();
+  // Version whose fetch already completed (or is in flight).
+  let lastFetchedVersion = -1;
+  createEffect(() => {
+    const serverId = props.serverId;
+    const state = getLspState(serverId);
+    if (state.loaded && lastFetchedVersion === state.version) return;
+    lastFetchedVersion = state.version;
+    void createLspService(getApiClient())
+      .status()
+      .then((statuses) => applyLsp(serverId, statuses))
+      .catch(() => {
+        // Unreachable server: retry on the next version bump / rebuild.
+        lastFetchedVersion = -1;
+      });
+  });
+  const activeCount = createMemo(
+    () => getLspState(props.serverId).lsp.filter((entry) => entry.status === "connected").length,
+  );
+  return (
+    <Show when={getLspState(props.serverId).loaded}>
+      <span
+        data-testid="status-bar-lsp"
+        title={t("desktop:lspHint")}
+        class="flex shrink-0 items-center gap-1.5 font-code text-xs text-fg-secondary"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        >
+          <path d="M12 3v3M12 12v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
+        </svg>
+        {activeCount()}
+      </span>
+    </Show>
+  );
+}
+
+/**
+ * Status-bar formatter chip (TASK-M9-07): shows the enabled formatter
+ * names (GET /formatter, fetched once per mount / context rebuild — there
+ * is no formatter event, so no refresh signal). Hidden while no formatter
+ * is enabled.
+ */
+function StatusBarFormatter(props: { serverId: string }) {
+  const t = useT();
+  createEffect(() => {
+    const serverId = props.serverId;
+    if (getLspState(serverId).formattersLoaded) return;
+    void createLspService(getApiClient())
+      .formatters()
+      .then((formatters) => applyFormatters(serverId, formatters))
+      .catch(() => {
+        // A failed fetch retries on the next context rebuild (the store
+        // bucket is cleared on re-sync).
+      });
+  });
+  const names = createMemo(() =>
+    getLspState(props.serverId)
+      .formatters.filter((entry) => entry.enabled)
+      .map((entry) => entry.name),
+  );
+  return (
+    <Show when={names().length > 0}>
+      <span
+        data-testid="status-bar-formatter"
+        title={t("desktop:formatterHint")}
+        class="flex shrink-0 items-center gap-1.5 font-code text-xs text-fg-secondary"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        >
+          <path d="m14.5 4.5 5 5M9 15l-1.5 1.5a2.1 2.1 0 1 1-3-3L6 12 13.5 4.5a2.1 2.1 0 1 1 3 3L10 14" />
+        </svg>
+        {names().join(", ")}
+      </span>
+    </Show>
+  );
+}
+
+/**
+ * Status-bar usage chip (TASK-M9-07): the active session's tokens and
+ * cost, read straight from the session store. The 1.18.11 Session schema
+ * carries server-computed `tokens` (input/output/reasoning/cache) and
+ * `cost` fields, kept fresh by `session.updated` SSE events — the
+ * authoritative source (no client-side estimation). Hidden while no
+ * session is active or the server reported no usage yet.
+ */
+function StatusBarUsage(props: { serverId: string }) {
+  const t = useT();
+  const usage = createMemo(() => {
+    const state = getServerSessionState(props.serverId);
+    const sessionId = state.activeSessionId;
+    if (sessionId === null) return undefined;
+    return usageOf(state.sessions[sessionId]);
+  });
+  return (
+    <Show when={usage() !== undefined}>
+      <span
+        data-testid="status-bar-usage"
+        title={t("desktop:usageHint")}
+        class="ml-auto flex shrink-0 items-center gap-1.5 font-code text-xs text-fg-secondary"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-3.5 w-3.5"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="9" />
+          <path d="M12 7v10M15.5 10a3.5 3.5 0 0 0-1.3-.8 3 3 0 0 0-2.3 0 3 3 0 0 0-1.4 4 3 3 0 0 0 1.4 1.3 3 3 0 0 0 2.3 0 3.5 3.5 0 0 0 1.3-1" />
+        </svg>
+        {formatTokens(usage()!.tokens)} · {formatCost(usage()!.cost)}
       </span>
     </Show>
   );
@@ -604,6 +756,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   onMount(() => {
     setActiveServer(props.server.id);
     void refresh();
+    // Diagnostics capture (TASK-M9-07): the window-level error/warn hooks
+    // feed the diagnostics console app-wide (not just while the settings
+    // view is open); when the pref is on, captured entries are forwarded
+    // to the server via POST /log. Both are torn down on unmount.
+    const stopCapture = installLogCapture();
+    const stopForwarding = forwardLogsEnabled() ? startLogForwarding() : () => {};
     const stopHealth = subscribeToServerHealth();
     const stopChanged = subscribeToServersChanged((entries) => setServers(entries));
     // Tray & global summon (TASK-M8-05): the tray menu's New session uses
@@ -662,6 +820,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       stopGlobalSummon();
       stopNotificationClick();
       disposeBadgeSync();
+      stopForwarding();
+      stopCapture();
       setActiveServer(null);
     });
   });
@@ -1232,12 +1392,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </div>
 
       {/* Status bar (TASK-M4-08): minimal bottom bar with the branch chip,
-          reactive to the vcs store (M9-07 extends it with LSP/MCP/tokens). */}
+          reactive to the vcs store (M9-07 extends it with the LSP count,
+          the enabled formatter names and the active session's tokens+cost). */}
       <footer
         data-testid="status-bar"
         class="flex h-7 shrink-0 items-center gap-3 border-t border-bg-sunken bg-bg-elevated px-3"
       >
         <StatusBarBranch serverId={activeServerId()} />
+        <StatusBarLsp serverId={activeServerId()} />
+        <StatusBarFormatter serverId={activeServerId()} />
+        <StatusBarUsage serverId={activeServerId()} />
       </footer>
 
       {/* Todo drawer (TASK-M3-07): fixed right-side overlay panel with a

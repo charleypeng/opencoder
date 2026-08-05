@@ -25,6 +25,7 @@ import {
 } from "./agents.js";
 import { ptys, resetServer as resetPtys } from "./ptys.js";
 import { getMcpVersion, resetServer as resetMcp } from "./mcp.js";
+import { getLspState, resetServer as resetLsp } from "./lsp.js";
 import { serverUpdate, resetServerUpdate } from "./serverUpdate.js";
 import { resetTokenRate, tokenRateStore } from "../features/pet/tokenRate.js";
 import type { Pty } from "../services/pty.js";
@@ -96,6 +97,7 @@ afterEach(() => {
   resetAgents(SERVER);
   resetPtys(SERVER);
   resetMcp(SERVER);
+  resetLsp(SERVER);
   resetTokenRate();
   resetServerUpdate(SERVER);
   resetServerUpdate("srv-upd");
@@ -609,6 +611,15 @@ describe("applyEvent — mcp events", () => {
   it("ignores mcp.tools.changed without a server name", () => {
     applyEvent(SERVER, { type: "mcp.tools.changed", properties: {} });
     expect(getMcpVersion(SERVER)).toBe(0);
+  });
+});
+
+describe("applyEvent — lsp events (TASK-M9-07)", () => {
+  it("bumps the LSP version on lsp.updated even with an empty payload", () => {
+    applyEvent(SERVER, { type: "lsp.updated", properties: {} });
+    expect(getLspState(SERVER).version).toBe(1);
+    applyEvent(SERVER, { type: "lsp.updated", properties: {} });
+    expect(getLspState(SERVER).version).toBe(2);
   });
 });
 

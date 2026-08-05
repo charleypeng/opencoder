@@ -116,6 +116,30 @@ describe("createPermissionService (invoke payload assembly)", () => {
       retriable: false,
     });
   });
+
+  it("savedList GETs /api/permission/saved and resolves the envelope", async () => {
+    const body = {
+      data: [
+        { id: "r1", projectID: "project-mock-1", action: "allow", resource: "bash" },
+        { id: "r2", projectID: "project-mock-1", action: "deny", resource: "edit:src/x" },
+      ],
+    };
+    invokeMock.mockResolvedValue(httpResponse({ body }));
+    await expect(createPermissionService(makeClient()).savedList()).resolves.toEqual(body);
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/api/permission/saved" },
+    });
+  });
+
+  it("savedRemove DELETEs /api/permission/saved/{id} and resolves the 204 body", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ status: 204 }));
+    await expect(createPermissionService(makeClient()).savedRemove("r1")).resolves.toBeUndefined();
+
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "DELETE", path: "/api/permission/saved/r1" },
+    });
+  });
 });
 
 const mockUrl = process.env.MOCK_URL;

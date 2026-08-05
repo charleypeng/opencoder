@@ -1,0 +1,20 @@
+[
+  {
+    "id": "lsp_ts_01",
+    "name": "typescript-language-server",
+    "root": "/mock/projects/opencode-demo",
+    "status": "connected"
+  },
+  {
+    "id": "lsp_go_01",
+    "name": "gopls",
+    "root": "/mock/projects/opencode-demo",
+    "status": "connected"
+  },
+  {
+    "id": "lsp_py_01",
+    "name": "pyright",
+    "root": "/mock/projects/opencode-demo",
+    "status": "error"
+  }
+]

@@ -1,0 +1,12 @@
+[
+  {
+    "name": "biome",
+    "extensions": ["ts", "tsx", "js", "jsx", "json"],
+    "enabled": true
+  },
+  {
+    "name": "prettier",
+    "extensions": ["md", "yaml", "css"],
+    "enabled": false
+  }
+]

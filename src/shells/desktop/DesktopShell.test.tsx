@@ -23,6 +23,7 @@ import {
   getServerSessionState,
   sessions,
   resetServer as resetSessions,
+  setActiveSession,
 } from "../../stores/session";
 import { messages, resetServer as resetMessages, upsertMessage } from "../../stores/messages";
 import { applyTodos, resetServer as resetTodos } from "../../stores/todos";
@@ -39,6 +40,7 @@ import { clearToasts, createToast } from "../../stores/toasts";
 import { combo } from "../../features/settings/shortcuts";
 import { resetAllShortcuts, saveShortcutCombo } from "../../features/settings/shortcutStore";
 import { enqueue, resetServer as resetPermissions } from "../../stores/permission";
+import { resetServer as resetLsp } from "../../stores/lsp";
 import type { PermissionRequest } from "../../services/permission";
 import { resetServerUpdate } from "../../stores/serverUpdate";
 
@@ -180,10 +182,20 @@ function httpResponse(body: unknown) {
   return { status: 200, headers: {}, body, bodyText: undefined };
 }
 
+// Mutable LSP status shared by the status-bar tests: the `lsp.updated`
+// event makes the chip refetch GET /lsp, so the mock must reflect the
+// change for the count to move.
+let lspStatus: Array<Record<string, unknown>> = [];
+
 // Routes the Tauri invoke calls the services make: server registry + the
 // dual-project REST fixture. `/project/current` and `/session` are
 // directory-aware so switching projects returns isolated data.
 function mockHttpRoutes(servers: ServerEntry[]) {
+  lspStatus = [
+    { id: "lsp_ts_01", name: "typescript-language-server", root: DEMO_DIR, status: "connected" },
+    { id: "lsp_go_01", name: "gopls", root: DEMO_DIR, status: "connected" },
+    { id: "lsp_py_01", name: "pyright", root: DEMO_DIR, status: "error" },
+  ];
   invokeMock.mockImplementation((cmd: string, payload: unknown) => {
     if (cmd === "list_servers") return Promise.resolve(servers);
     if (cmd === "http_request") {
@@ -301,6 +313,17 @@ function mockHttpRoutes(servers: ServerEntry[]) {
       if (request?.path === "/file/status") return Promise.resolve(httpResponse([]));
       if (request?.path === "/vcs") {
         return Promise.resolve(httpResponse({ branch: "main", default_branch: "main" }));
+      }
+      if (request?.path === "/lsp") {
+        return Promise.resolve(httpResponse([...lspStatus]));
+      }
+      if (request?.path === "/formatter") {
+        return Promise.resolve(
+          httpResponse([
+            { name: "biome", extensions: ["ts"], enabled: true },
+            { name: "prettier", extensions: ["md"], enabled: false },
+          ]),
+        );
       }
       if (request?.path === "/vcs/status") {
         return Promise.resolve(
@@ -570,6 +593,8 @@ afterEach(() => {
   resetTodos("srv-m4search");
   resetVcs("srv-m4vcs");
   resetVcs("srv-m4vcsbar");
+  resetLsp("srv-m4lspbar");
+  resetLsp("srv-m4usagebar");
   resetModels("srv-m5settings");
   resetPtys("srv-m6term");
   resetSessions("srv-m6tree");
@@ -1583,6 +1608,76 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
     handler({ type: "vcs.branch.updated", properties: { branch: "feat/x" } });
     await waitFor(() =>
       expect(screen.getByTestId("status-bar-branch")).toHaveTextContent("feat/x"),
+    );
+  });
+
+  it("shows the connected LSP count and refreshes it on lsp.updated", async () => {
+    const alpha = server({ id: "srv-m4lspbar", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    // The chip fetched GET /lsp on mount: two connected servers of three.
+    await waitFor(() => expect(screen.getByTestId("status-bar-lsp")).toHaveTextContent("2"));
+
+    // The server's LSP set changes; the lsp.updated event (empty payload,
+    // verified EventLspUpdated) triggers a refetch of GET /lsp.
+    lspStatus = [
+      { id: "lsp_ts_01", name: "typescript-language-server", root: DEMO_DIR, status: "connected" },
+      { id: "lsp_go_01", name: "gopls", root: DEMO_DIR, status: "error" },
+    ];
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: unknown }) => void;
+    handler({ type: "lsp.updated", properties: {} });
+    await waitFor(() => expect(screen.getByTestId("status-bar-lsp")).toHaveTextContent("1"));
+  });
+
+  it("shows the enabled formatter names in the status bar", async () => {
+    const alpha = server({ id: "srv-m4lspbar", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    // GET /formatter on mount: only the enabled formatter is shown.
+    await waitFor(() =>
+      expect(screen.getByTestId("status-bar-formatter")).toHaveTextContent("biome"),
+    );
+    expect(screen.getByTestId("status-bar-formatter")).not.toHaveTextContent("prettier");
+  });
+
+  it("shows the active session's tokens and cost, live on session.updated", async () => {
+    const alpha = server({ id: "srv-m4usagebar", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    // No active session: the usage chip stays hidden.
+    expect(screen.queryByTestId("status-bar-usage")).not.toBeInTheDocument();
+
+    const usageSession = {
+      ...session("sess_usage_01", DEMO_DIR),
+      tokens: { input: 1000, output: 500, reasoning: 200, cache: { read: 0, write: 0 } },
+      cost: 0.042,
+    };
+    applySessionList("srv-m4usagebar", [usageSession]);
+    setActiveSession("srv-m4usagebar", "sess_usage_01");
+    // 1700 tokens -> "1.7K"; $0.042 -> "$0.04".
+    await waitFor(() =>
+      expect(screen.getByTestId("status-bar-usage")).toHaveTextContent("1.7K · $0.04"),
+    );
+
+    // A session.updated SSE event with new usage figures updates the chip.
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: unknown }) => void;
+    handler({
+      type: "session.updated",
+      properties: {
+        sessionID: "sess_usage_01",
+        info: {
+          ...usageSession,
+          tokens: { input: 4000, output: 1000, reasoning: 0, cache: { read: 0, write: 0 } },
+          cost: 0.11,
+        },
+      },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("status-bar-usage")).toHaveTextContent("5.0K · $0.11"),
     );
   });
 });
