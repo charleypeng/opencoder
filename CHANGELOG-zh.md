@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-05
+
 ### 新增
 
 - README 双语定稿（TASK-M10-05）：`README.md` 与 `README-zh.md` 重写为完整用户向版本——头部（名称、标语、CI/许可证/版本徽章、语言切换）、已实现功能清单（多服务器管理——健康检查 + mDNS 发现 + 二维码分享；桌面/移动双形态；162 端点完整 API 覆盖；流式聊天——工具/思考/待办/权限；文件、搜索、diff 与 VCS；终端；iOS 26 Liquid Glass；萌宠；en+zh 双语；主题与强调色）、服务端要求（opencode CLI ≥ v1.18.11 与精确启动命令——`opencode serve --port 4096`、`--mdns` 局域网发现、`OPENCODE_SERVER_PASSWORD` Basic Auth）、五平台安装表（macOS universal dmg / Windows nsis+msi / Linux deb+AppImage 来自 GitHub Releases、iOS 走 TestFlight/App Store、Android CI 产 APK——并如实标注脚手架待验证）、快捷键表精确对齐 `src/features/settings/shortcuts.ts` 实现清单（⌘K / ⌘N / ⌘P / ⌘⇧F / ⌘1-9 / ⌘[ / ⌘] / ⌘Enter / Esc / ⌘B / ⌘J / ⌘D / ⌘, / Tab / ↑，含自定义说明）、更新版架构图、开发指南（前置要求、完整脚本表含 `check:links`、纯浏览器 `VITE_TRANSPORT=fetch` 开发模式、iOS/Android 构建说明）与文档地图；六张真实截图落入 `docs/screenshots/`——四张桌面截图以 Playwright + E2E Tauri shim 驱动真实 UI 对接 Mock OpenCode Server、覆盖浅色/深色主题，另两张 iOS 模拟器截图（iPhone 17 / iOS 26.0 上全新拍摄的服务器主页——应用已连接宿主机上的 Mock OpenCode Server；该拍摄还暴露并修复了一个真实的启动崩溃：健康监控在 setup 钩子中直接用 `tokio::spawn` 派生任务，而 setup 运行在主线程、无 tokio 运行时上下文，导致任何带已保存服务器的应用在启动时即中止；现改为经 `tauri::async_runtime` 派生——以及归档的 M7-02 Liquid Glass 演示）；新增 Markdown 链接检查脚本 `scripts/check-links.mjs`——扫描 README.md / README-zh.md / CONTRIBUTING.md / docs 顶层全部 *.md 的链接与图片目标，跳过外部协议（http(s)/mailto/…）与纯锚点，相对路径按大小写不敏感校验（macOS 与 Linux 一致）并剥离 `#anchor` 后缀，逐个以 file:line 报告并 exit 1——暴露为 `pnpm check:links` 并接入 `pnpm verify` 新步骤「L0 links」（verify 现为 11/11）。
