@@ -15,6 +15,7 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { getApiClient } from "../../../services/client.js";
 import { createProviderService, type Provider } from "../../../services/provider.js";
 import { pollUntil } from "./oauth.js";
+import { useT } from "../../../i18n/index.js";
 
 export interface ProviderOAuthProps {
   provider: Provider;
@@ -30,6 +31,7 @@ const POLL_INTERVAL_MS = 2_000;
 const POLL_TIMEOUT_MS = 60_000;
 
 const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
+  const t = useT();
   const service = createProviderService(getApiClient());
   // Authorize POST in flight (starting state).
   const [starting, setStarting] = createSignal(false);
@@ -72,7 +74,7 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
     if (controller.signal.aborted) return;
     setPolling(false);
     if (!ok) {
-      setError("Timed out waiting for the browser authorization to complete.");
+      setError(t("settings:oauthTimeout"));
       return;
     }
     succeed();
@@ -88,7 +90,7 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
       await openUrl(auth.url);
       if (auth.method === "auto") await pollUntilAuthorized(props.provider.id, props.methodIndex);
     } catch {
-      setError("Failed to start the OAuth authorization.");
+      setError(t("settings:oauthStartFailed"));
     } finally {
       setStarting(false);
     }
@@ -106,12 +108,12 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
     try {
       const ok = await service.oauthCallback(props.provider.id, props.methodIndex, code);
       if (!ok) {
-        setError("The authorization code was rejected.");
+        setError(t("settings:oauthCodeRejected"));
         return;
       }
       succeed();
     } catch {
-      setError("Failed to submit the authorization code.");
+      setError(t("settings:oauthCodeFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -126,15 +128,15 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
           class="glass fixed left-1/2 top-1/2 z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-3 p-5"
         >
           <Dialog.Title class="text-md font-semibold">
-            Sign in to {props.provider.name}
+            {t("settings:oauthSignInTo", { name: props.provider.name })}
           </Dialog.Title>
           <Dialog.Description class="text-sm text-fg-secondary">
-            {props.provider.name} uses OAuth to authenticate this client.
+            {t("settings:oauthDescription", { name: props.provider.name })}
           </Dialog.Description>
 
           <Show when={starting()}>
             <p data-testid="provider-oauth-starting" class="text-xs text-fg-secondary">
-              Starting the OAuth flow…
+              {t("settings:oauthStarting")}
             </p>
           </Show>
 
@@ -147,7 +149,7 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
           <Show when={flow() === "auto"}>
             <Show when={polling()}>
               <p data-testid="provider-oauth-waiting" class="text-xs text-fg-secondary">
-                Waiting for the browser to complete the authorization…
+                {t("settings:oauthWaiting")}
               </p>
             </Show>
           </Show>
@@ -158,8 +160,8 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
                 data-testid="provider-oauth-code-input"
                 type="text"
                 value={codeDraft()}
-                placeholder="Paste the authorization code"
-                aria-label="Authorization code"
+                placeholder={t("settings:pasteAuthorizationCode")}
+                aria-label={t("settings:authorizationCode")}
                 disabled={submitting()}
                 onInput={(event) => setCodeDraft(event.currentTarget.value)}
                 class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint disabled:opacity-50"
@@ -171,7 +173,7 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
                 onClick={() => void submitCode()}
                 class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting() ? "Submitting…" : "Submit"}
+                {submitting() ? t("settings:submitting") : t("settings:submit")}
               </button>
             </div>
           </Show>

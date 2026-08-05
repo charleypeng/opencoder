@@ -11,6 +11,7 @@ import { createEffect, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { listServers } from "../../services/servers.js";
 import type { ServerEntry } from "../../services/servers.js";
+import { useT } from "../../i18n/index.js";
 import {
   loadNotificationPrefs,
   notificationsEnabled,
@@ -47,6 +48,7 @@ function ToggleSwitch(props: {
 }
 
 const NotificationsSection: Component = () => {
+  const t = useT();
   const [enabled, setEnabled] = createSignal(notificationsEnabled());
   const [perServer, setPerServer] = createSignal(loadNotificationPrefs().perServer ?? {});
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
@@ -69,21 +71,18 @@ const NotificationsSection: Component = () => {
   return (
     <div data-testid="notifications-section" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 border-b border-bg-sunken px-4 py-3">
-        <h2 class="text-sm font-semibold">Notifications</h2>
-        <p class="text-xs text-fg-secondary">System notifications for background events.</p>
+        <h2 class="text-sm font-semibold">{t("settings:notifications")}</h2>
+        <p class="text-xs text-fg-secondary">{t("settings:notificationsHint")}</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
             <p class="text-xs font-medium">Notifications</p>
-            <p class="mt-0.5 text-xs text-fg-secondary">
-              Show a system notification when a generation finishes or a permission or question
-              needs your attention.
-            </p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:notificationsHintFull")}</p>
           </div>
           <ToggleSwitch
             testId="notifications-master"
-            label="Notifications"
+            label={t("settings:notifications")}
             checked={enabled()}
             onToggle={(next) => {
               setNotificationsEnabled(next);
@@ -92,7 +91,7 @@ const NotificationsSection: Component = () => {
           />
         </div>
         <Show when={servers().length > 0}>
-          <p class="pb-1 pt-3 text-xs font-medium">Per server</p>
+          <p class="pb-1 pt-3 text-xs font-medium">{t("settings:perServer")}</p>
           <For each={servers()}>
             {(entry) => (
               <div
@@ -102,7 +101,7 @@ const NotificationsSection: Component = () => {
                 <p class="min-w-0 truncate text-xs text-fg-secondary">{entry.name}</p>
                 <ToggleSwitch
                   testId={`notifications-server-${entry.id}-toggle`}
-                  label={`Notifications for ${entry.name}`}
+                  label={t("settings:notificationsFor", { name: entry.name })}
                   checked={serverNotificationsEnabled(entry.id, { perServer: perServer() })}
                   onToggle={(next) => toggleServer(entry.id, next)}
                 />

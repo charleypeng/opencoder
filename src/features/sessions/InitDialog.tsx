@@ -12,7 +12,9 @@ import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { getApiClient } from "../../services/client";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import type { Session } from "../../services/session";
 import { createSessionService } from "../../services/session";
 import { getServerMessages } from "../../stores/messages.js";
@@ -36,13 +38,6 @@ const primaryClass =
   "rounded-md bg-accent px-4 py-2 text-sm font-medium text-white " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 /** The most recent user message of the session, or undefined. */
 export function latestUserMessage(
   serverId: string,
@@ -61,6 +56,8 @@ export function latestUserMessage(
 }
 
 const InitDialog: Component<InitDialogProps> = (props) => {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   const [selection, setSelection] = createSignal<ModelRef | null>(null);
   const [busy, setBusy] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
@@ -79,7 +76,7 @@ const InitDialog: Component<InitDialogProps> = (props) => {
         modelID: ref.modelID,
         messageID: message.id,
       });
-      createToast("AGENTS.md generated", "success");
+      createToast(t("sessions:agentsGeneratedToast"), "success");
       props.onClose();
     } catch (err) {
       setError(ApiError.fromUnknown(err));
@@ -103,7 +100,7 @@ const InitDialog: Component<InitDialogProps> = (props) => {
           data-testid="init-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Generate AGENTS.md</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">{t("sessions:generateAgents")}</Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
             {props.session.title || props.session.slug}
           </Dialog.Description>
@@ -113,17 +110,15 @@ const InitDialog: Component<InitDialogProps> = (props) => {
               when={userMessage()}
               fallback={
                 <div data-testid="init-guidance" class="space-y-2">
-                  <p class="text-sm text-fg-secondary">
-                    Send an analysis prompt first, then run Generate AGENTS.md.
-                  </p>
+                  <p class="text-sm text-fg-secondary">{t("sessions:initHint")}</p>
                   <p data-testid="init-message-preset" class="text-xs text-fg-faint">
-                    No user message yet — ask the agent to analyze the codebase first.
+                    {t("sessions:initNoMessage")}
                   </p>
                 </div>
               }
             >
               <p data-testid="init-message-preset" class="text-xs text-fg-secondary">
-                Generated from message {userMessage()!.id}
+                {t("sessions:initFromMessage", { id: userMessage()!.id })}
               </p>
             </Show>
             <ModelSelect
@@ -139,7 +134,7 @@ const InitDialog: Component<InitDialogProps> = (props) => {
             </Show>
             <div class="flex justify-end gap-3 pt-1">
               <Dialog.CloseButton data-testid="init-close" class={actionClass} disabled={busy()}>
-                Cancel
+                {t("common:cancel")}
               </Dialog.CloseButton>
               <button
                 type="button"
@@ -148,7 +143,7 @@ const InitDialog: Component<InitDialogProps> = (props) => {
                 disabled={busy() || selection() === null || userMessage() === undefined}
                 onClick={handleConfirm}
               >
-                {busy() ? "Generating…" : "Generate AGENTS.md"}
+                {busy() ? t("messages:generating") : t("sessions:generateAgents")}
               </button>
             </div>
           </div>

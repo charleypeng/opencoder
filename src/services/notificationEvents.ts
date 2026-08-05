@@ -21,6 +21,7 @@ import {
   serverNotificationsEnabled,
 } from "../stores/notifications.js";
 import { isWindowFocused, notify } from "./notifications.js";
+import { useT } from "../i18n/index.js";
 
 /** True when a generating session (busy/retry) turns idle — the moment a
  *  generation completes. The first observation (no previous status) is
@@ -89,6 +90,7 @@ async function maybeNotify(
  * churn never affects its peers.
  */
 export function startNotifications(serverId: string): () => void {
+  const t = useT();
   return createRoot((dispose) => {
     // Baseline snapshots taken at mount time (effects run on Solid's own
     // flush, which is deferred; the snapshot must not be an event).
@@ -113,7 +115,7 @@ export function startNotifications(serverId: string): () => void {
         const previous = prevStatuses.get(sessionId);
         if (generationCompleted(previous, entry)) {
           void maybeNotify(serverId, () => ({
-            title: "Generation complete",
+            title: t("notifications:generationComplete"),
             body: titleOf(serverId, sessionId),
           }));
         }
@@ -127,7 +129,7 @@ export function startNotifications(serverId: string): () => void {
       if (queueGainedItem(prevPermissionIds, ids)) {
         const added = queue.find((request) => !prevPermissionIds?.includes(request.id));
         void maybeNotify(serverId, () => ({
-          title: "Permission requested",
+          title: t("notifications:permissionRequested"),
           body: added !== undefined ? titleOf(serverId, added.sessionID) : undefined,
         }));
       }
@@ -140,7 +142,7 @@ export function startNotifications(serverId: string): () => void {
       if (queueGainedItem(prevQuestionIds, ids)) {
         const added = queue.find((request) => !prevQuestionIds?.includes(request.id));
         void maybeNotify(serverId, () => ({
-          title: "Question asked",
+          title: t("notifications:questionAsked"),
           body: added !== undefined ? titleOf(serverId, added.sessionID) : undefined,
         }));
       }

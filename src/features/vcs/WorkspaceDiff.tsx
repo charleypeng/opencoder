@@ -14,6 +14,7 @@ import { createVcsService, type VcsFileDiff } from "../../services/vcs.js";
 import { vcs } from "../../stores/vcs.js";
 import DiffFileGroup, { type DiffFileEntry } from "./DiffFileGroup.js";
 import { type DiffMode } from "./diffLines.js";
+import { useT } from "../../i18n/index.js";
 
 export interface WorkspaceDiffProps {
   /** The server whose working-tree diff is shown. */
@@ -27,6 +28,7 @@ type DiffState =
 
 const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
   const [mode, setMode] = createSignal<DiffMode>("unified");
+  const t = useT();
   const [state, setState] = createSignal<DiffState>({ kind: "loading" });
   const [expanded, setExpanded] = createSignal<Set<string>>(new Set());
   let fetchSeq = 0;
@@ -93,13 +95,13 @@ const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
             class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={retry}
           >
-            Retry
+            {t("common:retry")}
           </button>
         </div>
       </Show>
       <Show when={readyDiffs() !== null}>
         <div class="flex shrink-0 items-center justify-end gap-1 border-b border-bg-sunken px-3 py-1.5">
-          <span class="text-xs text-fg-faint">View:</span>
+          <span class="text-xs text-fg-faint">{t("vcs:view")}</span>
           <button
             type="button"
             data-testid="diff-mode-unified"
@@ -111,7 +113,7 @@ const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
             }`}
             onClick={() => setMode("unified")}
           >
-            Unified
+            {t("vcs:unified")}
           </button>
           <button
             type="button"
@@ -124,7 +126,7 @@ const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
             }`}
             onClick={() => setMode("split")}
           >
-            Split
+            {t("vcs:split")}
           </button>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto">
@@ -132,7 +134,7 @@ const WorkspaceDiff: Component<WorkspaceDiffProps> = (props) => {
             when={(readyDiffs() as VcsFileDiff[]).length > 0}
             fallback={
               <div data-testid="diff-empty" class="py-8 text-center">
-                <p class="text-sm text-fg-secondary">No changes in this diff</p>
+                <p class="text-sm text-fg-secondary">{t("vcs:noChangesInDiff")}</p>
               </div>
             }
           >

@@ -5,15 +5,17 @@
 import { Show } from "solid-js";
 import { CopyButton, outputText } from "./shared.js";
 import type { ToolCard } from "./shared.js";
+import { useT } from "../../../../i18n/index.js";
 
 const GenericCard: ToolCard = (props) => {
+  const t = useT();
   const output = () => outputText(props.part);
 
   return (
     <div data-testid="tool-generic" class="space-y-1">
       <Show when={output().length > 0}>
         <div class="flex items-center justify-between gap-2">
-          <span class="truncate font-code text-xs text-fg-secondary">Output</span>
+          <span class="truncate font-code text-xs text-fg-secondary">{t("messages:output")}</span>
           <CopyButton text={output()} />
         </div>
         <pre class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">

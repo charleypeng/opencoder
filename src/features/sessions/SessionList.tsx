@@ -24,6 +24,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ContextMenu from "../../components/ContextMenu.js";
+import { useT } from "../../i18n/index.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
@@ -125,6 +126,7 @@ function SessionRow(props: {
   /** Opens the row's ContextMenu at a position (⋯ button or right-click). */
   onMenu: (session: Session, position: { x: number; y: number }) => void;
 }) {
+  const t = useT();
   const forked = () => props.session.parentID !== undefined;
   // Shared state derives from the contract's Session.share marker
   // (TASK-M6-05), like the fork badge derives from parentID.
@@ -163,7 +165,7 @@ function SessionRow(props: {
           type="button"
           data-testid="session-tree-toggle"
           aria-expanded={props.expanded ? "true" : "false"}
-          aria-label={props.expanded ? "Collapse" : "Expand"}
+          aria-label={props.expanded ? t("sessions:collapse") : t("sessions:expand")}
           class={`shrink-0 rounded-sm p-0.5 text-xs leading-none text-fg-faint outline-none hover:text-fg-primary focus:text-fg-primary ${
             props.expanded ? "rotate-90" : ""
           }`}
@@ -178,19 +180,23 @@ function SessionRow(props: {
       <Show when={forked()}>
         <span
           data-testid="session-fork-badge"
-          title={props.parentTitle !== undefined ? `Forked from ${props.parentTitle}` : "Forked"}
+          title={
+            props.parentTitle !== undefined
+              ? t("sessions:forkedFrom", { title: props.parentTitle })
+              : t("sessions:forkBadge")
+          }
           class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
         >
-          fork
+          {t("sessions:forkBadge")}
         </span>
       </Show>
       <Show when={shared()}>
         <span
           data-testid="session-shared-badge"
-          title="Shared — anyone with the link can view"
+          title={t("sessions:sharedHint")}
           class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
         >
-          shared
+          {t("sessions:sharedBadge")}
         </span>
       </Show>
       <span class="min-w-0 flex-1">
@@ -205,7 +211,7 @@ function SessionRow(props: {
       <button
         type="button"
         data-testid="session-row-menu"
-        aria-label="Session actions"
+        aria-label={t("sessions:sessionActions")}
         class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
@@ -272,6 +278,7 @@ function SessionTreeNodeView(props: {
 }
 
 const SessionList: Component<SessionListProps> = (props) => {
+  const t = useT();
   const state = createMemo(() => getServerSessionState(props.serverId));
   const now = () => props.nowMs ?? Date.now();
   const [query, setQuery] = createSignal("");
@@ -400,18 +407,29 @@ const SessionList: Component<SessionListProps> = (props) => {
     if (target === null) return [];
     const session = target.session;
     return [
-      { id: "fork", label: "Fork", onSelect: () => handleFork(session) },
-      { id: "share", label: "Share", onSelect: () => setShareTarget(session) },
+      { id: "fork", label: t("sessions:fork"), onSelect: () => handleFork(session) },
+      { id: "share", label: t("sessions:share"), onSelect: () => setShareTarget(session) },
       {
         id: "move-server",
-        label: "Move to server",
-        submenu: [{ id: "move-server-unavailable", label: "Not available", disabled: true }],
+        label: t("sessions:moveToServer"),
+        submenu: [
+          { id: "move-server-unavailable", label: t("sessions:notAvailable"), disabled: true },
+        ],
       },
-      { id: "summarize", label: "Compress context", onSelect: () => setSummarizeTarget(session) },
-      { id: "init", label: "Generate AGENTS.md", onSelect: () => setInitTarget(session) },
+      {
+        id: "summarize",
+        label: t("sessions:compress"),
+        onSelect: () => setSummarizeTarget(session),
+      },
+      { id: "init", label: t("sessions:generateAgents"), onSelect: () => setInitTarget(session) },
       { separator: true },
-      { id: "rename", label: "Rename", onSelect: () => setRenameTarget(session) },
-      { id: "delete", label: "Delete", danger: true, onSelect: () => setDeleteTarget(session) },
+      { id: "rename", label: t("sessions:rename"), onSelect: () => setRenameTarget(session) },
+      {
+        id: "delete",
+        label: t("common:delete"),
+        danger: true,
+        onSelect: () => setDeleteTarget(session),
+      },
     ];
   });
 
@@ -429,13 +447,13 @@ const SessionList: Component<SessionListProps> = (props) => {
           disabled={creating()}
           onClick={handleCreate}
         >
-          {creating() ? "Creating…" : "+ New session"}
+          {creating() ? t("sessions:creating") : `+ ${t("sessions:newSession")}`}
         </button>
         <input
           type="search"
           data-testid="session-search"
-          aria-label="Search sessions"
-          placeholder="Search sessions"
+          aria-label={t("sessions:search")}
+          placeholder={t("sessions:search")}
           value={query()}
           onInput={(event) => setQuery(event.currentTarget.value)}
           class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-fg-faint"
@@ -449,13 +467,13 @@ const SessionList: Component<SessionListProps> = (props) => {
               when={state().order.length === 0}
               fallback={
                 <div data-testid="session-empty-filter" class="px-3 py-6 text-center">
-                  <p class="text-sm text-fg-secondary">No matching sessions</p>
+                  <p class="text-sm text-fg-secondary">{t("sessions:noMatching")}</p>
                 </div>
               }
             >
               <div data-testid="session-empty" class="px-3 py-6 text-center">
-                <p class="text-sm text-fg-secondary">No sessions yet</p>
-                <p class="mt-1 text-xs text-fg-faint">New conversations appear here.</p>
+                <p class="text-sm text-fg-secondary">{t("sessions:noSessions")}</p>
+                <p class="mt-1 text-xs text-fg-faint">{t("sessions:noSessionsHint")}</p>
                 <button
                   type="button"
                   data-testid="new-session-empty-button"
@@ -463,7 +481,7 @@ const SessionList: Component<SessionListProps> = (props) => {
                   disabled={creating()}
                   onClick={handleCreate}
                 >
-                  {creating() ? "Creating…" : "+ New session"}
+                  {creating() ? t("sessions:creating") : `+ ${t("sessions:newSession")}`}
                 </button>
               </div>
             </Show>
@@ -471,12 +489,12 @@ const SessionList: Component<SessionListProps> = (props) => {
         >
           <For each={groups()}>
             {(group: SessionTimeGroup) => (
-              <section aria-label={group.label}>
+              <section aria-label={t(group.labelKey)}>
                 <div
                   data-testid={`session-group-${group.key}`}
                   class="sticky top-0 z-10 border-b border-bg-sunken bg-bg-elevated px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-fg-faint"
                 >
-                  {group.label}
+                  {t(group.labelKey)}
                 </div>
                 <For each={tree().filter((node) => group.sessions.includes(node.session))}>
                   {(node) => (
@@ -549,7 +567,7 @@ const SessionList: Component<SessionListProps> = (props) => {
       <Show when={rowMenu() !== null}>
         <ContextMenu
           testId="session-menu"
-          label="Session actions"
+          label={t("sessions:sessionActions")}
           x={rowMenu()!.x}
           y={rowMenu()!.y}
           items={rowMenuItems()}

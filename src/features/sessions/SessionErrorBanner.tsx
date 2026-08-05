@@ -12,7 +12,9 @@
 
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors.js";
+import { ApiError, errorDetailMessage } from "../../services/errors.js";
+import { useErrorCopy } from "../../components/errorCopy.js";
+import { useT } from "../../i18n/index.js";
 import { dismissSessionError, getServerSessionState } from "../../stores/session.js";
 import { untrackPendingLocalMessage } from "../../stores/messages.js";
 import { getLastPrompt } from "./promptHistory.js";
@@ -26,6 +28,8 @@ export interface SessionErrorBannerProps {
 }
 
 const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
+  const t = useT();
+  const { title: errorTitle } = useErrorCopy();
   const [expanded, setExpanded] = createSignal(false);
   const [retrying, setRetrying] = createSignal(false);
   // The classified error of a failed retry: kept local so the status/code
@@ -45,8 +49,8 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
     return new ApiError(undefined, "session", status.message ?? "", true);
   });
   const title = createMemo(() => (err() === null ? "" : errorTitle(err() as ApiError)));
-  const detail = createMemo(() => (err() === null ? "" : errorDetail(err() as ApiError)));
-  const hasDetail = createMemo(() => detail() !== title());
+  const detail = createMemo(() => (err() === null ? null : errorDetailMessage(err() as ApiError)));
+  const hasDetail = createMemo(() => detail() !== null);
   const lastPrompt = createMemo(() => getLastPrompt(props.serverId));
 
   // A send started from here must not reconcile against a stale pending
@@ -102,7 +106,7 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
               class="mt-1 text-xs text-danger/80 underline outline-none hover:text-danger"
               onClick={() => setExpanded((value) => !value)}
             >
-              {expanded() ? "Hide details" : "Show details"}
+              {expanded() ? t("permissions:hideDetails") : t("permissions:showDetails")}
             </button>
             <Show when={expanded()}>
               <pre
@@ -123,13 +127,13 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
               onClick={() => void retry()}
               class="rounded-md border border-danger/40 px-2.5 py-1 text-xs text-danger outline-none hover:bg-danger/10 focus:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Retry
+              {t("common:retry")}
             </button>
           </Show>
           <button
             type="button"
             data-testid="session-error-dismiss"
-            aria-label="Dismiss"
+            aria-label={t("common:dismiss")}
             class="shrink-0 rounded-md px-1.5 text-sm text-danger/70 outline-none hover:text-danger"
             onClick={dismiss}
           >

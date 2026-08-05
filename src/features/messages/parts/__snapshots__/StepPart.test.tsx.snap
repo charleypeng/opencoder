@@ -21,7 +21,8 @@ exports[`Step parts snapshots > matches the fixture's step-finish part 1`] = `
       data-testid="step-finish-tokens"
     >
       1.8k
-       tokens
+       
+      tokens
     </span>
     <span
       class="ml-auto shrink-0 font-code"

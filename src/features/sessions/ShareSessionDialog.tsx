@@ -18,7 +18,9 @@ import { Dialog } from "@kobalte/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import QRCode from "qrcode";
 import { getApiClient } from "../../services/client";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import type { Session } from "../../services/session";
 import { createSessionService } from "../../services/session";
 import { getServerSessionState } from "../../stores/session";
@@ -39,13 +41,6 @@ const actionClass =
 const primaryClass =
   "rounded-md bg-accent px-4 py-2 text-sm font-medium text-white " +
   "disabled:cursor-not-allowed disabled:opacity-50";
-
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
 
 /** Copies text via the async Clipboard API with a legacy execCommand
  *  fallback (mirrors MessageActions / MarkdownText). */
@@ -74,6 +69,8 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   // The store session is the source of truth: share/unshare replace it with
   // the server's updated session, so the marker/URL state stays consistent
   // with the server and this dialog flips views reactively.
@@ -169,7 +166,9 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
           data-testid="share-session-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Share session</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">
+            {t("sessions:shareSessionTitle")}
+          </Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
             {props.session.title || props.session.slug}
           </Dialog.Description>
@@ -179,9 +178,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
               when={shareUrl()}
               fallback={
                 <div class="flex flex-col items-center gap-3 py-2">
-                  <p class="text-sm text-fg-secondary">
-                    Anyone with the link can view this conversation.
-                  </p>
+                  <p class="text-sm text-fg-secondary">{t("sessions:shareHint")}</p>
                   <button
                     type="button"
                     data-testid="share-action"
@@ -189,7 +186,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                     disabled={busy()}
                     onClick={handleShare}
                   >
-                    {busy() ? "Sharing…" : "Share session"}
+                    {busy() ? t("sessions:sharing") : t("sessions:shareSessionTitle")}
                   </button>
                 </div>
               }
@@ -199,7 +196,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                   data-testid="share-url"
                   readOnly
                   value={shareUrl()}
-                  aria-label="Share URL"
+                  aria-label={t("sessions:shareUrl")}
                   class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-xs text-fg-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
                 />
                 <button
@@ -208,7 +205,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                   class={actionClass}
                   onClick={handleCopy}
                 >
-                  {copied() ? "Copied" : "Copy"}
+                  {copied() ? t("common:copied") : t("common:copy")}
                 </button>
               </div>
               <div class="flex justify-center">
@@ -216,14 +213,14 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                   when={qrSrc()}
                   fallback={
                     <p data-testid="share-qr-missing" class="text-xs text-fg-faint">
-                      QR code unavailable
+                      {t("servers:qrUnavailable")}
                     </p>
                   }
                 >
                   <img
                     data-testid="share-qr"
                     src={qrSrc()!}
-                    alt="QR code for the share link"
+                    alt={t("sessions:qrAltShare")}
                     class="h-40 w-40"
                   />
                 </Show>
@@ -234,11 +231,9 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                 class={actionClass}
                 onClick={handleOpen}
               >
-                Open in browser
+                {t("sessions:openInBrowser")}
               </button>
-              <p class="text-xs text-fg-faint">
-                The device scanning the QR code must be able to reach the server.
-              </p>
+              <p class="text-xs text-fg-faint">{t("sessions:qrHintShare")}</p>
               <button
                 type="button"
                 data-testid="share-unshare"
@@ -246,7 +241,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
                 disabled={busy()}
                 onClick={handleUnshare}
               >
-                {busy() ? "Unsharing…" : "Unshare"}
+                {busy() ? t("sessions:unsharing") : t("sessions:unshare")}
               </button>
             </Show>
             <Show when={error()}>
@@ -256,7 +251,7 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
             </Show>
             <div class="flex justify-end gap-3 pt-1">
               <Dialog.CloseButton data-testid="share-close" class={actionClass} disabled={busy()}>
-                Close
+                {t("common:close")}
               </Dialog.CloseButton>
             </div>
           </div>

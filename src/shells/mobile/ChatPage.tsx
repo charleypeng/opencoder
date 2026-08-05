@@ -16,14 +16,16 @@ import { back, push } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import { useEdgeSwipeBack } from "./gestures.js";
 import type { MobilePageProps } from "./pages.js";
+import { useT } from "../../i18n/index.js";
 
 export const ChatPage: Component<MobilePageProps> = (props) => {
+  const t = useT();
   const sessionId = () => props.route.params?.sessionId ?? null;
   const session = () => {
     const id = sessionId();
     return id === null ? undefined : getServerSessionState(props.serverId).sessions[id];
   };
-  const title = () => session()?.title || session()?.slug || "Chat";
+  const title = () => session()?.title || session()?.slug || t("mobile:chat");
   // Edge swipe-back on the whole page: the zone check uses the pointer's
   // own clientX, so a pointerdown on any child bubbles in and is evaluated.
   const edge = useEdgeSwipeBack(() => back());

@@ -27,6 +27,7 @@ import type { SwipeActions } from "./gestures.js";
 import { refreshSessionList } from "./refresh.js";
 import RenameSessionDialog from "../../features/sessions/RenameSessionDialog.js";
 import DeleteSessionDialog from "../../features/sessions/DeleteSessionDialog.js";
+import { useT } from "../../i18n/index.js";
 
 /** Width of the revealed actions strip (two 64px buttons). */
 const SWIPE_ACTIONS_WIDTH = 128;
@@ -98,6 +99,7 @@ function SessionRow(props: {
 }
 
 export const SessionsPage: Component<MobilePageProps> = (props) => {
+  const t = useT();
   const state = () => getServerSessionState(props.serverId);
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
@@ -135,7 +137,11 @@ export const SessionsPage: Component<MobilePageProps> = (props) => {
 
   return (
     <div class="flex h-full flex-col" data-testid="mobile-page-sessions-root">
-      <PageHeader title="Sessions" onBack={props.onExit} backLabel="Servers" />
+      <PageHeader
+        title={t("mobile:sessions")}
+        onBack={props.onExit}
+        backLabel={t("mobile:servers")}
+      />
       <div
         ref={ptr.containerRef}
         data-testid="mobile-sessions-scroll"

@@ -5,6 +5,7 @@
 
 import { Show } from "solid-js";
 import type { Component } from "solid-js";
+import { useT } from "../../i18n/index.js";
 
 export interface PageHeaderProps {
   title: string;
@@ -15,6 +16,7 @@ export interface PageHeaderProps {
 }
 
 export const PageHeader: Component<PageHeaderProps> = (props) => {
+  const t = useT();
   return (
     <header
       data-testid="mobile-page-header"
@@ -24,7 +26,7 @@ export const PageHeader: Component<PageHeaderProps> = (props) => {
         <button
           type="button"
           data-testid="page-back"
-          aria-label={props.backLabel ?? "Back"}
+          aria-label={props.backLabel ?? t("mobile:back")}
           class="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
           onClick={() => props.onBack?.()}
         >
@@ -40,7 +42,7 @@ export const PageHeader: Component<PageHeaderProps> = (props) => {
           >
             <path d="m15 18-6-6 6-6" />
           </svg>
-          {props.backLabel ?? "Back"}
+          {props.backLabel ?? t("mobile:back")}
         </button>
       </Show>
       <h2 data-testid="mobile-page-title" class="min-w-0 truncate text-sm font-semibold">

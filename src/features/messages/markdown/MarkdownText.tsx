@@ -10,6 +10,7 @@ import { createEffect, createMemo } from "solid-js";
 import type { Component } from "solid-js";
 import { highlightCode } from "./highlighter.js";
 import { CODE_FENCE_SELECTOR, decodeFenceCode, escapeHtml, renderMarkdown } from "./markdown.js";
+import { useT } from "../../../i18n/index.js";
 import "./markdown.css";
 
 /** Code payload per copy button; a WeakMap keeps large snippets out of the
@@ -18,9 +19,9 @@ const copyCodeByButton = new WeakMap<HTMLElement, string>();
 
 const COPY_FEEDBACK_MS = 1500;
 
-function fenceHtml(lang: string, body: string): string {
+function fenceHtml(lang: string, body: string, copyLabel: string, copyCodeLabel: string): string {
   const label = lang === "" ? "" : `<span class="code-fence-lang">${escapeHtml(lang)}</span>`;
-  const copy = `<button type="button" class="code-fence-copy" data-copy-code aria-label="Copy code">Copy</button>`;
+  const copy = `<button type="button" class="code-fence-copy" data-copy-code aria-label="${copyCodeLabel}">${copyLabel}</button>`;
   return `<div class="code-fence-header">${label}${copy}</div>${body}`;
 }
 
@@ -50,7 +51,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-async function hydrateFence(el: HTMLElement): Promise<void> {
+async function hydrateFence(el: HTMLElement, t: (key: string) => string): Promise<void> {
   const lang = el.dataset.fenceLang ?? "";
   const code = decodeFenceCode(el.dataset.fenceCode ?? "");
   let body: string;
@@ -64,18 +65,18 @@ async function hydrateFence(el: HTMLElement): Promise<void> {
   // The placeholder may have been replaced by a streamed update while the
   // language was loading; only hydrate nodes still attached to this render.
   if (!el.isConnected || el.dataset.fenceState === "hydrated") return;
-  el.innerHTML = fenceHtml(lang, body);
+  el.innerHTML = fenceHtml(lang, body, t("common:copy"), t("messages:copyCode"));
   const button = el.querySelector<HTMLElement>("[data-copy-code]");
   if (button !== null) copyCodeByButton.set(button, code);
   el.dataset.fenceState = "hydrated";
 }
 
-function hydrateFences(container: HTMLElement | undefined): void {
+function hydrateFences(container: HTMLElement | undefined, t: (key: string) => string): void {
   if (container === undefined) return;
   for (const el of Array.from(container.querySelectorAll<HTMLElement>(CODE_FENCE_SELECTOR))) {
     if (el.dataset.fenceState === "hydrated") continue;
     el.dataset.fenceState = "hydrating";
-    void hydrateFence(el);
+    void hydrateFence(el, t);
   }
 }
 
@@ -85,6 +86,7 @@ export interface MarkdownTextProps {
 }
 
 const MarkdownText: Component<MarkdownTextProps> = (props) => {
+  const t = useT();
   let containerRef: HTMLDivElement | undefined;
   const html = createMemo(() => renderMarkdown(props.text));
 
@@ -92,7 +94,7 @@ const MarkdownText: Component<MarkdownTextProps> = (props) => {
   // pass replace the old nodes, so hydration is always idempotent.
   createEffect(() => {
     void html();
-    hydrateFences(containerRef);
+    hydrateFences(containerRef, t);
   });
 
   function handleClick(event: MouseEvent) {
@@ -103,9 +105,9 @@ const MarkdownText: Component<MarkdownTextProps> = (props) => {
     if (code === undefined) return;
     void copyToClipboard(code).then((ok) => {
       if (!ok) return;
-      button.textContent = "Copied!";
+      button.textContent = t("common:copied");
       setTimeout(() => {
-        button.textContent = "Copy";
+        button.textContent = t("common:copy");
       }, COPY_FEEDBACK_MS);
     });
   }

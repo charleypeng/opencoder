@@ -32,6 +32,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import { useT } from "../../i18n/index.js";
 import { ApiError } from "../../services/errors.js";
 import { messages } from "../../stores/messages.js";
 import { sessions } from "../../stores/session.js";
@@ -89,6 +90,7 @@ interface MessageRow {
 }
 
 const MessageList: Component<MessageListProps> = (props) => {
+  const t = useT();
   const [loading, setLoading] = createSignal(true);
   const [error, setError] = createSignal<ApiError | null>(null);
   const [loadKey, setLoadKey] = createSignal(0);
@@ -375,8 +377,7 @@ const MessageList: Component<MessageListProps> = (props) => {
           class="flex shrink-0 items-center gap-3 border-b border-bg-sunken bg-bg-sunken/60 px-4 py-1.5"
         >
           <span class="min-w-0 flex-1 truncate text-xs text-fg-secondary">
-            Reverted to message {revertMessageId()} — later messages are inactive and file changes
-            were rolled back.
+            {t("messages:revertedBar", { id: revertMessageId() })}
           </span>
           <button
             type="button"
@@ -384,7 +385,7 @@ const MessageList: Component<MessageListProps> = (props) => {
             class="shrink-0 rounded-md border border-accent/40 px-2.5 py-0.5 text-xs text-accent outline-none hover:border-accent focus:border-accent"
             onClick={() => props.onUnrevert?.()}
           >
-            Unrevert
+            {t("messages:unrevert")}
           </button>
         </div>
       </Show>
@@ -398,7 +399,7 @@ const MessageList: Component<MessageListProps> = (props) => {
           when={!loading()}
           fallback={
             <p data-testid="message-loading" class="py-8 text-center text-sm text-fg-secondary">
-              Loading messages…
+              {t("messages:loadingMessages")}
             </p>
           }
         >
@@ -409,10 +410,8 @@ const MessageList: Component<MessageListProps> = (props) => {
                 when={groups().length > 0}
                 fallback={
                   <div data-testid="message-empty" class="py-8 text-center">
-                    <p class="text-sm text-fg-secondary">No messages yet</p>
-                    <p class="mt-1 text-xs text-fg-faint">
-                      Send a prompt to start the conversation.
-                    </p>
+                    <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
+                    <p class="mt-1 text-xs text-fg-faint">{t("messages:noMessagesHint")}</p>
                   </div>
                 }
               >
@@ -457,7 +456,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                   setLoadKey((key) => key + 1);
                 }}
               >
-                Retry
+                {t("common:retry")}
               </button>
             </div>
           </Show>
@@ -470,7 +469,7 @@ const MessageList: Component<MessageListProps> = (props) => {
               class="rounded-full border border-bg-sunken bg-bg-elevated px-3 py-1.5 text-xs text-fg-secondary shadow outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
               onClick={jumpToBottom}
             >
-              New messages ↓
+              {t("messages:newMessagesJump")}
             </button>
           </div>
         </Show>

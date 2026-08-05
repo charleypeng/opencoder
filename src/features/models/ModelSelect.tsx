@@ -13,6 +13,7 @@ import type { Component } from "solid-js";
 import { createProviderService } from "../../services/provider.js";
 import { getApiClient } from "../../services/client.js";
 import type { Session } from "../../services/session.js";
+import { useT } from "../../i18n/index.js";
 import {
   activeModelFor,
   getServerModelState,
@@ -37,6 +38,7 @@ const selectClass =
   "text-sm text-fg-primary outline-none focus:border-fg-faint";
 
 export const ModelSelect: Component<ModelSelectProps> = (props) => {
+  const t = useT();
   const state = createMemo(() => getServerModelState(props.serverId));
   const connectedProviders = createMemo(() =>
     state().providers.filter((p) => state().connected.includes(p.id)),
@@ -113,7 +115,7 @@ export const ModelSelect: Component<ModelSelectProps> = (props) => {
       <div class="flex items-center gap-2">
         <select
           data-testid="model-select-provider"
-          aria-label="Provider"
+          aria-label={t("models:providerLabel")}
           class={selectClass}
           value={effective()?.providerID ?? ""}
           onChange={(event) => changeProvider(event.currentTarget.value)}
@@ -124,7 +126,7 @@ export const ModelSelect: Component<ModelSelectProps> = (props) => {
         </select>
         <select
           data-testid="model-select-model"
-          aria-label="Model"
+          aria-label={t("models:modelLabel")}
           class={selectClass}
           value={effective()?.modelID ?? ""}
           onChange={(event) => changeModel(event.currentTarget.value)}

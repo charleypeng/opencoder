@@ -19,6 +19,7 @@ import { createVcsService, type SnapshotFileDiff } from "../../services/vcs.js";
 import { diffs } from "../../stores/diff.js";
 import DiffFileGroup, { type DiffFileEntry } from "./DiffFileGroup.js";
 import { type DiffMode } from "./diffLines.js";
+import { useT } from "../../i18n/index.js";
 
 export interface DiffViewProps {
   /** The server whose session diff is shown. */
@@ -39,6 +40,7 @@ type DiffState =
   | { kind: "ready"; diffs: SnapshotFileDiff[] };
 
 const DiffView: Component<DiffViewProps> = (props) => {
+  const t = useT();
   // Mode toggle lives here (internal state); the prop seeds the default.
   // eslint-disable-next-line solid/reactivity -- one-time initial value
   const [mode, setMode] = createSignal<DiffMode>(props.mode ?? "unified");
@@ -127,13 +129,13 @@ const DiffView: Component<DiffViewProps> = (props) => {
             class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={retry}
           >
-            Retry
+            {t("common:retry")}
           </button>
         </div>
       </Show>
       <Show when={readyDiffs() !== null}>
         <div class="flex shrink-0 items-center justify-end gap-1 border-b border-bg-sunken px-3 py-1.5">
-          <span class="text-xs text-fg-faint">View:</span>
+          <span class="text-xs text-fg-faint">{t("vcs:view")}</span>
           <button
             type="button"
             data-testid="diff-mode-unified"
@@ -145,7 +147,7 @@ const DiffView: Component<DiffViewProps> = (props) => {
             }`}
             onClick={() => setMode("unified")}
           >
-            Unified
+            {t("vcs:unified")}
           </button>
           <button
             type="button"
@@ -158,7 +160,7 @@ const DiffView: Component<DiffViewProps> = (props) => {
             }`}
             onClick={() => setMode("split")}
           >
-            Split
+            {t("vcs:split")}
           </button>
         </div>
         <div class="min-h-0 flex-1 overflow-y-auto">
@@ -166,7 +168,7 @@ const DiffView: Component<DiffViewProps> = (props) => {
             when={(readyDiffs() as SnapshotFileDiff[]).length > 0}
             fallback={
               <div data-testid="diff-empty" class="py-8 text-center">
-                <p class="text-sm text-fg-secondary">No changes in this diff</p>
+                <p class="text-sm text-fg-secondary">{t("vcs:noChangesInDiff")}</p>
               </div>
             }
           >

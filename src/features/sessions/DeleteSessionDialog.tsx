@@ -7,7 +7,9 @@ import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { getApiClient } from "../../services/client";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import type { Session } from "../../services/session";
 import { createSessionService } from "../../services/session";
 import { deleteSession } from "./sessionActions";
@@ -24,14 +26,9 @@ const actionClass =
   "rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm " +
   "text-fg-secondary hover:text-fg-primary";
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 const DeleteSessionDialog: Component<DeleteSessionDialogProps> = (props) => {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   const [deleting, setDeleting] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
 
@@ -63,9 +60,11 @@ const DeleteSessionDialog: Component<DeleteSessionDialogProps> = (props) => {
           data-testid="delete-session-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Delete session</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">
+            {t("sessions:deleteSessionTitle")}
+          </Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-            Delete session "{props.session.title || props.session.slug}"? This cannot be undone.
+            {t("sessions:deleteSessionBody", { title: props.session.title || props.session.slug })}
           </Dialog.Description>
 
           <Show when={error()}>
@@ -88,7 +87,7 @@ const DeleteSessionDialog: Component<DeleteSessionDialogProps> = (props) => {
               disabled={deleting()}
               onClick={onDelete}
             >
-              {deleting() ? "Deleting…" : "Delete"}
+              {deleting() ? t("sessions:deleting") : t("common:delete")}
             </button>
           </div>
         </Dialog.Content>

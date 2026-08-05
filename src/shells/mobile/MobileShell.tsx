@@ -40,6 +40,7 @@ import type { MobilePage } from "./pages.js";
 import { pageEnterClass, pageEnterDir, routeKey } from "./transitions.js";
 import PermissionSheet from "../../features/permissions/PermissionSheet.js";
 import QuestionSheet from "../../features/questions/QuestionSheet.js";
+import { useT } from "../../i18n/index.js";
 
 export interface MobileShellProps {
   /** The server opened from the home screen (initially active). */
@@ -48,11 +49,11 @@ export interface MobileShellProps {
   onExit: () => void;
 }
 
-const TAB_LABELS: Record<TabId, string> = {
-  sessions: "Sessions",
-  files: "Files",
-  terminal: "Terminal",
-  settings: "Settings",
+const TAB_LABEL_KEYS: Record<TabId, string> = {
+  sessions: "mobile:sessions",
+  files: "mobile:files",
+  terminal: "mobile:terminal",
+  settings: "mobile:settings",
 };
 
 const TAB_ICONS: Record<TabId, JSX.Element> = {
@@ -116,6 +117,7 @@ const TAB_ICONS: Record<TabId, JSX.Element> = {
 };
 
 const MobileShell: Component<MobileShellProps> = (props) => {
+  const t = useT();
   // Native glass mode: iOS platform + the glass bridge actually reachable.
   // Resolved once per mount (the platform never changes at runtime).
   const nativeGlass = capabilitiesOf(platform).supportsNativeGlass && hasGlassBridge();
@@ -226,7 +228,7 @@ const MobileShell: Component<MobileShellProps> = (props) => {
           the home-indicator inset (TASK-M7-04). */}
       <nav
         data-testid="mobile-nav"
-        aria-label="Main navigation"
+        aria-label={t("mobile:mainNavigation")}
         class={
           nativeGlass ? "hidden" : "flex shrink-0 border-t border-bg-sunken bg-bg-elevated pb-safe"
         }
@@ -248,7 +250,7 @@ const MobileShell: Component<MobileShellProps> = (props) => {
               }}
             >
               {TAB_ICONS[tab]}
-              {TAB_LABELS[tab]}
+              {t(TAB_LABEL_KEYS[tab])}
             </button>
           )}
         </For>

@@ -8,7 +8,9 @@
 import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 
 export interface RevertMessageDialogProps {
   /** The message the session will be reverted to (shown in the copy). */
@@ -22,14 +24,9 @@ const actionClass =
   "rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm " +
   "text-fg-secondary hover:text-fg-primary";
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 const RevertMessageDialog: Component<RevertMessageDialogProps> = (props) => {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   const [reverting, setReverting] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
 
@@ -62,11 +59,10 @@ const RevertMessageDialog: Component<RevertMessageDialogProps> = (props) => {
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
           <Dialog.Title class="text-md font-semibold">
-            Revert to message {props.messageID}?
+            {t("messages:revertMessageTitle", { id: props.messageID })}
           </Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-            The session rolls back to this message: later messages become inactive and file changes
-            made after it are reverted on the server.
+            {t("messages:revertMessageBody")}
           </Dialog.Description>
 
           <Show when={error()}>
@@ -89,7 +85,7 @@ const RevertMessageDialog: Component<RevertMessageDialogProps> = (props) => {
               disabled={reverting()}
               onClick={onRevert}
             >
-              {reverting() ? "Reverting…" : "Revert"}
+              {reverting() ? t("messages:reverting") : t("messages:revert")}
             </button>
           </div>
         </Dialog.Content>

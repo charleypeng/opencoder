@@ -7,6 +7,7 @@
 import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type ReasoningPartData = Extract<Part, { type: "reasoning" }>;
 
@@ -17,6 +18,7 @@ export interface ReasoningPartProps {
 const PREVIEW_LENGTH = 60;
 
 const ReasoningPart: Component<ReasoningPartProps> = (props) => {
+  const t = useT();
   const [expanded, setExpanded] = createSignal(false);
   const preview = () =>
     props.part.text.length > PREVIEW_LENGTH
@@ -43,7 +45,7 @@ const ReasoningPart: Component<ReasoningPartProps> = (props) => {
         >
           ▸
         </span>
-        <span class="shrink-0 font-medium text-fg-secondary">Reasoning</span>
+        <span class="shrink-0 font-medium text-fg-secondary">{t("messages:reasoning")}</span>
         <Show when={!expanded()}>
           <span class="truncate text-fg-faint">{preview()}</span>
         </Show>

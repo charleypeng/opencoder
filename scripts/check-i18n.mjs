@@ -28,6 +28,8 @@ const NAMESPACES = [
   "mobile",
   "desktop",
   "updates",
+  "notifications",
+  "palette",
   "errors",
 ];
 // A t() call is a `t(` not preceded by an identifier character (it(...),

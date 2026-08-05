@@ -54,14 +54,15 @@ import {
 } from "../../services/pet.js";
 import { applyPetPrefs, loadPetPrefs, savePetPrefs } from "./petPrefs.js";
 import { TRANSIENT_MS } from "./petState.js";
+import { useT } from "../../i18n/index.js";
 
-const STATE_LABELS: Record<PetAnimationState, string> = {
-  idle: "Idle",
-  working: "Working",
-  waiting: "Waiting",
-  success: "Success",
-  error: "Error",
-  attention: "Attention",
+const STATE_LABEL_KEYS: Record<PetAnimationState, string> = {
+  idle: "pet:stateIdle",
+  working: "pet:stateWorking",
+  waiting: "pet:stateWaiting",
+  success: "pet:stateSuccess",
+  error: "pet:stateError",
+  attention: "pet:stateAttention",
 };
 
 /** Collapsed window edge length (double-click toggle, TASK-M8-08). */
@@ -80,6 +81,7 @@ function workDuration(intensity: number): number {
 }
 
 const PetShell: Component = () => {
+  const t = useT();
   const stored = loadPetPrefs();
   const [state, setState] = createSignal<PetAnimationState>("idle");
   const [lastForwarded, setLastForwarded] = createSignal<PetAnimationState>("idle");
@@ -250,7 +252,7 @@ const PetShell: Component = () => {
           }}
           onClick={handleBlobClick}
           onDblClick={handleBlobDoubleClick}
-          title={collapsed() ? "Double-click to restore" : "Click to pet"}
+          title={collapsed() ? t("pet:doubleClickToRestore") : t("pet:clickToPet")}
         >
           <span class="pet-eye h-[14%] w-[14%] rounded-full bg-fg-primary/90" />
           <span class="pet-eye h-[14%] w-[14%] rounded-full bg-fg-primary/90" />
@@ -295,7 +297,7 @@ const PetShell: Component = () => {
             data-testid="pet-click-through"
             class="absolute -top-1 right-1 rounded-full border border-bg-sunken bg-bg-elevated px-1.5 text-[9px] text-fg-secondary"
           >
-            passthrough
+            {t("pet:clickThrough")}
           </div>
         </Show>
         <Show when={!collapsed()}>
@@ -303,12 +305,12 @@ const PetShell: Component = () => {
             data-testid="pet-state"
             class="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded-full border border-bg-sunken bg-bg-elevated/90 px-2 py-0.5 text-[10px] text-fg-secondary"
           >
-            {STATE_LABELS[state()]}
+            {t(STATE_LABEL_KEYS[state()])}
           </div>
           <button
             type="button"
             data-testid="pet-settings-toggle"
-            aria-label="Pet settings"
+            aria-label={t("pet:petSettings")}
             aria-expanded={settingsOpen() ? "true" : "false"}
             class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-bg-sunken bg-bg-elevated text-fg-secondary outline-none transition-colors hover:text-fg-primary"
             onClick={() => setSettingsOpen((open) => !open)}
@@ -334,7 +336,7 @@ const PetShell: Component = () => {
             data-testid="pet-settings"
             class="absolute bottom-6 right-0 z-10 w-44 rounded-lg border border-bg-sunken bg-bg-elevated p-3 shadow-xl"
           >
-            <p class="text-[10px] font-medium text-fg-secondary">Size</p>
+            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:size")}</p>
             <input
               data-testid="pet-size-slider"
               type="range"
@@ -342,11 +344,11 @@ const PetShell: Component = () => {
               max={200}
               step={10}
               value={size()}
-              aria-label="Pet size"
+              aria-label={t("pet:petSize")}
               onInput={(event) => changeSize(Number(event.currentTarget.value))}
               class="w-full"
             />
-            <p class="text-[10px] font-medium text-fg-secondary">Opacity</p>
+            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:opacity")}</p>
             <input
               data-testid="pet-opacity-slider"
               type="range"
@@ -354,7 +356,7 @@ const PetShell: Component = () => {
               max={1}
               step={0.05}
               value={opacity()}
-              aria-label="Pet opacity"
+              aria-label={t("pet:petOpacity")}
               onInput={(event) => changeOpacity(Number(event.currentTarget.value))}
               class="w-full"
             />
@@ -365,7 +367,7 @@ const PetShell: Component = () => {
                   data-testid="pet-topmost-toggle"
                   type="checkbox"
                   checked={topmost()}
-                  aria-label="Always on top"
+                  aria-label={t("pet:topmost")}
                   onChange={toggleTopmost}
                 />
               </label>
@@ -375,7 +377,7 @@ const PetShell: Component = () => {
                   data-testid="pet-mute-toggle"
                   type="checkbox"
                   checked={mute()}
-                  aria-label="Mute sounds"
+                  aria-label={t("pet:muteSounds")}
                   onChange={toggleMute}
                 />
               </label>
@@ -385,7 +387,7 @@ const PetShell: Component = () => {
                   data-testid="pet-dock-toggle"
                   type="checkbox"
                   checked={dock()}
-                  aria-label="Edge dock"
+                  aria-label={t("pet:edgeDock")}
                   onChange={toggleDock}
                 />
               </label>
@@ -395,7 +397,7 @@ const PetShell: Component = () => {
                   data-testid="pet-click-through-toggle"
                   type="checkbox"
                   checked={clickThrough()}
-                  aria-label="Click-through"
+                  aria-label={t("pet:clickThrough")}
                   onChange={toggleClickThrough}
                 />
               </label>

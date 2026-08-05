@@ -23,12 +23,14 @@ import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import Sheet from "../../components/Sheet.js";
 import { getApiClient } from "../../services/client.js";
-import { ApiError, errorTitle } from "../../services/errors.js";
+import { ApiError } from "../../services/errors.js";
+import { useErrorCopy } from "../../components/errorCopy.js";
 import { createPermissionService, type PermissionReply } from "../../services/permission.js";
 import type { PermissionRequest } from "../../services/permission.js";
 import { dequeue, permissions } from "../../stores/permission.js";
 import { registerSheet } from "../../stores/sheets.js";
 import { isPatternRemembered, rememberPattern } from "./remembered.js";
+import { useT } from "../../i18n/index.js";
 
 export interface PermissionSheetProps {
   /** The server whose permission queue is shown. */
@@ -66,13 +68,15 @@ interface PermissionCardProps {
 /** The shared card body — used by both the overlay dialog and the mobile
  *  bottom sheet, so the reply logic renders identically everywhere. */
 function PermissionCard(props: PermissionCardProps) {
+  const t = useT();
+  const { title: errorTitle } = useErrorCopy();
   return (
     <>
       <div class="flex items-start justify-between gap-3">
         <div class="min-w-0">
           <Show when={props.count > 1}>
             <p data-testid="permission-queue-position" class="mt-0.5 text-xs text-fg-faint">
-              1 of {props.count} waiting
+              {t("permissions:waiting", { count: 1, total: props.count })}
             </p>
           </Show>
         </div>
@@ -98,7 +102,10 @@ function PermissionCard(props: PermissionCardProps) {
 
       <Show when={props.request.tool}>
         <p data-testid="permission-tool-context" class="mt-3 font-code text-xs text-fg-faint">
-          message {props.request.tool?.messageID} · call {props.request.tool?.callID}
+          {t("permissions:toolContext", {
+            messageId: props.request.tool?.messageID ?? "—",
+            callId: props.request.tool?.callID ?? "—",
+          })}
         </p>
       </Show>
 
@@ -111,7 +118,7 @@ function PermissionCard(props: PermissionCardProps) {
             class="text-xs font-medium text-fg-secondary outline-none hover:text-fg-primary"
             onClick={() => props.onToggleDetails()}
           >
-            {props.detailsOpen ? "Hide details" : "Show details"}
+            {props.detailsOpen ? t("permissions:hideDetails") : t("permissions:showDetails")}
           </button>
           <Show when={props.detailsOpen}>
             <pre
@@ -126,7 +133,7 @@ function PermissionCard(props: PermissionCardProps) {
 
       <Show when={props.error}>
         <p data-testid="permission-error" class="mt-3 text-sm text-danger">
-          {errorTitle(props.error!)} — the request stays queued; retry below.
+          {t("permissions:errorHint", { title: errorTitle(props.error!) })}
         </p>
       </Show>
 
@@ -138,7 +145,7 @@ function PermissionCard(props: PermissionCardProps) {
           disabled={props.replying}
           onClick={() => props.onAction("once")}
         >
-          Allow once
+          {t("permissions:allowOnce")}
         </button>
         <button
           type="button"
@@ -147,7 +154,7 @@ function PermissionCard(props: PermissionCardProps) {
           disabled={props.replying}
           onClick={() => props.onAction("always")}
         >
-          Always allow
+          {t("permissions:alwaysAllow")}
         </button>
         <button
           type="button"
@@ -156,7 +163,7 @@ function PermissionCard(props: PermissionCardProps) {
           disabled={props.replying}
           onClick={() => props.onAction("reject")}
         >
-          Reject
+          {t("permissions:reject")}
         </button>
       </div>
     </>
@@ -164,6 +171,7 @@ function PermissionCard(props: PermissionCardProps) {
 }
 
 const PermissionSheet: Component<PermissionSheetProps> = (props) => {
+  const t = useT();
   // TODO(M8-06): native system notification + pending-count badge on
   // enqueue (tauri-plugin-notification + set_badge command, architecture
   // §7.2). The sheet itself is the alert for now.
@@ -266,7 +274,9 @@ const PermissionSheet: Component<PermissionSheetProps> = (props) => {
             <Show when={visible()} fallback={null}>
               {(request) => (
                 <>
-                  <Dialog.Title class="text-md font-semibold">Permission request</Dialog.Title>
+                  <Dialog.Title class="text-md font-semibold">
+                    {t("permissions:permissionRequest")}
+                  </Dialog.Title>
                   {card(request())}
                 </>
               )}
@@ -281,7 +291,7 @@ const PermissionSheet: Component<PermissionSheetProps> = (props) => {
         open={props.variant === "sheet" && visible() !== undefined}
         onClose={() => undefined}
         snap="high"
-        title="Permission request"
+        title={t("permissions:permissionRequest")}
         testId="permission-sheet"
         dismissible={false}
       >

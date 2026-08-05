@@ -30,10 +30,7 @@ exports[`RetryPart snapshot > matches the fixture's retry part 1`] = `
         class="font-medium text-fg-primary"
         data-testid="retry-attempt"
       >
-        Retrying (attempt 
-        2
-        <!---->
-        )
+        Retrying (attempt 2)
       </span>
       <span
         class="shrink-0 text-fg-faint"

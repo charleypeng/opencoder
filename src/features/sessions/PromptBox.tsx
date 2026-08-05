@@ -73,6 +73,7 @@
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import { useT } from "../../i18n/index.js";
 import { createAgentService } from "../../services/agent.js";
 import { createProviderService } from "../../services/provider.js";
 import { getApiClient } from "../../services/client.js";
@@ -294,6 +295,7 @@ function atQueryAt(el: HTMLTextAreaElement): { atIndex: number; query: string } 
 }
 
 const PromptBox: Component<PromptBoxProps> = (props) => {
+  const t = useT();
   const [text, setText] = createSignal("");
   const [attachments, setAttachments] = createSignal<Attachment[]>([]);
   const [sending, setSending] = createSignal(false);
@@ -732,7 +734,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       setAttachments((prev) => [...prev, attachment]);
     } catch (err) {
       // Oversized or unreadable file: surface the failure next to the chips.
-      setAttachError(err instanceof Error ? err.message : "File too large");
+      setAttachError(err instanceof Error ? err.message : t("messages:attachTooLarge"));
     }
   }
 
@@ -1056,7 +1058,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <button
                   type="button"
                   data-testid="agent-chip"
-                  aria-label={`Agent: ${agentName() ?? "none"}`}
+                  aria-label={t("messages:agentLabel", { name: agentName() ?? "none" })}
                   aria-haspopup="listbox"
                   aria-expanded={agentMenuOpen() ? "true" : "false"}
                   disabled={disabled()}
@@ -1077,7 +1079,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                     style={{ background: safeAgentColor(currentAgent()?.color) }}
                   />
                   <span data-testid="agent-chip-name" class="max-w-28 truncate font-mono">
-                    {agentName() ?? "agent"}
+                    {agentName() ?? t("messages:agent")}
                   </span>
                   <ChevronDownIcon />
                 </button>
@@ -1085,12 +1087,16 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   <div
                     data-testid="agent-menu"
                     role="listbox"
-                    aria-label="Agents"
+                    aria-label={t("messages:agents")}
                     class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-64 overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
                   >
                     <Show
                       when={menuAgents().length > 0}
-                      fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No agents</div>}
+                      fallback={
+                        <div class="px-3 py-1.5 text-xs text-fg-faint">
+                          {t("messages:noAgents")}
+                        </div>
+                      }
                     >
                       <For each={menuAgents()}>
                         {(agent) => (
@@ -1137,7 +1143,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               <button
                 type="button"
                 data-testid="model-chip"
-                aria-label={`Model: ${modelChipName()}`}
+                aria-label={t("models:modelLabel") + ": " + modelChipName()}
                 disabled={disabled()}
                 onClick={() => setModelPickerOpen(true)}
                 class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
@@ -1158,13 +1164,15 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <div
                   data-testid="prompt-at-menu"
                   role="listbox"
-                  aria-label="References"
+                  aria-label={t("messages:references")}
                   ref={atListRef}
                   class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-full overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
                 >
                   <Show
                     when={atEntries().length > 0}
-                    fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No matches</div>}
+                    fallback={
+                      <div class="px-3 py-1.5 text-xs text-fg-faint">{t("common:noMatches")}</div>
+                    }
                   >
                     {/* Skills group (TASK-M5-08): matching skills first, a
                       plain `@name` reference on select; files follow. Each
@@ -1174,7 +1182,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                         data-testid="prompt-at-group-skills"
                         class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint"
                       >
-                        Skills
+                        {t("messages:skills")}
                       </div>
                     </Show>
                     <For each={atSkillEntries()}>
@@ -1205,7 +1213,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                         data-testid="prompt-at-group-files"
                         class="px-3 pb-0.5 pt-1 text-[10px] font-medium uppercase tracking-wide text-fg-faint"
                       >
-                        Files
+                        {t("messages:files")}
                       </div>
                     </Show>
                     <For each={atFileEntries()}>
@@ -1234,13 +1242,15 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <div
                   data-testid="prompt-slash-menu"
                   role="listbox"
-                  aria-label="Commands"
+                  aria-label={t("messages:commands")}
                   ref={slashListRef}
                   class="absolute bottom-full left-0 z-10 mb-1 max-h-56 w-full overflow-y-auto rounded-lg border border-bg-sunken bg-bg-elevated py-1 shadow-lg"
                 >
                   <Show
                     when={m().items.length > 0}
-                    fallback={<div class="px-3 py-1.5 text-xs text-fg-faint">No matches</div>}
+                    fallback={
+                      <div class="px-3 py-1.5 text-xs text-fg-faint">{t("common:noMatches")}</div>
+                    }
                   >
                     <For each={m().items}>
                       {(command, index) => (
@@ -1288,7 +1298,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                       <button
                         type="button"
                         data-testid="attachment-remove"
-                        aria-label={`Remove ${attachment.name}`}
+                        aria-label={t("messages:removeAttachment", { name: attachment.name })}
                         onClick={() => removeAttachment(attachment.id)}
                         class="flex h-4 w-4 items-center justify-center rounded-full text-fg-faint hover:text-danger"
                       >
@@ -1307,7 +1317,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                     data-testid="attachment-command-note"
                     class="self-center text-xs text-fg-faint"
                   >
-                    Attachments are not sent with commands
+                    {t("messages:attachNotSent")}
                   </span>
                 </Show>
               </div>
@@ -1317,8 +1327,8 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <button
                   type="button"
                   data-testid="prompt-attach"
-                  aria-label="Attachments"
-                  title="Add files"
+                  aria-label={t("messages:attachments")}
+                  title={t("messages:addFiles")}
                   disabled={disabled()}
                   onClick={() => fileInputRef?.click()}
                   class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bg-base hover:text-fg-default disabled:cursor-not-allowed disabled:opacity-40"
@@ -1328,10 +1338,10 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <button
                   type="button"
                   data-testid="prompt-pick-image"
-                  aria-label="Pick image"
+                  aria-label={t("messages:pickImage")}
                   // M7 wires the mobile system image picker (dialog plugin)
                   // plus platform detection; until then the picker is inert.
-                  title="Image picker — M7"
+                  title={t("messages:imagePickerHint")}
                   disabled
                   class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint"
                 >
@@ -1353,9 +1363,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 data-testid="prompt-input"
                 rows={1}
                 value={text()}
-                placeholder={busy() ? "Generating…" : "Message"}
+                placeholder={busy() ? t("messages:generating") : t("messages:messagePlaceholder")}
                 disabled={disabled()}
-                aria-label="Message"
+                aria-label={t("messages:message")}
                 onInput={onInput}
                 onKeyDown={onKeyDown}
                 onPaste={onPaste}
@@ -1369,14 +1379,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 <button
                   type="button"
                   data-testid="prompt-stop"
-                  aria-label="Stop generating"
-                  title="Stop (Esc)"
+                  aria-label={t("messages:stopGenerating")}
+                  title={t("messages:stopHint")}
                   disabled={aborting()}
                   onClick={() => void stopGeneration()}
                   class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <SquareIcon />
-                  Stop
+                  {t("messages:stop")}
                 </button>
               ) : (
                 <button
@@ -1386,13 +1396,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   onClick={() => void send()}
                   class="mb-0.5 shrink-0 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  Send
+                  {t("messages:send")}
                 </button>
               )}
             </div>
           </div>
           <p class="mt-1 px-1 text-xs text-fg-faint">
-            {busy() ? "Generating — Esc to stop" : "⌘/Ctrl+Enter to send"}
+            {busy() ? t("messages:generatingHint") : t("messages:sendHint")}
           </p>
         </div>
       </div>

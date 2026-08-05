@@ -25,10 +25,12 @@ import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import Sheet from "../../components/Sheet.js";
 import { getApiClient } from "../../services/client.js";
-import { ApiError, errorTitle } from "../../services/errors.js";
+import { ApiError } from "../../services/errors.js";
+import { useErrorCopy } from "../../components/errorCopy.js";
 import { createQuestionService, type QuestionRequest } from "../../services/question.js";
 import { dequeue, questions } from "../../stores/question.js";
 import { registerSheet } from "../../stores/sheets.js";
+import { useT } from "../../i18n/index.js";
 
 export interface QuestionSheetProps {
   /** The server whose question queue is shown. */
@@ -68,6 +70,8 @@ interface QuestionCardProps {
 /** The shared card body — used by both the overlay dialog and the mobile
  *  bottom sheet, so the answer forms render identically everywhere. */
 function QuestionCard(props: QuestionCardProps) {
+  const t = useT();
+  const { title: errorTitle } = useErrorCopy();
   const hasOptions = () => (props.question?.options.length ?? 0) > 0;
   return (
     <>
@@ -75,7 +79,7 @@ function QuestionCard(props: QuestionCardProps) {
         <div class="min-w-0">
           <Show when={props.count > 1}>
             <p data-testid="question-queue-position" class="mt-0.5 text-xs text-fg-faint">
-              1 of {props.count} waiting
+              {t("questions:waiting", { count: 1, total: props.count })}
             </p>
           </Show>
         </div>
@@ -130,7 +134,7 @@ function QuestionCard(props: QuestionCardProps) {
           data-testid="question-free-input"
           class="mt-4 w-full resize-none rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 text-sm text-fg-default outline-none placeholder:text-fg-faint focus:border-accent"
           rows={3}
-          placeholder="Type your answer…"
+          placeholder={t("questions:answerPlaceholder")}
           value={props.draft}
           disabled={props.replying}
           onInput={(event) => props.onDraftChange(event.currentTarget.value)}
@@ -139,7 +143,7 @@ function QuestionCard(props: QuestionCardProps) {
 
       <Show when={props.error}>
         <p data-testid="question-error" class="mt-3 text-sm text-danger">
-          {errorTitle(props.error!)} — the question stays queued; retry below.
+          {t("questions:errorHint", { title: errorTitle(props.error!) })}
         </p>
       </Show>
 
@@ -152,7 +156,7 @@ function QuestionCard(props: QuestionCardProps) {
             disabled={props.replying || props.draft.trim() === ""}
             onClick={() => props.onSend()}
           >
-            Send
+            {t("questions:send")}
           </button>
         </Show>
         <button
@@ -162,7 +166,7 @@ function QuestionCard(props: QuestionCardProps) {
           disabled={props.replying}
           onClick={() => props.onReject()}
         >
-          Reject
+          {t("questions:reject")}
         </button>
       </div>
     </>
@@ -170,6 +174,7 @@ function QuestionCard(props: QuestionCardProps) {
 }
 
 const QuestionSheet: Component<QuestionSheetProps> = (props) => {
+  const t = useT();
   // TODO(M8-06): native system notification + pending-count badge on
   // enqueue (shared with the permission sheet, architecture §7.2). The
   // sheet itself is the alert for now.
@@ -271,7 +276,7 @@ const QuestionSheet: Component<QuestionSheetProps> = (props) => {
             onEscapeKeyDown={(event) => event.preventDefault()}
           >
             <Show when={head() !== undefined}>
-              <Dialog.Title class="text-md font-semibold">Question</Dialog.Title>
+              <Dialog.Title class="text-md font-semibold">{t("questions:question")}</Dialog.Title>
               <QuestionCard
                 question={question()}
                 count={count()}
@@ -294,7 +299,7 @@ const QuestionSheet: Component<QuestionSheetProps> = (props) => {
         open={props.variant === "sheet" && head() !== undefined}
         onClose={() => undefined}
         snap="high"
-        title="Question"
+        title={t("questions:question")}
         testId="question-sheet"
         dismissible={false}
       >

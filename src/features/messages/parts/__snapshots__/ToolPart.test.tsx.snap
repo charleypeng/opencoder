@@ -368,9 +368,7 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
           <span
             class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
           >
-            2
-             file
-            s
+            2 files
           </span>
         </div>
         <pre
@@ -492,9 +490,7 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
           <span
             class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
           >
-            1
-             match
-            
+            1 match
           </span>
         </div>
         <pre

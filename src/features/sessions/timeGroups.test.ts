@@ -35,7 +35,12 @@ describe("groupSessionsByTime", () => {
     );
 
     expect(groups.map((g) => g.key)).toEqual(["today", "yesterday", "thisWeek", "earlier"]);
-    expect(groups.map((g) => g.label)).toEqual(["Today", "Yesterday", "This Week", "Earlier"]);
+    expect(groups.map((g) => g.labelKey)).toEqual([
+      "sessions:today",
+      "sessions:yesterday",
+      "sessions:thisWeek",
+      "sessions:earlier",
+    ]);
     expect(groups[0].sessions.map((s) => s.id)).toEqual(["today"]);
     expect(groups[1].sessions.map((s) => s.id)).toEqual(["yesterday"]);
     expect(groups[2].sessions.map((s) => s.id)).toEqual(["week"]);
@@ -81,7 +86,11 @@ describe("groupSessionsByTime", () => {
       NOW,
     );
     expect(groups).toEqual([
-      { key: "today", label: "Today", sessions: [expect.objectContaining({ id: "today" })] },
+      {
+        key: "today",
+        labelKey: "sessions:today",
+        sessions: [expect.objectContaining({ id: "today" })],
+      },
     ]);
   });
 

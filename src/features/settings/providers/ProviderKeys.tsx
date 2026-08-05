@@ -18,6 +18,7 @@ import {
 import { getApiClient } from "../../../services/client.js";
 import { getServerModelState, setProviders } from "../../../stores/models.js";
 import ProviderOAuth from "./ProviderOAuth.js";
+import { useT } from "../../../i18n/index.js";
 
 export interface ProviderKeysProps {
   /** The server whose provider keys are managed. */
@@ -25,6 +26,7 @@ export interface ProviderKeysProps {
 }
 
 const ProviderKeys: Component<ProviderKeysProps> = (props) => {
+  const t = useT();
   const service = createProviderService(getApiClient());
   // Per-provider auth methods from GET /provider/auth.
   const [authMethods, setAuthMethods] = createSignal<Record<string, ProviderAuthMethod[]>>({});
@@ -94,7 +96,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
       setConfirmRemove(null);
       await refreshProviders();
     } catch {
-      setError(`Failed to remove the key for ${providerID}.`);
+      setError(t("settings:removeKeyFailed", { providerID }));
     } finally {
       setBusy(null);
     }
@@ -103,7 +105,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   return (
     <section data-testid="provider-keys" class="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <div class="flex items-baseline justify-between gap-2">
-        <h2 class="text-sm font-semibold">Providers</h2>
+        <h2 class="text-sm font-semibold">{t("settings:providers")}</h2>
         <Show when={!loadFailed()}>
           <button
             type="button"
@@ -111,7 +113,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
             class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
             onClick={() => void load()}
           >
-            Refresh
+            {t("common:refresh")}
           </button>
         </Show>
       </div>
@@ -123,14 +125,14 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
             data-testid="provider-keys-load-error"
             class="flex flex-col items-start gap-2 rounded-md border border-bg-sunken bg-bg-elevated p-3 text-xs"
           >
-            <p class="text-fg-secondary">Failed to load providers.</p>
+            <p class="text-fg-secondary">{t("settings:providersLoadFailed")}</p>
             <button
               type="button"
               data-testid="provider-keys-retry"
               class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
               onClick={() => void load()}
             >
-              Retry
+              {t("common:retry")}
             </button>
           </div>
         }
@@ -139,7 +141,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
           when={getServerModelState(props.serverId).providers.length > 0}
           fallback={
             <p data-testid="provider-keys-empty" class="text-xs text-fg-faint">
-              No providers available.
+              {t("settings:noProviders")}
             </p>
           }
         >
@@ -169,7 +171,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                             data-testid="provider-key-set"
                             class="rounded border border-bg-sunken bg-bg-sunken px-1.5 py-px text-[10px] text-fg-secondary"
                           >
-                            Key set
+                            {t("settings:keySet")}
                           </span>
                         </Show>
                         <span
@@ -180,7 +182,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                               : "border-bg-sunken text-fg-faint"
                           }`}
                         >
-                          {connected() ? "Connected" : "Not connected"}
+                          {connected() ? t("models:connected") : t("models:notConnected")}
                         </span>
                       </span>
                     </div>
@@ -199,7 +201,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                           autocomplete="new-password"
                           value={draft()}
                           placeholder="••••••••"
-                          aria-label={`${provider.name} API key`}
+                          aria-label={t("settings:apiKeyFor", { name: provider.name })}
                           disabled={isBusy()}
                           onInput={(event) =>
                             setDrafts((d) => ({ ...d, [provider.id]: event.currentTarget.value }))
@@ -215,7 +217,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                           class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => void saveKey(provider.id)}
                         >
-                          {isBusy() ? "Saving…" : "Save"}
+                          {isBusy() ? t("common:saving") : t("common:save")}
                         </button>
                         <Show when={connected()}>
                           <button
@@ -233,7 +235,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                                 : setConfirmRemove(provider.id)
                             }
                           >
-                            {confirming() ? "Confirm remove" : "Remove"}
+                            {confirming() ? t("settings:confirmRemove") : t("common:remove")}
                           </button>
                           <Show when={confirming()}>
                             <button

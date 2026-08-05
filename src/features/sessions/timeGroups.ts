@@ -10,17 +10,18 @@ export type SessionTimeGroupKey = "today" | "yesterday" | "thisWeek" | "earlier"
 
 export interface SessionTimeGroup {
   key: SessionTimeGroupKey;
-  label: string;
+  /** i18n resource key of the group label (sessions:today, ...). */
+  labelKey: string;
   sessions: Session[];
 }
 
 const GROUP_ORDER: SessionTimeGroupKey[] = ["today", "yesterday", "thisWeek", "earlier"];
 
-const GROUP_LABELS: Record<SessionTimeGroupKey, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  thisWeek: "This Week",
-  earlier: "Earlier",
+const GROUP_LABEL_KEYS: Record<SessionTimeGroupKey, string> = {
+  today: "sessions:today",
+  yesterday: "sessions:yesterday",
+  thisWeek: "sessions:thisWeek",
+  earlier: "sessions:earlier",
 };
 
 /** Start (local midnight) of the day containing `timestampMs`. */
@@ -69,7 +70,7 @@ export function groupSessionsByTime(
 
   return GROUP_ORDER.filter((key) => buckets[key].length > 0).map((key) => ({
     key,
-    label: GROUP_LABELS[key],
+    labelKey: GROUP_LABEL_KEYS[key],
     sessions: buckets[key],
   }));
 }

@@ -53,6 +53,7 @@ import type { ServerEntry } from "../../services/servers";
 import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import { useT } from "../../i18n/index.js";
 import Toasts from "../../components/Toast.js";
 import { createProjectService } from "../../services/project";
 import { createSessionService, type Session } from "../../services/session";
@@ -156,6 +157,7 @@ function sessionOf(serverId: string, sessionId: string): Session | undefined {
  * it fresh afterwards. Hidden while no branch is known (non-git workspace).
  */
 function StatusBarBranch(props: { serverId: string }) {
+  const t = useT();
   // Servers whose info fetch was already issued (or is in flight).
   const fetched = new Set<string>();
   createEffect(() => {
@@ -182,7 +184,7 @@ function StatusBarBranch(props: { serverId: string }) {
     <Show when={branch() !== null}>
       <span
         data-testid="status-bar-branch"
-        title="Current branch"
+        title={t("vcs:currentBranch")}
         class="flex shrink-0 items-center gap-1.5 font-code text-xs text-fg-secondary"
       >
         <svg
@@ -207,6 +209,7 @@ function StatusBarBranch(props: { serverId: string }) {
 }
 
 const DesktopShell: Component<DesktopShellProps> = (props) => {
+  const t = useT();
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
   // Main-pane placeholder target: the store's active session id, so both
   // row selection and the "New session" flow update it. The per-server
@@ -439,12 +442,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     return [
       {
         id: "copy",
-        label: "Copy",
+        label: t("common:copy"),
         onSelect: () => void copyToClipboard(selection),
       },
       {
         id: "quote",
-        label: "Quote in chat",
+        label: t("desktop:quoteInChat"),
         onSelect: () => prefillComposer(quoteBlock(selection)),
       },
     ];
@@ -645,7 +648,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       void checkForUpdates()
         .then((found) => {
           if (found !== null) {
-            createToast(`Update available: v${found.version} — install it in Settings → Updates`);
+            createToast(t("desktop:updateToast", { version: found.version }));
           }
         })
         .catch(() => {
@@ -685,16 +688,20 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             data-testid="server-update-banner-text"
             class="min-w-0 flex-1 truncate text-xs text-fg-primary"
           >
-            Server update available: v{serverUpdate[activeServerId()]?.version}
-            {serverUpdate[activeServerId()]?.current !== undefined
-              ? ` (running v${serverUpdate[activeServerId()]?.current})`
-              : ""}{" "}
-            — restart opencode serve to apply.
+            {t("desktop:serverUpdateBanner", {
+              version: serverUpdate[activeServerId()]?.version,
+              running:
+                serverUpdate[activeServerId()]?.current !== undefined
+                  ? t("desktop:runningVersion", {
+                      version: serverUpdate[activeServerId()]?.current,
+                    })
+                  : "",
+            })}
           </p>
           <button
             type="button"
             data-testid="server-update-banner-dismiss"
-            aria-label="Dismiss server update hint"
+            aria-label={t("desktop:dismissUpdateHint")}
             class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
             onClick={() => clearServerUpdate(activeServerId())}
           >
@@ -742,8 +749,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           <button
             type="button"
             data-testid="rail-add"
-            aria-label="Add server"
-            title="Add server"
+            aria-label={t("servers:addServer")}
+            title={t("servers:addServer")}
             class="mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-dashed border-fg-faint text-lg text-fg-secondary transition-colors hover:text-fg-primary"
             onClick={() => props.onExit()}
           >
@@ -773,7 +780,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           </header>
           <div
             role="tablist"
-            aria-label="Sidebar view"
+            aria-label={t("desktop:sidebarView")}
             class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
           >
             <button
@@ -847,7 +854,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               <>
                 <div
                   role="tablist"
-                  aria-label="Main view"
+                  aria-label={t("desktop:mainView")}
                   class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
                 >
                   <button
@@ -883,8 +890,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       type="button"
                       data-testid="files-search-toggle"
                       aria-pressed={filesMode() === "search" ? "true" : "false"}
-                      aria-label="Toggle full-text search"
-                      title="Full-text search (⌘⇧F)"
+                      aria-label={t("desktop:toggleSearch")}
+                      title={t("desktop:searchHint")}
                       class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
                         filesMode() === "search"
                           ? "text-accent"
@@ -899,8 +906,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     <button
                       type="button"
                       data-testid="changes-toggle"
-                      aria-label="Open version control changes"
-                      title="VCS changes"
+                      aria-label={t("desktop:openVcs")}
+                      title={t("desktop:vcsHint")}
                       class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
                       onClick={() => setMainView("changes")}
                     >
@@ -924,8 +931,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   <button
                     type="button"
                     data-testid="terminal-toggle"
-                    aria-label="Open terminal"
-                    title="Terminal (⌘J)"
+                    aria-label={t("desktop:openTerminal")}
+                    title={t("desktop:terminalHint")}
                     class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
                     onClick={() => setMainView("terminal")}
                   >
@@ -945,8 +952,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   <button
                     type="button"
                     data-testid="settings-toggle"
-                    aria-label="Open settings"
-                    title="Settings"
+                    aria-label={t("desktop:openSettings")}
+                    title={t("settings:settings")}
                     class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
                     onClick={() => setMainView("settings")}
                   >
@@ -1017,12 +1024,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                               ? "true"
                               : "false"
                           }
-                          aria-label="Share session"
+                          aria-label={t("desktop:shareSession")}
                           title={
                             sessionOf(activeServerId(), activeSessionId() as string)?.share !==
                             undefined
-                              ? "Shared — open the share dialog"
-                              : "Share session"
+                              ? t("desktop:sharedHint")
+                              : t("desktop:shareSession")
                           }
                           class={`rounded-md p-1.5 outline-none transition-colors ${
                             sessionOf(activeServerId(), activeSessionId() as string)?.share !==
@@ -1055,7 +1062,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           type="button"
                           data-testid="todo-toggle"
                           aria-pressed={todosOpen() ? "true" : "false"}
-                          aria-label="Toggle todo panel"
+                          aria-label={t("desktop:toggleTodo")}
                           class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
                             todosOpen()
                               ? "border-accent text-accent"
@@ -1063,7 +1070,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           }`}
                           onClick={() => setTodosOpen((open) => !open)}
                         >
-                          Todos
+                          {t("desktop:todos")}
                         </button>
                       </div>
                     </header>
@@ -1139,7 +1146,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                               >
                                 ← Back
                               </button>
-                              <h2 class="shrink-0 text-sm font-semibold">Session diff</h2>
+                              <h2 class="shrink-0 text-sm font-semibold">
+                                {t("desktop:sessionDiff")}
+                              </h2>
                               <Show when={diffMessageId() !== undefined}>
                                 <span
                                   data-testid="diff-message-filter"
@@ -1149,7 +1158,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                                   <button
                                     type="button"
                                     data-testid="diff-filter-clear"
-                                    aria-label="Show the whole session diff"
+                                    aria-label={t("desktop:showWholeDiff")}
                                     class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
                                     onClick={() => setDiffMessageId(undefined)}
                                   >
@@ -1245,11 +1254,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           class="fixed right-0 top-0 z-50 flex h-full w-[280px] flex-col border-l border-bg-sunken bg-bg-elevated shadow-lg"
         >
           <header class="flex shrink-0 items-center justify-between border-b border-bg-sunken px-4 py-3">
-            <h2 class="text-sm font-semibold">Todos</h2>
+            <h2 class="text-sm font-semibold">{t("desktop:todos")}</h2>
             <button
               type="button"
               data-testid="todo-drawer-close"
-              aria-label="Close todo panel"
+              aria-label={t("desktop:closeTodo")}
               class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary hover:bg-bg-sunken hover:text-fg-primary"
               onClick={closeTodos}
             >
@@ -1299,7 +1308,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               .catch(() => {
                 // A failed run surfaces as a global toast (the composer's
                 // slash path restores its input text instead).
-                createToast("Command failed to run", "error");
+                createToast(t("desktop:commandFailed"), "error");
               });
           },
           onOpenFile: () => setMainView("files"),
@@ -1348,7 +1357,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       <Show when={textMenu() !== null}>
         <ContextMenu
           testId="text-menu"
-          label="Selection actions"
+          label={t("desktop:selectionActions")}
           x={textMenu()!.x}
           y={textMenu()!.y}
           items={textMenuItems()}

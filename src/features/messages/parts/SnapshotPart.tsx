@@ -8,6 +8,7 @@
 import { createMemo } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type SnapshotPartData = Extract<Part, { type: "snapshot" }>;
 
@@ -20,6 +21,7 @@ export interface SnapshotPartProps {
 }
 
 const SnapshotPart: Component<SnapshotPartProps> = (props) => {
+  const t = useT();
   const shortId = createMemo(() => props.part.snapshot.slice(0, 12));
   // The callback never changes for a mounted chip, so a memo is cheap and
   // keeps the template fully tracked.
@@ -37,11 +39,7 @@ const SnapshotPart: Component<SnapshotPartProps> = (props) => {
           ? " cursor-pointer outline-none hover:border-accent hover:text-accent focus-visible:border-accent"
           : "")
       }
-      title={
-        wired()
-          ? "Revert to this point — file changes made after it will be rolled back"
-          : "Reverting to a snapshot lands in M6"
-      }
+      title={wired() ? t("messages:revertSnapshotHint") : t("messages:revertSnapshotM6")}
       onClick={() => {
         if (wired()) props.onRevert?.(props.part.messageID);
       }}
@@ -66,7 +64,7 @@ const SnapshotPart: Component<SnapshotPartProps> = (props) => {
         <circle cx="8" cy="9" r="2.5" />
         <path d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7" />
       </svg>
-      <span class="font-medium">Snapshot</span>
+      <span class="font-medium">{t("messages:snapshot")}</span>
       <span data-testid="snapshot-id" class="font-code text-[10px] text-fg-faint">
         {shortId()}
       </span>

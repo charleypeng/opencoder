@@ -5,6 +5,7 @@
 // without patch content render as a stats card with a note.
 
 import { createMemo, For, Show } from "solid-js";
+import { useT } from "../../i18n/index.js";
 import {
   alignSplit,
   foldGroups,
@@ -107,6 +108,7 @@ function SplitRow(props: { row: SplitRow }) {
 
 /** One file's diff: header (path, +N -M stats, status chip) + the rows. */
 function DiffFileGroup(props: DiffFileGroupProps) {
+  const t = useT();
   // Parsed rows; null when the entry carries no patch content (stats only).
   const rows = createMemo(() =>
     props.entry.patch === undefined ? null : parseUnifiedDiff(props.entry.patch),
@@ -125,7 +127,7 @@ function DiffFileGroup(props: DiffFileGroupProps) {
         class="flex shrink-0 items-center gap-2 border-b border-bg-sunken bg-bg-elevated px-3 py-1.5"
       >
         <span class="min-w-0 flex-1 truncate font-code text-xs" title={props.entry.file ?? ""}>
-          {props.entry.file ?? "Unknown file"}
+          {props.entry.file ?? t("vcs:unknownFile")}
         </span>
         <span data-testid="diff-file-stats" class="shrink-0 font-code text-xs text-fg-secondary">
           +{props.entry.additions} -{props.entry.deletions}

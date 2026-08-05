@@ -10,6 +10,7 @@
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { isRateLimitHint } from "../../../services/errors.js";
+import { useT } from "../../../i18n/index.js";
 import type { Part } from "../../../stores/messages.js";
 
 export type RetryPartData = Extract<Part, { type: "retry" }>;
@@ -28,6 +29,7 @@ export function isRateLimitError(error: RetryPartData["error"]): boolean {
 }
 
 const RetryPart: Component<RetryPartProps> = (props) => {
+  const t = useT();
   const [now, setNow] = createSignal(Date.now());
 
   // Live countdown clock: ticks only while `retryAt` is present; the
@@ -49,8 +51,8 @@ const RetryPart: Component<RetryPartProps> = (props) => {
 
   const countdownLabel = createMemo(() => {
     const seconds = secondsLeft();
-    if (seconds === undefined || seconds <= 0) return "Retrying…";
-    return `next attempt in ${seconds}s`;
+    if (seconds === undefined || seconds <= 0) return t("messages:retrying");
+    return t("messages:retryCountdown", { seconds });
   });
 
   return (
@@ -73,7 +75,7 @@ const RetryPart: Component<RetryPartProps> = (props) => {
           <path d="M13.5 2.5V6h-3.5" />
         </svg>
         <span data-testid="retry-attempt" class="font-medium text-fg-primary">
-          Retrying (attempt {props.part.attempt})
+          {t("messages:retryAttempt", { attempt: props.part.attempt })}
         </span>
         <span data-testid="retry-countdown" class="shrink-0 text-fg-faint">
           {countdownLabel()}

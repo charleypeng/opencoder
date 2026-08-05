@@ -8,7 +8,9 @@
 import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError, errorDetailMessage } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import type { AuthCredentials } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 
@@ -33,14 +35,9 @@ const actionClass =
   "rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm " +
   "text-fg-secondary hover:text-fg-primary";
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 const ReauthDialog: Component<ReauthDialogProps> = (props) => {
+  const t = useT();
+  const { title: errorTitle, line: errorLine } = useErrorCopy();
   // Mounted per server (keyed in ServerHome), so one-time prefill is
   // intentional; the password is never prefilled.
   // eslint-disable-next-line solid/reactivity -- one-time prefill on open
@@ -83,14 +80,14 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
           data-testid="reauth-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Authentication required</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">{t("servers:authRequired")}</Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
             <Show when={props.reason} fallback={props.server?.name}>
               {(reason) => (
                 <span data-testid="reauth-reason">
                   {props.server?.name} — {errorTitle(reason())}
-                  <Show when={errorDetail(reason()) !== errorTitle(reason())}>
-                    <span> ({errorDetail(reason())})</span>
+                  <Show when={errorDetailMessage(reason()) !== null}>
+                    <span> ({errorDetailMessage(reason())})</span>
                   </Show>
                 </span>
               )}
@@ -99,7 +96,9 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
 
           <form class="mt-5 space-y-4" onSubmit={onSubmit}>
             <label class="block">
-              <span class="text-sm font-medium text-fg-secondary">Username (optional)</span>
+              <span class="text-sm font-medium text-fg-secondary">
+                {t("servers:usernameOptional")}
+              </span>
               <input
                 data-testid="reauth-username"
                 class={inputClass}
@@ -111,7 +110,7 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
               />
             </label>
             <label class="block">
-              <span class="text-sm font-medium text-fg-secondary">Password</span>
+              <span class="text-sm font-medium text-fg-secondary">{t("servers:password")}</span>
               <input
                 data-testid="reauth-password"
                 class={inputClass}
@@ -133,7 +132,7 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
                 class={actionClass}
                 disabled={verifying()}
               >
-                Cancel
+                {t("common:cancel")}
               </Dialog.CloseButton>
               <button
                 data-testid="reauth-save"
@@ -141,7 +140,7 @@ const ReauthDialog: Component<ReauthDialogProps> = (props) => {
                 class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!canSubmit()}
               >
-                {verifying() ? "Verifying…" : "Save & Retry"}
+                {verifying() ? t("servers:verifying") : t("servers:saveAndRetry")}
               </button>
             </div>
           </form>

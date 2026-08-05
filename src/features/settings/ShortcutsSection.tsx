@@ -14,6 +14,7 @@ import {
   DEFAULT_SHORTCUTS,
   findConflicts,
   formatCombo,
+  shortcutLabelKey,
   type Combo,
 } from "./shortcuts.js";
 import {
@@ -24,6 +25,7 @@ import {
   saveShortcutCombo,
 } from "./shortcutStore.js";
 import { isMacPlatform } from "./useShortcuts.js";
+import { useT } from "../../i18n/index.js";
 
 interface ConflictState {
   /** The shortcut id whose capture was rejected. */
@@ -35,6 +37,7 @@ interface ConflictState {
 }
 
 const ShortcutsSection: Component = () => {
+  const t = useT();
   const [capturing, setCapturing] = createSignal<string | null>(null);
   const [conflict, setConflict] = createSignal<ConflictState | null>(null);
 
@@ -73,7 +76,7 @@ const ShortcutsSection: Component = () => {
           const shortcut = DEFAULT_SHORTCUTS.find((entry) => entry.id === otherId);
           return shortcut === undefined
             ? otherId
-            : `${shortcut.label} (${formatCombo(effectiveCombo(otherId), isMacPlatform())})`;
+            : `${t(shortcutLabelKey(shortcut.id))} (${formatCombo(effectiveCombo(otherId), isMacPlatform())})`;
         });
         setConflict({ id, combo, with: labels });
         setCapturing(null);
@@ -91,10 +94,8 @@ const ShortcutsSection: Component = () => {
     <div data-testid="shortcuts-section" class="flex min-h-0 flex-1 flex-col">
       <div class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
         <div>
-          <h2 class="text-sm font-semibold">Shortcuts</h2>
-          <p class="text-xs text-fg-secondary">
-            ⌘/Ctrl is the primary modifier; click a combo to change it.
-          </p>
+          <h2 class="text-sm font-semibold">{t("settings:shortcuts")}</h2>
+          <p class="text-xs text-fg-secondary">{t("settings:shortcutHint")}</p>
         </div>
         <button
           type="button"
@@ -106,7 +107,7 @@ const ShortcutsSection: Component = () => {
             setCapturing(null);
           }}
         >
-          Reset all
+          {t("settings:resetAll")}
         </button>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-2">
@@ -120,12 +121,14 @@ const ShortcutsSection: Component = () => {
                 data-testid={`shortcut-label-${shortcut.id}`}
                 class="min-w-0 flex-1 truncate text-xs"
               >
-                {shortcut.label}
+                {t(shortcutLabelKey(shortcut.id))}
               </span>
               <button
                 type="button"
                 data-testid={`shortcut-combo-${shortcut.id}`}
-                aria-label={`Change shortcut for ${shortcut.label}`}
+                aria-label={t("settings:changeShortcutFor", {
+                  label: t(shortcutLabelKey(shortcut.id)),
+                })}
                 class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 font-mono text-xs text-fg-default outline-none transition-colors hover:border-fg-faint"
                 onClick={() => {
                   setConflict(null);
@@ -135,21 +138,23 @@ const ShortcutsSection: Component = () => {
                 }}
               >
                 {capturing() === shortcut.id
-                  ? "Press keys…"
+                  ? t("settings:pressKeys")
                   : formatCombo(effectiveCombo(shortcut.id), isMacPlatform())}
               </button>
               <Show when={isCustomized(shortcut.id)}>
                 <button
                   type="button"
                   data-testid={`shortcut-reset-${shortcut.id}`}
-                  aria-label={`Reset ${shortcut.label} to default`}
+                  aria-label={t("settings:resetShortcut", {
+                    label: t(shortcutLabelKey(shortcut.id)),
+                  })}
                   class="shrink-0 rounded-md px-2 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
                   onClick={() => {
                     resetShortcutCombo(shortcut.id);
                     setConflict(null);
                   }}
                 >
-                  Reset
+                  {t("settings:reset")}
                 </button>
               </Show>
             </div>
@@ -161,7 +166,7 @@ const ShortcutsSection: Component = () => {
           data-testid="shortcut-capture-hint"
           class="shrink-0 border-t border-bg-sunken px-4 py-2"
         >
-          <p class="text-xs text-fg-secondary">Press the new key combination (Esc to cancel)</p>
+          <p class="text-xs text-fg-secondary">{t("settings:shortcutRecording")}</p>
         </div>
       </Show>
       <Show when={conflict()} keyed>
@@ -172,8 +177,10 @@ const ShortcutsSection: Component = () => {
             class="shrink-0 border-t border-danger/30 bg-danger/10 px-4 py-2"
           >
             <p class="text-xs text-danger">
-              {formatCombo(state.combo, isMacPlatform())} is already used by {state.with.join(", ")}{" "}
-              — choose another combination.
+              {t("settings:shortcutConflict", {
+                combo: formatCombo(state.combo, isMacPlatform()),
+                others: state.with.map((id) => t(shortcutLabelKey(id))).join(", "),
+              })}
             </p>
           </div>
         )}

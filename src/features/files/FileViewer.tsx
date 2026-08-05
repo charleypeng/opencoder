@@ -25,6 +25,7 @@ import { getActiveDirectory } from "../../stores/project.js";
 import { highlightCode } from "../messages/markdown/highlighter.js";
 import { escapeHtml } from "../messages/markdown/markdown.js";
 import { rowKindOf, type DiffLineKind } from "../vcs/diffLines.js";
+import { useT } from "../../i18n/index.js";
 
 export interface FileViewerProps {
   /** The server whose open tabs are shown. */
@@ -220,6 +221,7 @@ function ContentView(props: {
   path: string;
   onRendered?: (el: HTMLDivElement) => void;
 }) {
+  const t = useT();
   const content = () => props.content;
   return (
     <Show
@@ -232,7 +234,7 @@ function ContentView(props: {
               when={content().type !== "binary"}
               fallback={
                 <p data-testid="viewer-binary" class="px-4 py-4 text-sm text-fg-secondary">
-                  Binary file — preview not available.
+                  {t("files:binaryFileHint")}
                 </p>
               }
             >
@@ -272,6 +274,7 @@ function ContentView(props: {
 // --- viewer ----------------------------------------------------------------
 
 const FileViewer: Component<FileViewerProps> = (props) => {
+  const t = useT();
   const state = createMemo(() => viewer[props.serverId]);
   const tabs = createMemo(() => state()?.tabs ?? []);
   const activePath = createMemo(() => state()?.activePath ?? null);
@@ -409,14 +412,14 @@ const FileViewer: Component<FileViewerProps> = (props) => {
             data-testid="viewer-empty"
             class="flex flex-1 flex-col items-center justify-center gap-1 p-4"
           >
-            <p class="text-sm text-fg-secondary">No file open</p>
-            <p class="text-xs text-fg-faint">Open a file from the Files panel.</p>
+            <p class="text-sm text-fg-secondary">{t("files:noFileOpen")}</p>
+            <p class="text-xs text-fg-faint">{t("files:noFileOpenHint")}</p>
           </div>
         }
       >
         <div
           role="tablist"
-          aria-label="Open files"
+          aria-label={t("files:openFiles")}
           class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
         >
           <Show when={!fullscreen}>
@@ -445,7 +448,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
                     <button
                       type="button"
                       data-testid={`viewer-tab-close-${tab.path}`}
-                      aria-label={`Close ${tab.name}`}
+                      aria-label={t("files:closeTab", { name: tab.name })}
                       class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
                       onClick={() => handleCloseTab(props.serverId, tab.path)}
                     >
@@ -480,7 +483,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
             <button
               type="button"
               data-testid="viewer-zoom-toggle"
-              aria-label="Toggle code zoom"
+              aria-label={t("files:toggleCodeZoom")}
               class="ml-auto shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none active:bg-accent-soft"
               onClick={() => setZoomed((value) => !value)}
             >

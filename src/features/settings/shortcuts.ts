@@ -114,6 +114,13 @@ export function shortcutById(id: string): Shortcut | undefined {
   return DEFAULT_SHORTCUTS.find((shortcut) => shortcut.id === id);
 }
 
+/** i18n resource key for a shortcut's display label (TASK-M9-02): the
+ *  registry stores stable ids; the translatable copy lives in the i18n
+ *  resources under settings:shortcut<Id> and renders through t(). */
+export function shortcutLabelKey(id: string): string {
+  return `settings:shortcut${id[0].toUpperCase()}${id.slice(1)}`;
+}
+
 /** Modifier tokens accepted by parseCombo (case-insensitive). */
 const MODIFIER_TOKENS: Record<string, "ctrl" | "meta" | "shift" | "alt"> = {
   cmd: "ctrl",

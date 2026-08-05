@@ -11,6 +11,7 @@ import type { Component, JSX } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { resolveToolCard } from "./tools/registry.js";
 import { durationLabel, InputDisclosure, StatusIcon, ToolIcon } from "./tools/shared.js";
+import { useT } from "../../../i18n/index.js";
 import type { ToolCard } from "./tools/shared.js";
 
 export type ToolPartData = Extract<Part, { type: "tool" }>;
@@ -20,11 +21,11 @@ export interface ToolPartProps {
   part: ToolPartData;
 }
 
-const statusLabel: Record<ToolStatus, string> = {
-  pending: "Waiting…",
-  running: "Running…",
-  completed: "Completed",
-  error: "Failed",
+const statusLabelKey: Record<ToolStatus, string> = {
+  pending: "messages:statusWaiting",
+  running: "messages:statusRunning",
+  completed: "messages:statusCompleted",
+  error: "messages:statusFailed",
 };
 
 const ELAPSED_TICK_MS = 250;
@@ -44,6 +45,7 @@ function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
 }
 
 const ToolPart: Component<ToolPartProps> = (props) => {
+  const t = useT();
   const [expanded, setExpanded] = createSignal(false);
   const status = () => props.part.state.status;
 
@@ -90,7 +92,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
           </span>
         </Show>
         <span data-testid="tool-status-label" class="ml-auto shrink-0 text-fg-faint">
-          {statusLabel[status()]}
+          {t(statusLabelKey[status()])}
         </span>
         <Show when={status() === "running"}>
           <span data-testid="tool-shimmer" class="tool-shimmer" aria-hidden />

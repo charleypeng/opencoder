@@ -10,11 +10,13 @@ import { openTab } from "../../stores/viewer.js";
 import { push } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import type { MobilePageProps } from "./pages.js";
+import { useT } from "../../i18n/index.js";
 
 export const FilesPage: Component<MobilePageProps> = (props) => {
+  const t = useT();
   return (
     <div class="flex h-full flex-col" data-testid="mobile-page-files-root">
-      <PageHeader title="Files" onBack={props.onExit} backLabel="Servers" />
+      <PageHeader title={t("mobile:files")} onBack={props.onExit} backLabel={t("mobile:servers")} />
       <div class="min-h-0 flex-1">
         <FileTree
           serverId={props.serverId}

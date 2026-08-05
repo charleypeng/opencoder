@@ -4,8 +4,10 @@
 import { Show } from "solid-js";
 import { inputString, outputLines } from "./shared.js";
 import type { ToolCard } from "./shared.js";
+import { useT } from "../../../../i18n/index.js";
 
 const GlobCard: ToolCard = (props) => {
+  const t = useT();
   const pattern = () => inputString(props.part.state.input, ["pattern", "glob"]);
   const files = () => outputLines(props.part);
 
@@ -14,7 +16,7 @@ const GlobCard: ToolCard = (props) => {
       <div class="flex items-center justify-between gap-2">
         <span class="truncate font-code text-xs text-fg-secondary">{pattern() ?? "Glob"}</span>
         <span class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent">
-          {files().length} file{files().length === 1 ? "" : "s"}
+          {t("messages:filesCount", { count: files().length })}
         </span>
       </div>
       <Show when={files().length > 0}>

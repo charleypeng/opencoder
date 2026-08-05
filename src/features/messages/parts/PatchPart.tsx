@@ -8,6 +8,7 @@
 import { createMemo, For } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type PatchPartData = Extract<Part, { type: "patch" }>;
 
@@ -18,6 +19,7 @@ export interface PatchPartProps {
 }
 
 const PatchPart: Component<PatchPartProps> = (props) => {
+  const t = useT();
   const shortHash = createMemo(() => props.part.hash.slice(0, 7));
 
   return (
@@ -38,7 +40,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
         >
           <path d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5" />
         </svg>
-        <span class="font-code font-medium text-fg-primary">Patch</span>
+        <span class="font-code font-medium text-fg-primary">{t("messages:patch")}</span>
         <span
           data-testid="patch-hash"
           class="rounded-sm bg-bg-elevated px-1 py-0.5 font-code text-[10px] text-fg-faint"
@@ -46,7 +48,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
           {shortHash()}
         </span>
         <span data-testid="patch-count" class="ml-auto shrink-0 text-fg-faint">
-          {props.part.files.length} {props.part.files.length === 1 ? "file" : "files"}
+          {t("messages:filesCount", { count: props.part.files.length })}
         </span>
       </div>
       <ul class="border-t border-bg-sunken">

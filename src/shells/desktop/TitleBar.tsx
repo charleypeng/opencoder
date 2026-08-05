@@ -19,8 +19,10 @@ import { isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { platform } from "../../platform/index.js";
 import { hidePet, isPetVisible, showPet } from "../../services/pet.js";
+import { useT } from "../../i18n/index.js";
 
 const TitleBar: Component = () => {
+  const t = useT();
   const tauri = isTauri();
   const mac = platform.kind === "desktop" && platform.os === "macos";
   const [maximized, setMaximized] = createSignal(false);
@@ -108,8 +110,8 @@ const TitleBar: Component = () => {
         type="button"
         data-testid="titlebar-pet"
         aria-pressed={petVisible() ? "true" : "false"}
-        aria-label={petVisible() ? "Hide the pet" : "Show the pet"}
-        title={petVisible() ? "Hide the pet" : "Show the pet"}
+        aria-label={petVisible() ? t("desktop:hideThePet") : t("desktop:showThePet")}
+        title={petVisible() ? t("desktop:hideThePet") : t("desktop:showThePet")}
         class={`mr-2 flex h-6 w-6 items-center justify-center rounded-md outline-none transition-colors hover:bg-bg-sunken ${
           petVisible() ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
         }`}
@@ -136,8 +138,8 @@ const TitleBar: Component = () => {
           <button
             type="button"
             data-testid="titlebar-minimize"
-            aria-label="Minimize"
-            title="Minimize"
+            aria-label={t("desktop:minimize")}
+            title={t("desktop:minimize")}
             class="flex w-[46px] items-center justify-center text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
             onClick={() => void windowApi?.minimize()}
           >
@@ -156,8 +158,8 @@ const TitleBar: Component = () => {
           <button
             type="button"
             data-testid="titlebar-maximize"
-            aria-label={maximized() ? "Restore" : "Maximize"}
-            title={maximized() ? "Restore" : "Maximize"}
+            aria-label={maximized() ? t("desktop:restore") : t("desktop:maximize")}
+            title={maximized() ? t("desktop:restore") : t("desktop:maximize")}
             class="flex w-[46px] items-center justify-center text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
             onClick={() => void handleToggleMaximize()}
           >
@@ -196,8 +198,8 @@ const TitleBar: Component = () => {
           <button
             type="button"
             data-testid="titlebar-close"
-            aria-label="Close"
-            title="Close"
+            aria-label={t("common:close")}
+            title={t("common:close")}
             class="flex w-[46px] items-center justify-center text-fg-secondary outline-none transition-colors hover:bg-danger hover:text-white"
             onClick={() => void windowApi?.close()}
           >

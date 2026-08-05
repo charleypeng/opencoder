@@ -19,6 +19,7 @@ import { ApiError } from "../../services/errors.js";
 import { createFindService, type FindMatch } from "../../services/find.js";
 import { openTab, setActiveLine } from "../../stores/viewer.js";
 import { groupByFile, highlightSpans, type Span } from "./searchResults.js";
+import { useT } from "../../i18n/index.js";
 
 export interface SearchPanelProps {
   /** The server whose workspace is searched. */
@@ -89,6 +90,7 @@ function HighlightedLine(props: { text: string; spans: Span[] }) {
 }
 
 const SearchPanel: Component<SearchPanelProps> = (props) => {
+  const t = useT();
   const [query, setQuery] = createSignal("");
   const [regexMode, setRegexMode] = createSignal(false);
   const [results, setResults] = createSignal<FindMatch[]>([]);
@@ -222,8 +224,8 @@ const SearchPanel: Component<SearchPanelProps> = (props) => {
           data-testid="search-input"
           type="text"
           value={query()}
-          placeholder="Search workspace…"
-          aria-label="Search workspace"
+          placeholder={t("files:searchWorkspace")}
+          aria-label={t("files:searchWorkspace")}
           autocomplete="off"
           spellcheck={false}
           onInput={onInput}
@@ -234,8 +236,8 @@ const SearchPanel: Component<SearchPanelProps> = (props) => {
           type="button"
           data-testid="search-regex-toggle"
           aria-pressed={regexMode() ? "true" : "false"}
-          aria-label="Use regular expression"
-          title="Regular expression"
+          aria-label={t("files:useRegex")}
+          title={t("files:regexHint")}
           onClick={toggleRegex}
           class={`shrink-0 rounded-md border px-2 py-0.5 font-code text-xs outline-none transition-colors ${
             regexMode()
@@ -304,31 +306,31 @@ const SearchPanel: Component<SearchPanelProps> = (props) => {
                         }
                       >
                         <p data-testid="search-empty" class="px-4 py-3 text-xs text-fg-faint">
-                          No matches
+                          {t("common:noMatches")}
                         </p>
                       </Show>
                     }
                   >
                     <p data-testid="search-loading" class="px-4 py-3 text-xs text-fg-faint">
-                      Searching…
+                      {t("files:searching")}
                     </p>
                   </Show>
                 }
               >
                 <p data-testid="search-error" class="px-4 py-3 text-xs text-danger">
-                  Search failed — {error()}
+                  {t("files:searchFailed")} — {error()}
                 </p>
               </Show>
             }
           >
             <p data-testid="search-regex-error" class="px-4 py-3 text-xs text-warning">
-              Invalid regular expression — {regexError()}
+              {t("files:invalidRegex")} — {regexError()}
             </p>
           </Show>
         }
       >
         <p data-testid="search-idle" class="px-4 py-3 text-xs text-fg-faint">
-          Search the workspace for text across files.
+          {t("files:searchIdleHint")}
         </p>
       </Show>
     </div>

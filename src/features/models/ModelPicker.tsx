@@ -29,6 +29,7 @@ import {
   setModelForSession,
   setProviders,
 } from "../../stores/models.js";
+import { useT } from "../../i18n/index.js";
 import {
   capabilityBadges,
   formatContextLimit,
@@ -192,6 +193,7 @@ interface ModelPickerContentProps {
 /** The picker body — the search box, the grouped model list and the Close
  *  button — shared by the desktop dialog and the mobile bottom sheet. */
 function ModelPickerContent(props: ModelPickerContentProps) {
+  const t = useT();
   const [search, setSearch] = createSignal("");
   const [favorites, setFavorites] = createSignal<string[]>(loadFavorites());
 
@@ -253,8 +255,8 @@ function ModelPickerContent(props: ModelPickerContentProps) {
         data-testid="model-picker-search"
         type="text"
         value={search()}
-        placeholder="Search models…"
-        aria-label="Search models"
+        placeholder={t("models:search")}
+        aria-label={t("models:search")}
         onInput={(event) => setSearch(event.currentTarget.value)}
         class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-fg-faint"
       />
@@ -268,15 +270,15 @@ function ModelPickerContent(props: ModelPickerContentProps) {
               class="px-1 py-3 text-center text-xs text-fg-faint"
             >
               {getServerModelState(props.serverId).loaded
-                ? "No matching models"
-                : "Models unavailable"}
+                ? t("models:noMatchingModels")
+                : t("models:modelsUnavailable")}
             </div>
           }
         >
           <Show when={favoriteRows().length > 0}>
             <div data-testid="model-favorites-section">
               <h3 class="px-2 pb-1 pt-1 text-[10px] font-semibold uppercase tracking-wide text-fg-faint">
-                Favorites
+                {t("models:favorites")}
               </h3>
               <For each={favoriteRows()}>
                 {({ provider, model }) => (
@@ -310,7 +312,7 @@ function ModelPickerContent(props: ModelPickerContentProps) {
                       data-testid="model-not-connected"
                       class="rounded border border-bg-sunken bg-bg-elevated px-1 py-px text-[10px] normal-case tracking-normal text-fg-secondary"
                     >
-                      Not connected
+                      {t("models:notConnected")}
                     </span>
                   </Show>
                 </h3>
@@ -340,7 +342,7 @@ function ModelPickerContent(props: ModelPickerContentProps) {
           class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary hover:text-fg-primary"
           onClick={() => props.onClose()}
         >
-          Close
+          {t("common:close")}
         </button>
       </div>
     </>
@@ -348,6 +350,7 @@ function ModelPickerContent(props: ModelPickerContentProps) {
 }
 
 const ModelPicker: Component<ModelPickerProps> = (props) => {
+  const t = useT();
   // Catalog fetch: in-flight guarded; reused across opens via the store's
   // loaded flag (PromptBox also pre-fetches on mount). A failed fetch
   // keeps loaded=false so the next open retries.
@@ -405,7 +408,7 @@ const ModelPicker: Component<ModelPickerProps> = (props) => {
           open={props.open}
           onClose={close}
           snap="high"
-          title="Select model"
+          title={t("models:selectModel")}
           testId="model-picker"
           dismissible
         >
@@ -424,9 +427,9 @@ const ModelPicker: Component<ModelPickerProps> = (props) => {
               data-testid="model-picker"
               class="glass fixed left-1/2 top-1/2 z-50 flex max-h-[75vh] w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col p-5"
             >
-              <Dialog.Title class="text-md font-semibold">Select model</Dialog.Title>
+              <Dialog.Title class="text-md font-semibold">{t("models:selectModel")}</Dialog.Title>
               <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-                The choice is kept for this session.
+                {t("models:choiceHint")}
               </Dialog.Description>
               <div class="mt-4 flex min-h-0 flex-1 flex-col">
                 <ModelPickerContent

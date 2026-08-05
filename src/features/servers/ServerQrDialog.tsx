@@ -9,6 +9,7 @@ import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import QRCode from "qrcode";
 import type { ServerEntry } from "../../services/servers";
+import { useT } from "../../i18n";
 import { encodeConnectUrl } from "./qrConnect";
 
 export interface ServerQrDialogProps {
@@ -48,6 +49,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
+  const t = useT();
   const connectUrl = () => encodeConnectUrl({ url: props.server.url, name: props.server.name });
 
   const [qrSrc, setQrSrc] = createSignal<string | null>(null);
@@ -86,7 +88,7 @@ const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
           data-testid="server-qr-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Share this server</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">{t("servers:shareServer")}</Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
             {props.server.name} · {props.server.url}
           </Dialog.Description>
@@ -97,7 +99,7 @@ const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
                 data-testid="server-qr-connect-url"
                 readOnly
                 value={connectUrl()}
-                aria-label="Connect URL"
+                aria-label={t("servers:connectUrl")}
                 class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-xs text-fg-primary outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               />
               <button
@@ -106,7 +108,7 @@ const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
                 class={actionClass}
                 onClick={handleCopy}
               >
-                {copied() ? "Copied" : "Copy"}
+                {copied() ? t("common:copied") : t("common:copy")}
               </button>
             </div>
             <div class="flex justify-center">
@@ -114,25 +116,22 @@ const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
                 when={qrSrc()}
                 fallback={
                   <p data-testid="server-qr-missing" class="text-xs text-fg-faint">
-                    QR code unavailable
+                    {t("servers:qrUnavailable")}
                   </p>
                 }
               >
                 <img
                   data-testid="server-qr-img"
                   src={qrSrc()!}
-                  alt="QR code for connecting to this server"
+                  alt={t("servers:qrAlt")}
                   class="h-40 w-40"
                 />
               </Show>
             </div>
-            <p class="text-xs text-fg-faint">
-              The QR code contains only the URL and name — never credentials. Scan it in the
-              OpenCode mobile app to add this server.
-            </p>
+            <p class="text-xs text-fg-faint">{t("servers:qrHint")}</p>
             <div class="flex justify-end gap-3 pt-1">
               <Dialog.CloseButton data-testid="server-qr-close" class={actionClass}>
-                Close
+                {t("common:close")}
               </Dialog.CloseButton>
             </div>
           </div>

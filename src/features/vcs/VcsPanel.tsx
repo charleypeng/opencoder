@@ -15,7 +15,8 @@ import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { getApiClient } from "../../services/client.js";
-import { ApiError, errorDetail } from "../../services/errors.js";
+import { ApiError, errorDetailMessage } from "../../services/errors.js";
+import { useT } from "../../i18n/index.js";
 import { createVcsService, type VcsFileStatus, type VcsInfo } from "../../services/vcs.js";
 import { applyStatus, applyVcs, refresh, vcs } from "../../stores/vcs.js";
 import WorkspaceDiff from "./WorkspaceDiff.js";
@@ -37,13 +38,14 @@ const statusChipClass: Record<string, string> = {
   modified: "bg-accent-soft text-accent",
 };
 
-const statusTitle: Record<string, string> = {
-  added: "Added",
-  deleted: "Deleted",
-  modified: "Modified",
+const statusTitleKey: Record<string, string> = {
+  added: "vcs:statusAdded",
+  deleted: "vcs:statusDeleted",
+  modified: "vcs:statusModified",
 };
 
 function ChangeRow(props: { change: VcsFileStatus }) {
+  const t = useT();
   return (
     <div
       data-testid="vcs-change"
@@ -52,7 +54,7 @@ function ChangeRow(props: { change: VcsFileStatus }) {
     >
       <span
         data-testid="vcs-change-chip"
-        title={statusTitle[props.change.status]}
+        title={t(statusTitleKey[props.change.status])}
         class={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${
           statusChipClass[props.change.status] ?? "bg-bg-sunken text-fg-faint"
         }`}
@@ -77,6 +79,7 @@ function ChangeRow(props: { change: VcsFileStatus }) {
 }
 
 const VcsPanel: Component<VcsPanelProps> = (props) => {
+  const t = useT();
   const state = createMemo(() => vcs[props.serverId]);
   const [subView, setSubView] = createSignal<"changes" | "diff">("changes");
   const [error, setError] = createSignal<ApiError | null>(null);
@@ -144,9 +147,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
     try {
       const result = await createVcsService(getApiClient()).apply(patchText());
       if (!result.applied) {
-        setApplyError(
-          new ApiError(undefined, "vcs_apply", "The server rejected the patch.", false),
-        );
+        setApplyError(new ApiError(undefined, "vcs_apply", t("vcs:serverRejectedPatch"), false));
         return;
       }
       setPatchText("");
@@ -174,7 +175,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               <Show when={isGit()}>
                 <span
                   data-testid="vcs-branch"
-                  title="Current branch"
+                  title={t("vcs:currentBranch")}
                   class="shrink-0 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 font-code text-xs text-fg-primary"
                 >
                   {state()?.branch ?? ""}
@@ -182,9 +183,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               </Show>
               <Show when={isGit()}>
                 <span data-testid="vcs-count" class="shrink-0 text-xs text-fg-secondary">
-                  {(state()?.changes.length ?? 0) === 1
-                    ? "1 change"
-                    : `${state()?.changes.length ?? 0} changes`}
+                  {t("vcs:changesCount", { count: state()?.changes.length ?? 0 })}
                 </span>
               </Show>
               <div class="min-w-0 flex-1" />
@@ -195,7 +194,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                   class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                   onClick={() => setSubView("diff")}
                 >
-                  Workspace diff
+                  {t("vcs:workspaceDiff")}
                 </button>
                 <button
                   type="button"
@@ -203,7 +202,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                   class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                   onClick={onRefresh}
                 >
-                  Refresh
+                  {t("common:refresh")}
                 </button>
               </Show>
             </header>
@@ -211,7 +210,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
             <div class="min-h-0 flex-1 overflow-y-auto">
               <Show when={state() === undefined && error() === null}>
                 <p data-testid="vcs-loading" class="px-3 py-4 text-sm text-fg-secondary">
-                  Loading version control state…
+                  {t("vcs:loadingState")}
                 </p>
               </Show>
               <Show when={error()}>
@@ -223,16 +222,14 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                     class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                     onClick={retry}
                   >
-                    Retry
+                    {t("common:retry")}
                   </button>
                 </div>
               </Show>
               <Show when={state() !== undefined && state()?.branch === null && error() === null}>
                 <div data-testid="vcs-non-git" class="px-3 py-8 text-center">
-                  <p class="text-sm text-fg-secondary">Not a git repository</p>
-                  <p class="mt-1 text-xs text-fg-faint">
-                    Version control features are unavailable for this workspace.
-                  </p>
+                  <p class="text-sm text-fg-secondary">{t("vcs:notGit")}</p>
+                  <p class="mt-1 text-xs text-fg-faint">{t("vcs:notGitHint")}</p>
                 </div>
               </Show>
               <Show when={isGit() && error() === null}>
@@ -240,8 +237,8 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                   when={!clean()}
                   fallback={
                     <div data-testid="vcs-changes-empty" class="px-3 py-8 text-center">
-                      <p class="text-sm text-fg-secondary">Working tree clean</p>
-                      <p class="mt-1 text-xs text-fg-faint">No changes to show.</p>
+                      <p class="text-sm text-fg-secondary">{t("vcs:workingTreeClean")}</p>
+                      <p class="mt-1 text-xs text-fg-faint">{t("vcs:noChangesHint")}</p>
                     </div>
                   }
                 >
@@ -260,12 +257,12 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                 data-testid="vcs-apply"
                 class="shrink-0 space-y-2 border-t border-bg-sunken p-3"
               >
-                <h3 class="text-xs font-semibold text-fg-secondary">Apply patch</h3>
+                <h3 class="text-xs font-semibold text-fg-secondary">{t("vcs:applyPatch")}</h3>
                 <textarea
                   data-testid="vcs-apply-input"
                   rows={4}
                   spellcheck={false}
-                  placeholder="Paste a unified diff (git apply)…"
+                  placeholder={t("vcs:applyPatchHint")}
                   class="w-full resize-y rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-xs text-fg-primary outline-none placeholder:text-fg-faint focus:border-accent"
                   value={patchText()}
                   onInput={(event) => {
@@ -281,11 +278,11 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                     class="rounded-md bg-accent px-3 py-1 text-xs font-medium text-bg-base outline-none transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                     onClick={() => setConfirmOpen(true)}
                   >
-                    {applying() ? "Applying…" : "Apply"}
+                    {applying() ? t("vcs:applying") : t("vcs:apply")}
                   </button>
                   <Show when={applyDone()}>
                     <span data-testid="vcs-apply-success" class="text-xs text-success">
-                      Patch applied — status refreshed.
+                      {t("vcs:patchApplied")}
                     </span>
                   </Show>
                   <Show when={applyError()}>
@@ -294,7 +291,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                       role="alert"
                       class="min-w-0 flex-1 text-xs text-danger"
                     >
-                      {errorDetail(applyError() as ApiError)}
+                      {errorDetailMessage(applyError() as ApiError)}
                     </span>
                   </Show>
                 </div>
@@ -311,9 +308,9 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
             class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={() => setSubView("changes")}
           >
-            ← Changes
+            ← {t("vcs:changes")}
           </button>
-          <h3 class="shrink-0 text-sm font-semibold">Workspace diff</h3>
+          <h3 class="shrink-0 text-sm font-semibold">{t("vcs:workspaceDiff")}</h3>
         </div>
         <WorkspaceDiff serverId={props.serverId} />
       </Show>
@@ -329,13 +326,11 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
           data-testid="vcs-apply-confirm"
           role="dialog"
           aria-modal="true"
-          aria-label="Confirm applying the patch"
+          aria-label={t("vcs:confirmApplying")}
           class="glass fixed left-1/2 top-1/2 z-50 w-80 -translate-x-1/2 -translate-y-1/2 rounded-lg p-4"
         >
-          <h3 class="text-sm font-semibold">Apply this patch?</h3>
-          <p class="mt-1 text-xs text-fg-secondary">
-            The patch will modify files in the working tree.
-          </p>
+          <h3 class="text-sm font-semibold">{t("vcs:applyThisPatch")}</h3>
+          <p class="mt-1 text-xs text-fg-secondary">{t("vcs:applyThisPatchHint")}</p>
           <div class="mt-3 flex justify-end gap-2">
             <button
               type="button"
@@ -343,7 +338,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
               onClick={closeConfirm}
             >
-              Cancel
+              {t("common:cancel")}
             </button>
             <button
               type="button"
@@ -352,7 +347,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               class="rounded-md bg-accent px-3 py-1 text-xs font-medium text-bg-base outline-none hover:opacity-90 disabled:opacity-40"
               onClick={() => void runApply()}
             >
-              Apply
+              {t("vcs:apply")}
             </button>
           </div>
         </div>

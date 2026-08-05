@@ -10,6 +10,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 import { AgentChip } from "./AgentPart.js";
 
 export type SubtaskPartData = Extract<Part, { type: "subtask" }>;
@@ -23,6 +24,7 @@ export interface SubtaskPartProps {
 }
 
 const SubtaskPart: Component<SubtaskPartProps> = (props) => {
+  const t = useT();
   const [expanded, setExpanded] = createSignal(false);
   const modelLabel = createMemo(() => {
     const model = props.part.model;
@@ -83,7 +85,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
             <dl class="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-fg-faint">
               <Show when={modelLabel() !== undefined}>
                 <div>
-                  <dt class="inline">Model</dt>{" "}
+                  <dt class="inline">{t("messages:model")}</dt>{" "}
                   <dd data-testid="subtask-model" class="inline font-code text-fg-secondary">
                     {modelLabel()}
                   </dd>
@@ -91,7 +93,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
               </Show>
               <Show when={props.part.command !== undefined}>
                 <div>
-                  <dt class="inline">Command</dt>{" "}
+                  <dt class="inline">{t("messages:command")}</dt>{" "}
                   <dd data-testid="subtask-command" class="inline font-code text-fg-secondary">
                     {props.part.command}
                   </dd>
@@ -106,7 +108,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
               class="mt-1.5 w-full rounded-md border border-accent bg-accent-soft px-2 py-1 text-left text-xs font-medium text-accent outline-none hover:bg-accent/15 focus:bg-accent/15"
               onClick={() => props.onOpenChild?.()}
             >
-              Open child session
+              {t("messages:openChildSession")}
             </button>
           </Show>
         </div>

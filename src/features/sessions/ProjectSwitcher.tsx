@@ -12,6 +12,7 @@ import { getApiClient } from "../../services/client";
 import { createProjectService, type Project } from "../../services/project";
 import { applyProjects, getServerProjectState, setCurrent } from "../../stores/project";
 import { pushRecentProject, readRecentProjects } from "./recentProjects";
+import { useT } from "../../i18n";
 
 export interface ProjectSwitcherProps {
   /** The server whose projects are shown. */
@@ -22,11 +23,15 @@ function basename(path: string): string {
   return path.split("/").filter(Boolean).pop() ?? path;
 }
 
-function projectLabel(project: Project | null, directory: string | null): string {
+function projectLabel(
+  project: Project | null,
+  directory: string | null,
+  selectLabel: string,
+): string {
   if (project?.name) return project.name;
   if (project) return basename(project.worktree);
   if (directory) return basename(directory);
-  return "Select project";
+  return selectLabel;
 }
 
 const itemClass =
@@ -36,6 +41,8 @@ const itemClass =
 const sectionClass = "px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-fg-faint";
 
 const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
+  const t = useT();
+  const selectLabel = () => t("sessions:selectProject");
   const state = createMemo(() => getServerProjectState(props.serverId));
   const currentDirectory = createMemo(() => state().current);
   const currentProject = createMemo(() => {
@@ -85,16 +92,16 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
           as="button"
           type="button"
           data-testid="project-switcher-trigger"
-          aria-label="Switch project"
+          aria-label={t("sessions:switchProject")}
           class="flex w-full items-center justify-between gap-2 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 text-left outline-none hover:border-fg-faint focus:border-fg-faint"
         >
           <span class="flex min-w-0 flex-col">
             <Show
               when={currentDirectory() !== null}
-              fallback={<span class="text-sm text-fg-secondary">Select project</span>}
+              fallback={<span class="text-sm text-fg-secondary">{selectLabel()}</span>}
             >
               <span class="truncate text-sm font-medium">
-                {projectLabel(currentProject(), currentDirectory())}
+                {projectLabel(currentProject(), currentDirectory(), selectLabel())}
               </span>
               <span class="truncate font-code text-xs text-fg-secondary">{currentDirectory()}</span>
             </Show>
@@ -107,7 +114,7 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
           <DropdownMenu.Content class="glass z-50 max-h-80 min-w-56 overflow-y-auto p-1">
             <Show when={recent().length > 0}>
               <div data-testid="project-switcher-recent" class={sectionClass}>
-                Recent
+                {t("sessions:recentProjects")}
               </div>
               <For each={recent()}>
                 {(dir) => {
@@ -120,7 +127,9 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
                       class={itemClass}
                       onSelect={() => select(dir, currentDirectory())}
                     >
-                      <span class="truncate text-sm">{projectLabel(project(), dir)}</span>
+                      <span class="truncate text-sm">
+                        {projectLabel(project(), dir, selectLabel())}
+                      </span>
                       <span class="truncate font-code text-xs text-fg-secondary">{dir}</span>
                     </DropdownMenu.Item>
                   );
@@ -135,16 +144,14 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
               fallback={
                 <Show when={loaded()}>
                   <div data-testid="project-switcher-empty" class="px-3 py-4 text-center">
-                    <p class="text-sm text-fg-secondary">No projects found</p>
-                    <p class="mt-1 text-xs text-fg-faint">
-                      Projects opened with the OpenCode CLI appear here.
-                    </p>
+                    <p class="text-sm text-fg-secondary">{t("sessions:noProjects")}</p>
+                    <p class="mt-1 text-xs text-fg-faint">{t("sessions:noProjectsHint")}</p>
                   </div>
                 </Show>
               }
             >
               <div data-testid="project-switcher-all" class={sectionClass}>
-                All projects
+                {t("sessions:allProjects")}
               </div>
               <For each={state().projects}>
                 {(project) => {

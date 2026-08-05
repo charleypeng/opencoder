@@ -20,8 +20,10 @@ import {
 } from "../../services/tray.js";
 import { getPetIgnoreMouse, setPetIgnoreMouse } from "../../services/pet.js";
 import { loadDesktopPrefs, petEnabled, saveDesktopPrefs, setPetEnabled } from "./desktopPrefs.js";
+import { useT } from "../../i18n/index.js";
 
 const DesktopSection: Component = () => {
+  const t = useT();
   const [closeToTray, setCloseToTrayState] = createSignal(false);
   const [toggleBusy, setToggleBusy] = createSignal(false);
   const [shortcutDraft, setShortcutDraft] = createSignal("");
@@ -39,13 +41,13 @@ const DesktopSection: Component = () => {
     setLoaded(true);
     void getCloseToTray()
       .then(setCloseToTrayState)
-      .catch(() => setError("Could not read the close-to-tray setting"));
+      .catch(() => setError(t("settings:closeToTrayReadError")));
     void getGlobalShortcut()
       .then(setShortcutDraft)
-      .catch(() => setError("Could not read the global summon shortcut"));
+      .catch(() => setError(t("settings:summonReadError")));
     void getPetIgnoreMouse()
       .then(setPetClickThrough)
-      .catch(() => setError("Could not read the pet click-through setting"));
+      .catch(() => setError(t("settings:clickThroughReadError")));
   });
 
   /** Toggles close-to-tray; on success the switch flips and the pref is
@@ -121,23 +123,21 @@ const DesktopSection: Component = () => {
   return (
     <div data-testid="desktop-section" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 border-b border-bg-sunken px-4 py-3">
-        <h2 class="text-sm font-semibold">Desktop</h2>
-        <p class="text-xs text-fg-secondary">System tray and global summon settings.</p>
+        <h2 class="text-sm font-semibold">{t("settings:desktop")}</h2>
+        <p class="text-xs text-fg-secondary">{t("settings:desktopHint")}</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
-            <p class="text-xs font-medium">Show pet</p>
-            <p class="mt-0.5 text-xs text-fg-secondary">
-              The pet companion window on your desktop (on by default).
-            </p>
+            <p class="text-xs font-medium">{t("settings:showPet")}</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:showPetHint")}</p>
           </div>
           <button
             type="button"
             role="switch"
             data-testid="desktop-show-pet"
             aria-checked={showPet() ? "true" : "false"}
-            aria-label="Show pet"
+            aria-label={t("settings:showPet")}
             disabled={petBusy()}
             onClick={() => void togglePet()}
             class={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors disabled:opacity-50 ${
@@ -153,18 +153,15 @@ const DesktopSection: Component = () => {
         </div>
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
-            <p class="text-xs font-medium">Pet click-through</p>
-            <p class="mt-0.5 text-xs text-fg-secondary">
-              Lets clicks pass through the pet window; turn it off here to use the pet's controls
-              again.
-            </p>
+            <p class="text-xs font-medium">{t("settings:petClickThrough")}</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:petClickThroughHint")}</p>
           </div>
           <button
             type="button"
             role="switch"
             data-testid="desktop-pet-click-through"
             aria-checked={petClickThrough() ? "true" : "false"}
-            aria-label="Pet click-through"
+            aria-label={t("settings:petClickThrough")}
             disabled={petClickThroughBusy()}
             onClick={() => void togglePetClickThrough()}
             class={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors disabled:opacity-50 ${
@@ -180,17 +177,15 @@ const DesktopSection: Component = () => {
         </div>
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
-            <p class="text-xs font-medium">Close to tray</p>
-            <p class="mt-0.5 text-xs text-fg-secondary">
-              Closing the window hides it to the tray instead of quitting.
-            </p>
+            <p class="text-xs font-medium">{t("settings:closeToTray")}</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:closeToTrayHint")}</p>
           </div>
           <button
             type="button"
             role="switch"
             data-testid="desktop-close-to-tray"
             aria-checked={closeToTray() ? "true" : "false"}
-            aria-label="Close to tray"
+            aria-label={t("settings:closeToTray")}
             disabled={toggleBusy()}
             onClick={() => void toggleCloseToTray()}
             class={`relative h-6 w-11 shrink-0 rounded-full outline-none transition-colors disabled:opacity-50 ${
@@ -205,17 +200,15 @@ const DesktopSection: Component = () => {
           </button>
         </div>
         <div class="py-3">
-          <p class="text-xs font-medium">Global summon shortcut</p>
-          <p class="mt-0.5 text-xs text-fg-secondary">
-            Brings the app to the front from anywhere (e.g. Alt+Space, Ctrl+Shift+O).
-          </p>
+          <p class="text-xs font-medium">{t("settings:globalSummon")}</p>
+          <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:summonHintFull")}</p>
           <div class="mt-2 flex items-center gap-2">
             <input
               data-testid="desktop-shortcut-input"
               type="text"
               value={shortcutDraft()}
               placeholder="Alt+Space"
-              aria-label="Global summon shortcut"
+              aria-label={t("settings:globalSummon")}
               spellcheck={false}
               onInput={(event) => {
                 setShortcutDraft(event.currentTarget.value);
@@ -230,7 +223,7 @@ const DesktopSection: Component = () => {
               onClick={() => void saveShortcut()}
               class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {saving() ? "Saving…" : "Save"}
+              {saving() ? t("common:saving") : t("common:save")}
             </button>
           </div>
         </div>

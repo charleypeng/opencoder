@@ -16,6 +16,7 @@ import { createPtyService, type PtyShell } from "../../services/pty.js";
 import { getServerPtyState, removePty, upsertPty } from "../../stores/ptys.js";
 import TerminalInstance, { type TerminalInstanceApi } from "./TerminalInstance.js";
 import TerminalKeyStrip from "./TerminalKeyStrip.js";
+import { useT } from "../../i18n/index.js";
 
 export interface TerminalPanelProps {
   /** The server whose terminals are shown. */
@@ -27,6 +28,7 @@ export interface TerminalPanelProps {
 }
 
 const TerminalPanel: Component<TerminalPanelProps> = (props) => {
+  const t = useT();
   const isMobile = () => props.variant === "mobile";
   const ptyService = createPtyService(getApiClient());
   // Reactive per-server bucket: tab order + entries track the store
@@ -106,7 +108,7 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
     <div data-testid="terminal-panel" class="relative flex h-full min-h-0 flex-col">
       <div
         role="tablist"
-        aria-label="Terminals"
+        aria-label={t("terminal:terminals")}
         class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
       >
         <For each={state().order}>
@@ -136,7 +138,7 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
                 <button
                   type="button"
                   data-testid={`terminal-tab-close-${ptyId}`}
-                  aria-label={`Close ${title()}`}
+                  aria-label={t("terminal:closeTab", { name: title() })}
                   class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
                   onClick={() => closeTab(ptyId)}
                 >
@@ -149,8 +151,8 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
         <button
           type="button"
           data-testid="terminal-new"
-          aria-label="New terminal"
-          title="New terminal"
+          aria-label={t("terminal:newTerminal")}
+          title={t("terminal:newTerminal")}
           class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
           onClick={togglePicker}
         >
@@ -165,8 +167,8 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
             data-testid="terminal-empty"
             class="flex flex-1 flex-col items-center justify-center gap-1 p-4"
           >
-            <p class="text-sm text-fg-secondary">No terminal open</p>
-            <p class="text-xs text-fg-faint">Press + to start a shell.</p>
+            <p class="text-sm text-fg-secondary">{t("terminal:noTerminal")}</p>
+            <p class="text-xs text-fg-faint">{t("terminal:noTerminalHint")}</p>
           </div>
         }
       >
@@ -221,7 +223,7 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
             class="block w-full truncate rounded px-2 py-1.5 text-left text-xs text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
             onClick={() => void createTerminal()}
           >
-            Default shell
+            {t("terminal:defaultShell")}
           </button>
           <Show
             when={shells() !== null}
@@ -229,7 +231,7 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
               shellsError() ? (
                 <div class="px-2 py-1.5">
                   <p data-testid="terminal-shells-error" class="text-xs text-fg-secondary">
-                    Unable to load shells.
+                    {t("terminal:loadShellsFailed")}
                   </p>
                   <button
                     type="button"
@@ -243,12 +245,12 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
                         .catch(() => setShellsError(true));
                     }}
                   >
-                    Retry
+                    {t("common:retry")}
                   </button>
                 </div>
               ) : (
                 <p data-testid="terminal-shells-loading" class="px-2 py-1.5 text-xs text-fg-faint">
-                  Loading shells…
+                  {t("terminal:loadingShells")}
                 </p>
               )
             }
@@ -263,7 +265,7 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
                 >
                   {shell.name}
                   <Show when={!shell.acceptable}>
-                    <span class="text-fg-faint"> (unsupported)</span>
+                    <span class="text-fg-faint"> {t("terminal:unsupported")}</span>
                   </Show>
                 </button>
               )}

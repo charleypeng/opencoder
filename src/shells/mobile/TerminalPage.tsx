@@ -8,12 +8,20 @@ import type { Component } from "solid-js";
 import TerminalPanel from "../../features/terminal/TerminalPanel.js";
 import { PageHeader } from "./PageHeader.js";
 import type { MobilePageProps } from "./pages.js";
+import { useT } from "../../i18n/index.js";
 
-export const TerminalPage: Component<MobilePageProps> = (props) => (
-  <div class="landscape-terminal flex h-full flex-col" data-testid="mobile-page-terminal-root">
-    <PageHeader title="Terminal" onBack={props.onExit} backLabel="Servers" />
-    <div class="min-h-0 flex-1">
-      <TerminalPanel serverId={props.serverId} variant="mobile" />
+export const TerminalPage: Component<MobilePageProps> = (props) => {
+  const t = useT();
+  return (
+    <div class="landscape-terminal flex h-full flex-col" data-testid="mobile-page-terminal-root">
+      <PageHeader
+        title={t("mobile:terminal")}
+        onBack={props.onExit}
+        backLabel={t("mobile:servers")}
+      />
+      <div class="min-h-0 flex-1">
+        <TerminalPanel serverId={props.serverId} variant="mobile" />
+      </div>
     </div>
-  </div>
-);
+  );
+};

@@ -12,6 +12,7 @@ import AddServer from "./AddServer";
 import ReauthDialog from "./ReauthDialog";
 import ServerQrDialog from "./ServerQrDialog";
 import ErrorBanner from "../../components/ErrorBanner";
+import { useT } from "../../i18n";
 import { formatRelativeTime } from "./relativeTime";
 import { ApiError, isAuthError } from "../../services/errors";
 import { subscribeToServersChanged } from "../../services/events";
@@ -40,11 +41,11 @@ const dotClass: Record<HealthKind, string> = {
   unknown: "bg-fg-faint",
 };
 
-const statusLabel: Record<HealthKind, string> = {
-  ok: "Online",
-  slow: "Slow",
-  down: "Offline",
-  unknown: "Unknown",
+const statusLabelKey: Record<HealthKind, string> = {
+  ok: "servers:statusOnline",
+  slow: "servers:statusSlow",
+  down: "servers:statusOffline",
+  unknown: "servers:statusUnknown",
 };
 
 interface MenuActions {
@@ -81,6 +82,7 @@ function serverMenuItems(
   server: ServerEntry,
   Item: MenuItemComponent,
   actions: MenuActions,
+  t: (key: string) => string,
 ): JSX.Element {
   return (
     <>
@@ -91,48 +93,47 @@ function serverMenuItems(
           class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
           onSelect={() => actions.onShowQr(server)}
         >
-          Show QR code
+          {t("servers:showQrCode")}
         </Item>
       </Show>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onEdit(server)}
       >
-        Edit
+        {t("servers:edit")}
       </Item>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onReconnect(server)}
       >
-        Reconnect
+        {t("servers:reconnect")}
       </Item>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-danger outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onDelete(server)}
       >
-        Delete
+        {t("servers:delete")}
       </Item>
     </>
   );
 }
 
 function EmptyState(props: { onAdd: () => void }) {
+  const t = useT();
   return (
     <div
       data-testid="empty-state"
       class="mx-auto max-w-md rounded-md border border-bg-sunken bg-bg-elevated p-8 text-center"
     >
-      <h2 class="text-lg font-semibold">No servers yet</h2>
-      <p class="mt-2 text-sm text-fg-secondary">
-        Add your first OpenCode server to chat with it from this client.
-      </p>
+      <h2 class="text-lg font-semibold">{t("servers:noServers")}</h2>
+      <p class="mt-2 text-sm text-fg-secondary">{t("servers:noServersHint")}</p>
       <button
         data-testid="add-first-server"
         type="button"
         class="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
         onClick={() => props.onAdd()}
       >
-        Add your first server
+        {t("servers:addFirstServer")}
       </button>
     </div>
   );
@@ -143,6 +144,7 @@ const cardActionClass =
   "text-fg-secondary hover:text-fg-primary";
 
 function ServerHome(props: ServerHomeProps) {
+  const t = useT();
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
   const [loadError, setLoadError] = createSignal<ApiError | null>(null);
   const [bannerError, setBannerError] = createSignal<ApiError | null>(null);
@@ -298,7 +300,7 @@ function ServerHome(props: ServerHomeProps) {
                         <span
                           data-testid="status-dot"
                           data-status={kind()}
-                          title={statusLabel[kind()]}
+                          title={t(statusLabelKey[kind()])}
                           class={`h-2 w-2 rounded-full ${dotClass[kind()]}`}
                         />
                         <div onClick={(event) => event.stopPropagation()}>
@@ -307,14 +309,14 @@ function ServerHome(props: ServerHomeProps) {
                               as="button"
                               type="button"
                               data-testid={`server-menu-${server.id}`}
-                              aria-label={`Actions for ${server.name}`}
+                              aria-label={t("servers:actionsFor", { name: server.name })}
                               class="rounded-md px-1.5 py-0.5 text-sm text-fg-faint hover:text-fg-secondary"
                             >
                               ⋯
                             </DropdownMenu.Trigger>
                             <DropdownMenu.Portal>
                               <DropdownMenu.Content class="glass z-50 min-w-40 p-1">
-                                {serverMenuItems(server, DropdownMenu.Item, actions)}
+                                {serverMenuItems(server, DropdownMenu.Item, actions, t)}
                               </DropdownMenu.Content>
                             </DropdownMenu.Portal>
                           </DropdownMenu.Root>
@@ -327,15 +329,17 @@ function ServerHome(props: ServerHomeProps) {
                       </span>
                       <span data-testid="last-connected" class="shrink-0">
                         {server.lastConnectedAt !== undefined
-                          ? `Last connected ${formatRelativeTime(server.lastConnectedAt)}`
-                          : "Never connected"}
+                          ? t("servers:lastConnected", {
+                              time: formatRelativeTime(server.lastConnectedAt),
+                            })
+                          : t("servers:neverConnected")}
                       </span>
                     </div>
                   </div>
                 </ContextMenu.Trigger>
                 <ContextMenu.Portal>
                   <ContextMenu.Content class="glass z-50 min-w-40 p-1">
-                    {serverMenuItems(server, ContextMenu.Item, actions)}
+                    {serverMenuItems(server, ContextMenu.Item, actions, t)}
                   </ContextMenu.Content>
                 </ContextMenu.Portal>
               </ContextMenu.Root>
@@ -358,7 +362,7 @@ function ServerHome(props: ServerHomeProps) {
       <header class="glass sticky top-0 z-10 flex items-center justify-between pb-4 pl-[max(1.5rem,env(safe-area-inset-left,0px))] pr-[max(1.5rem,env(safe-area-inset-right,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]">
         <div>
           <h1 class="text-lg font-semibold">opencoder</h1>
-          <p class="text-sm text-fg-secondary">Servers</p>
+          <p class="text-sm text-fg-secondary">{t("servers:servers")}</p>
         </div>
         <button
           data-testid="add-server-btn"
@@ -366,7 +370,7 @@ function ServerHome(props: ServerHomeProps) {
           class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
           onClick={startAdd}
         >
-          Add server
+          {t("servers:addServer")}
         </button>
       </header>
 
@@ -415,7 +419,7 @@ function ServerHome(props: ServerHomeProps) {
                 setEditing(null);
               }}
             >
-              Back to servers
+              {t("servers:backToServers")}
             </button>
           </div>
         </Show>
@@ -436,9 +440,11 @@ function ServerHome(props: ServerHomeProps) {
             data-testid="delete-dialog"
             class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
           >
-            <Dialog.Title class="text-md font-semibold">Delete server?</Dialog.Title>
+            <Dialog.Title class="text-md font-semibold">
+              {t("servers:deleteServerTitle")}
+            </Dialog.Title>
             <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-              Remove {deleting()?.name} from the list? Sessions stay on the server.
+              {t("servers:deleteServerBody", { name: deleting()?.name ?? "" })}
             </Dialog.Description>
             <Show when={deleteError()}>
               <p class="mt-2 text-sm text-danger" data-testid="delete-error">
@@ -446,14 +452,14 @@ function ServerHome(props: ServerHomeProps) {
               </p>
             </Show>
             <div class="mt-5 flex justify-end gap-3">
-              <Dialog.CloseButton class={cardActionClass}>Cancel</Dialog.CloseButton>
+              <Dialog.CloseButton class={cardActionClass}>{t("common:cancel")}</Dialog.CloseButton>
               <button
                 data-testid="confirm-delete"
                 type="button"
                 class="rounded-md bg-danger px-4 py-2 text-sm font-medium text-white"
                 onClick={() => void confirmDelete()}
               >
-                Delete
+                {t("servers:delete")}
               </button>
             </div>
           </Dialog.Content>

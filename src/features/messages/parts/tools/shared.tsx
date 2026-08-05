@@ -7,6 +7,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ToolPartData, ToolStatus } from "../ToolPart.js";
+import { useT } from "../../../../i18n/index.js";
 
 export interface ToolCardProps {
   part: ToolPartData;
@@ -159,6 +160,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 export function CopyButton(props: { text: string }) {
+  const t = useT();
   const [copied, setCopied] = createSignal(false);
   async function handleCopy() {
     const ok = await copyToClipboard(props.text);
@@ -173,12 +175,13 @@ export function CopyButton(props: { text: string }) {
       class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
       onClick={() => void handleCopy()}
     >
-      {copied() ? "Copied!" : "Copy"}
+      {copied() ? t("common:copied") : t("common:copy")}
     </button>
   );
 }
 
 export function InputDisclosure(props: { input: Record<string, unknown> }) {
+  const t = useT();
   const [open, setOpen] = createSignal(false);
   return (
     <div>
@@ -197,7 +200,7 @@ export function InputDisclosure(props: { input: Record<string, unknown> }) {
         >
           ▸
         </span>
-        Input
+        {t("messages:input")}
       </button>
       <Show when={open()}>
         <pre

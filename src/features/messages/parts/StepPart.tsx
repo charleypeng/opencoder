@@ -9,6 +9,7 @@
 import { createMemo, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type StepStartPartData = Extract<Part, { type: "step-start" }>;
 export type StepFinishPartData = Extract<Part, { type: "step-finish" }>;
@@ -40,6 +41,7 @@ export function formatUSD(cost: number): string {
 }
 
 const StepStartPart: Component<StepStartPartProps> = (props) => {
+  const t = useT();
   const shortId = createMemo(() => props.part.snapshot?.slice(0, 12));
 
   return (
@@ -47,13 +49,13 @@ const StepStartPart: Component<StepStartPartProps> = (props) => {
       data-testid="step-start-part"
       class="my-2 flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider text-fg-faint"
     >
-      <span class="shrink-0">Step</span>
+      <span class="shrink-0">{t("messages:step")}</span>
       <span aria-hidden class="h-px flex-1 rounded-full bg-bg-sunken" />
       <Show when={shortId() !== undefined}>
         <span
           data-testid="step-start-snapshot"
           class="shrink-0 font-code text-[10px] normal-case tracking-normal"
-          title="Snapshot at step start"
+          title={t("messages:snapshotAtStepStart")}
         >
           {shortId()}
         </span>
@@ -63,6 +65,7 @@ const StepStartPart: Component<StepStartPartProps> = (props) => {
 };
 
 const StepFinishPart: Component<StepFinishPartProps> = (props) => {
+  const t = useT();
   // The schema's total is optional; without it the input + output counts
   // give the closest estimate of the step's usage.
   const tokens = createMemo(
@@ -78,11 +81,13 @@ const StepFinishPart: Component<StepFinishPartProps> = (props) => {
       data-testid="step-finish-part"
       class="my-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-bg-sunken bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
     >
-      <span class="font-medium text-fg-primary">Step complete</span>
+      <span class="font-medium text-fg-primary">{t("messages:stepComplete")}</span>
       <span data-testid="step-finish-reason" class="text-fg-faint">
         {reason()}
       </span>
-      <span data-testid="step-finish-tokens">{formatTokens(tokens())} tokens</span>
+      <span data-testid="step-finish-tokens">
+        {formatTokens(tokens())} {t("messages:tokenUnit")}
+      </span>
       <span data-testid="step-finish-cost" class="ml-auto shrink-0 font-code">
         {formatUSD(props.part.cost)}
       </span>

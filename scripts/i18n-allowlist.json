@@ -1,0 +1,12 @@
+[
+  {
+    "file": "src/components/TokenDemo.tsx",
+    "text": "The quick brown fox jumps",
+    "reason": "Dev-only design-token demo page (TASK-M0-02), not routed in the app; the type-scale sample sentence is demo content pinned by the L2 snapshot (TokenDemo.test.tsx). Not product copy."
+  },
+  {
+    "file": "src/components/TokenDemo.tsx",
+    "text": "Glass panel (.glass)",
+    "reason": "Dev-only design-token demo page; the glass token sample label is demo content, not product copy."
+  }
+]

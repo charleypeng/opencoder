@@ -6,6 +6,7 @@
 
 import type { Component } from "solid-js";
 import { back } from "./navigation.js";
+import { useT } from "../../i18n/index.js";
 import type { Route } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import { ChatPage } from "./ChatPage.js";
@@ -24,28 +25,37 @@ export type MobilePage = Component<MobilePageProps>;
 
 /** Fallback for unknown page keys (defensive; a registry typo must not
  *  blank the shell). */
-export const NotFoundPage: MobilePage = (props) => (
-  <div class="flex h-full flex-col" data-testid="mobile-page-not-found">
-    <PageHeader title="Not found" onBack={() => back()} />
-    <p class="p-4 text-sm text-fg-secondary">Unknown page: {props.route.page}</p>
-  </div>
-);
+export const NotFoundPage: MobilePage = (props) => {
+  const t = useT();
+  return (
+    <div class="flex h-full flex-col" data-testid="mobile-page-not-found">
+      <PageHeader title={t("mobile:notFound")} onBack={() => back()} />
+      <p class="p-4 text-sm text-fg-secondary">
+        {t("mobile:unknownPage")}: {props.route.page}
+      </p>
+    </div>
+  );
+};
 
 /** Thin placeholder for pages that land in later tasks. The optional root
  *  class lets a placeholder participate in M7-04 layouts early (the
  *  Terminal placeholder goes fullscreen in landscape). */
-function placeholderPage(title: string, rootClass = ""): MobilePage {
-  return () => (
-    <div
-      class={`flex h-full flex-col ${rootClass}`}
-      data-testid={`mobile-page-${title.toLowerCase()}-placeholder`}
-    >
-      <PageHeader title={title} onBack={() => back()} />
-      <div class="flex flex-1 items-center justify-center p-4">
-        <p class="text-sm text-fg-secondary">{title} — mobile page lands in a later M7 task</p>
+function placeholderPage(titleKey: string, rootClass = ""): MobilePage {
+  return () => {
+    const t = useT();
+    const title = t(titleKey);
+    return (
+      <div
+        class={`flex h-full flex-col ${rootClass}`}
+        data-testid={`mobile-page-${title.toLowerCase()}-placeholder`}
+      >
+        <PageHeader title={title} onBack={() => back()} />
+        <div class="flex flex-1 items-center justify-center p-4">
+          <p class="text-sm text-fg-secondary">{t("mobile:placeholderHint", { title })}</p>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 }
 
 export const pageRegistry: Record<string, MobilePage> = {
@@ -54,6 +64,6 @@ export const pageRegistry: Record<string, MobilePage> = {
   files: FilesPage,
   "file-view": FileViewPage,
   terminal: TerminalPage,
-  settings: placeholderPage("Settings"),
-  diff: placeholderPage("Diff"),
+  settings: placeholderPage("settings:settings"),
+  diff: placeholderPage("mobile:diff"),
 };

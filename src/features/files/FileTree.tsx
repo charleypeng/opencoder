@@ -22,6 +22,7 @@ import { ApiError } from "../../services/errors.js";
 import { createFileService } from "../../services/file.js";
 import { applyStatuses, collapse, expand, files, findNode, setTree } from "../../stores/files.js";
 import type { TreeNode } from "../../stores/files.js";
+import { useT } from "../../i18n/index.js";
 
 export interface FileTreeProps {
   /** The server whose workspace is shown. */
@@ -107,19 +108,20 @@ const statusDotClass: Record<string, string> = {
 };
 
 const statusTitle: Record<string, string> = {
-  added: "Added",
-  modified: "Modified",
-  deleted: "Deleted",
+  added: "vcs:statusAdded",
+  modified: "vcs:statusModified",
+  deleted: "vcs:statusDeleted",
 };
 
 function StatusDot(props: { status: string | undefined }) {
+  const t = useT();
   const cls = () => (props.status !== undefined ? statusDotClass[props.status] : undefined);
   return (
     <Show when={cls() !== undefined}>
       <span
         data-testid="file-status-dot"
         data-status={props.status}
-        title={props.status !== undefined ? statusTitle[props.status] : undefined}
+        title={props.status !== undefined ? t(statusTitle[props.status]) : undefined}
         class={`inline-block h-2 w-2 shrink-0 rounded-full ${cls()}`}
       />
     </Show>
@@ -157,6 +159,7 @@ async function copyToClipboard(text: string): Promise<boolean> {
 // --- panel ------------------------------------------------------------------
 
 const FileTree: Component<FileTreeProps> = (props) => {
+  const t = useT();
   const isMobile = () => props.variant === "mobile";
   const state = createMemo(() => files[props.serverId]);
   const [loading, setLoading] = createSignal(false);
@@ -257,7 +260,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
   /** Breadcrumb trail of the current directory: root + each path segment,
    *  the last one being the current (non-interactive) location. */
   const breadcrumbs = createMemo(() => {
-    const crumbs: { label: string; path: string }[] = [{ label: "Workspace", path: "" }];
+    const crumbs: { label: string; path: string }[] = [{ label: t("files:workspace"), path: "" }];
     let acc = "";
     for (const segment of currentPath()
       .split("/")
@@ -358,19 +361,19 @@ const FileTree: Component<FileTreeProps> = (props) => {
     return [
       {
         id: "copy",
-        label: copiedKind() === "path" ? "✓ Copied" : "Copy path",
+        label: copiedKind() === "path" ? t("files:copiedPath") : t("files:copyPath"),
         keepOpen: true,
         onSelect: () => void copyPath(node),
       },
       {
         id: "reference",
-        label: copiedKind() === "reference" ? "✓ Copied @path" : "Reference in chat",
+        label: copiedKind() === "reference" ? t("files:copiedReference") : t("files:reference"),
         keepOpen: props.onReference === undefined,
         onSelect: () => void referencePath(node),
       },
       {
         id: "open",
-        label: "Open",
+        label: t("files:open"),
         disabled: node.type !== "file" || props.onOpenFile === undefined,
         onSelect: () => {
           if (node.type === "file") props.onOpenFile?.(node.path);
@@ -413,7 +416,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
   });
 
   const emptyTitle = createMemo(() =>
-    isMobile() && currentPath() !== "" ? "Empty folder" : "No files",
+    isMobile() && currentPath() !== "" ? t("files:emptyFolder") : t("files:noFiles"),
   );
 
   return (
@@ -436,7 +439,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
             class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={() => void loadRoot()}
           >
-            Retry
+            {t("common:retry")}
           </button>
         </div>
       </Show>
@@ -445,7 +448,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
       <Show when={isMobile()}>
         <nav
           data-testid="file-breadcrumb-bar"
-          aria-label="Current folder"
+          aria-label={t("files:currentFolder")}
           class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
         >
           <For each={breadcrumbs()}>
@@ -481,7 +484,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
       <div class="min-h-0 flex-1 overflow-y-auto py-1">
         <Show when={isMobile() && dirLoading()}>
           <p data-testid="file-tree-dir-loading" class="px-3 py-3 text-sm text-fg-secondary">
-            Loading folder…
+            {t("files:loadingFiles")}
           </p>
         </Show>
         <For each={rows()}>
@@ -550,8 +553,8 @@ const FileTree: Component<FileTreeProps> = (props) => {
             <p class="text-sm text-fg-secondary">{emptyTitle()}</p>
             <p class="mt-1 text-xs text-fg-faint">
               {isMobile() && currentPath() !== ""
-                ? "Nothing in this folder."
-                : "The workspace is empty."}
+                ? t("files:emptyFolderHint")
+                : t("files:workspaceEmptyHint")}
             </p>
           </div>
         </Show>
@@ -563,7 +566,7 @@ const FileTree: Component<FileTreeProps> = (props) => {
       <Show when={!isMobile() && menu() !== null}>
         <ContextMenu
           testId="file-context"
-          label="File actions"
+          label={t("files:fileActions")}
           x={menu()!.x}
           y={menu()!.y}
           items={menuItems()}

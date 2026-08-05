@@ -8,7 +8,9 @@ import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { getApiClient } from "../../services/client";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import type { Session } from "../../services/session";
 import { createSessionService } from "../../services/session";
 import { renameSession } from "./sessionActions";
@@ -29,14 +31,9 @@ const actionClass =
   "rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm " +
   "text-fg-secondary hover:text-fg-primary";
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 const RenameSessionDialog: Component<RenameSessionDialogProps> = (props) => {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   // Mounted per target session (Show keyed), so one-time prefill is
   // intentional; the title signal is the source of truth while open.
   // eslint-disable-next-line solid/reactivity -- one-time prefill on open
@@ -80,14 +77,16 @@ const RenameSessionDialog: Component<RenameSessionDialogProps> = (props) => {
           data-testid="rename-session-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Rename session</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">
+            {t("sessions:renameSessionTitle")}
+          </Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
             {props.session.title || props.session.slug}
           </Dialog.Description>
 
           <form data-testid="rename-session-form" class="mt-5 space-y-4" onSubmit={onSubmit}>
             <label class="block">
-              <span class="text-sm font-medium text-fg-secondary">Title</span>
+              <span class="text-sm font-medium text-fg-secondary">{t("sessions:title")}</span>
               <input
                 data-testid="rename-session-input"
                 class={inputClass}
@@ -107,7 +106,7 @@ const RenameSessionDialog: Component<RenameSessionDialogProps> = (props) => {
                 class={actionClass}
                 disabled={saving()}
               >
-                Cancel
+                {t("common:cancel")}
               </Dialog.CloseButton>
               <button
                 data-testid="rename-session-save"
@@ -115,7 +114,7 @@ const RenameSessionDialog: Component<RenameSessionDialogProps> = (props) => {
                 class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!canSubmit()}
               >
-                {saving() ? "Saving…" : "Save"}
+                {saving() ? t("common:saving") : t("common:save")}
               </button>
             </div>
           </form>

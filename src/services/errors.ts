@@ -1,8 +1,11 @@
 // Unified API error type (ADR-002): Rust serializes `ApiError` from the
 // transport channel; the dev-only fetch transport produces the same shape.
 //
-// `errorTitle` / `errorDetail` centralize the classified user-facing copy
-// (TASK-M1-09); the strings are English for now and move to i18n in M9.
+// Classification (TASK-M1-09, i18n in TASK-M9-02): `errorTitleKey` returns
+// an i18n key (+ interpolation options) instead of an English string — the
+// copy lives in the i18n resources and renders through `t()`. The raw
+// server message is NOT translatable copy; `errorDetailMessage` extracts it
+// for the components to display verbatim (or fall back to the title).
 
 export interface ApiErrorPayload {
   status?: number | null;
@@ -51,29 +54,39 @@ export function isAuthError(err: ApiError): boolean {
   return err.status === 401;
 }
 
+/** An i18n reference for a classified error title: the resource key plus
+ *  optional interpolation options, resolved by the caller with `t(...)`. */
+export interface ErrorTitleRef {
+  key: string;
+  options?: Record<string, unknown>;
+}
+
 /**
- * Classified short headline for a connection failure. Status/code driven so
- * the copy stays stable while the underlying message varies by server.
+ * Classified short headline for a connection failure as an i18n reference.
+ * Status/code driven so the copy stays stable while the underlying message
+ * varies by server; the caller renders it through `t(ref.key, ref.options)`.
  */
-export function errorTitle(err: ApiError): string {
-  if (err.status === 401) return "Authentication required";
+export function errorTitleKey(err: ApiError): ErrorTitleRef {
+  if (err.status === 401) return { key: "errors:authRequired" };
   // Rate limits surface as 429 or as a message-level hint (TASK-M2-10).
-  if (isRateLimitHint(err.status, err.message)) return "Rate limited — try again shortly";
+  if (isRateLimitHint(err.status, err.message)) return { key: "errors:rateLimit" };
   switch (err.code) {
     case "network":
-      return "Cannot reach server";
+      return { key: "errors:networkTitle" };
     case "timeout":
-      return "Request timed out";
+      return { key: "errors:timeoutTitle" };
     case "invalid_url":
-      return "Invalid server URL";
+      return { key: "errors:invalidUrl" };
     case "cancelled":
-      return "Request cancelled";
+      return { key: "errors:cancelled" };
     case "invalid_response":
-      return "Unexpected response format";
+      return { key: "errors:invalidResponse" };
     case "http":
-      return err.status !== undefined && err.status >= 500 ? "Server error" : "Request failed";
+      return err.status !== undefined && err.status >= 500
+        ? { key: "errors:serverError" }
+        : { key: "errors:requestFailed" };
     default:
-      return "Request failed";
+      return { key: "errors:requestFailed" };
   }
 }
 
@@ -90,12 +103,13 @@ export function isRateLimitHint(status: number | undefined, message: string | un
 }
 
 /**
- * Detail line under the title: the raw message when present (a JSON body
- * from the transport is reduced to its `error`/`message` field), otherwise
- * the title itself.
+ * Detail line under the title: the raw server message when present (a JSON
+ * body from the transport is reduced to its `error`/`message` field), or
+ * null when there is nothing to show — the caller then falls back to the
+ * classified title.
  */
-export function errorDetail(err: ApiError): string {
-  return err.message ? detailMessage(err.message) : errorTitle(err);
+export function errorDetailMessage(err: ApiError): string | null {
+  return err.message ? detailMessage(err.message) : null;
 }
 
 /** Extracts the human-readable part of a raw transport message. */

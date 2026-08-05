@@ -17,6 +17,7 @@ import { getApiClient } from "../../services/client.js";
 import { createTodoService, type Todo } from "../../services/todo.js";
 import { applyTodos, todos } from "../../stores/todos.js";
 import { getActiveDirectory } from "../../stores/project.js";
+import { useT } from "../../i18n/index.js";
 
 export interface TodoPanelProps {
   /** The server whose session todos are shown. */
@@ -104,6 +105,7 @@ function TodoRow(props: { todo: Todo }) {
 }
 
 const TodoPanel: Component<TodoPanelProps> = (props) => {
+  const t = useT();
   const [error, setError] = createSignal<unknown>(null);
   const [loadKey, setLoadKey] = createSignal(0);
 
@@ -153,7 +155,7 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
       >
         <div class="flex flex-col gap-2 px-4 py-3">
           <p data-testid="todo-error" class="text-xs text-danger">
-            Failed to load todos.
+            {t("sessions:todosLoadFailed")}
           </p>
           <button
             type="button"
@@ -161,13 +163,13 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
             class="self-start rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
             onClick={() => setLoadKey((key) => key + 1)}
           >
-            Retry
+            {t("common:retry")}
           </button>
         </div>
       </Show>
       <Show when={!error() && list().length === 0}>
         <p data-testid="todo-empty" class="px-4 py-6 text-center text-sm text-fg-secondary">
-          No todos yet
+          {t("sessions:noTodos")}
         </p>
       </Show>
     </section>

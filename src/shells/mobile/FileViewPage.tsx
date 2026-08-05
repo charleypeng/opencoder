@@ -8,16 +8,18 @@ import { Show } from "solid-js";
 import type { Component } from "solid-js";
 import FileViewer from "../../features/files/FileViewer.js";
 import { tabNameOf } from "../../stores/viewer.js";
+import { useT } from "../../i18n/index.js";
 import { back } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import type { MobilePageProps } from "./pages.js";
 
 export const FileViewPage: Component<MobilePageProps> = (props) => {
+  const t = useT();
   const path = () => props.route.params?.path ?? null;
   return (
     <div class="flex h-full flex-col" data-testid="mobile-page-file-view">
       <PageHeader
-        title={path() !== null ? tabNameOf(path() as string) : "File"}
+        title={path() !== null ? tabNameOf(path() as string) : t("files:openFile")}
         onBack={() => back()}
       />
       <Show when={path() !== null}>

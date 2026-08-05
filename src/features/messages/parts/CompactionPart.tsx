@@ -8,6 +8,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type CompactionPartData = Extract<Part, { type: "compaction" }>;
 
@@ -36,6 +37,7 @@ function CompressIcon() {
 }
 
 const CompactionPart: Component<CompactionPartProps> = (props) => {
+  const t = useT();
   const [expanded, setExpanded] = createSignal(false);
 
   // Detail fields are optional in the schema; without any the line stands
@@ -54,7 +56,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
         fallback={
           <span class="flex w-full items-center gap-1.5 px-2 py-1">
             <CompressIcon />
-            <span class="font-medium text-fg-primary">Context compacted</span>
+            <span class="font-medium text-fg-primary">{t("messages:compacted")}</span>
           </span>
         }
       >
@@ -66,7 +68,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
           onClick={() => setExpanded((value) => !value)}
         >
           <CompressIcon />
-          <span class="font-medium text-fg-primary">Context compacted</span>
+          <span class="font-medium text-fg-primary">{t("messages:compacted")}</span>
           <span
             aria-hidden
             class={`inline-block shrink-0 text-fg-faint transition-transform ${
@@ -83,14 +85,14 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
           class="flex flex-col gap-0.5 border-t border-bg-sunken px-2 py-1.5 text-fg-faint"
         >
           <span data-testid="compaction-mode">
-            {props.part.auto ? "Auto compaction" : "Manual compaction"}
+            {props.part.auto ? t("messages:autoCompaction") : t("messages:manualCompaction")}
           </span>
           <Show when={props.part.overflow === true}>
-            <span data-testid="compaction-overflow">Context overflowed</span>
+            <span data-testid="compaction-overflow">{t("messages:contextOverflowed")}</span>
           </Show>
           <Show when={props.part.tail_start_id !== undefined}>
             <span data-testid="compaction-tail">
-              Tail starts at part {props.part.tail_start_id}
+              {t("messages:tailStartsAt", { id: props.part.tail_start_id })}
             </span>
           </Show>
         </div>

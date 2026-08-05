@@ -19,6 +19,7 @@ import { getApiClient } from "../../services/client.js";
 import { createPtyService } from "../../services/pty.js";
 import { ptyConnect, ptySend } from "../../services/ptyWs.js";
 import { markPtyExited } from "../../stores/ptys.js";
+import { useT } from "../../i18n/index.js";
 
 export interface TerminalInstanceApi {
   /** Sends a raw key sequence over the PTY channel when one is connected
@@ -73,6 +74,7 @@ function terminalTheme() {
 }
 
 const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
+  const t = useT();
   // Captured once: an instance is keyed by its pty and remounts (never
   // re-props) when either changes, so the mount-time callbacks below can
   // read these safely outside a tracked scope.
@@ -215,7 +217,9 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
           class="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 bg-bg-base/80"
         >
           <p class="text-sm text-fg-secondary">
-            Process exited{props.exitCode !== undefined ? ` (code ${props.exitCode})` : ""}
+            {props.exitCode !== undefined
+              ? t("terminal:processExited", { code: props.exitCode })
+              : t("terminal:processExitedNoCode")}
           </p>
           <button
             type="button"
@@ -223,7 +227,7 @@ const TerminalInstance: Component<TerminalInstanceProps> = (props) => {
             class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={() => props.onClose()}
           >
-            Close
+            {t("common:close")}
           </button>
         </div>
       </Show>

@@ -13,6 +13,7 @@ import DesktopSection from "./DesktopSection.js";
 import NotificationsSection from "./NotificationsSection.js";
 import UpdatesSection from "./UpdatesSection.js";
 import LanguageSection from "./LanguageSection.js";
+import { useT } from "../../i18n/index.js";
 
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
@@ -25,6 +26,7 @@ type SettingsSection =
   "providers" | "shortcuts" | "desktop" | "notifications" | "updates" | "language";
 
 const SettingsPage: Component<SettingsPageProps> = (props) => {
+  const t = useT();
   const [section, setSection] = createSignal<SettingsSection>("providers");
 
   return (
@@ -36,15 +38,15 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
           onClick={() => props.onBack()}
         >
-          ← Back
+          ← {t("common:back")}
         </button>
-        <h2 class="shrink-0 text-sm font-semibold">Settings</h2>
+        <h2 class="shrink-0 text-sm font-semibold">{t("settings:settings")}</h2>
       </header>
       <div class="flex min-h-0 flex-1">
         <nav
           data-testid="settings-sections"
           class="flex w-40 shrink-0 flex-col gap-1 border-r border-bg-sunken p-2"
-          aria-label="Settings sections"
+          aria-label={t("settings:sections")}
         >
           <button
             type="button"
@@ -128,13 +130,13 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
             }`}
             onClick={() => setSection("language")}
           >
-            Language
+            {t("settings:language")}
           </button>
           <span
             data-testid="settings-section-more"
             class="rounded-md px-3 py-1.5 text-xs text-fg-faint"
           >
-            More sections — M9-04
+            {t("settings:moreSections")}
           </span>
         </nav>
         <Show

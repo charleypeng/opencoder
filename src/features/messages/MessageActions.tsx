@@ -41,7 +41,9 @@ import { Dialog } from "@kobalte/core";
 import ContextMenu from "../../components/ContextMenu.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
 import { getApiClient } from "../../services/client.js";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors.js";
+import { ApiError } from "../../services/errors.js";
+import { useErrorCopy } from "../../components/errorCopy.js";
+import { useT } from "../../i18n/index.js";
 import { createMessageService } from "../../services/message.js";
 import { messages, applyPartDelta } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
@@ -116,13 +118,6 @@ async function copyToClipboard(text: string): Promise<boolean> {
   }
 }
 
-/** "Title: detail" line; the detail is dropped when it duplicates the title. */
-function errorLine(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  return detail === title ? title : `${title}: ${detail}`;
-}
-
 const actionClass =
   "rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm " +
   "text-fg-secondary hover:text-fg-primary";
@@ -144,6 +139,8 @@ export interface EditMessageDialogProps {
  *  PATCH may already have applied, so the user can retry the send or
  *  cancel. */
 function EditMessageDialog(props: EditMessageDialogProps) {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   // Mounted per message (Show keyed), so one-time prefill is intentional.
   // eslint-disable-next-line solid/reactivity -- one-time prefill on open
   const [text, setText] = createSignal(props.part.text ?? "");
@@ -198,14 +195,16 @@ function EditMessageDialog(props: EditMessageDialogProps) {
           data-testid="edit-message-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Edit message</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">
+            {t("messages:editMessageTitle")}
+          </Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-            Edits the message and resends it as a new prompt.
+            {t("messages:editMessageHint")}
           </Dialog.Description>
 
           <form data-testid="edit-message-form" class="mt-5 space-y-4" onSubmit={onSubmit}>
             <label class="block">
-              <span class="text-sm font-medium text-fg-secondary">Message</span>
+              <span class="text-sm font-medium text-fg-secondary">{t("messages:message")}</span>
               <textarea
                 data-testid="edit-message-input"
                 class="mt-1 min-h-24 w-full resize-y rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-sm text-fg-primary placeholder:text-fg-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
@@ -224,7 +223,7 @@ function EditMessageDialog(props: EditMessageDialogProps) {
                 class={actionClass}
                 disabled={saving()}
               >
-                Cancel
+                {t("common:cancel")}
               </Dialog.CloseButton>
               <button
                 data-testid="edit-message-send"
@@ -232,7 +231,7 @@ function EditMessageDialog(props: EditMessageDialogProps) {
                 class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
                 disabled={!canSubmit()}
               >
-                {saving() ? "Sending…" : "Edit & resend"}
+                {saving() ? t("messages:sending") : t("messages:editAndResend")}
               </button>
             </div>
           </form>
@@ -255,6 +254,8 @@ export interface DeleteMessageDialogProps {
  *  in flight (deleteMessage removes the store entry only on success), so a
  *  failure surfaces as the inline error instead of a silent rollback. */
 function DeleteMessageDialog(props: DeleteMessageDialogProps) {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   const [deleting, setDeleting] = createSignal(false);
   const [error, setError] = createSignal<ApiError | null>(null);
 
@@ -289,9 +290,9 @@ function DeleteMessageDialog(props: DeleteMessageDialogProps) {
           data-testid="delete-message-dialog"
           class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 p-6"
         >
-          <Dialog.Title class="text-md font-semibold">Delete message</Dialog.Title>
+          <Dialog.Title class="text-md font-semibold">{t("messages:deleteMessage")}</Dialog.Title>
           <Dialog.Description class="mt-1 text-sm text-fg-secondary">
-            Delete this message? This cannot be undone.
+            {t("messages:deleteMessageBody")}
           </Dialog.Description>
 
           <Show when={error()}>
@@ -314,7 +315,7 @@ function DeleteMessageDialog(props: DeleteMessageDialogProps) {
               disabled={deleting()}
               onClick={onDelete}
             >
-              {deleting() ? "Deleting…" : "Delete"}
+              {deleting() ? t("sessions:deleting") : t("common:delete")}
             </button>
           </div>
         </Dialog.Content>
@@ -328,6 +329,7 @@ function DeleteMessageDialog(props: DeleteMessageDialogProps) {
 const COPY_FEEDBACK_MS = 1500;
 
 const MessageActions: Component<MessageActionsProps> = (props) => {
+  const t = useT();
   const info = () => messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
   const role = () => info()?.role ?? "assistant";
   const user = () => role() === "user";
@@ -390,44 +392,44 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
   const actions = createMemo<MenuItem[]>(() => [
     {
       id: "copy-text",
-      label: "Copy text",
+      label: t("messages:copyText"),
       disabled: messageText() === "",
       onSelect: () => void copyText(),
     },
     {
       id: "copy-code",
-      label: "Copy code",
+      label: t("messages:copyCode"),
       disabled: codeText() === undefined,
       onSelect: () => void copyCode(),
     },
     {
       id: "edit",
-      label: "Edit and resend",
+      label: t("messages:editResend"),
       disabled: editPart() === undefined,
       onSelect: () => setEditOpen(true),
     },
     {
       id: "delete",
-      label: "Delete",
+      label: t("common:delete"),
       danger: true,
       disabled: !user(),
       onSelect: () => setDeleteOpen(true),
     },
     {
       id: "view-diff",
-      label: "View diff",
+      label: t("messages:viewDiff"),
       disabled: props.onViewDiff === undefined,
       onSelect: () => props.onViewDiff?.(props.messageID),
     },
     {
       id: "fork",
-      label: "Fork from here",
+      label: t("messages:forkFromHere"),
       disabled: props.onFork === undefined,
       onSelect: () => props.onFork?.(props.messageID),
     },
     {
       id: "revert",
-      label: "Revert to here",
+      label: t("messages:revertToHere"),
       danger: true,
       disabled: props.onRevert === undefined,
       onSelect: () => props.onRevert?.(props.messageID),
@@ -485,11 +487,11 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
       <button
         type="button"
         data-testid="message-actions"
-        aria-label="Message actions"
+        aria-label={t("messages:messageActions")}
         class={triggerClass}
         onClick={openTriggerMenu}
       >
-        {copied() === null ? "⋯" : "✓ Copied"}
+        {copied() === null ? "⋯" : t("messages:copiedFlash")}
       </button>
 
       {/* Right-click (desktop) / long-press (mobile) / ⋯ (both): the shared
@@ -497,7 +499,7 @@ const MessageActions: Component<MessageActionsProps> = (props) => {
       <Show when={contextPos() !== null}>
         <ContextMenu
           testId="message-action"
-          label="Message actions"
+          label={t("messages:messageActions")}
           x={contextPos()!.x}
           y={contextPos()!.y}
           items={menuActions()}

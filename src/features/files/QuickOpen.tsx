@@ -22,6 +22,7 @@ import { getActiveDirectory } from "../../stores/project.js";
 import { openTab, setActiveLine } from "../../stores/viewer.js";
 import { pushRecentFile, readRecentFiles } from "./recentFiles.js";
 import { rankResults, type RankedEntry } from "./rankResults.js";
+import { useT } from "../../i18n/index.js";
 import {
   isSymbolQuery,
   symbolHitOf,
@@ -128,6 +129,7 @@ function SymbolRows(props: {
 }
 
 const QuickOpen: Component<QuickOpenProps> = (props) => {
+  const t = useT();
   const [query, setQuery] = createSignal("");
   const [results, setResults] = createSignal<RankedEntry[]>([]);
   const [symbols, setSymbols] = createSignal<SymbolHit[]>([]);
@@ -329,7 +331,7 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
             inputRef?.focus();
           }}
         >
-          <Dialog.Title class="sr-only">Open file</Dialog.Title>
+          <Dialog.Title class="sr-only">{t("files:openFile")}</Dialog.Title>
           <div class="flex items-center gap-2.5 border-b border-bg-sunken px-4">
             <SearchIcon />
             <input
@@ -337,8 +339,8 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
               data-testid="quick-open-input"
               type="text"
               value={query()}
-              placeholder="Search files…"
-              aria-label="Search files"
+              placeholder={t("files:searchFiles")}
+              aria-label={t("files:searchFiles")}
               autocomplete="off"
               spellcheck={false}
               onInput={onInput}
@@ -350,7 +352,7 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
             ref={listRef}
             data-testid="quick-open-list"
             role="listbox"
-            aria-label="Files"
+            aria-label={t("files:fileTree")}
             class="max-h-80 overflow-y-auto py-1.5"
           >
             <Show
@@ -367,11 +369,13 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
                           fallback={
                             <Show
                               when={view().kind === "symbols-empty"}
-                              fallback={<EmptyRow testId="quick-open-empty" label="No matches" />}
+                              fallback={
+                                <EmptyRow testId="quick-open-empty" label={t("common:noMatches")} />
+                              }
                             >
                               <EmptyRow
                                 testId="quick-open-symbols-empty"
-                                label="No symbols found"
+                                label={t("files:noSymbols")}
                               />
                             </Show>
                           }
@@ -384,19 +388,21 @@ const QuickOpen: Component<QuickOpenProps> = (props) => {
                     </Show>
                   }
                 >
-                  <EmptyRow testId="quick-open-loading" label="Searching…" />
+                  <EmptyRow testId="quick-open-loading" label={t("files:searching")} />
                 </Show>
               }
             >
               <Show
                 when={recent().length > 0}
-                fallback={<EmptyRow testId="quick-open-no-recent" label="No recent files" />}
+                fallback={
+                  <EmptyRow testId="quick-open-no-recent" label={t("files:noRecentFiles")} />
+                }
               >
                 <div
                   data-testid="quick-open-recent-header"
                   class="px-4 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-faint"
                 >
-                  Recent
+                  {t("files:recent")}
                 </div>
                 <FileRows entries={entries()} selected={selected} onOpen={openFile} />
               </Show>

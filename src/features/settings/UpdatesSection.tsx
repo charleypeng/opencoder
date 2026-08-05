@@ -10,6 +10,7 @@
 
 import { createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { useT } from "../../i18n/index.js";
 import {
   checkForUpdates,
   getAppVersion,
@@ -27,6 +28,7 @@ export function percentOf(progress: UpdateProgress): number | undefined {
 }
 
 const UpdatesSection: Component = () => {
+  const t = useT();
   const [version, setVersion] = createSignal<string | null>(null);
   const [checkState, setCheckState] = createSignal<CheckState>("idle");
   const [update, setUpdate] = createSignal<Update | null>(null);
@@ -77,16 +79,14 @@ const UpdatesSection: Component = () => {
   return (
     <div data-testid="updates-section" class="flex min-h-0 flex-1 flex-col">
       <div class="shrink-0 border-b border-bg-sunken px-4 py-3">
-        <h2 class="text-sm font-semibold">Updates</h2>
-        <p class="text-xs text-fg-secondary">Application auto-update checks.</p>
+        <h2 class="text-sm font-semibold">{t("settings:updates")}</h2>
+        <p class="text-xs text-fg-secondary">{t("settings:updatesHint")}</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
-            <p class="text-xs font-medium">Application version</p>
-            <p class="mt-0.5 text-xs text-fg-secondary">
-              Checks for updates once a day on startup.
-            </p>
+            <p class="text-xs font-medium">{t("settings:applicationVersion")}</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:updatesDailyHint")}</p>
           </div>
           <span data-testid="updates-version" class="shrink-0 font-code text-xs text-fg-secondary">
             {version() ?? "—"}
@@ -100,7 +100,7 @@ const UpdatesSection: Component = () => {
             class="w-fit rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-primary outline-none transition-colors hover:border-fg-faint disabled:cursor-default disabled:opacity-60"
             onClick={() => void handleCheck()}
           >
-            {checkState() === "checking" ? "Checking for updates…" : "Check for updates"}
+            {checkState() === "checking" ? t("updates:checking") : t("updates:checkForUpdates")}
           </button>
           <Show when={checkState() === "checking"}>
             <span
@@ -111,7 +111,7 @@ const UpdatesSection: Component = () => {
                 class="h-3 w-3 animate-spin rounded-full border-2 border-bg-sunken border-t-accent"
                 aria-hidden="true"
               />
-              Checking for updates…
+              {t("updates:checking")}
             </span>
           </Show>
           <Show when={checkState() === "up-to-date"}>

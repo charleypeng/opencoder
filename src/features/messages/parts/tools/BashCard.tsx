@@ -6,8 +6,10 @@
 import { Show } from "solid-js";
 import { CopyButton, inputString, outputText } from "./shared.js";
 import type { ToolCard } from "./shared.js";
+import { useT } from "../../../../i18n/index.js";
 
 const BashCard: ToolCard = (props) => {
+  const t = useT();
   const command = () => inputString(props.part.state.input, ["command", "cmd"]);
   const output = () => outputText(props.part);
   const exitCode = () => {
@@ -22,7 +24,7 @@ const BashCard: ToolCard = (props) => {
       class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
     >
       <div class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1">
-        <span class="truncate text-fg-faint">Terminal</span>
+        <span class="truncate text-fg-faint">{t("messages:toolTerminal")}</span>
         <Show when={output().length > 0}>
           <CopyButton text={output()} />
         </Show>
@@ -40,7 +42,7 @@ const BashCard: ToolCard = (props) => {
           </pre>
         </Show>
         <Show when={exitCode() !== undefined}>
-          <div class="text-fg-faint">exit {exitCode()}</div>
+          <div class="text-fg-faint">{t("messages:exitCode", { code: exitCode() })}</div>
         </Show>
       </div>
     </div>

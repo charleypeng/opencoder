@@ -3,7 +3,9 @@
 // normalization, a plain-HTTP risk warning and save via add_server.
 
 import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
-import { ApiError, errorDetail, errorTitle } from "../../services/errors";
+import { ApiError } from "../../services/errors";
+import { useErrorCopy } from "../../components/errorCopy";
+import { useT } from "../../i18n";
 import {
   getDiscoveredServers,
   startMdnsDiscovery,
@@ -46,6 +48,8 @@ const nearbyRowClass =
   "bg-bg-sunken px-3 py-2";
 
 function AddServer(props: AddServerProps) {
+  const t = useT();
+  const { line: errorLine } = useErrorCopy();
   // The wizard is mounted per entry (keyed in ServerHome), so reading the
   // initial values once is intentional; a blank password field keeps the
   // stored password on save.
@@ -150,7 +154,7 @@ function AddServer(props: AddServerProps) {
       const text = await scanQrCode();
       const parsed = parseConnectUrl(text);
       if (!parsed) {
-        setQrScanError("That QR code is not an OpenCode server link.");
+        setQrScanError(t("servers:scanErrorNotOpenCode"));
         return;
       }
       setName(parsed.name);
@@ -160,8 +164,8 @@ function AddServer(props: AddServerProps) {
       // A user cancel is not a failure — no scary camera copy for it.
       setQrScanError(
         err instanceof ScanCancelledError
-          ? "Scan cancelled."
-          : "Could not start the camera. Check the camera permission and try again.",
+          ? t("servers:scanCancelled")
+          : t("servers:scanErrorCamera"),
       );
     } finally {
       setQrScanning(false);
@@ -179,11 +183,14 @@ function AddServer(props: AddServerProps) {
       } else {
         setProbe({
           kind: "failure",
-          message: "Could not connect. Check the URL and credentials.",
+          message: t("servers:probeUnhealthy"),
         });
       }
     } catch (err) {
-      setProbe({ kind: "failure", message: probeFailureMessage(ApiError.fromUnknown(err)) });
+      setProbe({
+        kind: "failure",
+        message: probeFailureMessage(ApiError.fromUnknown(err), errorLine, t),
+      });
     }
   }
 
@@ -231,39 +238,37 @@ function AddServer(props: AddServerProps) {
 
   return (
     <div class="rounded-md border border-bg-sunken bg-bg-elevated p-6" data-testid="add-server">
-      <h2 class="text-lg font-semibold">{props.server ? "Edit server" : "Add server"}</h2>
+      <h2 class="text-lg font-semibold">
+        {props.server ? t("servers:editServer") : t("servers:addServer")}
+      </h2>
       <p class="mt-1 text-sm text-fg-secondary">
-        {props.server ? (
-          "Update the connection details. Leave the password blank to keep the stored one."
-        ) : (
-          <>
-            Connect to an OpenCode server, e.g. <span class="font-code">localhost:14096</span>.
-          </>
-        )}
+        {props.server
+          ? t("servers:addHintEdit")
+          : t("servers:addHintNew", { host: "localhost:14096" })}
       </p>
 
       <form class="mt-6 space-y-4" onSubmit={onSave}>
         <label class="block">
-          <span class="text-sm font-medium text-fg-secondary">Name</span>
+          <span class="text-sm font-medium text-fg-secondary">{t("servers:name")}</span>
           <input
             data-testid="name-input"
             class={inputClass}
             type="text"
-            placeholder="My server"
+            placeholder={t("servers:namePlaceholder")}
             value={name()}
             onInput={(event) => setName(event.currentTarget.value)}
           />
         </label>
 
         <label class="block">
-          <span class="text-sm font-medium text-fg-secondary">URL</span>
+          <span class="text-sm font-medium text-fg-secondary">{t("servers:url")}</span>
           <span class="flex gap-2">
             <input
               data-testid="url-input"
               class={inputClass}
               type="text"
               inputmode="url"
-              placeholder="http://localhost:14096"
+              placeholder={t("servers:urlPlaceholder")}
               value={url()}
               onInput={(event) => setUrl(event.currentTarget.value)}
             />
@@ -275,7 +280,7 @@ function AddServer(props: AddServerProps) {
                 disabled={qrScanning()}
                 onClick={() => void onScanQr()}
               >
-                {qrScanning() ? "Scanning…" : "Scan QR"}
+                {qrScanning() ? t("servers:scanning") : t("servers:scanQr")}
               </button>
             </Show>
           </span>
@@ -284,14 +289,16 @@ function AddServer(props: AddServerProps) {
               class="mt-2 rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-warning"
               data-testid="plain-http-warning"
             >
-              Connecting over plain HTTP on a remote host. Credentials will travel unencrypted.
+              {t("servers:plainHttpWarning")}
             </div>
           </Show>
         </label>
 
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block">
-            <span class="text-sm font-medium text-fg-secondary">Username (optional)</span>
+            <span class="text-sm font-medium text-fg-secondary">
+              {t("servers:usernameOptional")}
+            </span>
             <input
               data-testid="username-input"
               class={inputClass}
@@ -304,7 +311,9 @@ function AddServer(props: AddServerProps) {
           </label>
 
           <label class="block">
-            <span class="text-sm font-medium text-fg-secondary">Password (optional)</span>
+            <span class="text-sm font-medium text-fg-secondary">
+              {t("servers:passwordOptional")}
+            </span>
             <span class="relative block">
               <input
                 data-testid="password-input"
@@ -321,7 +330,7 @@ function AddServer(props: AddServerProps) {
                 class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-fg-faint hover:text-fg-secondary"
                 onClick={() => setShowPassword((visible) => !visible)}
               >
-                {showPassword() ? "Hide" : "Show"}
+                {showPassword() ? t("servers:hide") : t("servers:show")}
               </button>
             </span>
           </label>
@@ -335,7 +344,7 @@ function AddServer(props: AddServerProps) {
             disabled={!canProbe()}
             onClick={onTestConnection}
           >
-            Test connection
+            {t("servers:testConnection")}
           </button>
           <button
             data-testid="save-server"
@@ -343,19 +352,23 @@ function AddServer(props: AddServerProps) {
             class={`rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50`}
             disabled={!canSave()}
           >
-            {saving() ? "Saving…" : props.server ? "Save changes" : "Save server"}
+            {saving()
+              ? t("servers:saving")
+              : props.server
+                ? t("servers:saveChanges")
+                : t("servers:saveServer")}
           </button>
         </div>
 
         <div class="min-h-5 text-sm">
           <Show when={probe().kind === "loading"}>
             <p class="text-fg-secondary" data-testid="probe-loading">
-              Testing connection…
+              {t("servers:testingConnection")}
             </p>
           </Show>
           <Show when={probe().kind === "success"}>
             <p class="text-success" data-testid="probe-success">
-              {probeSuccessText(probe())}
+              {probeSuccessText(probe(), t)}
             </p>
           </Show>
           <Show when={probe().kind === "failure"}>
@@ -380,27 +393,27 @@ function AddServer(props: AddServerProps) {
         <section
           data-testid="nearby-servers"
           class="mt-6 border-t border-bg-sunken pt-4"
-          aria-label="Nearby servers"
+          aria-label={t("servers:nearby")}
         >
           <div class="flex items-center justify-between gap-3">
-            <h3 class="text-sm font-semibold">Nearby servers</h3>
+            <h3 class="text-sm font-semibold">{t("servers:nearby")}</h3>
             <button
               data-testid="mdns-refresh"
               type="button"
               class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
               onClick={() => void refreshNearby()}
             >
-              Refresh
+              {t("common:refresh")}
             </button>
           </div>
           <Show when={scanning() && nearby().length === 0}>
             <p class="mt-2 text-sm text-fg-secondary" data-testid="mdns-scanning">
-              Scanning the local network…
+              {t("servers:scanning")}
             </p>
           </Show>
           <Show when={!scanning() && nearby().length === 0}>
             <p class="mt-2 text-sm text-fg-faint" data-testid="mdns-empty">
-              No OpenCode servers found on this network.
+              {t("servers:mdnsEmpty")}
             </p>
           </Show>
           <ul class="mt-2 space-y-2">
@@ -417,7 +430,7 @@ function AddServer(props: AddServerProps) {
                     class="shrink-0 rounded-md bg-accent px-3 py-1 text-xs font-medium text-white"
                     onClick={() => onAddNearby(server)}
                   >
-                    Add
+                    {t("servers:addAction")}
                   </button>
                 </li>
               )}
@@ -429,12 +442,15 @@ function AddServer(props: AddServerProps) {
   );
 }
 
-function probeSuccessText(probe: ProbeState): string {
+function probeSuccessText(
+  probe: ProbeState,
+  t: (key: string, opts?: Record<string, unknown>) => string,
+): string {
   if (probe.kind !== "success") return "";
   const parts: string[] = [];
-  if (probe.version) parts.push(`version ${probe.version}`);
+  if (probe.version) parts.push(t("servers:probeVersion", { version: probe.version }));
   if (probe.latencyMs !== undefined) parts.push(`${probe.latencyMs} ms`);
-  return parts.length > 0 ? parts.join(" · ") : "Connected";
+  return parts.length > 0 ? parts.join(" · ") : t("servers:probeConnected");
 }
 
 function probeFailureText(probe: ProbeState): string {
@@ -445,11 +461,13 @@ function probeFailureText(probe: ProbeState): string {
  * Classified probe failure copy (TASK-M1-09): "Title: detail", plus a
  * credentials hint on 401 — the auth fields are right there in the form.
  */
-function probeFailureMessage(err: ApiError): string {
-  const title = errorTitle(err);
-  const detail = errorDetail(err);
-  const base = detail === title ? title : `${title}: ${detail}`;
-  return err.status === 401 ? `${base} Check your credentials and retry.` : base;
+function probeFailureMessage(
+  err: ApiError,
+  errorLine: (e: ApiError) => string,
+  t: (key: string) => string,
+): string {
+  const base = errorLine(err);
+  return err.status === 401 ? `${base} ${t("servers:checkCredentials")}` : base;
 }
 
 export default AddServer;

@@ -5,6 +5,7 @@
 import { For } from "solid-js";
 import type { Component } from "solid-js";
 import { dismissToast, toasts } from "../stores/toasts.js";
+import { useT } from "../i18n/index.js";
 
 const kindIcon: Record<string, string> = {
   success: "✓",
@@ -19,6 +20,7 @@ const kindClass: Record<string, string> = {
 };
 
 export const Toasts: Component = () => {
+  const t = useT();
   return (
     <div
       data-testid="toast-host"
@@ -37,7 +39,7 @@ export const Toasts: Component = () => {
             <button
               type="button"
               data-testid="toast-dismiss"
-              aria-label="Dismiss notification"
+              aria-label={t("notifications:dismiss")}
               class="shrink-0 rounded p-0.5 leading-none text-fg-faint hover:text-fg-primary"
               onClick={() => dismissToast(toast.id)}
             >

@@ -37,6 +37,27 @@ import {
   type SymbolHit,
 } from "../../features/files/symbols.js";
 import { buildPaletteItems, type PaletteGroup, type PaletteItem } from "./paletteItems.js";
+import { useT } from "../../i18n/index.js";
+
+const SECTION_LABEL_KEYS: Record<string, string> = {
+  sessions: "palette:sections",
+  files: "palette:files",
+  symbols: "palette:symbols",
+  commands: "palette:commands",
+  settings: "palette:settings",
+  servers: "palette:servers",
+};
+
+const SETTING_LABEL_KEYS: Record<string, { label: string; hint: string }> = {
+  "new-session": { label: "palette:actionNewSession", hint: "palette:actionNewSessionHint" },
+  "open-settings": { label: "palette:actionOpenSettings", hint: "palette:actionOpenSettingsHint" },
+  "toggle-sidebar": {
+    label: "palette:actionToggleSidebar",
+    hint: "palette:actionToggleSidebarHint",
+  },
+  "open-terminal": { label: "palette:actionOpenTerminal", hint: "palette:actionOpenTerminalHint" },
+  "open-diff": { label: "palette:actionOpenDiff", hint: "palette:actionOpenDiffHint" },
+};
 
 export interface CommandPaletteActions {
   /** Creates a session (the same handler as the ⌘N shortcut). */
@@ -170,6 +191,7 @@ function RowView(props: {
   selected: boolean;
   onExecute: (item: PaletteItem) => void;
 }) {
+  const t = useT();
   const view = createMemo(() => {
     const item = props.item;
     switch (item.kind) {
@@ -181,8 +203,12 @@ function RowView(props: {
         return { title: item.name, detail: item.path };
       case "command":
         return { title: `/${item.name}`, detail: item.description };
-      case "setting":
-        return { title: item.label, detail: item.hint };
+      case "setting": {
+        const copy = SETTING_LABEL_KEYS[item.settingId];
+        return copy === undefined
+          ? { title: item.label, detail: item.hint }
+          : { title: t(copy.label), detail: t(copy.hint) };
+      }
       case "server":
         return { title: item.name, detail: item.url };
     }
@@ -210,6 +236,7 @@ function RowView(props: {
 }
 
 const CommandPalette: Component<CommandPaletteProps> = (props) => {
+  const t = useT();
   const [query, setQuery] = createSignal("");
   const [files, setFiles] = createSignal<RankedEntry[]>([]);
   const [symbols, setSymbols] = createSignal<SymbolHit[]>([]);
@@ -465,7 +492,7 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
             inputRef?.focus();
           }}
         >
-          <Dialog.Title class="sr-only">Command palette</Dialog.Title>
+          <Dialog.Title class="sr-only">{t("desktop:paletteTitle")}</Dialog.Title>
           <div class="flex items-center gap-2.5 border-b border-bg-sunken px-4">
             <SearchIcon />
             <input
@@ -473,8 +500,8 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
               data-testid="command-palette-input"
               type="text"
               value={query()}
-              placeholder="Search sessions, files, commands, settings…"
-              aria-label="Command palette"
+              placeholder={t("desktop:palettePlaceholder")}
+              aria-label={t("desktop:paletteTitle")}
               autocomplete="off"
               spellcheck={false}
               onInput={onInput}
@@ -486,7 +513,7 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
             ref={listRef}
             data-testid="command-palette-list"
             role="listbox"
-            aria-label="Results"
+            aria-label={t("desktop:results")}
             class="max-h-96 overflow-y-auto py-1.5"
           >
             <Show
@@ -494,16 +521,21 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
               fallback={
                 <Show
                   when={flat().length > 0}
-                  fallback={<EmptyRow testId="command-palette-empty" label="No matches" />}
+                  fallback={
+                    <EmptyRow testId="command-palette-empty" label={t("common:noMatches")} />
+                  }
                 >
                   <For each={groupsWithOffsets()}>
                     {(group) => (
-                      <div role="group" aria-label={group.label}>
+                      <div
+                        role="group"
+                        aria-label={t(SECTION_LABEL_KEYS[group.section] ?? group.label)}
+                      >
                         <div
                           data-testid={`command-palette-section-${group.section}`}
                           class="px-4 pb-1 pt-1.5 text-[11px] font-medium uppercase tracking-wide text-fg-faint"
                         >
-                          {group.label}
+                          {t(SECTION_LABEL_KEYS[group.section] ?? group.label)}
                         </div>
                         <For each={group.items}>
                           {(item, index) => (
@@ -520,7 +552,7 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
                 </Show>
               }
             >
-              <EmptyRow testId="command-palette-loading" label="Searching…" />
+              <EmptyRow testId="command-palette-loading" label={t("files:searching")} />
             </Show>
           </div>
         </Dialog.Content>
