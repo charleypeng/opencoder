@@ -582,6 +582,7 @@
     "diagSavedPermissions": "已保存的权限规则",
     "diagSavedPermissionsHint": "「始终允许/拒绝」回答保存的规则；删除将撤销已保存的决定。",
     "diagRulesEmpty": "暂无已保存的权限规则。",
+    "diagRulesLoading": "正在加载已保存的权限规则…",
     "diagRulesLoadFailed": "无法加载已保存的权限规则：{{detail}}",
     "diagRuleDelete": "删除",
     "diagRuleConfirm": "确认",

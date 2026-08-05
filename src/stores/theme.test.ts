@@ -103,6 +103,7 @@ describe("resolveMode", () => {
   });
 
   it("falls back to light when matchMedia is unavailable", () => {
+    vi.stubGlobal("matchMedia", undefined);
     expect(typeof window.matchMedia).not.toBe("function");
     expect(resolveMode("system")).toBe("light");
   });

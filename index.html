@@ -18,7 +18,10 @@
       // TASK-M9-03 no-flicker theme pre-read: resolve the persisted theme
       // (oc-theme, system preference when absent) and accent (oc-accent)
       // BEFORE the app bundle runs, so the first paint is already themed.
-      // Mirrors src/stores/theme.ts; OLED true-black applies on mobile UA.
+      // Mirrors src/stores/theme.ts; the OLED true-black gate mirrors the
+      // platform detect fallback (src/platform/index.ts): a mobile UA OR
+      // the webkit + touch + phone-ish viewport branch (iPadOS desktop-UA
+      // mode), so the pre-read never flashes dark→oled one frame later.
       (function () {
         try {
           var doc = document.documentElement;
@@ -31,7 +34,12 @@
           if (
             isDark &&
             localStorage.getItem("oc-oled") === "1" &&
-            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent)
+            (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+              (!!window.webkit &&
+                "ontouchstart" in window &&
+                window.innerWidth > 0 &&
+                window.innerWidth <= 1024) ||
+              ("ontouchstart" in window && window.innerWidth > 0 && window.innerWidth <= 768))
           ) {
             theme = "oled";
           }

@@ -116,7 +116,10 @@ export function accentColor(value: string): string {
 }
 
 /** Resolves a mode to a concrete theme, following the OS preference for
- *  "system" (matchMedia, guarded for engines without it). */
+ *  "system" (matchMedia, guarded for engines without it). The system mode
+ *  resolves statically on every call — there is no live matchMedia
+ *  listener; a preference change applies on the next resolution (a mode
+ *  switch, entering a server, or an explicit applyTheme call). */
 export function resolveMode(mode: ThemeMode): "dark" | "light" {
   if (mode !== "system") return mode;
   return typeof window.matchMedia === "function" &&

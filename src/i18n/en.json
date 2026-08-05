@@ -582,6 +582,7 @@
     "diagSavedPermissions": "Saved permission rules",
     "diagSavedPermissionsHint": "Rules saved by “always allow/deny” answers; deleting one revokes the saved decision.",
     "diagRulesEmpty": "No saved permission rules.",
+    "diagRulesLoading": "Loading saved permission rules…",
     "diagRulesLoadFailed": "Could not load saved permission rules: {{detail}}",
     "diagRuleDelete": "Delete",
     "diagRuleConfirm": "Confirm",

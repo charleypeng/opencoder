@@ -250,9 +250,18 @@ const DiagnosticsSection: Component<DiagnosticsSectionProps> = (props) => {
           <Show
             when={Array.isArray(rules()) && (rules() as PermissionSavedInfo[]).length > 0}
             fallback={
-              <p data-testid="diag-rules-empty" class="mt-2 text-xs text-fg-faint">
-                {t("settings:diagRulesEmpty")}
-              </p>
+              <Show
+                when={rules() === null}
+                fallback={
+                  <p data-testid="diag-rules-empty" class="mt-2 text-xs text-fg-faint">
+                    {t("settings:diagRulesEmpty")}
+                  </p>
+                }
+              >
+                <p data-testid="diag-rules-loading" class="mt-2 text-xs text-fg-faint">
+                  {t("settings:diagRulesLoading")}
+                </p>
+              </Show>
             }
           >
             <ul class="mt-2 space-y-1">

@@ -4,8 +4,8 @@
 // jsdom cannot compute layout or real colors, so the sweep asserts zero
 // CRITICAL/SERIOUS violations only (moderate/minor findings and the
 // manual color-contrast table live in docs/a11y-report.md); rules that
-// require layout (`color-contrast`, `target-size`, `region` on isolated
-// component renders) are excluded with the reasons documented there.
+// require layout (`color-contrast`, `target-size`) are excluded with the
+// reasons documented there.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -120,14 +120,18 @@ function mockClient(history: SessionMessage[] = [], sessionsList: Session[] = []
 /** Runs the WCAG A/AA rule set over the rendered tree. Rules that cannot
  *  work without a real layout engine are disabled with reasons recorded in
  *  docs/a11y-report.md: `color-contrast` needs real computed colors (the
- *  contrast walk is a manual token table there), `target-size` needs real
- *  hit areas, and `region` is meaningless for isolated component renders
- *  (full-page landmark coverage is asserted on DesktopShell/SettingsPage). */
+ *  contrast walk is a manual token table there) and `target-size` needs
+ *  real hit areas. The `region` rule stays ACTIVE for every sweep (the
+ *  isolated renders use region-agnostic containers), so passing runs
+ *  assert a non-empty pass list — a vacuous run would fail loudly. */
 async function violationsAt(container: HTMLElement): Promise<Result[]> {
   const results = (await axe.run(container, {
     runOnly: { type: "tag", values: ["wcag2a", "wcag2aa", "wcag21aa", "wcag22aa"] },
     rules: { "color-contrast": { enabled: false }, "target-size": { enabled: false } },
   })) as AxeResults;
+  expect(results.passes.length, "axe must report passing checks (no vacuous run)").toBeGreaterThan(
+    0,
+  );
   return results.violations;
 }
 

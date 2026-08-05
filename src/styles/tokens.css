@@ -100,7 +100,7 @@
   --fg-secondary: #586071;
   /* TASK-M9-08 contrast fixes (docs/a11y-report.md contrast table):
      --fg-faint #8b93a3 (2.88:1) → #646d7e (4.86:1 on base / 5.21:1 on
-     elevated); --accent #4f63f5 (4.42:1, and 3.8:1 on --accent-soft
+     elevated); --accent #4f63f5 (4.42:1, and 3.69:1 on --accent-soft
      badges) → #3d4fd8 (5.92:1 / 4.81:1 on soft); --success #059669
      (3.52:1) → #047857 (5.12:1 / 5.48:1). All other light-theme pairs
      already meet AA (warning 4.68:1, danger 4.51:1). */

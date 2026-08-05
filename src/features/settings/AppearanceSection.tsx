@@ -7,7 +7,7 @@
 // documentElement dataset.theme + the --accent CSS variable; the signals
 // only drive the selected states.
 
-import { For, Show } from "solid-js";
+import { For, Show, createSignal } from "solid-js";
 import type { Component } from "solid-js";
 import { useT } from "../../i18n/index.js";
 import { platform } from "../../platform/index.js";
@@ -74,6 +74,10 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
   const t = useT();
   const override = (): ThemeMode | undefined => themeServerOverrides()[props.serverId];
   const customHex = (): string => accentColor(accent());
+  /** In-progress hex draft; undefined means the field shows the committed
+   *  accent. Kept separate so intermediate typing (e.g. "#12") never
+   *  reverts mid-entry — validation happens on commit (blur) instead. */
+  const [hexDraft, setHexDraft] = createSignal<string | undefined>(undefined);
 
   return (
     <div data-testid="appearance-section" class="flex min-h-0 flex-1 flex-col">
@@ -156,10 +160,18 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
               <input
                 type="text"
                 data-testid="accent-custom-input"
-                value={customHex()}
+                value={hexDraft() ?? customHex()}
                 onInput={(event) => {
                   const value = event.currentTarget.value;
-                  if (/^#[0-9a-f]{6}$/i.test(value)) setAccent(value);
+                  setHexDraft(value);
+                  // Live-apply values the store accepts (HEX_RE 3–8);
+                  // everything else stays in the draft until the commit.
+                  if (/^#[0-9a-f]{3,8}$/i.test(value)) setAccent(value);
+                }}
+                onBlur={() => {
+                  const draft = hexDraft();
+                  if (draft !== undefined && /^#[0-9a-f]{3,8}$/i.test(draft)) setAccent(draft);
+                  setHexDraft(undefined);
                 }}
                 aria-label={t("settings:accentCustom")}
                 spellcheck={false}

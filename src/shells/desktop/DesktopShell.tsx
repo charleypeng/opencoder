@@ -22,7 +22,7 @@
 // whose branch chip follows the vcs store (one GET /vcs per server on
 // mount and after each re-sync that clears the store bucket;
 // `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
-// M9-07 extends the bar with LSP/MCP/tokens). TASK-M6-02 adds the
+// M9-07 extends the bar with LSP/formatter/tokens). TASK-M6-02 adds the
 // terminal view (a terminal icon in the Chat|Files tab bar or the
 // provisional ⌘/Ctrl+J hook opens it; its own Back header returns to
 // chat, like the settings view).
