@@ -46,6 +46,17 @@ export default tseslint.config(
     },
   },
   {
+    // E2E harness runs in the browser (Playwright) — the shim needs both
+    // the DOM and Node globals.
+    files: ["tests/e2e/**"],
+    languageOptions: {
+      globals: {
+        ...globals.browser,
+        ...globals.node,
+      },
+    },
+  },
+  {
     files: ["**/*.test.{ts,tsx}", "vitest.setup.ts"],
     languageOptions: {
       globals: vitestGlobals,

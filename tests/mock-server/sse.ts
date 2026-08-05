@@ -28,6 +28,14 @@ export function handleSSE(req: Request, res: Response, options: SSEOptions): voi
   const scenarioName =
     firstQueryValue(req.query["scenario"]) ?? (options.global ? "global-events" : "happy-chat");
   const dropAfter = firstQueryValue(req.query["__drop"]) === "true";
+  // `?syncDelay=<ms>` (mock extension, see docs/api-coverage.md §5): holds
+  // the whole timeline back so client-side re-sync work (which the
+  // server.connected event triggers) settles BEFORE the scenario events
+  // start playing. Without it, events at t=0 race the client's
+  // snapshot fetch and the re-sync's wholesale list replace wipes them
+  // (observed by the M10 E2E suite). Tests enable it via the shim URL.
+  const syncDelay = Number(firstQueryValue(req.query["syncDelay"]));
+  const delayMs = Number.isFinite(syncDelay) && syncDelay > 0 ? syncDelay : 0;
 
   const timeline = scenarios[scenarioName];
   if (!timeline) {
@@ -72,11 +80,11 @@ export function handleSSE(req: Request, res: Response, options: SSEOptions): voi
         } else if (entry.event !== undefined) {
           writeEvent(res, entry.event);
         }
-      }, entry.at),
+      }, entry.at + delayMs),
     );
   }
   if (dropAfter && play.length > 0) {
-    timers.push(setTimeout(endStream, play[play.length - 1].at + 400));
+    timers.push(setTimeout(endStream, play[play.length - 1].at + delayMs + 400));
   }
 
   const heartbeat = setInterval(() => {

@@ -374,9 +374,14 @@ export async function subscribeToServerEvents(
   const unsubscribe = await sseSubscribe(serverId, directory, (event) => {
     if (event.type === "server.connected") {
       // Drop local per-server state, then pull fresh snapshots (see syncAll).
+      // The project bucket is deliberately NOT reset: DesktopShell's
+      // per-directory subscription effect tracks the active directory, and
+      // a reset would flip it to null and rebuild the stream, whose
+      // server.connected would reset again — an infinite reconnect loop
+      // (caught by the M10 E2E suite). syncAll re-applies the project list
+      // and current directory wholesale, so the re-sync stays complete.
       deps.session.resetServer(serverId);
       deps.messages.resetServer(serverId);
-      deps.project.resetServer(serverId);
       deps.todos.resetServer(serverId);
       deps.files.resetServer(serverId);
       deps.diffs.resetServer(serverId);
