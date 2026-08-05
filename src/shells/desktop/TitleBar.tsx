@@ -42,12 +42,18 @@ const TitleBar: Component = () => {
     if (!tauri) return;
     const win = getCurrentWindow();
     windowApi = win;
-    void win.isMaximized().then(setMaximized);
-    void win
-      .onResized(() => void win.isMaximized().then(setMaximized))
-      .then((unlisten) => {
-        unlistenResized = unlisten;
-      });
+    // macOS renders no custom buttons (the native traffic lights own the
+    // window controls), so the maximize icon state is never displayed —
+    // skip the isMaximized query + onResized listener, which would waste
+    // an IPC round-trip per resize on the mac.
+    if (!mac) {
+      void win.isMaximized().then(setMaximized);
+      void win
+        .onResized(() => void win.isMaximized().then(setMaximized))
+        .then((unlisten) => {
+          unlistenResized = unlisten;
+        });
+    }
     void isPetVisible().then(setPetVisible);
   });
 

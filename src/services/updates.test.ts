@@ -105,6 +105,8 @@ describe("installAndRelaunch", () => {
       { downloaded: 0, total: 100, fraction: 0 },
       { downloaded: 30, total: 100, fraction: 0.3 },
       { downloaded: 80, total: 100, fraction: 0.8 },
+      // Finished: the final snapshot lands the UI on a full 100% bar.
+      { downloaded: 80, total: 100, fraction: 1 },
     ]);
     expect(relaunchMock).toHaveBeenCalled();
   });

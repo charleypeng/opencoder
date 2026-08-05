@@ -55,6 +55,13 @@ export function startPetWatcher(serverId: string): () => void {
       for (const event of events) {
         current = reducePetState(current, event, { tokenRate: tokenRateStore.rate });
       }
+      // Any store change (even an unrelated one) while a transient is
+      // showing clears and re-creates the timer, restarting the FULL
+      // transient lifetime (TRANSIENT_MS re-runs from the change). Benign:
+      // the transient simply persists until TRANSIENT_MS after the last
+      // fold instead of the first — a busy conversation keeps the pet's
+      // reaction visible a little longer, and correctness is unaffected
+      // because the release re-fold re-asserts the full fact set.
       if (transientTimer !== undefined) {
         clearTimeout(transientTimer);
         transientTimer = undefined;

@@ -70,7 +70,12 @@ export async function installAndRelaunch(
   let downloaded = 0;
   let total: number | undefined;
   await update.downloadAndInstall((event) => {
-    if (event.event === "Finished") return;
+    if (event.event === "Finished") {
+      // The plugin sends no trailing Progress event, so without this the
+      // progress UI would never render 100% before the relaunch.
+      onProgress?.({ downloaded, total, fraction: 1 });
+      return;
+    }
     if (event.event === "Started") {
       total = event.data.contentLength;
     } else {

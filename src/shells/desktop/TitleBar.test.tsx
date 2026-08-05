@@ -96,7 +96,7 @@ describe("TitleBar macOS", () => {
   it("reserves the traffic-light space and renders no custom buttons", async () => {
     isTauriMock.mockReturnValue(true);
     setUserAgent("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36");
-    const { win, unlisten } = fakeWindow();
+    const { win } = fakeWindow();
     getCurrentWindowMock.mockReturnValue(win);
 
     render(() => <TitleBar />);
@@ -108,19 +108,12 @@ describe("TitleBar macOS", () => {
     expect(screen.queryByTestId("titlebar-close")).not.toBeInTheDocument();
 
     expect(getCurrentWindowMock).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() => expect(win.isMaximized).toHaveBeenCalled());
-    expect(win.onResized).toHaveBeenCalled();
-    // The resize listener is torn down on unmount (microtasks flushed so
-    // the async onResized registration has run). The first render stays
-    // mounted, so its unlisten must NOT have fired yet.
-    expect(unlisten).not.toHaveBeenCalled();
-    const second = fakeWindow();
-    getCurrentWindowMock.mockReturnValue(second.win);
-    const { unmount } = render(() => <TitleBar />);
-    await Promise.resolve();
-    await Promise.resolve();
-    unmount();
-    expect(second.unlisten).toHaveBeenCalled();
+    // No custom buttons → the maximize icon state is never rendered, so
+    // the isMaximized query + onResized listener are skipped entirely (no
+    // wasted IPC round-trip per resize on macOS).
+    expect(win.isMaximized).not.toHaveBeenCalled();
+    expect(win.onResized).not.toHaveBeenCalled();
+    await vi.waitFor(() => expect(isPetVisibleMock).toHaveBeenCalled());
   });
 });
 
@@ -131,7 +124,7 @@ describe("TitleBar Windows / Linux custom controls", () => {
   });
 
   it("renders min/max/close buttons that drive the window API", async () => {
-    const { win } = fakeWindow();
+    const { win, unlisten } = fakeWindow();
     getCurrentWindowMock.mockReturnValue(win);
 
     render(() => <TitleBar />);
@@ -145,6 +138,18 @@ describe("TitleBar Windows / Linux custom controls", () => {
 
     fireEvent.click(screen.getByTestId("titlebar-close"));
     expect(win.close).toHaveBeenCalledTimes(1);
+
+    // The resize listener is torn down on unmount (microtasks flushed so
+    // the async onResized registration has run). The first render stays
+    // mounted, so its unlisten must NOT have fired yet.
+    expect(unlisten).not.toHaveBeenCalled();
+    const second = fakeWindow();
+    getCurrentWindowMock.mockReturnValue(second.win);
+    const { unmount } = render(() => <TitleBar />);
+    await Promise.resolve();
+    await Promise.resolve();
+    unmount();
+    expect(second.unlisten).toHaveBeenCalled();
   });
 
   it("toggles maximize and swaps the icon to Restore", async () => {

@@ -420,7 +420,10 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
       event.preventDefault();
       if (count === 0) return;
       const delta = event.key === "ArrowDown" ? 1 : -1;
-      setSelected((selected() + delta + count) % count);
+      // Wrap from the CLAMPED index (selectedIndex), not the raw signal:
+      // when the list shrank mid-open the raw value may point past the
+      // end, and a modulo over it would skip rows on the way back.
+      setSelected((selectedIndex() + delta + count) % count);
       return;
     }
     if (event.key === "Enter" && count > 0) {

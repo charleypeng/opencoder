@@ -664,6 +664,27 @@ describe("CommandPalette keyboard navigation and execution", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("wraps from the clamped last row after the list shrinks mid-open", async () => {
+    const act = actions();
+    const { onClose } = await renderWithLocalResults(act);
+
+    // Overview rows: sessions (2), commands (1), settings (5), servers (2).
+    // ArrowDown to the last row → the raw selection sits at 9.
+    for (let i = 0; i < 9; i += 1) fireEvent.keyDown(input(), { key: "ArrowDown" });
+    expect(selectedKey()).toBe("command-palette-item-server-srv-beta");
+
+    // The session store shrinks while the palette is open (typing/search
+    // reset the selection, a store change does not): the raw selection
+    // still points past the now 9-row list, clamped to its last row.
+    applySessionList(SERVER, [session("sess_fix", "Fix the bug", 1)]);
+
+    // ArrowDown must wrap to the FIRST row of the clamped list; a modulo
+    // over the raw index would land on row 1 instead ((9+1+9)%9 = 1).
+    fireEvent.keyDown(input(), { key: "ArrowDown" });
+    expect(selectedKey()).toBe("command-palette-item-session-sess_fix");
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it("Enter on a file row opens the file with the QuickOpen side effects", async () => {
     const act = actions();
     const client = mockClient();
