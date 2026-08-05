@@ -1,12 +1,23 @@
-# Desktop build — Tauri bundling (SKELETON, TASK-M0-07)
+# Desktop build — three-platform packaging and signing (TASK-M10-02)
 #
-# Placeholder workflow for desktop installers. Triggered manually or on
-# version tags (`v*`). M10 owns the full pipeline: per-platform artifact
-# targets (macOS arm64+x64/universal, Windows x64 msi/nsis, Linux deb/AppImage),
-# code signing, notarization, artifact upload and release notes.
+# Produces the full installer set per platform:
+#   macOS (macos-14):        universal binary (arm64 + x64) -> .app + .dmg
+#   Windows (windows-latest): x64                              -> NSIS .exe + WiX .msi
+#   Linux (ubuntu-22.04):     x64                              -> .deb + AppImage
 #
-# Current scope: a minimal `pnpm tauri build` on each platform to verify the
-# release build chain stays green between M0 and M10.
+# Code signing is conditional on the corresponding secrets being present:
+#   - macOS: APPLE_CERTIFICATE/PASSWORD + APPLE_SIGNING_IDENTITY import the
+#     Developer ID cert into the CI keychain; APPLE_ID/APPLE_PASSWORD/
+#     APPLE_TEAM_ID drive notarization. Without them the build is unsigned
+#     (Gatekeeper will warn users — see docs/release-signing.md).
+#   - Windows: optional, via the documented certificateThumbprint route.
+#   - Updater artifacts (createUpdaterArtifacts) are always signed; without
+#     TAURI_SIGNING_PRIVATE_KEY a throwaway CI key is generated so that
+#     verification builds stay green (release builds must set the real key,
+#     see docs/release-signing.md).
+#
+# Artifacts are uploaded per job; the release pipeline (TASK-M10-04) turns
+# them into a GitHub Release with latest.json for the in-app updater.
 
 name: Desktop
 
@@ -20,13 +31,38 @@ concurrency:
   group: desktop-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # Updater artifact signing (TASK-M8-09). Empty when the secret is absent ->
+  # an ephemeral CI key is generated below so unsigned builds still pass.
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+  # macOS Developer ID signing + notarization (docs/release-signing.md)
+  APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+  APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+  APPLE_ID: ${{ secrets.APPLE_ID }}
+  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
 jobs:
   build:
     name: Tauri build (${{ matrix.platform }})
     strategy:
       fail-fast: false
       matrix:
-        platform: [macos-latest, windows-latest, ubuntu-22.04]
+        include:
+          - platform: macos-14
+            target: universal-apple-darwin
+            rust-targets: aarch64-apple-darwin x86_64-apple-darwin
+            bundles: app,dmg
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            rust-targets: x86_64-pc-windows-msvc
+            bundles: nsis,msi
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rust-targets: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
     runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
@@ -48,18 +84,71 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.rust-targets }}
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      # Linux system dependencies required by Tauri bundling (deb/AppImage)
+      # System dependencies required by Tauri v2 bundling on Linux
+      # (webkit2gtk-4.1, appindicator, rsvg for icons, patchelf for AppImage)
       - name: Install Linux dependencies
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
+      # macOS signing needs the Developer ID certificate imported into a
+      # throwaway keychain before tauri-cli runs (docs/release-signing.md).
+      - name: Import Apple certificate
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        env:
+          KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
+        run: |
+          echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/app.p12
+          security create-keychain -p "" "$KEYCHAIN"
+          security default-keychain -s "$KEYCHAIN"
+          security unlock-keychain -p "" "$KEYCHAIN"
+          security import /tmp/app.p12 -P "$APPLE_CERTIFICATE_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "" \
+            "$KEYCHAIN"
+          rm /tmp/app.p12
+
+      # Updater artifacts must be signed; without a real secret generate a
+      # throwaway key so unsigned verification builds still succeed.
+      - name: Generate CI updater signing key
+        if: env.TAURI_SIGNING_PRIVATE_KEY == ''
+        run: |
+          pnpm tauri signer generate --ci -w "$RUNNER_TEMP/ci-signing.key"
+          echo "TAURI_SIGNING_PRIVATE_KEY=$RUNNER_TEMP/ci-signing.key" \
+            >> "$GITHUB_ENV"
 
       - name: Build desktop app
-        run: pnpm tauri build
+        run: pnpm tauri build --ci --target ${{ matrix.target }} \
+          --bundles ${{ matrix.bundles }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencoder-${{ matrix.platform }}-${{ matrix.target }}
+          if-no-files-found: error
+          path: |
+            src-tauri/target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+            src-tauri/target/${{ matrix.target }}/release/bundle/macos/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/deb/*
+            src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*
