@@ -72,6 +72,8 @@ jobs:
     # toolchain; real device/IPA builds need the team + profiles from
     # docs/mobile-signing.md and stay out of CI.
     continue-on-error: true
+    # Setup steps below duplicate the ios job's (checkout → pnpm → node →
+    # rust → cargo cache); kept inline so each job stays self-contained.
     steps:
       - name: Checkout
         uses: actions/checkout@v4

@@ -109,8 +109,15 @@ if (!dir || !tag) {
   );
   process.exit(2);
 }
-if (!statSync(dir).isDirectory()) {
+let dirStat;
+try {
+  dirStat = statSync(dir);
+} catch {
   process.stderr.write(`gen-latest-json: no such directory: ${dir}\n`);
+  process.exit(2);
+}
+if (!dirStat.isDirectory()) {
+  process.stderr.write(`gen-latest-json: not a directory: ${dir}\n`);
   process.exit(2);
 }
 

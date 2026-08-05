@@ -78,7 +78,9 @@ signing would be needed for that).
   in the project (persisted into `src-tauri/gen/apple/opencoder.xcodeproj`
   and mirrored by the XcodeGen source `src-tauri/gen/apple/project.yml`;
   `tauri ios build` syncs identifier/team/lib name from the project,
-  tauri-cli 2.11 — there is NO `ios.teamId` key in the Tauri config schema).
+   tauri-cli 2.11 — there is NO `ios.teamId` key in the Tauri config schema;
+   the replacement is `ios.developmentTeam` (JSON alias `development-team`)
+   in tauri.ios.conf.json, or the `APPLE_DEVELOPMENT_TEAM` env var).
 - CI: tauri-cli sets up signing automatically from the
   `IOS_CERTIFICATE` / `IOS_CERTIFICATE_PASSWORD` / `IOS_MOBILE_PROVISION`
   environment variables (imports the cert, installs the provisioning
