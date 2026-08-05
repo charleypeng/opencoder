@@ -1143,7 +1143,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               <button
                 type="button"
                 data-testid="model-chip"
-                aria-label={t("models:modelLabel") + ": " + modelChipName()}
+                aria-label={t("models:modelChipLabel", { name: modelChipName() })}
                 disabled={disabled()}
                 onClick={() => setModelPickerOpen(true)}
                 class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"

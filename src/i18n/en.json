@@ -17,7 +17,8 @@
     "reset": "Reset",
     "noMatches": "No matches",
     "saving": "Saving…",
-    "remove": "Remove"
+    "remove": "Remove",
+    "contextMenu": "Context menu"
   },
   "servers": {
     "servers": "Servers",
@@ -49,7 +50,8 @@
     "deleteServerTitle": "Delete server?",
     "deleteServerBody": "Remove {{name}} from the list? Sessions stay on the server.",
     "addHintEdit": "Update the connection details. Leave the password blank to keep the stored one.",
-    "addHintNew": "Connect to an OpenCode server, e.g. {{host}}.",
+    "addHintNewPrefix": "Connect to an OpenCode server, e.g. ",
+    "addHintNewSuffix": ".",
     "namePlaceholder": "My server",
     "urlPlaceholder": "http://localhost:14096",
     "usernameOptional": "Username (optional)",
@@ -262,11 +264,9 @@
   },
   "vcs": {
     "changes": "Changes",
-    "branch": "Branch",
     "refresh": "Refresh",
     "apply": "Apply",
     "applyPatch": "Apply patch",
-    "noChanges": "No changes",
     "notGit": "Not a git repository",
     "unified": "Unified",
     "split": "Split",
@@ -338,7 +338,8 @@
     "noMatchingModels": "No matching models",
     "modelsUnavailable": "Models unavailable",
     "providerLabel": "Provider",
-    "modelLabel": "Model"
+    "modelLabel": "Model",
+    "modelChipLabel": "Model: {{name}}"
   },
   "terminal": {
     "terminal": "Terminal",
@@ -434,14 +435,9 @@
     "reset": "Reset"
   },
   "pet": {
-    "pet": "Pet",
-    "showPet": "Show pet",
-    "hidePet": "Hide pet",
     "size": "Size",
     "opacity": "Opacity",
     "topmost": "Always on top",
-    "mute": "Muted",
-    "dock": "Dock to edge",
     "clickThrough": "Click-through",
     "petSettings": "Pet settings",
     "petSize": "Pet size",
@@ -487,12 +483,15 @@
     "runningVersion": " (running v{{version}})",
     "sidebarView": "Sidebar view",
     "mainView": "Main view",
+    "switchToServer": "Switch to {{name}}",
     "toggleSearch": "Toggle full-text search",
     "searchHint": "Full-text search (⌘⇧F)",
     "openVcs": "Open version control changes",
     "vcsHint": "VCS changes",
+    "changes": "Changes",
     "openTerminal": "Open terminal",
     "terminalHint": "Terminal (⌘J)",
+    "terminal": "Terminal",
     "openSettings": "Open settings",
     "shareSession": "Share session",
     "sharedHint": "Shared — open the share dialog",
@@ -513,13 +512,15 @@
   "updates": {
     "checkForUpdates": "Check for updates",
     "checking": "Checking…",
-    "upToDate": "You're up to date",
-    "updateAvailable": "Update available",
-    "install": "Install",
+    "upToDate": "You're up to date.",
+    "updateAvailable": "Update available: v{{version}}",
+    "installing": "Installing…",
     "installAndRestart": "Install & restart",
-    "appVersion": "App version",
-    "serverUpdate": "Server update available",
-    "installFailed": "Install failed"
+    "downloading": "Downloading…",
+    "downloadingBytes": "Downloading… ({{bytes}} bytes)",
+    "downloadingPercent": "Downloading… {{percent}}%",
+    "installFailed": "Couldn't install the update: {{detail}}",
+    "checkFailed": "Couldn't check for updates: {{detail}}"
   },
   "palette": {
     "sections": "Sessions",
@@ -540,11 +541,6 @@
     "actionOpenDiffHint": "Review the active session's changes"
   },
   "errors": {
-    "generic": "Something went wrong",
-    "network": "Network error — check your connection",
-    "timeout": "The request timed out",
-    "unauthorized": "Not authorized",
-    "notFound": "Not found",
     "rateLimit": "Rate limited — try again shortly",
     "invalidUrl": "Invalid server URL",
     "serverError": "Server error",

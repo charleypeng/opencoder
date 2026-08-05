@@ -244,7 +244,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                               class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
                               onClick={() => setConfirmRemove(null)}
                             >
-                              Cancel
+                              {t("common:cancel")}
                             </button>
                           </Show>
                         </Show>

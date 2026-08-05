@@ -17,7 +17,8 @@
     "reset": "重置",
     "noMatches": "无匹配结果",
     "saving": "保存中…",
-    "remove": "移除"
+    "remove": "移除",
+    "contextMenu": "上下文菜单"
   },
   "servers": {
     "servers": "服务器",
@@ -49,7 +50,8 @@
     "deleteServerTitle": "删除这台服务器？",
     "deleteServerBody": "从列表中移除 {{name}}？服务器上的会话不受影响。",
     "addHintEdit": "更新连接信息。密码留空则保留已保存的密码。",
-    "addHintNew": "连接一个 OpenCode 服务器，例如 {{host}}。",
+    "addHintNewPrefix": "连接一个 OpenCode 服务器，例如 ",
+    "addHintNewSuffix": "。",
     "namePlaceholder": "我的服务器",
     "urlPlaceholder": "http://localhost:14096",
     "usernameOptional": "用户名（可选）",
@@ -262,11 +264,9 @@
   },
   "vcs": {
     "changes": "变更",
-    "branch": "分支",
     "refresh": "刷新",
     "apply": "应用",
     "applyPatch": "应用补丁",
-    "noChanges": "无变更",
     "notGit": "不是 Git 仓库",
     "unified": "统一视图",
     "split": "分栏视图",
@@ -338,7 +338,8 @@
     "noMatchingModels": "没有匹配的模型",
     "modelsUnavailable": "模型暂不可用",
     "providerLabel": "模型服务商",
-    "modelLabel": "模型"
+    "modelLabel": "模型",
+    "modelChipLabel": "模型：{{name}}"
   },
   "terminal": {
     "terminal": "终端",
@@ -434,14 +435,9 @@
     "reset": "重置"
   },
   "pet": {
-    "pet": "宠物",
-    "showPet": "显示宠物",
-    "hidePet": "隐藏宠物",
     "size": "大小",
     "opacity": "不透明度",
     "topmost": "总是置顶",
-    "mute": "静音",
-    "dock": "贴靠边缘",
     "clickThrough": "点击穿透",
     "petSettings": "宠物设置",
     "petSize": "宠物大小",
@@ -487,12 +483,15 @@
     "runningVersion": "（当前运行 v{{version}}）",
     "sidebarView": "侧边栏视图",
     "mainView": "主视图",
+    "switchToServer": "切换到 {{name}}",
     "toggleSearch": "切换全文搜索",
     "searchHint": "全文搜索（⌘⇧F）",
     "openVcs": "打开版本控制变更",
     "vcsHint": "VCS 变更",
+    "changes": "变更",
     "openTerminal": "打开终端",
     "terminalHint": "终端（⌘J）",
+    "terminal": "终端",
     "openSettings": "打开设置",
     "shareSession": "分享会话",
     "sharedHint": "已分享 — 打开分享对话框",
@@ -513,13 +512,15 @@
   "updates": {
     "checkForUpdates": "检查更新",
     "checking": "检查中…",
-    "upToDate": "已是最新版本",
-    "updateAvailable": "发现新版本",
-    "install": "安装",
+    "upToDate": "已是最新版本。",
+    "updateAvailable": "发现新版本：v{{version}}",
+    "installing": "安装中…",
     "installAndRestart": "安装并重启",
-    "appVersion": "应用版本",
-    "serverUpdate": "服务器有可用更新",
-    "installFailed": "安装失败"
+    "downloading": "下载中…",
+    "downloadingBytes": "下载中…（{{bytes}} 字节）",
+    "downloadingPercent": "下载中… {{percent}}%",
+    "installFailed": "无法安装更新：{{detail}}",
+    "checkFailed": "无法检查更新：{{detail}}"
   },
   "palette": {
     "sections": "会话",
@@ -540,11 +541,6 @@
     "actionOpenDiffHint": "查看当前会话的变更"
   },
   "errors": {
-    "generic": "出了点问题",
-    "network": "网络错误 — 请检查连接",
-    "timeout": "请求超时",
-    "unauthorized": "未授权",
-    "notFound": "未找到",
     "rateLimit": "请求过于频繁 — 请稍后重试",
     "invalidUrl": "服务器 URL 无效",
     "serverError": "服务器错误",

@@ -78,7 +78,7 @@ const DeleteSessionDialog: Component<DeleteSessionDialogProps> = (props) => {
               class={actionClass}
               disabled={deleting()}
             >
-              Cancel
+              {t("common:cancel")}
             </Dialog.CloseButton>
             <button
               data-testid="delete-session-confirm"

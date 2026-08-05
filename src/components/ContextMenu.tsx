@@ -24,6 +24,7 @@
 
 import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
+import { useT } from "../i18n/index.js";
 
 export interface MenuItem {
   /** Stable id used for the data-testid (`${testId}-${id}`). */
@@ -172,6 +173,7 @@ function MenuRow(props: {
 }
 
 const ContextMenu: Component<ContextMenuProps> = (props) => {
+  const t = useT();
   const testId = () => props.testId ?? "context-menu";
   const [highlight, setHighlight] = createSignal(-1);
   const [subHighlight, setSubHighlight] = createSignal(-1);
@@ -341,7 +343,7 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
         data-testid={testId()}
         data-context-menu
         role="menu"
-        aria-label={props.label ?? "Context menu"}
+        aria-label={props.label ?? t("common:contextMenu")}
         tabIndex={-1}
         class="glass fixed z-50 min-w-44 p-1 outline-none"
         style={{ left: `${position().x}px`, top: `${position().y}px` }}

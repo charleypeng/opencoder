@@ -306,7 +306,7 @@ function DeleteMessageDialog(props: DeleteMessageDialogProps) {
               class={actionClass}
               disabled={deleting()}
             >
-              Cancel
+              {t("common:cancel")}
             </Dialog.CloseButton>
             <button
               data-testid="delete-message-confirm"

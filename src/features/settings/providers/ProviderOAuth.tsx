@@ -189,7 +189,7 @@ const ProviderOAuth: Component<ProviderOAuthProps> = (props) => {
               data-testid="provider-oauth-cancel"
               class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
             >
-              Cancel
+              {t("common:cancel")}
             </Dialog.CloseButton>
           </div>
         </Dialog.Content>

@@ -242,9 +242,15 @@ function AddServer(props: AddServerProps) {
         {props.server ? t("servers:editServer") : t("servers:addServer")}
       </h2>
       <p class="mt-1 text-sm text-fg-secondary">
-        {props.server
-          ? t("servers:addHintEdit")
-          : t("servers:addHintNew", { host: "localhost:14096" })}
+        {props.server ? (
+          t("servers:addHintEdit")
+        ) : (
+          <>
+            {t("servers:addHintNewPrefix")}
+            <span class="font-code">localhost:14096</span>
+            {t("servers:addHintNewSuffix")}
+          </>
+        )}
       </p>
 
       <form class="mt-6 space-y-4" onSubmit={onSave}>

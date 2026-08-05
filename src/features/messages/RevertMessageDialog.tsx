@@ -76,7 +76,7 @@ const RevertMessageDialog: Component<RevertMessageDialogProps> = (props) => {
               class={actionClass}
               disabled={reverting()}
             >
-              Cancel
+              {t("common:cancel")}
             </Dialog.CloseButton>
             <button
               data-testid="revert-message-confirm"

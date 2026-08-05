@@ -77,7 +77,7 @@ const NotificationsSection: Component = () => {
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
-            <p class="text-xs font-medium">Notifications</p>
+            <p class="text-xs font-medium">{t("settings:notifications")}</p>
             <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:notificationsHintFull")}</p>
           </div>
           <ToggleSwitch

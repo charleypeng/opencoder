@@ -116,7 +116,7 @@ const UpdatesSection: Component = () => {
           </Show>
           <Show when={checkState() === "up-to-date"}>
             <p data-testid="updates-result" class="text-xs text-fg-secondary">
-              You're up to date.
+              {t("updates:upToDate")}
             </p>
           </Show>
           <Show when={checkState() === "update-available" && update() !== null}>
@@ -124,7 +124,9 @@ const UpdatesSection: Component = () => {
               data-testid="updates-available"
               class="flex flex-col gap-2 rounded-md border border-accent bg-accent-soft p-3"
             >
-              <p class="text-xs text-fg-primary">Update available: v{update()?.version}</p>
+              <p class="text-xs text-fg-primary">
+                {t("updates:updateAvailable", { version: update()?.version })}
+              </p>
               <Show when={installing()}>
                 <div class="h-1.5 w-full overflow-hidden rounded-full bg-bg-sunken">
                   <div
@@ -137,10 +139,14 @@ const UpdatesSection: Component = () => {
                 </div>
                 <p data-testid="updates-progress-label" class="text-xs text-fg-secondary">
                   {progress() === null
-                    ? "Downloading…"
+                    ? t("updates:downloading")
                     : percentOf(progress() as UpdateProgress) === undefined
-                      ? `Downloading… (${progress()?.downloaded} bytes)`
-                      : `Downloading… ${percentOf(progress() as UpdateProgress)}%`}
+                      ? t("updates:downloadingBytes", {
+                          bytes: (progress() as UpdateProgress)?.downloaded,
+                        })
+                      : t("updates:downloadingPercent", {
+                          percent: percentOf(progress() as UpdateProgress),
+                        })}
                 </p>
               </Show>
               <button
@@ -150,18 +156,18 @@ const UpdatesSection: Component = () => {
                 class="w-fit rounded-md bg-accent px-3 py-1.5 text-xs font-medium text-fg-primary outline-none transition-opacity hover:opacity-90 disabled:cursor-default disabled:opacity-60"
                 onClick={() => void handleInstall()}
               >
-                {installing() ? "Installing…" : "Install & restart"}
+                {installing() ? t("updates:installing") : t("updates:installAndRestart")}
               </button>
               <Show when={installError() !== null}>
                 <p data-testid="updates-install-error" class="text-xs text-danger">
-                  Couldn't install the update: {installError()}
+                  {t("updates:installFailed", { detail: installError() })}
                 </p>
               </Show>
             </div>
           </Show>
           <Show when={checkState() === "error"}>
             <p data-testid="updates-error" class="text-xs text-danger">
-              Couldn't check for updates: {checkError()}
+              {t("updates:checkFailed", { detail: checkError() })}
             </p>
           </Show>
         </div>

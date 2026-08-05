@@ -723,7 +723,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   type="button"
                   data-testid={`rail-item-${entry.id}`}
                   data-active={active() ? "true" : "false"}
-                  aria-label={`Switch to ${entry.name}`}
+                  aria-label={t("desktop:switchToServer", { name: entry.name })}
                   title={entry.name}
                   class="outline-none"
                   onClick={() => setActiveServer(entry.id)}
@@ -1144,7 +1144,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                                 class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                                 onClick={() => setMainView("chat")}
                               >
-                                ← Back
+                                ← {t("common:back")}
                               </button>
                               <h2 class="shrink-0 text-sm font-semibold">
                                 {t("desktop:sessionDiff")}
@@ -1204,9 +1204,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                       onClick={() => setMainView("files")}
                     >
-                      ← Back
+                      ← {t("common:back")}
                     </button>
-                    <h2 class="shrink-0 text-sm font-semibold">Changes</h2>
+                    <h2 class="shrink-0 text-sm font-semibold">{t("desktop:changes")}</h2>
                   </header>
                   <VcsPanel serverId={activeServerId()} />
                 </Show>
@@ -1221,9 +1221,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                   onClick={() => setMainView("chat")}
                 >
-                  ← Back
+                  ← {t("common:back")}
                 </button>
-                <h2 class="shrink-0 text-sm font-semibold">Terminal</h2>
+                <h2 class="shrink-0 text-sm font-semibold">{t("desktop:terminal")}</h2>
               </header>
               <TerminalPanel serverId={activeServerId()} />
             </Show>
