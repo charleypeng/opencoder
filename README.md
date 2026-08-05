@@ -23,15 +23,15 @@
 
 ## Screenshots
 
-| Desktop — servers home                                     | Desktop — chat                                     | Desktop — chat (dark)                                        |
-| ---------------------------------------------------------- | -------------------------------------------------- | ------------------------------------------------------------ |
-| ![Desktop servers home](docs/screenshots/desktop-home.png) | ![Desktop chat](docs/screenshots/desktop-chat.png) | ![Desktop chat dark](docs/screenshots/desktop-dark-chat.png) |
+| Desktop — servers home                                     | Desktop — chat                                     | Desktop — files                                      | Desktop — chat (dark)                                        |
+| ---------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
+| ![Desktop servers home](docs/screenshots/desktop-home.png) | ![Desktop chat](docs/screenshots/desktop-chat.png) | ![Desktop files](docs/screenshots/desktop-files.png) | ![Desktop chat dark](docs/screenshots/desktop-dark-chat.png) |
 
 | iOS — servers home (iPhone 17, iOS 26)             | iOS — Liquid Glass                                  |
 | -------------------------------------------------- | --------------------------------------------------- |
 | ![iOS servers home](docs/screenshots/ios-home.png) | ![iOS Liquid Glass](docs/screenshots/ios-glass.png) |
 
-Desktop screenshots show the app UI driven by the [Mock OpenCode Server](docs/testing.md) in dev mode; the iOS screenshots were captured on the iPhone 17 simulator (iOS 26.0).
+Desktop screenshots show the app UI driven by the [Mock OpenCode Server](docs/testing.md) in dev mode; the iOS screenshots were captured on the iPhone 17 simulator (iOS 26.0), with the servers home connected to the Mock OpenCode Server on the host (127.0.0.1).
 
 ## Requirements
 

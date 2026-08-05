@@ -63,6 +63,15 @@ jobs:
         working-directory: src-tauri
         run: cargo clippy --all-targets -- -D warnings
 
+      - name: L0 i18n keys
+        run: pnpm check:i18n
+
+      - name: L0 links
+        run: pnpm check:links
+
+      - name: L0 hardcoded strings
+        run: node scripts/check-hardcoded.mjs
+
       # L1 — unit tests (vitest)
       - name: L1 vitest
         run: pnpm test

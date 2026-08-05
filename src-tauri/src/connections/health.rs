@@ -202,7 +202,12 @@ impl<R: tauri::Runtime> HealthMonitor<R> {
         let task_token = token.clone();
         let task_state = Arc::clone(&state);
         let task_server_id = server_id.clone();
-        let task = tokio::spawn(async move {
+        // Spawn through tauri's async runtime: it enters the tokio runtime
+        // context before spawning, which raw `tokio::spawn` does not — the
+        // setup hook runs on the main thread outside any runtime context,
+        // so `start_all` panicked ("no reactor running") whenever a
+        // persisted server existed, crashing the app at startup.
+        let task = tauri::async_runtime::spawn(async move {
             monitor_loop(
                 app,
                 task_server_id,
@@ -219,7 +224,7 @@ impl<R: tauri::Runtime> HealthMonitor<R> {
             HealthTask {
                 state,
                 token,
-                abort: task.abort_handle(),
+                abort: task.inner().abort_handle(),
             },
         );
     }

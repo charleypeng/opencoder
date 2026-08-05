@@ -23,15 +23,15 @@
 
 ## 截图
 
-| 桌面 — 服务器主页                                    | 桌面 — 聊天                                    | 桌面 — 聊天（深色）                                     |
-| ---------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------------- |
-| ![桌面服务器主页](docs/screenshots/desktop-home.png) | ![桌面聊天](docs/screenshots/desktop-chat.png) | ![桌面深色聊天](docs/screenshots/desktop-dark-chat.png) |
+| 桌面 — 服务器主页                                    | 桌面 — 聊天                                    | 桌面 — 文件                                     | 桌面 — 聊天（深色）                                     |
+| ---------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------- |
+| ![桌面服务器主页](docs/screenshots/desktop-home.png) | ![桌面聊天](docs/screenshots/desktop-chat.png) | ![桌面文件](docs/screenshots/desktop-files.png) | ![桌面深色聊天](docs/screenshots/desktop-dark-chat.png) |
 
 | iOS — 服务器主页（iPhone 17 / iOS 26）           | iOS — Liquid Glass                                  |
 | ------------------------------------------------ | --------------------------------------------------- |
 | ![iOS 服务器主页](docs/screenshots/ios-home.png) | ![iOS Liquid Glass](docs/screenshots/ios-glass.png) |
 
-桌面截图展示应用 UI 以开发模式驱动 [Mock OpenCode Server](docs/testing.md) 的实况；iOS 截图拍摄于 iPhone 17 模拟器（iOS 26.0）。
+桌面截图展示应用 UI 以开发模式驱动 [Mock OpenCode Server](docs/testing.md) 的实况；iOS 截图拍摄于 iPhone 17 模拟器（iOS 26.0），其中服务器主页已连接宿主机上的 Mock OpenCode Server（127.0.0.1）。
 
 ## 服务端要求
 
