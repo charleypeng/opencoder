@@ -184,6 +184,18 @@
     color: var(--fg-primary);
   }
 
+  /*
+   * TASK-M9-08: global keyboard focus ring (docs/a11y-report.md). Every
+   * focusable element that does not paint its own focus state (custom
+   * components use outline + their own styles, which override this)
+   * gets an accent outline. --accent sits at 6.35:1 (dark) / 5.92:1
+   * (light) on --bg-base, above the 3:1 non-text AA threshold.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
   code,
   pre,
   kbd,
@@ -510,5 +522,22 @@
 
   .viewer-line-flash {
     background: none;
+  }
+
+  /* TASK-M9-08: Tailwind v4's preflight no longer carries a
+     prefers-reduced-motion override, so the utility animations used in
+     the app (spinners, pulsing badges) degrade to their static frames,
+     and hover/state transitions collapse to an instant swap. */
+  .animate-spin,
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
+    animation: none !important;
+  }
+
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
   }
 }

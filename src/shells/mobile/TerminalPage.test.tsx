@@ -147,9 +147,11 @@ describe("mobile Terminal flow (TASK-M7-09)", () => {
       expect(screen.getByTestId("mobile-page-terminal")).toHaveAttribute("data-active", "true"),
     );
 
+    // TASK-M9-08: the terminal page is lazy-loaded (xterm chunk), so the
+    // panel appears after the dynamic import resolves.
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
     const page = screen.getByTestId("mobile-page-terminal-root");
     expect(page).toHaveClass("landscape-terminal");
-    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
   });
 
   it("routes strip keys into the active instance's PTY channel", async () => {

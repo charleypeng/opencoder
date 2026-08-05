@@ -6,6 +6,7 @@
 // (SettingsPage mobile variant: chip nav instead of the sidebar).
 
 import type { Component } from "solid-js";
+import { lazy } from "solid-js";
 import { back } from "./navigation.js";
 import { useT } from "../../i18n/index.js";
 import type { Route } from "./navigation.js";
@@ -14,8 +15,14 @@ import { ChatPage } from "./ChatPage.js";
 import { SessionsPage } from "./SessionsPage.js";
 import { FilesPage } from "./FilesPage.js";
 import { FileViewPage } from "./FileViewPage.js";
-import { TerminalPage } from "./TerminalPage.js";
 import SettingsPage from "../../features/settings/SettingsPage.js";
+
+// TASK-M9-08: the terminal page (and with it the xterm.js bundle) loads
+// lazily — only the terminal tab mounts it, so xterm stays out of the
+// startup chunk (bundle-size budget, docs/performance.md).
+const TerminalPage = lazy(() =>
+  import("./TerminalPage.js").then((m) => ({ default: m.TerminalPage })),
+);
 
 export interface MobilePageProps {
   serverId: string;

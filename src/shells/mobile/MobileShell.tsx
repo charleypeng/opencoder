@@ -21,7 +21,7 @@
 // resizes-content in index.html) leaves the bottom chrome visible above
 // it, and the web nav pads the home-indicator inset (pb-safe).
 
-import { For, onCleanup, onMount, Show } from "solid-js";
+import { For, onCleanup, onMount, Show, Suspense } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ServerEntry } from "../../services/servers";
 import { startHapticEvents } from "../../services/hapticEvents.js";
@@ -189,7 +189,11 @@ const MobileShell: Component<MobileShellProps> = (props) => {
             data-route-key={routeId}
             class={`h-full ${pageEnterClass(dir)}`}
           >
-            <Page serverId={props.server.id} onExit={props.onExit} route={route} />
+            {/* TASK-M9-08: lazy pages (the terminal tab) render through a
+              Suspense boundary with a blank surface fallback. */}
+            <Suspense fallback={<div class="h-full" />}>
+              <Page serverId={props.server.id} onExit={props.onExit} route={route} />
+            </Suspense>
           </div>
         )}
       </Show>

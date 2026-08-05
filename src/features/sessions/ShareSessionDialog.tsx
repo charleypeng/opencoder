@@ -16,7 +16,6 @@ import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import QRCode from "qrcode";
 import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import { useErrorCopy } from "../../components/errorCopy";
@@ -85,6 +84,8 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
 
   // QR generation is async; regenerate whenever the share URL changes and
   // clear when the session is unshared (stale generations are dropped).
+  // TASK-M9-08: `qrcode` is imported dynamically so the ~100KB library
+  // stays out of the startup chunk (dialogs only, docs/performance.md).
   createEffect(() => {
     const url = shareUrl();
     if (url === undefined) {
@@ -92,7 +93,8 @@ const ShareSessionDialog: Component<ShareSessionDialogProps> = (props) => {
       return;
     }
     let stale = false;
-    QRCode.toDataURL(url, { width: 160, margin: 1 })
+    void import("qrcode")
+      .then(({ default: QRCode }) => QRCode.toDataURL(url, { width: 160, margin: 1 }))
       .then((dataUrl) => {
         if (!stale) setQrSrc(dataUrl);
       })

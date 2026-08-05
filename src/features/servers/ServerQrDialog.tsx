@@ -7,7 +7,6 @@
 import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
-import QRCode from "qrcode";
 import type { ServerEntry } from "../../services/servers";
 import { useT } from "../../i18n";
 import { encodeConnectUrl } from "./qrConnect";
@@ -57,10 +56,13 @@ const ServerQrDialog: Component<ServerQrDialogProps> = (props) => {
 
   // QR generation is async; regenerate whenever the server changes and drop
   // stale generations (stale flag cleared by onCleanup on re-run/unmount).
+  // TASK-M9-08: `qrcode` is imported dynamically so the ~100KB library
+  // stays out of the startup chunk (dialogs only, docs/performance.md).
   createEffect(() => {
     const url = connectUrl();
     let stale = false;
-    QRCode.toDataURL(url, { width: 160, margin: 1 })
+    void import("qrcode")
+      .then(({ default: QRCode }) => QRCode.toDataURL(url, { width: 160, margin: 1 }))
       .then((dataUrl) => {
         if (!stale) setQrSrc(dataUrl);
       })

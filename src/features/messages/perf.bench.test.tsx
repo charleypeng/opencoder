@@ -101,6 +101,8 @@ describe("perf benchmarks (TASK-M2-09)", () => {
       expect(ms).toBeLessThan(250);
       expect(list.rows().length).toBeLessThan(50);
       expect(list.totalHeight()).toBe(1000 * 96);
+      // TASK-M9-08: record the measured time for docs/performance.md.
+      console.log(`[perf.bench] virtual list 1000x1000: ${ms.toFixed(1)}ms`);
       dispose();
     });
   });
@@ -117,6 +119,8 @@ describe("perf benchmarks (TASK-M2-09)", () => {
     expect(initialMs).toBeLessThan(2000);
     // Virtualized: a 300-message transcript mounts only the visible slice.
     expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(40);
+    // TASK-M9-08: record the measured time for docs/performance.md.
+    console.log(`[perf.bench] MessageList 300msgs render: ${initialMs.toFixed(1)}ms`);
   });
 
   it("MessageList: one streaming delta updates only the streaming part, fast", async () => {
@@ -142,6 +146,8 @@ describe("perf benchmarks (TASK-M2-09)", () => {
     expect(bubble.textContent).toContain("streamed token");
     // The sibling part's DOM node is untouched (fine-grained re-render).
     expect(bubble.querySelectorAll('[data-testid="markdown-text"]')[0]).toBe(stablePart);
+    // TASK-M9-08: record the measured time for docs/performance.md.
+    console.log(`[perf.bench] token delta to DOM: ${ms.toFixed(2)}ms`);
   });
 
   it("store: batched apply of 300 messages x 4 parts stays well under budget", () => {
@@ -175,5 +181,7 @@ describe("perf benchmarks (TASK-M2-09)", () => {
     applyMessageBatch(SERVER, SESSION, items);
     const ms = performance.now() - t0;
     expect(ms).toBeLessThan(500);
+    // TASK-M9-08: record the measured time for docs/performance.md.
+    console.log(`[perf.bench] store batch 300x4: ${ms.toFixed(1)}ms`);
   });
 });

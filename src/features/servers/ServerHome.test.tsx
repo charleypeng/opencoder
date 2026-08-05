@@ -491,9 +491,13 @@ describe("ServerHome QR share (TASK-M7-08)", () => {
       `opencode://connect?url=${encodeURIComponent("http://localhost:14096")}&name=Alpha`,
     );
     // The payload encodes url + name only — never credentials.
-    expect(qrToDataURLMock).toHaveBeenCalledWith(
-      expect.not.stringContaining("secret"),
-      expect.anything(),
+    // TASK-M9-08: `qrcode` is dynamically imported, so the generation call
+    // lands a microtask after the dialog renders.
+    await waitFor(() =>
+      expect(qrToDataURLMock).toHaveBeenCalledWith(
+        expect.not.stringContaining("secret"),
+        expect.anything(),
+      ),
     );
     await waitFor(() =>
       expect(screen.getByTestId("server-qr-img")).toHaveAttribute(

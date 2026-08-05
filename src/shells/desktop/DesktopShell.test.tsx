@@ -977,19 +977,19 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "false");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("main-tab-files")).not.toHaveAttribute("aria-current");
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("main-tab-files"));
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("file-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
     expect(screen.queryByText("Select a session — M2")).not.toBeInTheDocument();
 
     // Back to Chat restores the chat pane.
     fireEvent.click(screen.getByTestId("main-tab-chat"));
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
 
@@ -1033,7 +1033,7 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
 
     // Main switched to Files with the opened tab; the content is fetched
     // and highlighted through the stubbed highlighter.
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
@@ -1068,7 +1068,7 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     expect(screen.getByTestId("provider-oauth-authorize")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("settings-back"));
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
     expect(screen.queryByTestId("settings-page")).not.toBeInTheDocument();
   });
 });
@@ -1081,7 +1081,9 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     fireEvent.keyDown(window, { key: "j", metaKey: true });
-    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+    // TASK-M9-08: the terminal panel is lazy-loaded (xterm split out of the
+    // startup chunk), so the view appears after the dynamic import resolves.
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
     // The tab bar is hidden while the terminal view is open.
     expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
 
@@ -1104,7 +1106,8 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
 
     // The same shortcut on the window (no text target) opens the panel.
     fireEvent.keyDown(window, { key: "j", metaKey: true });
-    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+    // TASK-M9-08: lazy-loaded terminal panel (xterm chunk) — await it.
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
   });
 
   it("the terminal toggle button opens the view and Back returns to chat", async () => {
@@ -1114,12 +1117,13 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("terminal-toggle"));
-    expect(screen.getByTestId("terminal-panel")).toBeInTheDocument();
+    // TASK-M9-08: lazy-loaded terminal panel (xterm chunk) — await it.
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
     expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("terminal-back"));
     expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
   });
 });
 
@@ -1142,7 +1146,7 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     // sidebar tree click; the content fetch lands through the stub.
     fireEvent.click(screen.getByTestId("quick-open-item-README.md"));
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
@@ -1192,7 +1196,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
 
     // ⌘⇧F from the chat view jumps to Files + search mode.
     fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
     expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "false");
     expect(screen.getByTestId("search-input")).toBeInTheDocument();
@@ -1262,7 +1266,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
       shiftKey: true,
       metaKey: true,
     });
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
 
     // The same shortcut on the window (no text target) opens search.
     fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
@@ -1591,7 +1595,7 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
     // Back returns to the Files view.
     fireEvent.click(screen.getByTestId("changes-back"));
     expect(screen.queryByTestId("vcs-panel")).not.toBeInTheDocument();
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
   });
 
   it("shows the branch chip in the status bar and updates it on vcs.branch.updated", async () => {

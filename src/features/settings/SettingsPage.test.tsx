@@ -106,7 +106,7 @@ describe("SettingsPage", () => {
     ]) {
       expect(screen.getByTestId(`settings-section-${id}`)).toBeInTheDocument();
     }
-    expect(screen.getByTestId("settings-section-general")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("settings-section-general")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("general-section")).toBeInTheDocument();
     expect(screen.getByTestId("settings-back")).toBeInTheDocument();
   });
@@ -137,9 +137,9 @@ describe("SettingsPage", () => {
     ];
     for (const [sectionId, sectionTestId] of cases) {
       const navButton = screen.getByTestId(`settings-section-${sectionId}`);
-      expect(navButton).toHaveAttribute("aria-selected", "false");
+      expect(navButton).not.toHaveAttribute("aria-current");
       fireEvent.click(navButton);
-      expect(navButton).toHaveAttribute("aria-selected", "true");
+      expect(navButton).toHaveAttribute("aria-current", "true");
       expect(screen.getByTestId(sectionTestId)).toBeInTheDocument();
       expect(screen.queryByTestId("general-section")).not.toBeInTheDocument();
     }
@@ -151,7 +151,7 @@ describe("SettingsPage", () => {
     fireEvent.click(screen.getByTestId("settings-section-providers"));
     await screen.findByTestId("provider-key-row-openai");
     expect(screen.getByTestId("settings-section-providers")).toHaveAttribute(
-      "aria-selected",
+      "aria-current",
       "true",
     );
     expect(screen.queryByTestId("general-section")).not.toBeInTheDocument();
@@ -251,7 +251,7 @@ describe("SettingsPage", () => {
     expect(screen.getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
 
     fireEvent.click(screen.getByTestId("settings-section-about"));
-    expect(screen.getByTestId("settings-section-about")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("settings-section-about")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("about-section")).toBeInTheDocument();
   });
 
@@ -259,9 +259,9 @@ describe("SettingsPage", () => {
     render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
 
     const languageNav = screen.getByTestId("settings-section-language");
-    expect(languageNav).toHaveAttribute("aria-selected", "false");
+    expect(languageNav).not.toHaveAttribute("aria-current");
     fireEvent.click(languageNav);
-    expect(languageNav).toHaveAttribute("aria-selected", "true");
+    expect(languageNav).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("language-section")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Language" })).toBeInTheDocument();
     expect(screen.getByTestId("language-en")).toHaveAttribute("aria-pressed", "true");

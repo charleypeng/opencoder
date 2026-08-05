@@ -93,7 +93,9 @@ describe("ShareSessionDialog (TASK-M6-05)", () => {
       "/session/sess_share_01/share",
       expect.not.objectContaining({ body: expect.anything() }),
     );
-    expect(qrToDataURLMock).toHaveBeenCalledWith(SHARE_URL, expect.anything());
+    // TASK-M9-08: `qrcode` is dynamically imported, so the generation call
+    // lands a microtask after the URL renders.
+    await waitFor(() => expect(qrToDataURLMock).toHaveBeenCalledWith(SHARE_URL, expect.anything()));
     await waitFor(() => expect(screen.getByTestId("share-qr")).toHaveAttribute("src", QR_DATA_URL));
     expect(screen.getByTestId("share-copy")).toBeInTheDocument();
     expect(screen.getByTestId("share-open")).toBeInTheDocument();

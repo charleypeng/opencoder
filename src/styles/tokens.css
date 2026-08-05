@@ -11,15 +11,15 @@
  * task's scope).
  *
  *   M3 role                  -> token                (dark / light)
- *   primary                  -> --accent             (#7c8cff / #4f63f5)
+ *   primary                  -> --accent             (#7c8cff / #3d4fd8)
  *   onPrimary                -> #ffffff (constant)
  *   secondary                -> --fg-secondary       (#9aa3b2 / #586071)
- *   tertiary                 -> --success            (#34d399 / #059669)
+ *   tertiary                 -> --success            (#34d399 / #047857)
  *   surface                  -> --bg-elevated        (#161a22 / #ffffff)
  *   surfaceContainerLowest   -> --bg-sunken          (#0a0c10 / #ecedf1)
  *   surfaceContainerHighest  -> --bg-base            (#0f1115 / #f6f7f9)
  *   onSurface                -> --fg-primary         (#e8eaf0 / #191e29)
- *   onSurfaceVariant         -> --fg-faint           (#5c6575 / #8b93a3)
+ *   onSurfaceVariant         -> --fg-faint           (#788296 / #646d7e)
  *   error                    -> --danger             (#f87171 / #dc2626)
  *   outline                  -> --glass-border       (rgba(255,255,255,0.09)
  *                                                     / rgba(15,17,21,0.1))
@@ -43,7 +43,11 @@
   --bg-sunken: #0a0c10;
   --fg-primary: #e8eaf0;
   --fg-secondary: #9aa3b2;
-  --fg-faint: #5c6575;
+  /* TASK-M9-08: --fg-faint carries real text (placeholders, empty states,
+     hint labels), so it is lifted to ≥ WCAG AA 4.5:1 on --bg-base and
+     --bg-elevated (4.89:1 / 4.51:1) while staying visibly below
+     --fg-secondary (docs/a11y-report.md contrast table). */
+  --fg-faint: #788296;
   --accent: #7c8cff;
   --accent-soft: color-mix(in srgb, var(--accent) 16%, transparent);
   --success: #34d399;
@@ -94,10 +98,16 @@
   --bg-sunken: #ecedf1;
   --fg-primary: #191e29;
   --fg-secondary: #586071;
-  --fg-faint: #8b93a3;
-  --accent: #4f63f5;
+  /* TASK-M9-08 contrast fixes (docs/a11y-report.md contrast table):
+     --fg-faint #8b93a3 (2.88:1) → #646d7e (4.86:1 on base / 5.21:1 on
+     elevated); --accent #4f63f5 (4.42:1, and 3.8:1 on --accent-soft
+     badges) → #3d4fd8 (5.92:1 / 4.81:1 on soft); --success #059669
+     (3.52:1) → #047857 (5.12:1 / 5.48:1). All other light-theme pairs
+     already meet AA (warning 4.68:1, danger 4.51:1). */
+  --fg-faint: #646d7e;
+  --accent: #3d4fd8;
   --accent-soft: color-mix(in srgb, var(--accent) 14%, transparent);
-  --success: #059669;
+  --success: #047857;
   --warning: #b45309;
   --danger: #dc2626;
 

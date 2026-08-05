@@ -382,7 +382,8 @@ describe("MobileShell", () => {
     await waitFor(() =>
       expect(screen.getByTestId("mobile-page-terminal")).toHaveAttribute("data-active", "true"),
     );
-    expect(screen.getByTestId("terminal-empty")).toBeInTheDocument();
+    // TASK-M9-08: the terminal page is lazy-loaded — await the panel.
+    await waitFor(() => expect(screen.getByTestId("terminal-empty")).toBeInTheDocument());
     expect(screen.getByTestId("mobile-page-terminal-root")).toHaveClass("landscape-terminal");
   });
 

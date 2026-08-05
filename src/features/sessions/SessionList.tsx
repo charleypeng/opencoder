@@ -135,21 +135,25 @@ function SessionRow(props: {
   // carries a left connector border (CSS border, no connector glyphs).
   const indent = () => 12 + props.depth * 14;
   return (
+    /* TASK-M9-08: the row wrapper is NON-interactive (it only forwards
+       clicks/keys) so the row's focusable <button> and the tree-toggle /
+       actions buttons stay siblings — interactive controls nested inside
+       the row button violated axe nested-interactive. */
     <div
-      role="button"
-      tabIndex={0}
       data-testid={`session-item-${props.session.id}`}
       data-depth={props.depth}
       data-active={props.active ? "true" : "false"}
       data-forked={forked() ? "true" : "false"}
-      aria-current={props.active ? "true" : undefined}
-      aria-haspopup="menu"
-      class={`group flex w-full cursor-pointer items-center gap-2 py-2 pr-3 outline-none hover:bg-accent-soft focus:bg-accent-soft ${
+      class={`group relative flex w-full cursor-pointer items-center gap-2 py-2 pr-3 hover:bg-accent-soft ${
         props.depth > 0 ? "border-l border-bg-sunken" : ""
       }`}
       style={{ "padding-left": `${indent()}px` }}
       onClick={() => props.onSelect(props.session.id)}
       onKeyDown={(event) => {
+        // Keyboard events on the row button itself reach the wrapper as a
+        // native click; only direct key events (test/AT-triggered on the
+        // wrapper) select here.
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           props.onSelect(props.session.id);
@@ -177,48 +181,54 @@ function SessionRow(props: {
           ▸
         </button>
       </Show>
-      <Show when={forked()}>
-        <span
-          data-testid="session-fork-badge"
-          title={
-            props.parentTitle !== undefined
-              ? t("sessions:forkedFrom", { title: props.parentTitle })
-              : t("sessions:forkBadge")
-          }
-          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
-        >
-          {t("sessions:forkBadge")}
+      <button
+        type="button"
+        aria-current={props.active ? "true" : undefined}
+        aria-haspopup="menu"
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pr-8 text-left focus:bg-accent-soft"
+      >
+        <Show when={forked()}>
+          <span
+            data-testid="session-fork-badge"
+            title={
+              props.parentTitle !== undefined
+                ? t("sessions:forkedFrom", { title: props.parentTitle })
+                : t("sessions:forkBadge")
+            }
+            class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+          >
+            {t("sessions:forkBadge")}
+          </span>
+        </Show>
+        <Show when={shared()}>
+          <span
+            data-testid="session-shared-badge"
+            title={t("sessions:sharedHint")}
+            class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+          >
+            {t("sessions:sharedBadge")}
+          </span>
+        </Show>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm">{titleOf(props.session)}</span>
+          <span class="block truncate font-code text-xs text-fg-secondary">
+            {formatRelativeTime(props.session.time.updated, props.nowMs)}
+          </span>
         </span>
-      </Show>
-      <Show when={shared()}>
-        <span
-          data-testid="session-shared-badge"
-          title={t("sessions:sharedHint")}
-          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
-        >
-          {t("sessions:sharedBadge")}
-        </span>
-      </Show>
-      <span class="min-w-0 flex-1">
-        <span class="block truncate text-sm">{titleOf(props.session)}</span>
-        <span class="block truncate font-code text-xs text-fg-secondary">
-          {formatRelativeTime(props.session.time.updated, props.nowMs)}
-        </span>
-      </span>
-      <StatusBadge status={props.status} />
+        <StatusBadge status={props.status} />
+      </button>
       {/* The ⋯ trigger (TASK-M8-03): opens the shared ContextMenu below the
           button; the row right-click opens the same menu at the cursor. */}
       <button
         type="button"
         data-testid="session-row-menu"
         aria-label={t("sessions:sessionActions")}
-        class="invisible rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
+        class="invisible absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
           const rect = event.currentTarget.getBoundingClientRect();
           props.onMenu(props.session, { x: rect.left, y: rect.bottom });
         }}
-        onKeyDown={(event) => event.stopPropagation()}
       >
         ⋯
       </button>

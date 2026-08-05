@@ -41,7 +41,17 @@
 // it whenever the active server or the active directory changes,
 // re-syncing the stores so sessions and messages never mix across contexts.
 
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  lazy,
+  onCleanup,
+  onMount,
+  Show,
+  Suspense,
+} from "solid-js";
 import type { Component } from "solid-js";
 import ContextMenu from "../../components/ContextMenu.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
@@ -100,7 +110,10 @@ import { createToast } from "../../stores/toasts";
 import PermissionSheet from "../../features/permissions/PermissionSheet";
 import QuestionSheet from "../../features/questions/QuestionSheet";
 import SettingsPage from "../../features/settings/SettingsPage";
-import TerminalPanel from "../../features/terminal/TerminalPanel";
+// TASK-M9-08: the terminal panel (and with it the xterm.js bundle) is
+// loaded lazily — the view is only mounted on demand, so xterm stays out of
+// the startup chunk (bundle-size budget, docs/performance.md).
+const TerminalPanel = lazy(() => import("../../features/terminal/TerminalPanel"));
 import CommandPalette from "./CommandPalette";
 import { subscribeToGlobalSummon, subscribeToTrayNewSession } from "../../services/tray.js";
 import { startTrayBadgeSync } from "../../services/trayBadge.js";
@@ -1012,16 +1025,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             }
             fallback={
               <>
-                <div
-                  role="tablist"
-                  aria-label={t("desktop:mainView")}
-                  class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2"
-                >
+                {/* TASK-M9-08: the main-pane switcher mixes view tabs with
+                  action buttons (search/changes/terminal/settings), so it
+                  is NOT a tablist (axe aria-required-children); the active
+                  view uses aria-current instead of aria-selected. */}
+                <div class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2">
                   <button
                     type="button"
-                    role="tab"
                     data-testid="main-tab-chat"
-                    aria-selected={mainView() === "chat" ? "true" : "false"}
+                    aria-current={mainView() === "chat" ? "true" : undefined}
                     class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
                       mainView() === "chat"
                         ? "bg-accent-soft text-fg-primary"
@@ -1033,9 +1045,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   </button>
                   <button
                     type="button"
-                    role="tab"
                     data-testid="main-tab-files"
-                    aria-selected={mainView() === "files" ? "true" : "false"}
+                    aria-current={mainView() === "files" ? "true" : undefined}
                     class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
                       mainView() === "files"
                         ? "bg-accent-soft text-fg-primary"
@@ -1385,7 +1396,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 </button>
                 <h2 class="shrink-0 text-sm font-semibold">{t("desktop:terminal")}</h2>
               </header>
-              <TerminalPanel serverId={activeServerId()} />
+              <Suspense fallback={<div class="flex flex-1 items-center justify-center p-4" />}>
+                <TerminalPanel serverId={activeServerId()} />
+              </Suspense>
             </Show>
           </Show>
         </main>

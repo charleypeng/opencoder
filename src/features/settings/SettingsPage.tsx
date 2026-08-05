@@ -51,12 +51,15 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
     section() === id ? "bg-accent-soft text-fg-primary" : "text-fg-secondary hover:text-fg-primary";
 
   function navButton(def: (typeof SECTIONS)[number], chip: boolean): JSX.Element {
+    // TASK-M9-08: `aria-selected` requires a selection role (tab/option/row
+    // — the nav is a plain button list, not a tablist), so the active
+    // section uses `aria-current` instead (axe aria-allowed-attr).
     return (
       <button
         type="button"
         data-testid={`settings-section-${def.id}`}
         data-active={section() === def.id ? "true" : "false"}
-        aria-selected={section() === def.id ? "true" : "false"}
+        aria-current={section() === def.id ? "true" : undefined}
         class={`outline-none transition-colors ${selectedClass(def.id)} ${
           chip
             ? "flex shrink-0 items-center gap-1.5 rounded-full border border-bg-sunken px-3 py-1.5 text-xs"

@@ -261,3 +261,5 @@ Rust health-monitor（15s 间隔，每服务器独立）
 | SSE 重连 | 断网恢复后 < 3s 自动重连并对齐 |
 | 安装包 | 桌面 < 15MB，移动 < 25MB |
 | 内存（桌面常驻） | < 250MB |
+
+> TASK-M9-08 实测记录见 `docs/performance.md`（实测 + 豁免清单）。无障碍走查报告见 `docs/a11y-report.md`。
