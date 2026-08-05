@@ -122,6 +122,17 @@
 > 真实服务端会忽略/拒绝该字段，自动流真实完成靠服务端本地回调监听器）；轮询在
 > 授权完成时返回 `true`（最长 60s 超时）。Mock 中 `GET /oauth/authorize?state=`
 > 页面模拟浏览器往返（访问即置完成），`code` 模式校验固定码 `mock-oauth-code`。
+>
+> MCP OAuth（TASK-M9-06）沿用同一模式：`POST /mcp/{name}/auth` 返回
+> `{ authorizationUrl, oauthState }`，客户端打开浏览器后轮询
+> `POST /mcp/{name}/auth/authenticate?poll=1`（契约该端点无请求体，`poll` 以
+> **query 扩展**传递，真实服务端忽略未知 query）——Mock 中该端点为非阻塞
+> 实现：浏览器尚未访问授权页时返回 `needs_auth`，访问后返回 `connected`
+> （并持久化状态）；授权页为 Mock 扩展 `GET /mcp/oauth/authorize?state=`。
+> `code` 模式提交 `POST /mcp/{name}/auth/callback`（body `{ code }`），
+> 校验固定码 `mock-oauth-code`。契约 MCPStatus 仅含状态/错误字段（无 tools
+> 计数），`mcp.tools.changed` 事件仅携带 server 名 → 客户端据此刷新列表。
+> 契约无 `DELETE /mcp/{name}`，服务器删除不在本期 UI 范围。
 
 ## 6. Backlog（实验面与 TUI 面，本期不实现）
 

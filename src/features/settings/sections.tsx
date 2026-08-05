@@ -7,6 +7,7 @@
 
 import type { Component, JSX } from "solid-js";
 import ProviderKeys from "./providers/ProviderKeys.js";
+import McpSection from "./mcp/McpSection.js";
 import ShortcutsSection from "./ShortcutsSection.js";
 import DesktopSection from "./DesktopSection.js";
 import NotificationsSection from "./NotificationsSection.js";
@@ -23,6 +24,7 @@ export type SectionId =
   | "appearance"
   | "language"
   | "providers"
+  | "mcp"
   | "servers"
   | "shortcuts"
   | "desktop"
@@ -70,6 +72,7 @@ const ICONS: Record<SectionId, JSX.Element> = {
   providers: (
     <Icon path="m21 2-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />
   ),
+  mcp: <Icon path="M10 2v6L4 16v4h6v2l6-6V10l4-4V2h-6v4l-4 4V2z" />,
   servers: <Icon path="M2 2h20v8H2zM2 14h20v8H2zM6 6h.01M6 18h.01" />,
   shortcuts: (
     <Icon path="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
@@ -118,6 +121,14 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     icon: ICONS.providers,
     keywords: ["api", "key", "oauth", "model"],
     component: ProviderKeys,
+  },
+  {
+    id: "mcp",
+    titleKey: "settings:mcp",
+    hintKey: "settings:mcpHint",
+    icon: ICONS.mcp,
+    keywords: ["mcp", "model context protocol", "tools", "server", "connect", "oauth"],
+    component: McpSection,
   },
   {
     id: "servers",

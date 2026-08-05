@@ -1377,6 +1377,199 @@ try {
       expect(body === true, `body ${JSON.stringify(body)}`);
     });
 
+    // TASK-M9-06: MCP family — status list, add, connect/disconnect state
+    // transitions, the OAuth trio (start → browser visit → poll / code →
+    // callback) and auth removal.
+    await test("mcp status lists the fixture servers with their shapes", async () => {
+      const { status, body } = await request(baseUrl, "/mcp");
+      expect(status === 200, `status ${status}`);
+      expect(
+        body?.filesystem?.status === "connected",
+        `filesystem ${JSON.stringify(body?.filesystem)}`,
+      );
+      expect(
+        body?.fetch?.status === "failed" && typeof body?.fetch?.error === "string",
+        `fetch ${JSON.stringify(body?.fetch)}`,
+      );
+      expect(body?.legacy?.status === "disabled", `legacy ${JSON.stringify(body?.legacy)}`);
+      expect(body?.github?.status === "needs_auth", `github ${JSON.stringify(body?.github)}`);
+    });
+
+    await test("mcp add registers local and remote servers as disabled", async () => {
+      const local = await request(baseUrl, "/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "st-local",
+          config: {
+            type: "local",
+            command: ["npx", "-y", "some-mcp"],
+            environment: { API_KEY: "k" },
+          },
+        }),
+      });
+      expect(local.status === 200, `local add status ${local.status}`);
+      expect(
+        local.body?.stLocal?.status === "disabled" ||
+          local.body?.["st-local"]?.status === "disabled",
+        `st-local added ${JSON.stringify(local.body?.["st-local"] ?? local.body?.stLocal)}`,
+      );
+
+      const remote = await request(baseUrl, "/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: "st-remote",
+          config: { type: "remote", url: "https://mcp.example.com/sse" },
+        }),
+      });
+      expect(remote.status === 200, `remote add status ${remote.status}`);
+      expect(
+        remote.body?.["st-remote"]?.status === "disabled",
+        `st-remote added ${JSON.stringify(remote.body?.["st-remote"])}`,
+      );
+    });
+
+    await test("mcp add rejects missing fields", async () => {
+      const noName = await request(baseUrl, "/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ config: { type: "local", command: ["npx"] } }),
+      });
+      expect(noName.status === 400, `missing name status ${noName.status}`);
+      const noCommand = await request(baseUrl, "/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "st-bad", config: { type: "local" } }),
+      });
+      expect(noCommand.status === 400, `missing command status ${noCommand.status}`);
+      const noUrl = await request(baseUrl, "/mcp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: "st-bad", config: { type: "remote" } }),
+      });
+      expect(noUrl.status === 400, `missing url status ${noUrl.status}`);
+    });
+
+    await test("mcp connect transitions a disabled server to connected and disconnect back", async () => {
+      const connect = await request(baseUrl, "/mcp/st-local/connect", { method: "POST" });
+      expect(
+        connect.status === 200 && connect.body === true,
+        `connect ${JSON.stringify(connect.body)}`,
+      );
+      const after = await request(baseUrl, "/mcp");
+      expect(
+        after.body?.["st-local"]?.status === "connected",
+        `st-local after connect ${JSON.stringify(after.body?.["st-local"])}`,
+      );
+
+      const disconnect = await request(baseUrl, "/mcp/st-local/disconnect", { method: "POST" });
+      expect(
+        disconnect.status === 200 && disconnect.body === true,
+        `disconnect ${disconnect.body}`,
+      );
+      const final = await request(baseUrl, "/mcp");
+      expect(
+        final.body?.["st-local"]?.status === "disabled",
+        `st-local after disconnect ${JSON.stringify(final.body?.["st-local"])}`,
+      );
+    });
+
+    await test("mcp connect heals a failed server and disconnect marks it disabled", async () => {
+      await request(baseUrl, "/mcp/fetch/connect", { method: "POST" });
+      const connected = await request(baseUrl, "/mcp");
+      expect(
+        connected.body?.fetch?.status === "connected",
+        `fetch after connect ${JSON.stringify(connected.body?.fetch)}`,
+      );
+      await request(baseUrl, "/mcp/fetch/disconnect", { method: "POST" });
+      const disabled = await request(baseUrl, "/mcp");
+      expect(
+        disabled.body?.fetch?.status === "disabled",
+        `fetch after disconnect ${JSON.stringify(disabled.body?.fetch)}`,
+      );
+    });
+
+    await test("mcp connect / disconnect on an unknown server is 404", async () => {
+      const connect = await request(baseUrl, "/mcp/ghost/connect", { method: "POST" });
+      expect(connect.status === 404, `connect status ${connect.status}`);
+      expect(
+        connect.body?._tag === "McpServerNotFoundError",
+        `connect body ${JSON.stringify(connect.body)}`,
+      );
+      const disconnect = await request(baseUrl, "/mcp/ghost/disconnect", { method: "POST" });
+      expect(disconnect.status === 404, `disconnect status ${disconnect.status}`);
+    });
+
+    await test("mcp oauth auto flow: start → authorize page visit → authenticate poll → connected", async () => {
+      const start = await request(baseUrl, "/mcp/github/auth", { method: "POST" });
+      expect(start.status === 200, `auth start status ${start.status}`);
+      expect(
+        typeof start.body?.authorizationUrl === "string" &&
+          typeof start.body?.oauthState === "string",
+        `auth start body ${JSON.stringify(start.body)}`,
+      );
+      expect(
+        start.body?.authorizationUrl?.includes("/mcp/oauth/authorize?state="),
+        `authorizationUrl ${start.body?.authorizationUrl}`,
+      );
+
+      // The pending poll answers needs_auth until the browser visits the page.
+      const pending = await request(baseUrl, "/mcp/github/auth/authenticate?poll=1", {
+        method: "POST",
+      });
+      expect(pending.body?.status === "needs_auth", `pending poll ${JSON.stringify(pending.body)}`);
+
+      const state = start.body.oauthState;
+      const visited = await request(baseUrl, `/mcp/oauth/authorize?state=${state}`);
+      expect(visited.status === 200, `authorize page status ${visited.status}`);
+
+      const done = await request(baseUrl, "/mcp/github/auth/authenticate?poll=1", {
+        method: "POST",
+      });
+      expect(done.body?.status === "connected", `completed poll ${JSON.stringify(done.body)}`);
+      const list = await request(baseUrl, "/mcp");
+      expect(list.body?.github?.status === "connected", "github list status after flow");
+    });
+
+    await test("mcp oauth code flow: callback with the fixed code connects, a wrong code is 400", async () => {
+      await request(baseUrl, "/mcp/github/auth", { method: "POST" });
+      const ok = await request(baseUrl, "/mcp/github/auth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "mock-oauth-code" }),
+      });
+      expect(ok.status === 200, `callback status ${ok.status}`);
+      expect(ok.body?.status === "connected", `callback body ${JSON.stringify(ok.body)}`);
+
+      const bad = await request(baseUrl, "/mcp/github/auth/callback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: "nope" }),
+      });
+      expect(bad.status === 400, `wrong code status ${bad.status}`);
+    });
+
+    await test("mcp oauth rejects servers without OAuth support", async () => {
+      const start = await request(baseUrl, "/mcp/filesystem/auth", { method: "POST" });
+      expect(start.status === 400, `start status ${start.status}`);
+      const poll = await request(baseUrl, "/mcp/filesystem/auth/authenticate?poll=1", {
+        method: "POST",
+      });
+      expect(poll.status === 400, `authenticate status ${poll.status}`);
+    });
+
+    await test("mcp oauth removal reports success and revokes the authorization", async () => {
+      const { status, body } = await request(baseUrl, "/mcp/github/auth", { method: "DELETE" });
+      expect(status === 200, `status ${status}`);
+      expect(body?.success === true, `body ${JSON.stringify(body)}`);
+      const list = await request(baseUrl, "/mcp");
+      expect(
+        list.body?.github?.status === "needs_auth",
+        `github needs authorization again ${JSON.stringify(list.body?.github)}`,
+      );
+    });
+
     // TASK-M5-06: /provider/auth + PUT/DELETE /auth/{providerID}.
     await test("provider auth returns the per-provider auth methods", async () => {
       const { status, body } = await request(baseUrl, "/provider/auth");

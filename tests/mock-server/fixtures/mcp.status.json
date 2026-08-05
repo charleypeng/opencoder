@@ -1,0 +1,15 @@
+{
+  "filesystem": {
+    "status": "connected"
+  },
+  "fetch": {
+    "status": "failed",
+    "error": "spawn ENOENT: failed to launch the MCP server process (npx -y @modelcontextprotocol/server-fetch)"
+  },
+  "legacy": {
+    "status": "disabled"
+  },
+  "github": {
+    "status": "needs_auth"
+  }
+}

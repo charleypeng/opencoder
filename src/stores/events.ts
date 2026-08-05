@@ -27,6 +27,7 @@ import * as permissionStore from "./permission.js";
 import * as questionStore from "./question.js";
 import * as agentsStore from "./agents.js";
 import * as ptysStore from "./ptys.js";
+import * as mcpStore from "./mcp.js";
 import { bumpTokenRate } from "../features/pet/tokenRate.js";
 import { applyServerUpdate, clearServerUpdate } from "./serverUpdate.js";
 import { connections } from "./connection.js";
@@ -52,6 +53,7 @@ export interface EventStoreDeps {
   questions: typeof questionStore;
   agents: typeof agentsStore;
   ptys: typeof ptysStore;
+  mcp: typeof mcpStore;
 }
 
 export const defaultEventStores: EventStoreDeps = {
@@ -66,6 +68,7 @@ export const defaultEventStores: EventStoreDeps = {
   questions: questionStore,
   agents: agentsStore,
   ptys: ptysStore,
+  mcp: mcpStore,
 };
 
 /** Best-effort human message from a session.error error payload. */
@@ -102,6 +105,7 @@ export function applyEvent(
     questions,
     agents,
     ptys,
+    mcp,
   } = deps;
   const p = event.properties ?? {};
   switch (event.type) {
@@ -253,6 +257,12 @@ export function applyEvent(
       // The PTY was removed (schema properties: id): drop it from the list.
       if (typeof p.id === "string") ptys.removePty(serverId, p.id);
       return;
+    case "mcp.tools.changed":
+      // An MCP server's tool set changed (schema properties: server name
+      // only, TASK-M9-06): bump the version so the settings section
+      // refetches GET /mcp — the status map carries no tool counts.
+      if (typeof p.server === "string") mcp.bumpMcpVersion(serverId);
+      return;
     case "installation.update-available":
       // The SERVER has a newer version available (api-coverage §7): the app
       // cannot upgrade it, the banner only hints at restarting the server.
@@ -365,6 +375,7 @@ export async function subscribeToServerEvents(
       deps.questions.resetServer(serverId);
       deps.agents.resetServer(serverId);
       deps.ptys.resetServer(serverId);
+      deps.mcp.resetServer(serverId);
       syncAll(serverId, directory, services, deps).catch(() => {
         // A failed re-sync must not break the SSE stream; the next
         // event (or a manual sync call) heals the stores.

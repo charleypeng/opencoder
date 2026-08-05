@@ -1050,6 +1050,198 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   app.post("/global/dispose", (_req, res) => {
     res.json(true);
   });
+
+  // ---- TASK-M9-06: MCP family (GET/POST /mcp, connect/disconnect, OAuth) ----
+
+  // Mutable per-server status map seeded from the fixture. The transitions
+  // mirror the real server's lifecycle: connect starts the server process
+  // (any failed/disabled/needs_auth server becomes connected), disconnect
+  // stops it (connected becomes disabled); adding registers the server as
+  // disabled, the user connects it from the card.
+  type McpStatusValue =
+    | { status: "connected" }
+    | { status: "failed"; error: string }
+    | { status: "disabled" }
+    | { status: "needs_auth" }
+    | { status: "needs_client_registration"; error: string };
+
+  const mcpState: Record<string, McpStatusValue> = JSON.parse(
+    JSON.stringify(fixtures["mcp.status"]),
+  );
+
+  // OAuth flow state per server: the state token handed to the IdP page and
+  // whether the simulated browser round trip completed.
+  const mcpOauth: Record<string, { state: string; completed: boolean }> = {};
+  // Servers whose OAuth flow was started (the fixture's needs_auth server
+  // plus any server an auth flow began on). DELETE /mcp/{name}/auth only
+  // revokes credentials on these — a connected non-OAuth server must keep
+  // its state.
+  const mcpOauthCapable: Set<string> = new Set(
+    Object.entries(mcpState)
+      .filter(([, status]) => status.status === "needs_auth")
+      .map(([name]) => name),
+  );
+
+  // The shared mock OAuth code (MOCK_OAUTH_CODE from the provider flow,
+  // TASK-M5-07) doubles as the MCP code-flow code.
+
+  function mcpServerOf(name: unknown): McpStatusValue | undefined {
+    return typeof name === "string" ? mcpState[name] : undefined;
+  }
+
+  function serverNotFound(res: Response, name: unknown): void {
+    res.status(404).json({
+      _tag: "McpServerNotFoundError",
+      name: String(name),
+      message: `MCP server not found: ${String(name)}`,
+    });
+  }
+
+  function unsupportedOAuth(res: Response): void {
+    res.status(400).json({ error: "this MCP server does not support OAuth" });
+  }
+
+  app.get("/mcp", (_req, res) => {
+    res.json(mcpState);
+  });
+
+  app.post("/mcp", (req, res) => {
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const { name, config } = body;
+    if (typeof name !== "string" || name.trim() === "") {
+      res.status(400).json({ _tag: "BadRequestError", message: "name is required" });
+      return;
+    }
+    if (typeof config !== "object" || config === null || Array.isArray(config)) {
+      res.status(400).json({ _tag: "BadRequestError", message: "config is required" });
+      return;
+    }
+    const cfg = config as { type?: unknown; command?: unknown; url?: unknown };
+    if (cfg.type === "local" && !Array.isArray(cfg.command)) {
+      res
+        .status(400)
+        .json({ _tag: "BadRequestError", message: "local config needs a command array" });
+      return;
+    }
+    if (cfg.type === "remote" && typeof cfg.url !== "string") {
+      res.status(400).json({ _tag: "BadRequestError", message: "remote config needs a url" });
+      return;
+    }
+    mcpState[name.trim()] = { status: "disabled" };
+    res.json(mcpState);
+  });
+
+  app.post("/mcp/:name/connect", (req, res) => {
+    if (mcpServerOf(req.params.name) === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    mcpState[req.params.name] = { status: "connected" };
+    res.json(true);
+  });
+
+  app.post("/mcp/:name/disconnect", (req, res) => {
+    if (mcpServerOf(req.params.name) === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    mcpState[req.params.name] = { status: "disabled" };
+    res.json(true);
+  });
+
+  app.post("/mcp/:name/auth", (req, res) => {
+    const status = mcpServerOf(req.params.name);
+    if (status === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    if (status.status !== "needs_auth") {
+      unsupportedOAuth(res);
+      return;
+    }
+    mcpOauthCapable.add(req.params.name);
+    const oauthState = `mcp-oauth-${Math.random().toString(36).slice(2, 10)}`;
+    mcpOauth[req.params.name] = { state: oauthState, completed: false };
+    res.json({
+      authorizationUrl: `http://${req.get("host")}/mcp/oauth/authorize?state=${oauthState}`,
+      oauthState,
+    });
+  });
+
+  app.delete("/mcp/:name/auth", (req, res) => {
+    if (mcpServerOf(req.params.name) === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    delete mcpOauth[req.params.name];
+    // Removing the credentials revokes a completed authorization: an
+    // OAuth-capable connected server needs authorization again (this also
+    // keeps the L3 flow tests repeatable against a long-lived server).
+    if (mcpOauthCapable.has(req.params.name) && mcpState[req.params.name].status === "connected") {
+      mcpState[req.params.name] = { status: "needs_auth" };
+    }
+    res.json({ success: true });
+  });
+
+  // Simulated IdP page (mock extension, documented in docs/api-coverage.md
+  // §5): the provider OAuth flow uses the same browser-round-trip page; for
+  // MCP the flow's authorize URL points here and a visit marks the flow
+  // completed, which the authenticate poll observes.
+  app.get("/mcp/oauth/authorize", (req, res) => {
+    const state = queryString(req, "state");
+    const server = Object.entries(mcpOauth).find(([, oauth]) => oauth.state === state)?.[0];
+    if (server === undefined) {
+      res.status(400).json({ _tag: "BadRequestError", message: "unknown oauth state" });
+      return;
+    }
+    mcpOauth[server].completed = true;
+    res
+      .status(200)
+      .type("html")
+      .send("<html><body><p>Authorization complete — you can close this window.</p></body></html>");
+  });
+
+  // Non-blocking in the mock: answers the current flow status immediately.
+  // `?poll=1` is the explicit poll variant the client uses (mirror of the
+  // provider OAuth `poll: true` body extension of TASK-M5-07); a real
+  // server ignores the unknown query parameter and blocks until the
+  // callback completes.
+  app.post("/mcp/:name/auth/authenticate", (req, res) => {
+    const status = mcpServerOf(req.params.name);
+    if (status === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    if (status.status !== "needs_auth") {
+      unsupportedOAuth(res);
+      return;
+    }
+    // A completed flow authenticates the server for good (the callback and
+    // the poll both observe the completion, mirroring the real server).
+    if (mcpOauth[req.params.name]?.completed === true) {
+      mcpState[req.params.name] = { status: "connected" };
+      delete mcpOauth[req.params.name];
+      res.json({ status: "connected" });
+      return;
+    }
+    res.json(status);
+  });
+
+  app.post("/mcp/:name/auth/callback", (req, res) => {
+    const status = mcpServerOf(req.params.name);
+    if (status === undefined) {
+      serverNotFound(res, req.params.name);
+      return;
+    }
+    const code = (req.body as { code?: unknown } | undefined)?.code;
+    if (code !== MOCK_OAUTH_CODE) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid authorization code" });
+      return;
+    }
+    mcpState[req.params.name] = { status: "connected" };
+    delete mcpOauth[req.params.name];
+    res.json({ status: "connected" });
+  });
 }
 
 export function registerRoutes(app: Express, fixtures: Fixtures): void {

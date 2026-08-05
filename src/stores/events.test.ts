@@ -24,6 +24,7 @@ import {
   setAgents,
 } from "./agents.js";
 import { ptys, resetServer as resetPtys } from "./ptys.js";
+import { getMcpVersion, resetServer as resetMcp } from "./mcp.js";
 import { serverUpdate, resetServerUpdate } from "./serverUpdate.js";
 import { resetTokenRate, tokenRateStore } from "../features/pet/tokenRate.js";
 import type { Pty } from "../services/pty.js";
@@ -94,6 +95,7 @@ afterEach(() => {
   resetQuestions(SERVER);
   resetAgents(SERVER);
   resetPtys(SERVER);
+  resetMcp(SERVER);
   resetTokenRate();
   resetServerUpdate(SERVER);
   resetServerUpdate("srv-upd");
@@ -596,6 +598,20 @@ describe("applyEvent — pty events", () => {
   });
 });
 
+describe("applyEvent — mcp events", () => {
+  it("bumps the MCP version on mcp.tools.changed with a server name", () => {
+    applyEvent(SERVER, { type: "mcp.tools.changed", properties: { server: "filesystem" } });
+    expect(getMcpVersion(SERVER)).toBe(1);
+    applyEvent(SERVER, { type: "mcp.tools.changed", properties: { server: "filesystem" } });
+    expect(getMcpVersion(SERVER)).toBe(2);
+  });
+
+  it("ignores mcp.tools.changed without a server name", () => {
+    applyEvent(SERVER, { type: "mcp.tools.changed", properties: {} });
+    expect(getMcpVersion(SERVER)).toBe(0);
+  });
+});
+
 describe("syncAll", () => {
   it("pulls and applies session list, status map, projects and current directory", async () => {
     const services = mockServices();
@@ -676,6 +692,11 @@ describe("subscribeToServerEvents", () => {
       type: "pty.created",
       properties: { info: pty("pty_stale") },
     });
+    applyEvent(SERVER, {
+      type: "mcp.tools.changed",
+      properties: { server: "filesystem" },
+    });
+    expect(getMcpVersion(SERVER)).toBe(1);
     setTree(SERVER, undefined, []);
     // Stale agent state exists before the re-connect; its forever-true
     // loaded flag would block a catalog refresh without the reset (M5 review).
@@ -709,6 +730,8 @@ describe("subscribeToServerEvents", () => {
     expect(getServerAgentState(SERVER).loaded).toBe(false);
     // The pty bucket is dropped too (the terminal list refetches on mount).
     expect(ptys[SERVER]).toBeUndefined();
+    // The mcp version counter is dropped too (fresh start after re-sync).
+    expect(getMcpVersion(SERVER)).toBe(0);
 
     // Events keep flowing after the re-sync.
     onEvent?.({

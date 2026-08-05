@@ -31,6 +31,7 @@
   "config": "config.json",
   "global.config": "global.config.json",
   "provider.auth": "provider.auth.json",
+  "mcp.status": "mcp.status.json",
   "pty": "pty.list.json",
   "pty.shells": "pty.shells.json"
 }
