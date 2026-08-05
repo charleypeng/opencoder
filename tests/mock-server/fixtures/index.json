@@ -28,6 +28,8 @@
   "skill": "skill.json",
   "provider": "provider.json",
   "config.providers": "config.providers.json",
+  "config": "config.json",
+  "global.config": "global.config.json",
   "provider.auth": "provider.auth.json",
   "pty": "pty.list.json",
   "pty.shells": "pty.shells.json"

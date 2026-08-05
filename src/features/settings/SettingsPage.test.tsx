@@ -56,10 +56,16 @@ beforeEach(() => {
           default: {},
           connected: ["openai"],
         } satisfies ProviderListResponse;
+      if (path === "/config" || path === "/global/config")
+        return { model: "gpt-5", default_agent: "build", share: "manual", autoupdate: true };
+      if (path === "/config/providers") return { providers: [], default: {} };
+      if (path === "/agent") return [{ name: "build" }, { name: "plan" }];
       return [];
     }),
     put: vi.fn(async () => true),
     delete: vi.fn(async () => true),
+    patch: vi.fn(async () => ({ model: "gpt-5", share: "manual" })),
+    post: vi.fn(async () => true),
   });
   getAppVersionMock.mockReset().mockResolvedValue(null);
   invokeMock.mockReset();
@@ -93,6 +99,7 @@ describe("SettingsPage", () => {
       "desktop",
       "notifications",
       "updates",
+      "config",
       "about",
     ]) {
       expect(screen.getByTestId(`settings-section-${id}`)).toBeInTheDocument();
@@ -121,6 +128,7 @@ describe("SettingsPage", () => {
       ["desktop", "desktop-section"],
       ["notifications", "notifications-section"],
       ["updates", "updates-section"],
+      ["config", "config-section"],
       ["about", "about-section"],
     ];
     for (const [sectionId, sectionTestId] of cases) {

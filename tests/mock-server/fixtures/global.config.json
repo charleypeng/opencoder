@@ -1,0 +1,12 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "model": "gpt-5",
+  "small_model": "claude-haiku-4-5",
+  "default_agent": "build",
+  "share": "manual",
+  "autoshare": false,
+  "autoupdate": "notify",
+  "logLevel": "INFO",
+  "permission": "ask",
+  "subagent_depth": 0
+}

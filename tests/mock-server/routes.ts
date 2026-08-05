@@ -972,6 +972,78 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
       ticket: req.query.ticket,
     });
   });
+
+  // ---- TASK-M9-05: config family (GET/PATCH /config + /global/config,
+  //      POST /instance/dispose) ----
+
+  // PATCH merge semantics mirror the real server: nested plain objects
+  // merge recursively, everything else (arrays included) replaces, and
+  // keys absent from the patch stay untouched.
+  function isPlainObject(value: unknown): value is Record<string, unknown> {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+
+  function mergeConfig(
+    current: Record<string, unknown>,
+    patch: Record<string, unknown>,
+  ): Record<string, unknown> {
+    const out: Record<string, unknown> = { ...current };
+    for (const [key, value] of Object.entries(patch)) {
+      const existing = out[key];
+      out[key] =
+        isPlainObject(existing) && isPlainObject(value) ? mergeConfig(existing, value) : value;
+    }
+    return out;
+  }
+
+  // Per-directory project configs (like /session): each directory gets its
+  // own mutable copy seeded from the fixture, so PATCH round-trips are
+  // isolated per project context.
+  const projectConfigs: Record<string, Record<string, unknown>> = {};
+
+  function projectConfigOf(directory: string | undefined): Record<string, unknown> {
+    const key = directory ?? "__default__";
+    projectConfigs[key] ??= JSON.parse(JSON.stringify(fixtures["config"]));
+    return projectConfigs[key];
+  }
+
+  app.get("/config", (req, res) => {
+    res.json(projectConfigOf(queryString(req, "directory")));
+  });
+
+  app.patch("/config", (req, res) => {
+    if (!isPlainObject(req.body)) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid config patch" });
+      return;
+    }
+    const key = queryString(req, "directory") ?? "__default__";
+    projectConfigs[key] = mergeConfig(projectConfigs[key], req.body);
+    res.json(projectConfigs[key]);
+  });
+
+  const globalConfig: Record<string, unknown> = JSON.parse(
+    JSON.stringify(fixtures["global.config"]),
+  );
+
+  app.get("/global/config", (_req, res) => {
+    res.json(globalConfig);
+  });
+
+  app.patch("/global/config", (req, res) => {
+    if (!isPlainObject(req.body)) {
+      res.status(400).json({ _tag: "BadRequestError", message: "invalid config patch" });
+      return;
+    }
+    Object.assign(globalConfig, mergeConfig(globalConfig, req.body));
+    res.json(globalConfig);
+  });
+
+  // Instance dispose (TASK-M9-05): the 1.18.11 contract answers a plain
+  // boolean; the real server then shuts the instance down (the SSE stream
+  // drops and the client degrades back to the server home).
+  app.post("/instance/dispose", (_req, res) => {
+    res.json(true);
+  });
 }
 
 export function registerRoutes(app: Express, fixtures: Fixtures): void {

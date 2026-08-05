@@ -16,6 +16,7 @@ import AppearanceSection from "./AppearanceSection.js";
 import GeneralSection from "./GeneralSection.js";
 import AboutSection from "./AboutSection.js";
 import ServersSection from "./ServersSection.js";
+import ConfigSection from "./config/ConfigSection.js";
 
 export type SectionId =
   | "general"
@@ -27,6 +28,7 @@ export type SectionId =
   | "desktop"
   | "notifications"
   | "updates"
+  | "config"
   | "about";
 
 export interface SettingsSectionDef {
@@ -77,6 +79,9 @@ const ICONS: Record<SectionId, JSX.Element> = {
     <Icon path="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.5 0" />
   ),
   updates: <Icon path="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" />,
+  config: (
+    <Icon path="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5c0 1.1-.9 2-2 2h-1" />
+  ),
   about: <Icon path="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01" />,
 };
 
@@ -153,6 +158,14 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     icon: ICONS.updates,
     keywords: ["version", "auto-update", "changelog"],
     component: UpdatesSection,
+  },
+  {
+    id: "config",
+    titleKey: "settings:config",
+    hintKey: "settings:configHint",
+    icon: ICONS.config,
+    keywords: ["opencode.json", "json", "global", "dispose", "merge"],
+    component: ConfigSection,
   },
   {
     id: "about",

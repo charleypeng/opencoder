@@ -1280,6 +1280,96 @@ try {
       );
     });
 
+    // TASK-M9-05: GET/PATCH /config + /global/config, POST /instance/dispose.
+    await test("config get returns the config object with schema keys", async () => {
+      const { status, body } = await request(baseUrl, "/config");
+      expect(status === 200, `status ${status}`);
+      expect(
+        typeof body === "object" && body !== null && !Array.isArray(body),
+        "must be an object",
+      );
+      expect(
+        typeof body?.model === "string" && body.model !== "",
+        `model ${JSON.stringify(body?.model)}`,
+      );
+      expect(typeof body?.share === "string", `share ${JSON.stringify(body?.share)}`);
+      expect(
+        ["manual", "auto", "disabled"].includes(body?.share),
+        `share enum ${JSON.stringify(body?.share)}`,
+      );
+      expect(typeof body?.default_agent === "string", "must carry default_agent");
+      expect(
+        ["ask", "allow", "deny"].includes(body?.permission),
+        `permission action ${JSON.stringify(body?.permission)}`,
+      );
+    });
+
+    await test("config patch merges scalars and nested objects", async () => {
+      const before = await request(baseUrl, "/config");
+      const { status, body } = await request(baseUrl, "/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ share: "auto", mode: { plan: { model: "claude-haiku-4-5" } } }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.share === "auto", `share ${JSON.stringify(body?.share)}`);
+      expect(body?.model === before.body?.model, "unpatched fields must be retained (merge)");
+      expect(
+        body?.mode?.plan?.model === "claude-haiku-4-5" &&
+          body?.mode?.build?.model === before.body?.mode?.build?.model,
+        "nested objects must merge, not replace",
+      );
+      expect(Array.isArray(body?.mode) === false, "mode must stay an object");
+    });
+
+    await test("config patch rejects a non-object payload", async () => {
+      const { status, body } = await request(baseUrl, "/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(["share"]),
+      });
+      expect(status === 400, `status ${status}`);
+      expect(typeof body?.message === "string", "400 must carry an error message");
+    });
+
+    await test("config patch isolates per-directory project configs", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/config?directory=/mock/projects/opencode-labs",
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ share: "disabled" }),
+        },
+      );
+      expect(status === 200, `status ${status}`);
+      expect(body?.share === "disabled", `labs share ${JSON.stringify(body?.share)}`);
+      const defaultConfig = await request(baseUrl, "/config");
+      expect(defaultConfig.body?.share === "auto", "default directory must keep its own patch");
+    });
+
+    await test("global config get and patch round-trip", async () => {
+      const before = await request(baseUrl, "/global/config");
+      expect(
+        typeof before.body?.autoupdate === "string" || typeof before.body?.autoupdate === "boolean",
+        "autoupdate must be bool or 'notify'",
+      );
+      const { status, body } = await request(baseUrl, "/global/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ autoupdate: "notify" }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.autoupdate === "notify", `autoupdate ${JSON.stringify(body?.autoupdate)}`);
+      expect(body?.model === before.body?.model, "global merge must retain unpatched fields");
+    });
+
+    await test("instance dispose returns true", async () => {
+      const { status, body } = await request(baseUrl, "/instance/dispose", { method: "POST" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
     // TASK-M5-06: /provider/auth + PUT/DELETE /auth/{providerID}.
     await test("provider auth returns the per-provider auth methods", async () => {
       const { status, body } = await request(baseUrl, "/provider/auth");
