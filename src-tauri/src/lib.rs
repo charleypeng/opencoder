@@ -143,6 +143,8 @@ pub fn run() {
             #[cfg(desktop)]
             pet::pet_set_state,
             #[cfg(desktop)]
+            pet::pet_set_intensity,
+            #[cfg(desktop)]
             pet::pet_set_ignore_mouse,
             #[cfg(desktop)]
             pet::pet_get_ignore_mouse,

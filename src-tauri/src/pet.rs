@@ -1,12 +1,15 @@
-// Pet companion window infrastructure (TASK-M8-07). Desktop-only module
+// Pet companion window infrastructure (TASK-M8-07/08). Desktop-only module
 // (gated with `#[cfg(desktop)]` in lib.rs, like desktop.rs): Rust owns the
 // small transparent always-on-top "pet" WebviewWindow (label "pet", url
 // /pet — the frontend route the App shell redirects to PetShell for) and
 // forwards animation states sent by the main window's frontend through
-// `pet-set_state`, which emits a `pet-state` event to the pet window. The
-// commands here are the window plumbing only: show/hide, size / opacity /
-// topmost / mute / dock / mouse-passthrough settings (applied via the pet
-// window's own localStorage-persisted prefs, `applyPetPrefs` in
+// `pet_set_state`, which emits a `pet-state` event to the pet window, and
+// the working intensity through `pet_set_intensity`, which emits a
+// `pet-intensity` event (TASK-M8-08 — the pet's working animation speed
+// follows the token rate). The commands here are the window plumbing
+// only: show/hide, size / opacity / topmost / mute / dock / mouse-
+// passthrough settings (applied via the pet window's own
+// localStorage-persisted prefs, `applyPetPrefs` in
 // src/features/pet/petPrefs.ts), the click-through toggle, and the edge
 // dock listener that snaps the window flush to a screen edge when a drag
 // ends within DOCK_THRESHOLD of one (multi-monitor aware through the
@@ -22,10 +25,10 @@
 // app is distributed via GitHub releases, see docs/tasks/M8.md); Linux
 // without a compositor falls back to an opaque rounded window (the CSS
 // blob still renders, the background turns opaque — documented there).
-// The pure helpers (clamp_pet_size / clamp_pet_opacity / docked_position
-// / PetAnimationState serialization) are unit-tested; the Tauri-bound
-// wiring (window creation, event forwarding, dock listener, commands) is
-// exercised through the frontend L2 tests.
+// The pure helpers (clamp_pet_size / clamp_pet_opacity / clamp_pet_intensity
+// / docked_position / PetAnimationState serialization) are unit-tested;
+// the Tauri-bound wiring (window creation, event forwarding, dock
+// listener, commands) is exercised through the frontend L2 tests.
 
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
@@ -45,15 +48,21 @@ const PET_URL: &str = "/pet";
 
 /// Default pet window edge length in physical pixels.
 const DEFAULT_PET_SIZE: u32 = 160;
-/// Smallest allowed pet window edge (settings slider range).
-pub const MIN_PET_SIZE: u32 = 120;
-/// Largest allowed pet window edge (settings slider range).
+/// Collapsed pet window edge (double-click toggle, TASK-M8-08) — the
+/// smallest size the resize clamp admits.
+pub const COLLAPSED_PET_SIZE: u32 = 48;
+/// Largest allowed pet window edge (the settings slider offers 120-200;
+/// the slider minimum is a PetShell constant, the clamp admits the
+/// collapsed size below it).
 pub const MAX_PET_SIZE: u32 = 200;
 
 /// Minimum window opacity (settings slider range).
 pub const MIN_PET_OPACITY: f64 = 0.4;
 /// Maximum window opacity (settings slider range).
 pub const MAX_PET_OPACITY: f64 = 1.0;
+
+/// Maximum working intensity forwarded to the pet window (0-100 range).
+pub const MAX_PET_INTENSITY: u32 = 100;
 
 /// Distance (px) from a screen edge within which a drag end snaps the
 /// window flush to that edge (edge dock).
@@ -79,8 +88,8 @@ pub enum PetAnimationState {
 /// window with the last-applied values; the pet window's own localStorage
 /// is the durable source and re-applies them at mount via the commands),
 /// the click-through and edge-dock flags consulted at event time, and the
-/// last forwarded animation state (re-emitted to a freshly created window
-/// so it starts in the current state).
+/// last forwarded animation state + working intensity (re-emitted to a
+/// freshly created window so it starts in the current state).
 pub struct PetState {
     created: AtomicBool,
     size: AtomicU32,
@@ -90,6 +99,7 @@ pub struct PetState {
     ignore_mouse: AtomicBool,
     muted: AtomicBool,
     last_state: Mutex<Option<PetAnimationState>>,
+    last_intensity: AtomicU32,
 }
 
 impl Default for PetState {
@@ -103,6 +113,7 @@ impl Default for PetState {
             ignore_mouse: AtomicBool::new(false),
             muted: AtomicBool::new(false),
             last_state: Mutex::new(None),
+            last_intensity: AtomicU32::new(0),
         }
     }
 }
@@ -150,11 +161,25 @@ impl PetState {
     fn set_last_state(&self, state: PetAnimationState) {
         *self.last_state.lock().unwrap() = Some(state);
     }
+
+    fn last_intensity(&self) -> u32 {
+        self.last_intensity.load(Ordering::Relaxed)
+    }
+
+    fn set_last_intensity(&self, intensity: u32) {
+        self.last_intensity.store(intensity, Ordering::Relaxed);
+    }
 }
 
-/// Clamps a pet window edge length into the settings range.
+/// Clamps a pet window edge length into the allowed range — the collapsed
+/// size (double-click, TASK-M8-08) up to the settings maximum.
 pub fn clamp_pet_size(size: u32) -> u32 {
-    size.clamp(MIN_PET_SIZE, MAX_PET_SIZE)
+    size.clamp(COLLAPSED_PET_SIZE, MAX_PET_SIZE)
+}
+
+/// Clamps a pet working intensity into 0-100.
+pub fn clamp_pet_intensity(intensity: u32) -> u32 {
+    intensity.min(MAX_PET_INTENSITY)
 }
 
 /// Clamps a pet window opacity into [0.4, 1.0], rounded to two decimals;
@@ -262,12 +287,12 @@ fn create_pet_window<R: tauri::Runtime>(app: &AppHandle<R>, state: &PetState) ->
 }
 
 /// Shows the pet window, creating it on first use (with the last-applied
-/// settings) and re-emitting the current animation state so a fresh
-/// window starts in sync. Does not steal focus: Tauri show() keeps focus
-/// where it is. Click-through is reverted on every show: a click-through
-/// pet ignores all pointer events, so each show re-enables them (the
-/// escape hatch — the main window's Desktop settings and the pet's own
-/// settings can turn it back on).
+/// settings) and re-emitting the current animation state + intensity so a
+/// fresh window starts in sync. Does not steal focus: Tauri show() keeps
+/// focus where it is. Click-through is reverted on every show: a click-
+/// through pet ignores all pointer events, so each show re-enables them
+/// (the escape hatch — the main window's Desktop settings and the pet's
+/// own settings can turn it back on).
 #[tauri::command]
 pub fn pet_show<R: tauri::Runtime>(
     app: AppHandle<R>,
@@ -285,6 +310,7 @@ pub fn pet_show<R: tauri::Runtime>(
         if let Some(last) = state.last_state() {
             let _ = app.emit_to(PET_LABEL, "pet-state", last);
         }
+        let _ = app.emit_to(PET_LABEL, "pet-intensity", state.last_intensity());
     }
     Ok(())
 }
@@ -318,6 +344,25 @@ pub fn pet_set_state(
     state.set_last_state(pet_state);
     app.emit_to(PET_LABEL, "pet-state", pet_state)
         .map_err(|err| err.to_string())
+}
+
+/// Forwards the working intensity (0-100, TASK-M8-08 — the pet's typing
+/// speed follows the token rate) from the main window's frontend to the
+/// pet window (`pet-intensity` event). The value is clamped and remembered
+/// so a later pet_show re-emits it.
+#[tauri::command]
+pub fn pet_set_intensity(
+    app: AppHandle,
+    state: State<'_, PetState>,
+    intensity: u32,
+) -> Result<(), String> {
+    let intensity = clamp_pet_intensity(intensity);
+    state.set_last_intensity(intensity);
+    if app.get_webview_window(PET_LABEL).is_some() {
+        app.emit_to(PET_LABEL, "pet-intensity", intensity)
+            .map_err(|err| err.to_string())?;
+    }
+    Ok(())
 }
 
 /// Toggles mouse click-through on the pet window (the window keeps
@@ -399,7 +444,8 @@ pub fn pet_set_dock(state: State<'_, PetState>, docked: bool) {
 #[cfg(test)]
 mod tests {
     use super::{
-        clamp_pet_opacity, clamp_pet_size, docked_position, pet_show, PetAnimationState, PetState,
+        clamp_pet_intensity, clamp_pet_opacity, clamp_pet_size, docked_position, pet_show,
+        PetAnimationState, PetState, COLLAPSED_PET_SIZE,
     };
     use std::sync::atomic::Ordering;
     use tauri::{PhysicalPosition, PhysicalSize};
@@ -409,9 +455,25 @@ mod tests {
         assert_eq!(clamp_pet_size(120), 120);
         assert_eq!(clamp_pet_size(160), 160);
         assert_eq!(clamp_pet_size(200), 200);
-        assert_eq!(clamp_pet_size(0), 120);
-        assert_eq!(clamp_pet_size(11), 120);
+        assert_eq!(clamp_pet_size(0), COLLAPSED_PET_SIZE);
+        assert_eq!(clamp_pet_size(11), COLLAPSED_PET_SIZE);
         assert_eq!(clamp_pet_size(999), 200);
+    }
+
+    #[test]
+    fn admits_the_collapsed_size() {
+        assert_eq!(clamp_pet_size(48), 48);
+        assert_eq!(clamp_pet_size(47), 48);
+        assert_eq!(clamp_pet_size(49), 49);
+    }
+
+    #[test]
+    fn clamps_intensity_into_0_100() {
+        assert_eq!(clamp_pet_intensity(0), 0);
+        assert_eq!(clamp_pet_intensity(42), 42);
+        assert_eq!(clamp_pet_intensity(100), 100);
+        assert_eq!(clamp_pet_intensity(101), 100);
+        assert_eq!(clamp_pet_intensity(u32::MAX), 100);
     }
 
     #[test]

@@ -1,9 +1,10 @@
-// L1 tests for the pet facade (TASK-M8-07): typed wrappers over the Rust
-// pet commands and the `pet-state` event. Mirrors the events.ts no-op
-// guard: outside Tauri every call resolves without touching the IPC layer
-// (a web build has no pet window), and the subscriptions return no-op
-// unlisten functions. Inside Tauri the invoke/listen args follow the Rust
-// command signatures (pet_state → petState, etc.).
+// L1 tests for the pet facade (TASK-M8-07/08): typed wrappers over the
+// Rust pet commands and the `pet-state` / `pet-intensity` events. Mirrors
+// the events.ts no-op guard: outside Tauri every call resolves without
+// touching the IPC layer (a web build has no pet window), and the
+// subscriptions return no-op unlisten functions. Inside Tauri the
+// invoke/listen args follow the Rust command signatures (pet_state →
+// petState, etc.).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -19,6 +20,7 @@ vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: listenMock }));
 
 const PET_EVENT = "pet-state";
+const PET_INTENSITY_EVENT = "pet-intensity";
 
 describe("pet facade outside Tauri", () => {
   beforeEach(() => {
@@ -35,6 +37,7 @@ describe("pet facade outside Tauri", () => {
     await expect(pet.hidePet()).resolves.toBeUndefined();
     await expect(pet.isPetVisible()).resolves.toBe(false);
     await expect(pet.setPetState("working")).resolves.toBeUndefined();
+    await expect(pet.setPetIntensity(60)).resolves.toBeUndefined();
     await expect(pet.setPetIgnoreMouse(true)).resolves.toBeUndefined();
     await expect(pet.setPetSize(180)).resolves.toBeUndefined();
     await expect(pet.setPetOpacity(0.7)).resolves.toBeUndefined();
@@ -48,6 +51,14 @@ describe("pet facade outside Tauri", () => {
   it("returns a no-op unlisten for the state subscription", async () => {
     const pet = await import("./pet.js");
     const stop = pet.subscribeToPetState(() => undefined);
+    expect(typeof stop).toBe("function");
+    expect(listenMock).not.toHaveBeenCalled();
+    stop();
+  });
+
+  it("returns a no-op unlisten for the intensity subscription", async () => {
+    const pet = await import("./pet.js");
+    const stop = pet.subscribeToPetIntensity(() => undefined);
     expect(typeof stop).toBe("function");
     expect(listenMock).not.toHaveBeenCalled();
     stop();
@@ -82,6 +93,19 @@ describe("pet facade inside Tauri", () => {
     invokeMock.mockResolvedValueOnce(undefined);
     await pet.setPetState("success");
     expect(invokeMock).toHaveBeenCalledWith("pet_set_state", { petState: "success" });
+  });
+
+  it("forwards an intensity with the command arg", async () => {
+    const pet = await import("./pet.js");
+    invokeMock.mockResolvedValueOnce(undefined);
+    await pet.setPetIntensity(80);
+    expect(invokeMock).toHaveBeenCalledWith("pet_set_intensity", { intensity: 80 });
+  });
+
+  it("guards non-integer intensities", async () => {
+    const pet = await import("./pet.js");
+    await pet.setPetIntensity(80.5);
+    expect(invokeMock).not.toHaveBeenCalled();
   });
 
   it("invokes each settings command with its arg", async () => {
@@ -129,6 +153,37 @@ describe("pet facade inside Tauri", () => {
     const unlisten = vi.fn();
     listenMock.mockResolvedValueOnce(unlisten);
     const stop = pet.subscribeToPetState(() => undefined);
+    stop();
+    await Promise.resolve();
+    expect(unlisten).toHaveBeenCalled();
+  });
+
+  it("subscribes to the pet-intensity event and validates payloads", async () => {
+    const pet = await import("./pet.js");
+    const handler: (intensity: number) => void = vi.fn();
+    let captured: ListenHandler = () => undefined;
+    listenMock.mockImplementationOnce((_event: string, cb: ListenHandler) => {
+      captured = cb;
+      return Promise.resolve(vi.fn());
+    });
+    const stop = pet.subscribeToPetIntensity(handler);
+    expect(listenMock).toHaveBeenCalledWith(PET_INTENSITY_EVENT, expect.any(Function));
+    captured({ payload: 42 });
+    expect(handler).toHaveBeenCalledWith(42);
+    // Out-of-range / non-numeric payloads are dropped.
+    captured({ payload: 101 });
+    captured({ payload: -1 });
+    captured({ payload: "42" });
+    captured({ payload: 42.5 });
+    expect(handler).toHaveBeenCalledTimes(1);
+    stop();
+  });
+
+  it("unregisters the intensity listener on unlisten", async () => {
+    const pet = await import("./pet.js");
+    const unlisten = vi.fn();
+    listenMock.mockResolvedValueOnce(unlisten);
+    const stop = pet.subscribeToPetIntensity(() => undefined);
     stop();
     await Promise.resolve();
     expect(unlisten).toHaveBeenCalled();

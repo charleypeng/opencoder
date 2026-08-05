@@ -106,6 +106,7 @@ import { startTrayBadgeSync } from "../../services/trayBadge.js";
 import { applyDesktopPrefs, petEnabled } from "../../features/settings/desktopPrefs.js";
 import { showPet } from "../../services/pet.js";
 import { startNotifications } from "../../services/notificationEvents.js";
+import { startPetWatcher } from "../../features/pet/petEvents.js";
 import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
 
 export interface DesktopShellProps {
@@ -568,6 +569,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     const serverId = notificationServerId();
     const disposeNotifications = startNotifications(serverId);
     onCleanup(disposeNotifications);
+  });
+
+  // Pet state linkage (TASK-M8-08): one watcher for the active server,
+  // torn down and re-created on server switches (same memo discipline as
+  // the notification watcher) so the pet always reflects the server in
+  // focus. The watcher folds session/permission/question stores into the
+  // pet state machine and forwards the result + token-rate intensity to
+  // the pet window; the facade no-ops outside Tauri.
+  const petServerId = createMemo(() => activeServerId());
+  createEffect(() => {
+    const serverId = petServerId();
+    const disposePet = startPetWatcher(serverId);
+    onCleanup(disposePet);
   });
 
   onCleanup(() => {

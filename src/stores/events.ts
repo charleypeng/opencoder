@@ -27,6 +27,7 @@ import * as permissionStore from "./permission.js";
 import * as questionStore from "./question.js";
 import * as agentsStore from "./agents.js";
 import * as ptysStore from "./ptys.js";
+import { bumpTokenRate } from "../features/pet/tokenRate.js";
 import type { Pty } from "../services/pty.js";
 
 type Message = components["schemas"]["Message"];
@@ -160,6 +161,9 @@ export function applyEvent(
       messages.applyPartDelta(serverId, p.sessionID as string, p.part as Part);
       return;
     case "message.part.delta":
+      // The pet's working intensity follows the token rate (TASK-M8-08):
+      // every streamed delta counts toward the pet's per-second window.
+      bumpTokenRate();
       messages.applyTextDelta(serverId, p.sessionID as string, {
         messageID: p.messageID as string,
         partID: p.partID as string,

@@ -24,6 +24,7 @@ import {
   setAgents,
 } from "./agents.js";
 import { ptys, resetServer as resetPtys } from "./ptys.js";
+import { resetTokenRate, tokenRateStore } from "../features/pet/tokenRate.js";
 import type { Pty } from "../services/pty.js";
 import type { Session } from "../services/session.js";
 import type { Project } from "../services/project.js";
@@ -92,6 +93,7 @@ afterEach(() => {
   resetQuestions(SERVER);
   resetAgents(SERVER);
   resetPtys(SERVER);
+  resetTokenRate();
   sseSubscribeMock.mockReset();
 });
 
@@ -733,5 +735,39 @@ describe("subscribeToServerEvents", () => {
     });
     await result.unsubscribe();
     expect(unsubscribe).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("applyEvent — pet token rate (TASK-M8-08)", () => {
+  it("counts message.part.delta events into the pet token rate", () => {
+    expect(tokenRateStore.rate).toBe(0);
+    for (let i = 0; i < 3; i++) {
+      applyEvent(SERVER, {
+        type: "message.part.delta",
+        properties: {
+          sessionID: "ses_tokens",
+          messageID: "m1",
+          partID: `p${i}`,
+          field: "text",
+          delta: "x",
+        },
+      });
+    }
+    expect(tokenRateStore.rate).toBe(3);
+  });
+
+  it("does not count non-delta message events", () => {
+    applyEvent(SERVER, {
+      type: "message.part.updated",
+      properties: {
+        sessionID: "ses_tokens",
+        part: { id: "p1", sessionID: "ses_tokens", messageID: "m1", type: "text", text: "hi" },
+      },
+    });
+    applyEvent(SERVER, {
+      type: "message.updated",
+      properties: { sessionID: "ses_tokens", info: { id: "m1", role: "user" } },
+    });
+    expect(tokenRateStore.rate).toBe(0);
   });
 });

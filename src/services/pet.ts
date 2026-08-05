@@ -1,9 +1,10 @@
-// Pet companion window facade (TASK-M8-07): thin typed wrappers over the
-// Rust pet commands (pet_show / pet_hide / pet_is_visible / pet_set_state
-// / pet_set_ignore_mouse / pet_get_ignore_mouse / pet_set_size /
-// pet_set_opacity / pet_set_topmost / pet_set_mute / pet_set_dock) and
-// the `pet-state` event Rust emits to the pet window when the main
-// window's frontend forwards an animation state. Mirrors the events.ts
+// Pet companion window facade (TASK-M8-07/08): thin typed wrappers over
+// the Rust pet commands (pet_show / pet_hide / pet_is_visible /
+// pet_set_state / pet_set_ignore_mouse / pet_get_ignore_mouse /
+// pet_set_size / pet_set_opacity / pet_set_topmost / pet_set_mute /
+// pet_set_dock / pet_set_intensity) and the `pet-state` / `pet-intensity`
+// events Rust emits to the pet window when the main window's frontend
+// forwards an animation state / working intensity. Mirrors the events.ts
 // outside-Tauri no-op guard so the desktop-only surface never touches the
 // IPC layer in web or mobile builds. The window itself is created and
 // owned Rust-side (transparent frameless always-on-top, label "pet");
@@ -20,6 +21,10 @@ export type PetAnimationState = "idle" | "working" | "waiting" | "success" | "er
 
 /** The `pet-state` event Rust emits to the pet window. */
 export const PET_STATE_EVENT = "pet-state";
+
+/** The `pet-intensity` event Rust emits to the pet window (TASK-M8-08):
+ *  the working animation speed input, 0-100. */
+export const PET_INTENSITY_EVENT = "pet-intensity";
 
 function inTauri(): boolean {
   return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
@@ -51,6 +56,14 @@ export function isPetVisible(): Promise<boolean> {
 export function setPetState(state: PetAnimationState): Promise<void> {
   if (!inTauri()) return Promise.resolve();
   return invoke("pet_set_state", { petState: state });
+}
+
+/** Forwards the working intensity (0-100, TASK-M8-08) to the pet window
+ *  (Rust emits `pet-intensity` there); the value is remembered and
+ *  re-emitted on the next show. No-op outside Tauri. */
+export function setPetIntensity(intensity: number): Promise<void> {
+  if (!inTauri() || !Number.isInteger(intensity)) return Promise.resolve();
+  return invoke("pet_set_intensity", { intensity });
 }
 
 /** Toggles mouse click-through on the pet window (it keeps rendering but
@@ -90,8 +103,10 @@ export function setPetTopmost(topmost: boolean): Promise<void> {
   return invoke("pet_set_topmost", { topmost });
 }
 
-/** Stores the pet sound mute flag (consumed by the animation task M8-08;
- *  the pet window also persists it locally). No-op outside Tauri. */
+/** Stores the pet sound mute flag. No sounds exist yet (the CSS pet is
+ *  silent; TASK-M8-08 consumes the flag as a no-op — a future sound
+ *  renderer gates on it; the pet window also persists it locally).
+ *  No-op outside Tauri. */
 export function setPetMute(muted: boolean): Promise<void> {
   if (!inTauri()) return Promise.resolve();
   return invoke("pet_set_mute", { muted });
@@ -119,6 +134,26 @@ export function subscribeToPetState(onState: (state: PetAnimationState) => void)
       payload === "attention"
     ) {
       onState(payload);
+    }
+  });
+  return () => {
+    void unlisten.then((unlisten) => unlisten());
+  };
+}
+
+/** Subscribes to working intensities forwarded by the main window (0-100);
+ *  returns an unlisten function. Outside Tauri it is a no-op. */
+export function subscribeToPetIntensity(onIntensity: (intensity: number) => void): () => void {
+  if (!inTauri()) return () => {};
+  const unlisten = listen(PET_INTENSITY_EVENT, (event) => {
+    const payload = event.payload;
+    if (
+      typeof payload === "number" &&
+      Number.isInteger(payload) &&
+      payload >= 0 &&
+      payload <= 100
+    ) {
+      onIntensity(payload);
     }
   });
   return () => {

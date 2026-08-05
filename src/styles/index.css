@@ -273,6 +273,220 @@
   transition: background-color 0.6s ease-out;
 }
 
+/*
+ * M8-08 pet animation (ui-design §6): the pure-CSS renderer for the pet
+ * state machine (petState.ts). Each state maps to a keyframe on the blob;
+ * the working cycle duration is driven inline from the forwarded intensity
+ * (0-100). Per-state accents: a waving paw while waiting, a sparkle above
+ * the head on forwarded attention, a popping heart on a headpat, droopy
+ * eyes on error and a squint on success. The Rive renderer is a
+ * documented integration point (see petState.ts PetRenderer) — no .riv
+ * asset exists, so the CSS pet ships (zero asset weight, trivially under
+ * the 500KB budget). Every animation collapses to a static pet under
+ * prefers-reduced-motion.
+ */
+
+.pet-blob {
+  cursor: default;
+}
+
+.pet-blob[data-pet-state="idle"] {
+  animation: pet-idle 2.6s ease-in-out infinite;
+}
+
+.pet-blob[data-pet-state="working"] {
+  animation: pet-typing 0.8s ease-in-out infinite;
+}
+
+.pet-blob[data-pet-state="waiting"] {
+  animation: pet-wait 1.6s ease-in-out infinite;
+}
+
+.pet-blob[data-pet-state="success"] {
+  animation: pet-bounce 0.9s var(--ease-spring) infinite;
+}
+
+.pet-blob[data-pet-state="error"] {
+  animation: pet-droop 1.4s ease-in-out infinite;
+}
+
+.pet-blob[data-pet-state="attention"] {
+  animation: pet-bounce 1.4s var(--ease-spring) infinite;
+}
+
+@keyframes pet-idle {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-3px);
+  }
+}
+
+@keyframes pet-typing {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  25% {
+    transform: translateY(-1.5px);
+  }
+  50% {
+    transform: translateY(0);
+  }
+  75% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes pet-wait {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2px);
+  }
+}
+
+@keyframes pet-bounce {
+  0% {
+    transform: translateY(0);
+  }
+  30% {
+    transform: translateY(-12px);
+  }
+  55% {
+    transform: translateY(0);
+  }
+  70% {
+    transform: translateY(-4px);
+  }
+  85% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes pet-droop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  50% {
+    transform: translateY(2px) scaleY(0.97);
+  }
+}
+
+/* Eyes: droopy on error, happy squint on success. */
+.pet-blob[data-pet-state="error"] .pet-eye {
+  transform: translateY(30%);
+}
+
+.pet-blob[data-pet-state="success"] .pet-eye {
+  transform: scaleY(0.5);
+}
+
+/* Raised waving paw while waiting for permission. */
+.pet-paw {
+  display: none;
+  position: absolute;
+  top: -14%;
+  right: 10%;
+  width: 26%;
+  height: 34%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 22%, var(--bg-elevated));
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  transform-origin: bottom center;
+}
+
+.pet-blob[data-pet-state="waiting"] .pet-paw {
+  display: block;
+  animation: pet-paw-wave 0.9s ease-in-out infinite;
+}
+
+@keyframes pet-paw-wave {
+  0%,
+  100% {
+    transform: rotate(-14deg);
+  }
+  50% {
+    transform: rotate(18deg);
+  }
+}
+
+/* Attention sparkle (forwarded attention — e.g. a pending question). */
+.pet-sparkle {
+  display: none;
+  position: absolute;
+  top: -34%;
+  left: 50%;
+  color: var(--warning);
+  transform: translateX(-50%);
+}
+
+.pet-blob[data-pet-state="attention"][data-headpat="false"] .pet-sparkle {
+  display: block;
+  animation: pet-sparkle-pop 1.2s ease-in-out infinite;
+}
+
+@keyframes pet-sparkle-pop {
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.4) rotate(0deg);
+  }
+  50% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.1) rotate(45deg);
+  }
+}
+
+/* Headpat heart (local click easter egg). */
+.pet-heart {
+  display: none;
+  position: absolute;
+  top: -36%;
+  left: 64%;
+  color: var(--danger);
+}
+
+.pet-blob[data-pet-state="attention"][data-headpat="true"] .pet-heart {
+  display: block;
+  animation: pet-heart-pop 1s var(--ease-spring) 2;
+}
+
+@keyframes pet-heart-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.2) translateY(4px);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.15) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1) translateY(-8px);
+  }
+}
+
+/* Collapsed pet: eyes hidden, the restore glyph shows (the window is
+ * 48px — every extra element would overflow). */
+.pet-blob[data-collapsed="true"] .pet-eye {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pet-blob,
+  .pet-paw,
+  .pet-sparkle,
+  .pet-heart {
+    animation: none !important;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .typing-cursor {
     animation: none;

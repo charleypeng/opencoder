@@ -51,6 +51,7 @@ const {
   qrToDataURLMock,
   openUrlMock,
   startNotificationsMock,
+  startPetWatcherMock,
   subscribeToNotificationClickMock,
   focusWindowMock,
   showPetMock,
@@ -63,6 +64,7 @@ const {
     qrToDataURLMock: vi.fn(),
     openUrlMock: vi.fn(),
     startNotificationsMock: vi.fn(() => vi.fn()),
+    startPetWatcherMock: vi.fn(() => vi.fn()),
     subscribeToNotificationClickMock: vi.fn<(cb: () => void) => () => void>(() => vi.fn()),
     focusWindowMock: vi.fn(async () => {}),
     showPetMock: vi.fn(async () => {}),
@@ -76,6 +78,9 @@ vi.mock("qrcode", () => ({ default: { toDataURL: qrToDataURLMock } }));
 vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 vi.mock("../../services/notificationEvents.js", () => ({
   startNotifications: startNotificationsMock,
+}));
+vi.mock("../../features/pet/petEvents.js", () => ({
+  startPetWatcher: startPetWatcherMock,
 }));
 vi.mock("../../services/notifications.js", () => ({
   subscribeToNotificationClick: subscribeToNotificationClickMock,
@@ -508,6 +513,7 @@ beforeEach(() => {
   qrToDataURLMock.mockClear().mockResolvedValue("data:image/png;base64,QRDATA");
   openUrlMock.mockClear().mockResolvedValue(undefined);
   startNotificationsMock.mockClear();
+  startPetWatcherMock.mockClear();
   subscribeToNotificationClickMock.mockClear();
   focusWindowMock.mockClear();
   setActiveServer(null);
@@ -2058,5 +2064,30 @@ describe("DesktopShell system notifications (TASK-M8-06)", () => {
     expect(onClick).toBeTypeOf("function");
     onClick();
     await waitFor(() => expect(focusWindowMock).toHaveBeenCalledTimes(1));
+  });
+});
+
+describe("DesktopShell pet watcher (TASK-M8-08)", () => {
+  it("mounts the pet watcher for the active server", async () => {
+    const alpha = server({ id: "srv-m8p1", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(startPetWatcherMock).toHaveBeenCalledWith("srv-m8p1"));
+    expect(startPetWatcherMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("rebuilds the pet watcher when the active server switches", async () => {
+    const alpha = server({ id: "srv-m8p2", name: "Alpha" });
+    const beta = server({ id: "srv-m8p3", name: "Beta" });
+    invokeMock.mockResolvedValueOnce([alpha, beta]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(startPetWatcherMock).toHaveBeenCalledWith("srv-m8p2"));
+    const firstDispose = startPetWatcherMock.mock.results[0]?.value as ReturnType<
+      typeof startPetWatcherMock
+    >;
+    fireEvent.click(await screen.findByTestId("rail-item-srv-m8p3"));
+    await waitFor(() => expect(startPetWatcherMock).toHaveBeenCalledWith("srv-m8p3"));
+    // The stale server's watcher was torn down before the new one started.
+    expect(firstDispose).toHaveBeenCalled();
   });
 });
