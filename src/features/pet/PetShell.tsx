@@ -206,6 +206,10 @@ const PetShell: Component = () => {
   function handleBlobDoubleClick() {
     clearClickTimer();
     clearHeadpat();
+    // The cancelled headpat must not stick on attention: revert to the
+    // last forwarded state (the headpat timer that would have reverted it
+    // is gone).
+    setState(lastForwarded());
     setSettingsOpen(false);
     const next = !collapsed();
     setCollapsed(next);

@@ -303,4 +303,20 @@ describe("PetShell interactions (TASK-M8-08)", () => {
     vi.advanceTimersByTime(220 + TRANSIENT_MS.attention);
     expect(blob).toHaveAttribute("data-pet-state", "idle");
   });
+
+  it("double-click during a headpat cancels it and reverts to the last forwarded state", () => {
+    vi.useFakeTimers();
+    render(() => <PetShell />);
+    const blob = screen.getByTestId("pet-blob");
+    fireEvent.click(blob);
+    vi.advanceTimersByTime(220);
+    expect(blob).toHaveAttribute("data-pet-state", "attention");
+    fireEvent.dblClick(blob);
+    // The cancelled headpat must not stick on attention.
+    expect(blob).toHaveAttribute("data-pet-state", "idle");
+    expect(blob).toHaveAttribute("data-headpat", "false");
+    // The cancelled headpat timer does not clobber the revert either.
+    vi.advanceTimersByTime(TRANSIENT_MS.attention);
+    expect(blob).toHaveAttribute("data-pet-state", "idle");
+  });
 });

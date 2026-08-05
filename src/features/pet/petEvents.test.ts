@@ -9,6 +9,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { startPetWatcher } from "./petEvents";
+import { TRANSIENT_MS } from "./petState";
 import {
   applySessionList,
   resetServer as resetSessions,
@@ -17,6 +18,7 @@ import {
 import { applyList, enqueue, resetServer as resetPermissions } from "../../stores/permission.js";
 import {
   enqueue as enqueueQuestion,
+  dequeue as dequeueQuestion,
   resetServer as resetQuestions,
 } from "../../stores/question.js";
 import { bumpTokenRate, resetTokenRate } from "./tokenRate";
@@ -141,7 +143,7 @@ describe("startPetWatcher state derivation", () => {
     dispose();
   });
 
-  it("enters attention on a question and reverts after 5s", async () => {
+  it("enters attention on a question and reverts after 5s once answered", async () => {
     vi.useFakeTimers();
     const dispose = startPetWatcher(SERVER);
     await vi.advanceTimersByTimeAsync(0);
@@ -149,8 +151,49 @@ describe("startPetWatcher state derivation", () => {
     enqueueQuestion(SERVER, question("q1"));
     await vi.advanceTimersByTimeAsync(0);
     expect(lastForwarded()).toBe("attention");
+    // A still-pending question keeps the attention alive at each expiry.
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(lastForwarded()).toBe("attention");
+    // Answering the question lets the attention expire to idle.
+    dequeueQuestion(SERVER, "q1");
+    await vi.advanceTimersByTimeAsync(0);
     await vi.advanceTimersByTimeAsync(5000);
     expect(lastForwarded()).toBe("idle");
+    dispose();
+  });
+
+  it("dismissing an error with a question pending lands on attention", async () => {
+    const dispose = startPetWatcher(SERVER);
+    setSessionStatus(SERVER, "s1", { type: "busy" });
+    await flush();
+    setSessionStatus(SERVER, "s1", { type: "error", message: "boom" });
+    await flush();
+    expect(lastForwarded()).toBe("error");
+    enqueueQuestion(SERVER, question("q1"));
+    await flush();
+    // The question is still blocked by the displayed error.
+    expect(lastForwarded()).toBe("error");
+    setSessionStatus(SERVER, "s1", { type: "idle" });
+    await flush();
+    // The dismiss releases the error and the pending question renders.
+    expect(lastForwarded()).toBe("attention");
+    dispose();
+  });
+
+  it("a question arriving during the success transient lands attention after expiry", async () => {
+    vi.useFakeTimers();
+    const dispose = startPetWatcher(SERVER);
+    setSessionStatus(SERVER, "s1", { type: "busy" });
+    setSessionStatus(SERVER, "s1", { type: "idle" });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(lastForwarded()).toBe("success");
+    enqueueQuestion(SERVER, question("q1"));
+    await vi.advanceTimersByTimeAsync(0);
+    // The question is blocked by the success transient for now.
+    expect(lastForwarded()).toBe("success");
+    await vi.advanceTimersByTimeAsync(TRANSIENT_MS.success);
+    // The expiry re-asserts the pending question instead of dumping to idle.
+    expect(lastForwarded()).toBe("attention");
     dispose();
   });
 

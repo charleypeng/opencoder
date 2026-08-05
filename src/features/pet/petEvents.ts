@@ -62,7 +62,11 @@ export function startPetWatcher(serverId: string): () => void {
       if (current === "success" || current === "attention") {
         transientTimer = setTimeout(() => {
           transientTimer = undefined;
-          push([{ type: "transient.expired" }]);
+          // Re-assert the FULL fact set AFTER the transient releases: a
+          // fact that was blocked while the transient displayed (e.g. a
+          // question that arrived during success) must render once the
+          // transient is gone instead of being dumped to idle.
+          push([{ type: "transient.expired" }, ...currentEvents()]);
         }, TRANSIENT_MS[current]);
       }
       if (current !== lastSent) {
@@ -74,7 +78,9 @@ export function startPetWatcher(serverId: string): () => void {
       }
     }
 
-    createEffect(() => {
+    /** The FULL fact set (aggregate session status + permission/question
+     *  queues) as fold events, re-read from the live stores. */
+    function currentEvents(): PetEvent[] {
       const { statuses } = getServerSessionState(serverId);
       const permissionQueue = permissions[serverId]?.queue ?? [];
       const questionQueue = questions[serverId]?.queue ?? [];
@@ -83,19 +89,26 @@ export function startPetWatcher(serverId: string): () => void {
       const anyGenerating = entries.some(
         (entry) => entry.type === "busy" || entry.type === "retry",
       );
-      // Fold order: the permission/question facts first, the session fact
-      // last — a drain (permission.replied) releases the wait and the
-      // session re-assertion then lands the pet on the right base state.
+      // Fold order: the permission fact first, the session fact, the
+      // question fact LAST — a drain (permission.replied) releases the
+      // wait and the session re-assertion then lands the pet on the right
+      // base state; a question blocked by a higher-ranked fact (error,
+      // success) is re-asserted after that fact releases within the same
+      // fold, so it renders once the release happens.
       const events: PetEvent[] = [];
       events.push(
         permissionQueue.length > 0 ? { type: "permission.asked" } : { type: "permission.replied" },
       );
-      if (questionQueue.length > 0) events.push({ type: "question.asked" });
       events.push({
         type: "session.status",
         status: anyError ? "error" : anyGenerating ? "busy" : "idle",
       });
-      push(events);
+      if (questionQueue.length > 0) events.push({ type: "question.asked" });
+      return events;
+    }
+
+    createEffect(() => {
+      push(currentEvents());
     });
 
     createEffect(() => {
