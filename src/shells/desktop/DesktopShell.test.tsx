@@ -1033,7 +1033,11 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     // The tab bar is hidden while the settings view is open.
     expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
 
-    // The settings page fetches and renders the provider key rows.
+    // The settings center opens on the General section by default.
+    expect(screen.getByTestId("general-section")).toBeInTheDocument();
+
+    // The providers section is reachable from the nav and renders the rows.
+    fireEvent.click(screen.getByTestId("settings-section-providers"));
     await waitFor(() => expect(screen.getByTestId("provider-key-row-openai")).toBeInTheDocument());
     expect(screen.getByTestId("provider-key-row-openai")).toHaveAttribute("data-connected", "true");
     expect(screen.getByTestId("provider-oauth-authorize")).toBeInTheDocument();

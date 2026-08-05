@@ -1,8 +1,9 @@
 // Mobile page registry (TASK-M7-03): maps navigation page keys (navigation.ts
 // Route.page) to components. Pages receive the server id, the shell exit
 // callback and their route (params). Sessions/Chat/Files/FileView/Terminal
-// are real; Settings and the Diff push are placeholders until later M7/M9
-// tasks compose them.
+// are real; the Diff push is a placeholder until a later task composes it.
+// TASK-M9-04 wires the Settings tab to the real settings center
+// (SettingsPage mobile variant: chip nav instead of the sidebar).
 
 import type { Component } from "solid-js";
 import { back } from "./navigation.js";
@@ -14,6 +15,7 @@ import { SessionsPage } from "./SessionsPage.js";
 import { FilesPage } from "./FilesPage.js";
 import { FileViewPage } from "./FileViewPage.js";
 import { TerminalPage } from "./TerminalPage.js";
+import SettingsPage from "../../features/settings/SettingsPage.js";
 
 export interface MobilePageProps {
   serverId: string;
@@ -64,6 +66,6 @@ export const pageRegistry: Record<string, MobilePage> = {
   files: FilesPage,
   "file-view": FileViewPage,
   terminal: TerminalPage,
-  settings: placeholderPage("settings:settings"),
+  settings: (props) => <SettingsPage serverId={props.serverId} variant="mobile" />,
   diff: placeholderPage("mobile:diff"),
 };

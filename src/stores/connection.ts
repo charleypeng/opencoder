@@ -4,7 +4,7 @@
 // side owns the 15s polling; this store only applies emitted snapshots.
 
 import { listen } from "@tauri-apps/api/event";
-import { createStore } from "solid-js/store";
+import { createStore, produce } from "solid-js/store";
 
 export type HealthStatus = "ok" | "slow" | "down";
 
@@ -29,6 +29,15 @@ export { connections };
 /** Applies one `server-health` payload to the store. */
 export function applyServerHealth(health: ConnectionState): void {
   setConnections(health.serverId, health);
+}
+
+/** Clears every stored health snapshot (test isolation / full reset). */
+export function resetConnections(): void {
+  setConnections(
+    produce((draft) => {
+      for (const key of Object.keys(draft)) delete draft[key];
+    }),
+  );
 }
 
 /**

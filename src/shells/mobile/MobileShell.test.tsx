@@ -251,6 +251,21 @@ describe("MobileShell", () => {
     await waitFor(() => expect(screen.getByTestId("session-row-sess_1")).toBeInTheDocument());
   });
 
+  it("wires the settings center into the Settings tab (mobile variant)", async () => {
+    stubAndroid();
+    renderShell();
+    await waitFor(() => screen.getByTestId("mobile-shell"));
+
+    fireEvent.click(screen.getByTestId("mobile-tab-settings"));
+    await waitFor(() =>
+      expect(screen.getByTestId("mobile-page-settings")).toHaveAttribute("data-active", "true"),
+    );
+    const page = screen.getByTestId("mobile-page-settings");
+    expect(within(page).getByTestId("settings-page")).toHaveAttribute("data-variant", "mobile");
+    expect(within(page).getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
+    expect(within(page).getByTestId("general-section")).toBeInTheDocument();
+  });
+
   it("applies the enter transition classes on push and pop (TASK-M7-07)", async () => {
     stubAndroid();
     applySessionList(SERVER.id, [session("sess_1")]);
