@@ -35,8 +35,14 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .plugin(tauri_plugin_store::Builder::default().build())
-        .plugin(tauri_plugin_window_state::Builder::default().build());
+        .plugin(tauri_plugin_store::Builder::default().build());
+    // The window-state crate is `#![cfg(not(any(target_os = "android", target_os = "ios")))]`
+    // (it compiles to an empty crate on mobile), so registration must be
+    // desktop-only — same discipline as the barcode-scanner/single-instance
+    // plugins. The mobile release build (TASK-M10-03) surfaced this gap:
+    // the M7-01 debug build predates the M8-04 window-state landing.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_window_state::Builder::default().build());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     // The barcode-scanner crate is `#![cfg(mobile)]` — on desktop it compiles

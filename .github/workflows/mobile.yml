@@ -1,15 +1,23 @@
-# Mobile builds — iOS/Android compile verification (SKELETON, TASK-M7-01)
+# Mobile builds — iOS/Android compile + release verification (TASK-M10-03)
 #
-# Debug, unsigned compile checks only: verifies the mobile build chain stays
-# green while mobile features land (M7). Jobs run best-effort and never block
-# the desktop pipeline.
+# Hardening of the M7-01 skeleton: the blanket continue-on-error is gone.
+# The verification chain is now REQUIRED:
+#   - ios (required):         simulator RELEASE build (unsigned, no signing
+#                             team needed) — proves the release configuration
+#                             compiles and bundles end to end.
+#   - android (required):     debug build (auto-signed with the debug
+#                             keystore) after `tauri android init`.
+# Best-effort companions (per-job continue-on-error with explicit notes):
+#   - ios-device:             device RELEASE build, unsigned. Needs an Apple
+#                             signing team for an installable .ipa, so CI can
+#                             only verify the device toolchain compiles
+#                             (docs/mobile-signing.md).
+#   - android release step:   RELEASE build. Requires a release keystore
+#                             (docs/mobile-signing.md); without one Gradle
+#                             fails — expected, documented, never blocks.
 #
-# Full hardening (signing, provisioning, keystores, artifacts, release) lands
-# in M10-03.
-#
-# Current scope:
-#   - ios:    macOS runner, `tauri ios build --debug` (simulator, unsigned)
-#   - android: Linux runner, JDK 17 + Android SDK/NDK, `tauri android build --debug`
+# Signing/provisioning and the store checklists are documented in
+# docs/mobile-signing.md; CI stays unsigned everywhere.
 
 name: Mobile
 
@@ -25,9 +33,44 @@ concurrency:
 
 jobs:
   ios:
-    name: iOS debug build
+    name: iOS release build (simulator)
     runs-on: macos-latest
-    # Best-effort until M10-03 hardens the mobile pipeline.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build iOS app (simulator, release, unsigned)
+        run: pnpm tauri ios build --target aarch64-sim --ci --no-sign
+
+  ios-device:
+    name: iOS release build (device, best effort)
+    runs-on: macos-latest
+    # Best-effort: without an Apple signing team the device bundle compiles
+    # but is not installable. This job only verifies the aarch64-apple-ios
+    # toolchain; real device/IPA builds need the team + profiles from
+    # docs/mobile-signing.md and stay out of CI.
     continue-on-error: true
     steps:
       - name: Checkout
@@ -55,14 +98,12 @@ jobs:
         with:
           workspaces: src-tauri
 
-      - name: Build iOS app (simulator, debug)
-        run: pnpm tauri ios build --debug --target aarch64-sim --ci
+      - name: Build iOS app (device, release, unsigned)
+        run: pnpm tauri ios build --target aarch64 --ci --no-sign
 
   android:
-    name: Android debug build
+    name: Android build (debug + release best effort)
     runs-on: ubuntu-22.04
-    # Best-effort until M10-03 hardens the mobile pipeline.
-    continue-on-error: true
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -100,5 +141,20 @@ jobs:
         with:
           ndk-version: 27.2.12479018
 
+      # gen/android is NOT committed (the local machine has no Android SDK,
+      # TASK-M7-01), so CI must scaffold it first; ios needs no init because
+      # gen/apple is committed.
+      - name: Init Android project
+        run: pnpm tauri android init --ci
+
       - name: Build Android app (debug)
         run: pnpm tauri android build --debug --ci
+
+      - name: Build Android app (release, best effort)
+        # Best-effort: release signing needs a keystore (docs/mobile-signing.md,
+        # gradle signingConfigs once the scaffold lands). The debug keystore
+        # signs debug builds automatically, so the debug build above is the
+        # required verification chain; a failed release here is expected and
+        # documented, never a blocker.
+        continue-on-error: true
+        run: pnpm tauri android build --ci
