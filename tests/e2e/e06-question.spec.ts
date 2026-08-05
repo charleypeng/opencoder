@@ -1,4 +1,4 @@
-// E06 — 问题卡片回答 → 流程继续
+// E06 — Answer the question card → the flow continues
 // (testing.md §3 L4: the question-flow scenario asks a multiple-choice
 // question; answering it replies to the server and the session continues.)
 //

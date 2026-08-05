@@ -1,4 +1,4 @@
-// E01 — 添加服务器（手动 URL）→ 健康检查变绿 → 进入项目
+// E01 — Add server (manual URL) → health check turns green → enter project
 // (testing.md §3 L4: add server via the wizard, health turns green, enter
 // the workspace.)
 

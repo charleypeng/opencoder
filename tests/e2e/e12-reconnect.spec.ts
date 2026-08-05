@@ -1,4 +1,4 @@
-// E12 — 断网 → 重连 → 会话状态自动对齐
+// E12 — Network drop → reconnect → session state auto-aligns
 // (testing.md §3 L4: a mid-stream connection drop, the health monitor
 // observing the outage, EventSource reconnecting, and the server.connected
 // re-sync realigning the session state.)
@@ -33,7 +33,7 @@ test("E12 network drop reconnects and realigns session state", async ({ page }) 
     timeout: 10_000,
   });
 
-  // ---- 断网: cut the health endpoint too ----
+  // ---- Drop: cut the health endpoint too ----
   await page.route("**/global/health**", (route) => route.abort());
 
   // The health monitor observes the outage (shim telemetry) and the
@@ -47,7 +47,7 @@ test("E12 network drop reconnects and realigns session state", async ({ page }) 
     timeout: 10_000,
   });
 
-  // ---- 重连: restore the network ----
+  // ---- Reconnect: restore the network ----
   await page.unroute("**/global/health**");
   await expect(page.locator('[data-testid="status-dot"][data-status="ok"]')).toBeVisible({
     timeout: 15_000,

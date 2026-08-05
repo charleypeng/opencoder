@@ -1,4 +1,4 @@
-// E02 — mDNS 发现列表出现服务器并可一键添加
+// E02 — mDNS discovery lists a server and one-click add
 // (testing.md §3 L4: the nearby-server section lists a discovered server
 // and one-click add prefills + probes + saves.)
 

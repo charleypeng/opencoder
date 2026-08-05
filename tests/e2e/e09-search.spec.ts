@@ -1,4 +1,4 @@
-// E09 — 全文搜索 → 跳转命中行
+// E09 — Full-text search → jump to the matching line
 // (testing.md §3 L4: the full-text search panel fetches /find hits and
 // clicking a hit opens the file at the matching line.)
 

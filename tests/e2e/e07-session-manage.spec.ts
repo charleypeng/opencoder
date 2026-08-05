@@ -1,4 +1,4 @@
-// E07 — 会话重命名/删除/搜索
+// E07 — Session rename/delete/search
 // (testing.md §3 L4: the session search filters the list; the row menu
 // renames and deletes a session through the dialogs.)
 

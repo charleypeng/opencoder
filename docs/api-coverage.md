@@ -147,6 +147,12 @@
 > 直接读 Session schema 的 `tokens`（input/output/reasoning/cache，展示取
 > input+output+reasoning）与 `cost` 字段（服务端计算，`session.updated`
 > 事件保持新鲜），无客户端估算。
+>
+> SSE mock 扩展 `?syncDelay=<ms>`（TASK-M10-01，设计见 docs/tasks/M10.md
+> 决策 #4）：`/event` 与 `/global/event` 接受该 query，将整个场景时间线
+> 推迟指定毫秒数——`server.connected` 触发的客户端全量 re-sync 会清掉
+> 同步快照往返期间到达的 t=0 场景事件（E2E 首跑暴露）；测试装置经 shim
+> 为每个 SSE URL 追加 `syncDelay=250`，让场景在 re-sync 落定后开播。
 
 ## 6. Backlog（实验面与 TUI 面，本期不实现）
 

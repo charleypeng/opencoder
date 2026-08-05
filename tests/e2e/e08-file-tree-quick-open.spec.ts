@@ -1,4 +1,4 @@
-// E08 — 文件树打开文件 → 内容渲染；⌘P 快速打开
+// E08 — File tree opens a file → content renders; ⌘P quick open
 // (testing.md §3 L4: the sidebar file tree opens a file into the viewer;
 // ⌘/Ctrl+P quick open jumps to another file.)
 

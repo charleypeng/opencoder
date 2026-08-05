@@ -1,4 +1,4 @@
-// E11 — 终端创建 → 输入命令 → 回显
+// E11 — Terminal create → type command → echo
 // (testing.md §3 L4: the terminal view creates a PTY through the shell
 // picker, the tab mounts an xterm instance, and typing a command round-
 // trips through the PTY channel with the echo rendered back.)

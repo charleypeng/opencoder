@@ -1,4 +1,4 @@
-// E10 — 会话 diff 视图展示增删
+// E10 — Session diff view shows additions and deletions
 // (testing.md §3 L4: the session diff view renders the fixture's per-file
 // groups with unified add/del rows, and split mode toggles side by side.)
 

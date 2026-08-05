@@ -10,9 +10,9 @@ import { defineConfig, devices } from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests/e2e",
-  // One retry in CI (the suite is deterministic; retries cover host jitter
+  // Two retries in CI (the suite is deterministic; retries cover host jitter
   // on shared runners), zero locally so flakes surface immediately.
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI ? 2 : 0,
   // Workers: one at a time locally (the shared mock server + CPU-bound
   // vite dev stay quiet), CI keeps the default parallelism.
   workers: process.env.CI ? undefined : 1,

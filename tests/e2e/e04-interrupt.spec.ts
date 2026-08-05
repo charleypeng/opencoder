@@ -1,10 +1,11 @@
-// E04 — 中断生成 → 状态归零
+// E04 — Interrupt generation → state reset
 // (testing.md §3 L4: while the happy-chat scenario is generating, the Stop
 // button aborts; the session settles back to idle and the composer and
 // streaming progress return to their resting state.)
 //
 // Mock semantics: the scenario drives busy (150ms) → idle (2600ms) itself,
-// so "归零" waits for the scenario's idle event after the abort POST lands
+// so the "state reset" waits for the scenario's idle event after the abort
+// POST lands
 // (the mock has no abort-driven status flip).
 
 import {

@@ -1,4 +1,4 @@
-// E03 — 新建会话 → 发 prompt → 流式渲染 text+tool → 完成态
+// E03 — New session → send prompt → streamed text+tool render → idle state
 // (testing.md §3 L4: create a session, send a prompt through the UI, the
 // streamed happy-chat scenario renders text + tool parts, then the session
 // settles to idle.)

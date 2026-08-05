@@ -1,11 +1,12 @@
-// E05 — 权限请求出现 → 允许(remember) → 后续不再询问
+// E05 — Permission request appears → allow (remember) → no further prompts
 // (testing.md §3 L4: the permission-flow scenario asks for a bash
 // permission; "Allow always" (the remember variant) replies, the sheet
 // drains and the session continues to idle.)
 //
 // Mock semantics: the scenario auto-replies server-side at 900ms, so the
 // journey must click within the asked(400ms)→replied(900ms) window; the
-// "不再询问" claim is the mock's single-ask-per-scenario behavior, covered
+// the "no further prompts" claim is the mock's single-ask-per-scenario
+// behavior, covered
 // by the drain assertion + the session continuing without further prompts.
 
 import {
