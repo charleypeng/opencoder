@@ -261,13 +261,18 @@ impl<R: tauri::Runtime> MdnsDiscovery<R> {
         let app = self.app.clone();
         let task_cache = Arc::clone(&cache);
         let task_token = token.clone();
-        let task = tokio::spawn(async move {
+        // Spawn through tauri's async runtime: it enters the tokio runtime
+        // context before spawning, which raw `tokio::spawn` does not — the
+        // sync `start_mdns_discovery` command runs on the main thread
+        // outside any runtime context, so `tokio::spawn` panicked ("no
+        // reactor running") when the scan started from the frontend.
+        let task = tauri::async_runtime::spawn(async move {
             scan_loop(app, task_cache, task_token, receivers).await;
         });
         *guard = Some(Session {
             cache,
             token,
-            abort: task.abort_handle(),
+            abort: task.inner().abort_handle(),
             backend,
         });
     }

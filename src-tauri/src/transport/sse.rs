@@ -214,12 +214,15 @@ fn spawn_subscription(config: SseConfig, params: SubscribeParams, sink: Arc<dyn 
     let flusher_shared = Arc::clone(&shared);
     let flusher_token = flush_token.clone();
     let batch_window = config.batch_window;
-    let flusher = tokio::spawn(async move {
+    // Spawn through tauri's async runtime: `sse_subscribe` is a sync Tauri
+    // command running on the main thread outside any tokio runtime context,
+    // so raw `tokio::spawn` panicked ("no reactor running") on subscribe.
+    let flusher = tauri::async_runtime::spawn(async move {
         flusher_loop(&flusher_shared, &flusher_token, batch_window).await;
     });
 
     let task_token = token.clone();
-    let task = tokio::spawn(async move {
+    let task = tauri::async_runtime::spawn(async move {
         run_subscription(config, params, Arc::clone(&shared), task_token).await;
         // Cancel the flusher and drain whatever is still buffered.
         flush_token.cancel();
@@ -231,7 +234,7 @@ fn spawn_subscription(config: SseConfig, params: SubscribeParams, sink: Arc<dyn 
         id,
         SubscriptionHandle {
             token,
-            abort: task.abort_handle(),
+            abort: task.inner().abort_handle(),
         },
     );
     id
@@ -392,7 +395,7 @@ async fn connect_and_stream(
     let monitor_activity = Arc::clone(&last_activity);
     let monitor_interval = config.heartbeat_timeout / 4;
     let monitor_timeout = config.heartbeat_timeout;
-    let monitor = tokio::spawn(async move {
+    let monitor = tauri::async_runtime::spawn(async move {
         let mut interval = tokio::time::interval(monitor_interval);
         interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
         interval.tick().await;
