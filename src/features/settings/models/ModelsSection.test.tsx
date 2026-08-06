@@ -138,6 +138,19 @@ describe("ModelsSection", () => {
     expect(screen.getByTestId("models-default-clear")).toBeInTheDocument();
   });
 
+  it("falls back to the config default when the local default's provider disconnects", () => {
+    setProviders(SERVER, { ...LIST, connected: ["openai"] });
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "claude-sonnet-4-5" });
+
+    render(() => <ModelsSection serverId={SERVER} />);
+
+    expect(screen.getByTestId("models-default-value")).toHaveTextContent("OpenAI · GPT-5");
+    expect(screen.getByTestId("models-server-chip")).toHaveTextContent("Default");
+    expect(screen.queryByTestId("models-local-chip")).not.toBeInTheDocument();
+    // The Clear button still clears the stale local slot.
+    expect(screen.getByTestId("models-default-clear")).toBeInTheDocument();
+  });
+
   it("shows a not-set state when the server exposes no default", () => {
     setProviders(SERVER, { ...LIST, default: {} });
 

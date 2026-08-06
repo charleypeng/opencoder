@@ -22,6 +22,7 @@ import {
   setConfigDefault,
   setLocalDefault,
   setProviders,
+  usable,
 } from "../../../stores/models.js";
 import { modelName } from "../../models/models.js";
 import { ModelPickerContent } from "../../models/ModelPicker.js";
@@ -70,12 +71,15 @@ const ModelsSection: Component<ModelsSectionProps> = (props) => {
     fetchCatalog();
   });
 
-  /** The effective default: the local choice when set, else the server's
-   *  config default (what new sessions resolve to). */
+  /** The effective default: the local choice when set AND still usable
+   *  (provider connected + model in the catalog — the same gate the
+   *  resolution chain applies, so the display never shows a default that
+   *  sessions cannot resolve to), else the server's config default. */
   const resolved = createMemo<{ ref: ModelRef; local: boolean } | null>(() => {
-    const local = state().localDefault;
-    if (local !== null) return { ref: local, local: true };
-    const config = state().defaultModel;
+    const current = state();
+    const local = current.localDefault;
+    if (local !== null && usable(current, local)) return { ref: local, local: true };
+    const config = current.defaultModel;
     if (config !== null) return { ref: config, local: false };
     return null;
   });

@@ -13,6 +13,7 @@
 
 ### 修复
 
+- 默认模型展示未过滤不可用的本地选择（fix(settings)）：设置页「模型」分区展示客户端本地默认时未校验其提供商仍处于连接状态、模型仍在目录中，因此可能显示「本地默认」+「新会话使用该模型」，而实际解析链（以及新会话）已回退到服务端配置默认。本地默认的展示现与解析链应用同一可用性规则（提供商已连接 + 模型在目录中），本地选择失效时回退显示配置默认与 Default 徽标；「清除」按钮仍可清除过期槽位。(TASK-S1-01)
 - 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)
 - 聊天页无法滚动到最后一行，且流式期间闪烁、卡顿（fix(messages)）：自动滚动以虚拟列表的**估算**行高计算目标，而浏览器真实 `scrollHeight` 异步完成布局——单次 `scrollTo` 被钳制到旧高度，最后一行留在视口外；每个 token delta 还会无节流地触发一次 `scrollTo`。现改用容器的真实 `scrollHeight - clientHeight` 作为跟随目标（仅在没有布局的环境回退虚拟总高），同帧多次触发合并为一次 requestAnimationFrame，目标未变时跳过。(messages)
 - 真实服务器上项目/会话列表为空（fix(api)）：ApiClient 门面只注入了当前目录，从未注入激活服务器的 `serverID`——所有经 invoke 传输的领域请求到达 Rust 时都缺少 `serverID`，被以 "missing url or serverID" 拒绝，ProjectSwitcher 吞掉错误后渲染空列表。`getApiClient()` 现从注册表 store 注入 `getServerID`；显式传入的 serverID 与基于 URL 的探测不受影响。(api)

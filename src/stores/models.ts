@@ -81,8 +81,10 @@ export function findModel(state: ServerModelState, ref: ModelRef): Model | undef
 
 /** True when the ref is still in the catalog AND its provider is connected
  *  (preselections must stay within connected providers: a disconnected one
- *  would leave the compact select with an unmatchable value). */
-function usable(state: ServerModelState, ref: ModelRef): boolean {
+ *  would leave the compact select with an unmatchable value; the settings
+ *  section gates its local-default display on the same rule so the UI
+ *  never shows a default that sessions cannot resolve to). */
+export function usable(state: ServerModelState, ref: ModelRef): boolean {
   return state.connected.includes(ref.providerID) && findModel(state, ref) !== undefined;
 }
 
