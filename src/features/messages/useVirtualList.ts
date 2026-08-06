@@ -16,8 +16,8 @@
 // the delta hundreds of px off in real browsers.
 //
 // The hook owns the scroll position as a signal (scroll events, programmatic
-// scrollTo/scrollToIndex and follow-at-bottom all go through it), so the
-// visible range always matches where the content actually is.
+// scrollTo and follow-at-bottom all go through it), so the visible range
+// always matches where the content actually is.
 
 import { createMemo, createSignal } from "solid-js";
 
@@ -56,8 +56,6 @@ export interface VirtualList {
   measureRow: (key: string, el: HTMLElement | undefined) => void;
   /** Programmatic scroll (keeps the internal position in sync). */
   scrollTo: (top: number, behavior?: ScrollBehavior) => void;
-  /** Scrolls so the row's bottom edge sits at the viewport bottom. */
-  scrollToIndex: (index: number, behavior?: ScrollBehavior) => void;
 }
 
 export function createVirtualList(
@@ -175,21 +173,21 @@ export function createVirtualList(
   function scrollTo(top: number, behavior: ScrollBehavior = "auto"): void {
     const el = getScrollEl();
     const clamped = Math.max(0, top);
-    setScrollTop(clamped);
-    if (el === undefined) return;
+    if (el === undefined) {
+      setScrollTop(clamped);
+      return;
+    }
     try {
       el.scrollTo({ top: clamped, behavior });
     } catch {
       el.scrollTop = clamped;
     }
-  }
-
-  function scrollToIndex(index: number, behavior: ScrollBehavior = "auto"): void {
-    const n = count();
-    if (index < 0 || n === 0) return;
-    const clamped = Math.min(index, n - 1);
-    const sums = prefixSums();
-    scrollTo(Math.max(0, sums[clamped + 1] - viewport()), behavior);
+    // Sync the signal from the position the browser ACTUALLY applied: when
+    // layout has not settled, the browser clamps to a stale scrollHeight,
+    // and an optimistic signal would render rows for a position the DOM
+    // never reached (blank viewport / flicker). Smooth scrolling streams
+    // scroll events that keep the signal in sync on their own.
+    if (behavior !== "smooth") setScrollTop(el.scrollTop);
   }
 
   return {
@@ -201,6 +199,5 @@ export function createVirtualList(
     measure,
     measureRow,
     scrollTo,
-    scrollToIndex,
   };
 }
