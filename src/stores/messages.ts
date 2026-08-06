@@ -80,6 +80,13 @@ function pendingKey(serverId: string, sessionId: string): string {
 
 const pendingLocalMessages = new Map<string, string>();
 
+// Renamed optimistic part ids per (server, session) — the echo message id
+// they were migrated under. Real servers stream the user echo's own
+// `message.part.updated` right after the `message.updated` envelope; when
+// that real part lands the renamed locals must be dropped so the prompt
+// text does not render twice (TASK-M2-08 follow-up, real-server parity).
+const renamedEchoParts = new Map<string, { echoId: string; partIds: string[] }>();
+
 /**
  * Registers a local-* message awaiting its server echo (TASK-M2-08). Only
  * the most recent send is tracked per session; a prompt the server never
@@ -96,7 +103,9 @@ export function trackPendingLocalMessage(
 
 /** Drops a session's pending marker (rollback, session switch, unmount). */
 export function untrackPendingLocalMessage(serverId: string, sessionId: string): void {
-  pendingLocalMessages.delete(pendingKey(serverId, sessionId));
+  const key = pendingKey(serverId, sessionId);
+  pendingLocalMessages.delete(key);
+  renamedEchoParts.delete(key);
 }
 
 function updateServer(
@@ -229,6 +238,11 @@ export function upsertMessage(serverId: string, sessionId: string, info: Message
  * message.part.delta for the echo can arrive before message.updated. When a
  * part for a server message lands while the session's marker is pending and
  * the local parts still exist, the same reconcile-if-safe logic runs.
+ *
+ * Real-server parity: when a metadata-only echo was reconciled by renaming
+ * the local parts under `prt-{echoId}` and the server then streams its OWN
+ * part for that echo (`message.part.updated`, id NOT in the renamed set),
+ * the renamed locals are dropped — keeping the prompt text exactly once.
  * Draft variant: reads the in-progress bucket so batching sees the items
  * applied earlier in the same pass.
  */
@@ -240,10 +254,25 @@ function maybeReconcileOnPartDraft(
   part?: Part,
 ): void {
   if (typeof messageId !== "string") return;
-  const pendingId = pendingLocalMessages.get(key);
-  if (pendingId === undefined || pendingId === messageId) return;
   const entry = bucket[sessionId];
   if (entry === undefined) return;
+  // Real part of a renamed echo: drop the renamed locals (one render).
+  const renamed = renamedEchoParts.get(key);
+  if (renamed !== undefined && renamed.echoId === messageId) {
+    const isRenamedLocal = part !== undefined && renamed.partIds.includes(part.id);
+    if (!isRenamedLocal) {
+      for (const partId of renamed.partIds) {
+        if (partId in entry.parts) delete entry.parts[partId];
+      }
+      entry.order = entry.order.filter((id) => id in entry.parts);
+      syncMessageParts(entry);
+      renamedEchoParts.delete(key);
+      bucket[sessionId] = entry;
+    }
+    return;
+  }
+  const pendingId = pendingLocalMessages.get(key);
+  if (pendingId === undefined || pendingId === messageId) return;
   if (!entry.order.some((id) => entry.parts[id]?.messageID === pendingId)) return;
   reconcilePendingDraft(
     bucket,
@@ -340,6 +369,11 @@ function reconcilePendingDraft(
   syncMessageParts(entry);
   delete entry.infos[pendingId];
   pendingLocalMessages.delete(key);
+  // Real servers stream the user echo's own part right after the envelope;
+  // remember the renamed ids so that real part can drop them (one render).
+  if (renames.size > 0) {
+    renamedEchoParts.set(key, { echoId: incomingMessageId, partIds: [...renames.values()] });
+  }
   bucket[sessionId] = entry;
 }
 
@@ -525,7 +559,9 @@ export function removePartsForMessage(
 
 /** Drops every message of one session (session.deleted cleanup). */
 export function removeMessage(serverId: string, sessionId: string): void {
-  pendingLocalMessages.delete(pendingKey(serverId, sessionId));
+  const key = pendingKey(serverId, sessionId);
+  pendingLocalMessages.delete(key);
+  renamedEchoParts.delete(key);
   updateServer(serverId, (bucket) => {
     delete bucket[sessionId];
   });
@@ -536,6 +572,9 @@ export function resetServer(serverId: string): void {
   const prefix = `${serverId}:`;
   for (const key of [...pendingLocalMessages.keys()]) {
     if (key.startsWith(prefix)) pendingLocalMessages.delete(key);
+  }
+  for (const key of [...renamedEchoParts.keys()]) {
+    if (key.startsWith(prefix)) renamedEchoParts.delete(key);
   }
   setMessages(
     produce((draft) => {

@@ -269,20 +269,20 @@ const MessageList: Component<MessageListProps> = (props) => {
     if (pagination.loadingEarlier() || !pagination.hasMore()) return;
     const el = scrollRef;
     const anchorTop = el?.scrollTop ?? list.scrollTop();
-    const beforeTotal = list.totalHeight();
+    const beforeTotal = contentHeight();
     prepending = true;
     try {
       const inserted = await pagination.loadEarlier();
       if (inserted === 0) return;
       // Solid flushes effects on a microtask; wait one macrotask so the new
-      // rows are mounted (and measured) before the total height is read.
+      // rows are mounted (and measured) before the height is read.
       await new Promise((resolve) => setTimeout(resolve, 0));
       // Skip the correction if the user scrolled while the page was in
       // flight: the saved anchor no longer matches the viewport, so applying
       // the delta would yank the list against the user's scroll (flicker).
       if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return;
       list.measure();
-      const delta = list.totalHeight() - beforeTotal;
+      const delta = contentHeight() - beforeTotal;
       if (delta > 0) list.scrollTo(anchorTop + delta);
     } catch {
       // Handled by the caller's retry on the next scroll.
@@ -291,12 +291,51 @@ const MessageList: Component<MessageListProps> = (props) => {
     }
   }
 
+  // Real content height when the browser has laid out rows; falls back to
+  // the virtual list's measured total when layout is unavailable (jsdom
+  // tests report scrollHeight 0) so the follow logic stays testable.
+  function contentHeight(): number {
+    const el = scrollRef;
+    if (el !== undefined && el.scrollHeight > 0) return el.scrollHeight;
+    return list.totalHeight();
+  }
+
   // Auto-scroll: while the user is not paused, pin the bottom whenever the
   // transcript grows (new groups) or a streamed delta lands; while paused,
   // either one flags the jump button. The lastDeltaAt subscription fires
   // per delta at O(1) — no part scanning. A page PREPENDED by pagination
   // grows the transcript but must never flag the jump button (it is a
   // history backfill, not new content).
+  //
+  // Scrolling uses the container's REAL scrollHeight (not the virtual
+  // list's estimated total): the browser may not have laid out the latest
+  // rows yet, so the target is re-applied on the next animation frame —
+  // WKWebView settles layout asynchronously and a single scrollTo gets
+  // clamped to the stale scrollHeight, leaving the last line out of view.
+  // Same-frame triggers coalesce into one rAF pass (no scroll storm while
+  // tokens stream), and equal targets are skipped (no redundant scrollTo
+  // that would flicker the scrollbar / re-render the virtual rows).
+  let followRaf = 0;
+  let lastFollowTarget = -1;
+  function followBottom(): void {
+    const el = scrollRef;
+    if (el === undefined || paused()) return;
+    const target = Math.max(0, contentHeight() - el.clientHeight);
+    if (target === lastFollowTarget) return;
+    lastFollowTarget = target;
+    if (followRaf !== 0) return;
+    followRaf = requestAnimationFrame(() => {
+      followRaf = 0;
+      const current = scrollRef;
+      if (current === undefined || paused()) return;
+      // Re-read after the frame: layout may still settle, so the second
+      // pass in the same frame is unnecessary, but the NEXT group/delta
+      // trigger re-runs this. One rAF is enough when the height is final;
+      // when it is not, the subsequent trigger re-pins.
+      const next = Math.max(0, contentHeight() - current.clientHeight);
+      if (next !== current.scrollTop) list.scrollTo(next, "auto");
+    });
+  }
   createEffect(() => {
     const count = groups().length;
     const stamp = messages[props.serverId]?.[props.sessionId]?.lastDeltaAt ?? 0;
@@ -305,9 +344,12 @@ const MessageList: Component<MessageListProps> = (props) => {
     }
     lastGroupCount = count;
     lastDeltaStamp = stamp;
-    const el = scrollRef;
-    if (el === undefined || paused()) return;
-    list.scrollTo(Math.max(0, list.totalHeight() - list.viewport()), "auto");
+    // Track the virtual total so measured row heights re-run the follow.
+    void list.totalHeight();
+    followBottom();
+  });
+  onCleanup(() => {
+    if (followRaf !== 0) cancelAnimationFrame(followRaf);
   });
 
   // First layout pass: read the real viewport size (also on window resize).
@@ -346,6 +388,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     suppressUntil = Date.now() + 800;
     setPaused(false);
     setHasNew(false);
+    lastFollowTarget = -1;
     list.scrollToIndex(groups().length - 1, "smooth");
   }
 

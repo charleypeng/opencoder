@@ -398,6 +398,45 @@ describe("messages store", () => {
     expect(textOf(entry.parts["prt_echo_1"])).toBe("stream");
   });
 
+  it("drops the renamed local parts when the real echo part streams in", () => {
+    // Real-server parity (TASK-M2-08 follow-up): opencode streams the user
+    // echo as message.updated (metadata only, no parts) followed by the
+    // echo's OWN message.part.updated. The metadata-only reconciliation
+    // renames the optimistic part under prt-{echoId}; when the server's real
+    // part (a different id) lands, the renamed local must go away so the
+    // prompt text renders exactly once.
+    upsertMessage("srv-msg", SESSION, userMessage("local-1"));
+    applyPartDelta("srv-msg", SESSION, {
+      id: "local-part-1",
+      sessionID: SESSION,
+      messageID: "local-1",
+      type: "text",
+      text: "hello",
+    } as Part);
+    trackPendingLocalMessage("srv-msg", SESSION, "local-1");
+
+    // 1) message.updated arrives first: metadata-only echo -> rename.
+    upsertMessage("srv-msg", SESSION, userMessage("msg_echo_1"));
+    let entry = messages["srv-msg"][SESSION];
+    expect(entry.order).toEqual(["prt-msg_echo_1"]);
+
+    // 2) the echo's own part streams in (real id, not the renamed one).
+    applyPartDelta("srv-msg", SESSION, {
+      id: "prt_echo_1",
+      sessionID: SESSION,
+      messageID: "msg_echo_1",
+      type: "text",
+      text: "hello",
+    } as Part);
+
+    entry = messages["srv-msg"][SESSION];
+    expect(entry.order).toEqual(["prt_echo_1"]);
+    expect(Object.keys(entry.parts)).toEqual(["prt_echo_1"]);
+    expect("prt-msg_echo_1" in entry.parts).toBe(false);
+    expect(Object.keys(entry.infos)).toEqual(["msg_echo_1"]);
+    expect(entry.order).toHaveLength(new Set(entry.order).size);
+  });
+
   it("keeps the marker and the local message when a non-user message arrives first", () => {
     // TASK-M2-08: only the user echo consumes the marker; an assistant
     // message (or any history replay) must not roll the optimistic bubble
@@ -536,7 +575,9 @@ describe("messages store", () => {
       } as Part);
       trackPendingLocalMessage("srv-msg", SESSION, "local-1");
 
-      // The echo message + its part in one pass.
+      // The echo message + its real part in one pass: the metadata-only
+      // echo renames the local part, then the echo's own part lands and the
+      // renamed local is dropped — exactly one render of the prompt text.
       applyMessageBatch("srv-msg", SESSION, [
         { type: "message", info: userMessage("msg_echo_1") },
         { type: "part", part: { ...textPart("prt_echo_1", ""), messageID: "msg_echo_1" } },
@@ -544,9 +585,9 @@ describe("messages store", () => {
 
       const entry = messages["srv-msg"][SESSION];
       expect("local-1" in entry.infos).toBe(false);
-      expect(entry.messageParts).toEqual({ msg_echo_1: ["prt-msg_echo_1", "prt_echo_1"] });
-      expect(entry.order).toEqual(["prt-msg_echo_1", "prt_echo_1"]);
-      expect(textOf(entry.parts["prt-msg_echo_1"])).toBe("hello");
+      expect(entry.messageParts).toEqual({ msg_echo_1: ["prt_echo_1"] });
+      expect(entry.order).toEqual(["prt_echo_1"]);
+      expect("prt-msg_echo_1" in entry.parts).toBe(false);
       expect(entry.order).toHaveLength(new Set(entry.order).size);
     });
   });
