@@ -46,10 +46,15 @@ const AUTH_METHODS: ProviderAuthMethodsResponse = {
 
 function mockClient() {
   let connected: string[] = ["openai"];
+  // Extra catalog entries (TASK-S1-02): the dialog's post-add re-fetch
+  // must surface newly added providers as rows.
+  let extra: Provider[] = [];
   const client = {
     get: vi.fn<(path: string, options?: unknown) => Promise<unknown>>(async (path: string) => {
       if (path === "/provider/auth") return AUTH_METHODS;
-      if (path === "/provider") return listResponse(connected);
+      if (path === "/provider") {
+        return { ...listResponse(connected), all: [...listResponse(connected).all, ...extra] };
+      }
       return [];
     }),
     put: vi.fn<(path: string, options?: { body?: unknown }) => Promise<unknown>>(async () => true),
@@ -72,6 +77,11 @@ function mockClient() {
   // Lets tests mutate the connected set the mock /provider returns.
   (client as unknown as { __setConnected: (ids: string[]) => void }).__setConnected = (ids) => {
     connected = ids;
+  };
+  (client as unknown as { __setExtra: (providers: Provider[]) => void }).__setExtra = (
+    providers,
+  ) => {
+    extra = providers;
   };
   getApiClientMock.mockReturnValue(client);
   return client;
@@ -347,5 +357,42 @@ describe("ProviderKeys", () => {
 
     fireEvent.click(screen.getByTestId("provider-keys-retry"));
     await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+  });
+
+  it("opens the add-provider dialog from the header button and cancels", async () => {
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    fireEvent.click(screen.getByTestId("add-provider"));
+    await waitFor(() => expect(screen.getByTestId("provider-add-dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("provider-add-cancel"));
+    await waitFor(() =>
+      expect(screen.queryByTestId("provider-add-dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("shows an added provider as a row after the dialog submit", async () => {
+    renderKeys();
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+
+    // The mock catalog carries the newly registered provider from the
+    // dialog's post-add re-fetch onward.
+    (client as unknown as { __setExtra: (providers: Provider[]) => void }).__setExtra([
+      provider("myllm", "My LLM"),
+    ]);
+
+    fireEvent.click(screen.getByTestId("add-provider"));
+    await waitFor(() => expect(screen.getByTestId("provider-add-dialog")).toBeInTheDocument());
+    fireEvent.input(screen.getByTestId("provider-add-id"), { target: { value: "myllm" } });
+    fireEvent.click(screen.getByTestId("provider-add-submit"));
+
+    await waitFor(() => expect(rowOf("myllm")).toBeInTheDocument());
+    expect(within(rowOf("myllm")).getByTestId("provider-connected")).toHaveTextContent(
+      "Not connected",
+    );
+    await waitFor(() =>
+      expect(screen.queryByTestId("provider-add-dialog")).not.toBeInTheDocument(),
+    );
   });
 });

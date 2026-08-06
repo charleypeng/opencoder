@@ -18,6 +18,7 @@ import {
 import { getApiClient } from "../../../services/client.js";
 import { getServerModelState, setProviders } from "../../../stores/models.js";
 import ProviderOAuth from "./ProviderOAuth.js";
+import AddProviderDialog from "./AddProviderDialog.js";
 import { useT } from "../../../i18n/index.js";
 
 export interface ProviderKeysProps {
@@ -41,6 +42,8 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
     provider: Provider;
     methodIndex: number;
   } | null>(null);
+  // The "Add provider" dialog is open (TASK-S1-02).
+  const [addOpen, setAddOpen] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
 
@@ -107,14 +110,24 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
       <div class="flex items-baseline justify-between gap-2">
         <h2 class="text-sm font-semibold">{t("settings:providers")}</h2>
         <Show when={!loadFailed()}>
-          <button
-            type="button"
-            data-testid="provider-keys-refresh"
-            class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
-            onClick={() => void load()}
-          >
-            {t("common:refresh")}
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="provider-keys-refresh"
+              class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+              onClick={() => void load()}
+            >
+              {t("common:refresh")}
+            </button>
+            <button
+              type="button"
+              data-testid="add-provider"
+              class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+              onClick={() => setAddOpen(true)}
+            >
+              {t("settings:addProvider")}
+            </button>
+          </div>
         </Show>
       </div>
 
@@ -290,6 +303,10 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
             onClose={() => setOauthTarget(null)}
             onAuthorized={() => void refreshProviders()}
           />
+        </Show>
+
+        <Show when={addOpen()}>
+          <AddProviderDialog serverId={props.serverId} onClose={() => setAddOpen(false)} />
         </Show>
 
         <Show when={error() !== null}>

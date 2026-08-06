@@ -1365,6 +1365,37 @@ try {
       expect(body?.model === before.body?.model, "global merge must retain unpatched fields");
     });
 
+    // TASK-S1-02: the Settings "Add provider" dialog writes dynamic
+    // providers through this endpoint — the global config must accept a
+    // `provider.<id>` key (ProviderConfig) and merge it like any other
+    // nested object.
+    await test("global config patch merges a provider entry (TASK-S1-02)", async () => {
+      const before = await request(baseUrl, "/global/config");
+      const { status, body } = await request(baseUrl, "/global/config", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          provider: {
+            myllm: {
+              name: "My LLM",
+              options: { baseURL: "https://myllm.example/v1", apiKey: "sk-test" },
+            },
+          },
+        }),
+      });
+      expect(status === 200, `status ${status}`);
+      expect(body?.provider?.myllm?.name === "My LLM", "provider name must merge");
+      expect(
+        body?.provider?.myllm?.options?.baseURL === "https://myllm.example/v1",
+        `provider baseURL ${JSON.stringify(body?.provider?.myllm?.options?.baseURL)}`,
+      );
+      expect(
+        body?.provider?.myllm?.options?.apiKey === "sk-test",
+        `provider apiKey ${JSON.stringify(body?.provider?.myllm?.options?.apiKey)}`,
+      );
+      expect(body?.model === before.body?.model, "provider patch must retain other fields");
+    });
+
     await test("instance dispose returns true", async () => {
       const { status, body } = await request(baseUrl, "/instance/dispose", { method: "POST" });
       expect(status === 200, `status ${status}`);

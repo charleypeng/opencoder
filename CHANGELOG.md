@@ -9,7 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Provider "Add" entry in Settings (TASK-S1-02): the Providers section gains an "Add provider" button opening a dialog that registers a dynamic provider — the contract has no providers registry key, so the dialog writes `provider.<id>` (a ProviderConfig: display name + options.baseURL / options.apiKey for OpenAI-compatible endpoints) into the global config (default) or the project config (the active server's current project directory) via the Config PATCH family, then re-fetches the provider catalog so the new provider appears in the Providers list and the Models section (unconnected until its key is set through the existing key form). The id must be a slug (letters/digits/dashes/underscores); an API key without a base URL is allowed and targets the provider's built-in endpoint (hint only). (TASK-S1-02)
 - Settings Models section with a global default model (TASK-S1-01): a new `models` settings section (after Providers) where each server's default model can be picked through the reused model picker UI (search / grouping / favorites / cost badges). The choice is a client-side per-server preference persisted in localStorage (`oc-default-model:{serverId}`, models store `setLocalDefault`) that slots into the model resolution chain ABOVE the server's config default and BELOW a session's explicit selection — new sessions without a choice resolve to it, and the prompt box chip still overrides per session. The section shows the current effective default (local choice ?? server config default) with a Change dialog and a Clear button (resets to the server default), plus a retry from the empty state when the catalog fetch fails; the persisted choice is hydrated from localStorage whenever the catalog loads and is never clobbered by `setProviders`/`setConfigDefault`. (TASK-S1-01)
+
+### Changed
+
+- Chat transcript visual cleanup (refactor(messages)): assistant messages render chrome-free directly on the transcript instead of inside a bordered card, eliminating the noisy box-in-box nesting with the tool/reasoning/patch rows (which also drop their outer borders for a subtle tinted background), and the main-pane Chat|Files switcher becomes a compact segmented control instead of full-width pills. (messages)
 
 ### Fixed
 
