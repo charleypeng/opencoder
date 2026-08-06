@@ -15,6 +15,7 @@
 
 ### 修复
 
+- Mock 服务商目录反映新增的服务商（fix(mock)）：新用户走查（TASK-S1-04）端到端验证了 S1-01/02/03 已实现特性——添加服务器 → Rail 齿轮进设置 → 模型分区默认模型选择（展示配置默认，选择后 chip 变「本地默认」，Clear 可用）→ 切换浅色主题（data-theme 翻转）→ 切换中文（激活态正确）→ 添加服务商对话框打开/提交（PATCH /global/config 写入 `provider.myllm`）——但添加**之后**新服务商未出现在 Providers 列表：`GET /provider` 返回的是**静态 fixture**，而真实 opencode server 会把配置中声明的 provider 加载进目录。mock 的 `GET /provider` 现改为动态处理——把 `globalConfig.provider` 条目合并进 fixture 目录（合成 Provider：`source: "config"`、env/options 取自 ProviderConfig、models 为空——未配 key 前显示「未连接」），保留 fixture 的 `default`/`connected` 记录；客户端代码零改动（添加后本就会重拉目录）。mock self-test 新增断言（新 id 出现、静态目录与 default/connected 保留）；走查结果记录于 docs/plans/settings-center.md。(TASK-S1-04)
 - 默认模型展示未过滤不可用的本地选择（fix(settings)）：设置页「模型」分区展示客户端本地默认时未校验其提供商仍处于连接状态、模型仍在目录中，因此可能显示「本地默认」+「新会话使用该模型」，而实际解析链（以及新会话）已回退到服务端配置默认。本地默认的展示现与解析链应用同一可用性规则（提供商已连接 + 模型在目录中），本地选择失效时回退显示配置默认与 Default 徽标；「清除」按钮仍可清除过期槽位。(TASK-S1-01)
 - 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)
 - 聊天页无法滚动到最后一行，且流式期间闪烁、卡顿（fix(messages)）：自动滚动以虚拟列表的**估算**行高计算目标，而浏览器真实 `scrollHeight` 异步完成布局——单次 `scrollTo` 被钳制到旧高度，最后一行留在视口外；每个 token delta 还会无节流地触发一次 `scrollTo`。现改用容器的真实 `scrollHeight - clientHeight` 作为跟随目标（仅在没有布局的环境回退虚拟总高），同帧多次触发合并为一次 requestAnimationFrame，目标未变时跳过。(messages)

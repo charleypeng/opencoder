@@ -117,8 +117,11 @@ const SKILL_ROUTES: Route[] = [
 // per-provider auth methods (GET /provider/auth) driving the settings
 // forms; the credential endpoints PUT/DELETE /auth/{providerID} are
 // dynamic (body validation, see registerDynamic).
+//
+// `/provider` itself is NOT in this table: TASK-S1-04 made it dynamic so
+// the catalog merges providers added via PATCH /global/config (see
+// registerDynamic, provider catalog).
 const PROVIDER_ROUTES: Route[] = [
-  { method: "get", path: "/provider", operation: "provider.list", fixture: "provider" },
   {
     method: "get",
     path: "/config/providers",
@@ -1046,6 +1049,41 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     }
     Object.assign(globalConfig, mergeConfig(globalConfig, req.body));
     res.json(globalConfig);
+  });
+
+  // Provider catalog (TASK-S1-04): the real server loads providers declared
+  // in the config into the catalog, so GET /provider merges the
+  // `globalConfig.provider` entries (written by PATCH /global/config,
+  // TASK-S1-02) into the fixture catalog — the walkthrough found the
+  // client's catalog refresh after "Add provider" showed no new row because
+  // the fixture-only catalog ignored the config. Config entries synthesize
+  // a Provider with an empty models record (the client renders "Not
+  // connected" until a key is set through /auth), preserving the fixture's
+  // `default` and `connected` records.
+  app.get("/provider", (_req, res) => {
+    const catalog = (fixtures["provider"] ?? {}) as Record<string, unknown>;
+    const all = Array.isArray(catalog.all) ? [...(catalog.all as Record<string, unknown>[])] : [];
+    const knownIds = new Set(all.map((provider) => provider?.id));
+    const configured = isPlainObject(globalConfig.provider) ? globalConfig.provider : {};
+    for (const [id, config] of Object.entries(configured)) {
+      if (knownIds.has(id)) continue;
+      const provider = isPlainObject(config) ? config : {};
+      all.push({
+        id,
+        name: typeof provider.name === "string" ? provider.name : id,
+        source: "config",
+        env: Array.isArray(provider.env) ? provider.env : [],
+        options: isPlainObject(provider.options) ? provider.options : {},
+        models: {},
+      });
+      knownIds.add(id);
+    }
+    res.json({
+      ...catalog,
+      all,
+      default: isPlainObject(catalog.default) ? catalog.default : {},
+      connected: Array.isArray(catalog.connected) ? catalog.connected : [],
+    });
   });
 
   // Instance dispose (TASK-M9-05): the 1.18.11 contract answers a plain

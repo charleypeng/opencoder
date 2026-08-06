@@ -1396,6 +1396,37 @@ try {
       expect(body?.model === before.body?.model, "provider patch must retain other fields");
     });
 
+    // TASK-S1-04: the walkthrough (new-user path, "add provider myllm")
+    // found GET /provider served a STATIC fixture, so the client's catalog
+    // refresh after "Add provider" showed no new row. The catalog now
+    // merges `globalConfig.provider` entries written by PATCH
+    // /global/config (TASK-S1-02) — the added provider must show up in
+    // `all` while the static catalog, `default` and `connected` survive.
+    await test("provider catalog reflects a provider added via global config (TASK-S1-04)", async () => {
+      const { status, body } = await request(baseUrl, "/provider");
+      expect(status === 200, `status ${status}`);
+      const myllm = body?.all?.find((p) => p?.id === "myllm");
+      expect(myllm !== undefined, "added provider must appear in the catalog");
+      expect(myllm?.name === "My LLM", `name ${JSON.stringify(myllm?.name)}`);
+      expect(myllm?.source === "config", `source ${JSON.stringify(myllm?.source)}`);
+      expect(Array.isArray(myllm?.env), "added provider must carry an env array");
+      expect(
+        typeof myllm?.models === "object" && myllm?.models !== null,
+        "added provider must carry a models record",
+      );
+      for (const id of ["openai", "anthropic", "azure", "google"]) {
+        expect(
+          body?.all?.some((p) => p?.id === id),
+          `static catalog id ${id} must survive`,
+        );
+      }
+      expect(body?.default?.openai === "gpt-5", "default record must be preserved");
+      expect(
+        Array.isArray(body?.connected) && body?.connected?.includes("openai"),
+        "connected ids must be preserved",
+      );
+    });
+
     await test("instance dispose returns true", async () => {
       const { status, body } = await request(baseUrl, "/instance/dispose", { method: "POST" });
       expect(status === 200, `status ${status}`);
