@@ -7,6 +7,13 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)
+- 聊天页无法滚动到最后一行，且流式期间闪烁、卡顿（fix(messages)）：自动滚动以虚拟列表的**估算**行高计算目标，而浏览器真实 `scrollHeight` 异步完成布局——单次 `scrollTo` 被钳制到旧高度，最后一行留在视口外；每个 token delta 还会无节流地触发一次 `scrollTo`。现改用容器的真实 `scrollHeight - clientHeight` 作为跟随目标（仅在没有布局的环境回退虚拟总高），同帧多次触发合并为一次 requestAnimationFrame，目标未变时跳过。(messages)
+- 真实服务器上项目/会话列表为空（fix(api)）：ApiClient 门面只注入了当前目录，从未注入激活服务器的 `serverID`——所有经 invoke 传输的领域请求到达 Rust 时都缺少 `serverID`，被以 "missing url or serverID" 拒绝，ProjectSwitcher 吞掉错误后渲染空列表。`getApiClient()` 现从注册表 store 注入 `getServerID`；显式传入的 serverID 与基于 URL 的探测不受影响。(api)
+- mDNS/SSE 在启动时崩溃（fix(transport)）：同步命令 `start_mdns_discovery` 与 `sse_subscribe` 在主线程执行、处于任何 tokio 运行时上下文之外，其裸 `tokio::spawn` 触发 "no reactor running" panic。现改为经 `tauri::async_runtime` 派生（先进入运行时上下文），与健康监控的既有修复一致；中止句柄经 `task.inner().abort_handle()` 解析。(transport)
+
 ## [1.0.0] - 2026-08-05
 
 ### 新增

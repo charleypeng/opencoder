@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Duplicate user message after sending (fix(messages)): the optimistic local-* insert was reconciled onto a metadata-only server echo by renaming its part under `prt-{echoId}`, but real opencode servers stream the echo's OWN `message.part.updated` right after — the renamed local and the real part then rendered the prompt text twice. The renamed part ids are now tracked per session and dropped when the echo's real part lands, so the text renders exactly once. (messages)
+- Chat scroll not pinned to the last line, with flicker and jank during streaming (fix(messages)): auto-scroll computed its target from the virtual list's ESTIMATED row heights while the browser's real `scrollHeight` settles asynchronously, so a single `scrollTo` got clamped to the stale height and the last line stayed out of view; each token delta also issued an unthrottled `scrollTo`. The follow target now uses the container's real `scrollHeight - clientHeight` (falling back to the virtual total only where layout is unavailable), same-frame triggers coalesce into one requestAnimationFrame pass, and equal targets are skipped. (messages)
+- Empty project/session lists on real servers (fix(api)): the ApiClient facade injected the active directory but never the active server id, so every domain request through the invoke transport reached Rust without a `serverID` and was rejected with "missing url or serverID" — the ProjectSwitcher swallowed the error and rendered an empty list. `getApiClient()` now injects `getServerID` from the registry store; explicit per-call server ids and url-based probes are untouched. (api)
+- App crash on startup for mDNS/SSE (fix(transport)): the sync `start_mdns_discovery` and `sse_subscribe` commands ran on the main thread outside any tokio runtime context, and their raw `tokio::spawn` panicked ("no reactor running"). They now spawn through `tauri::async_runtime` (which enters the runtime context first), matching the health-monitor fix; abort handles resolve via `task.inner().abort_handle()`. (transport)
+
 ## [1.0.0] - 2026-08-05
 
 ### Added
