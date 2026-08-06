@@ -1,16 +1,21 @@
 // L1 tests for the model store (TASK-M5-05): catalog replacement + loaded
 // flag, config default override, per-session selection, the resolution
-// fallback chain (selection -> session model -> config default -> first
-// connected model), validation against the catalog and per-server reset.
+// fallback chain (selection -> session model -> local default -> config
+// default -> first connected model), validation against the catalog and
+// per-server reset. The local default (TASK-S1-01) is also covered: slot
+// writes, per-server localStorage persistence and hydration on catalog
+// load.
 
 import { beforeEach, describe, expect, it } from "vitest";
 import type { Model, Provider, ProviderListResponse } from "../services/provider.js";
 import {
   activeModelFor,
+  DEFAULT_MODEL_STORAGE_PREFIX,
   getServerModelState,
   modelStates,
   resetServer,
   setConfigDefault,
+  setLocalDefault,
   setModelForSession,
   setProviders,
 } from "./models.js";
@@ -63,6 +68,7 @@ const RESPONSE: ProviderListResponse = {
 
 beforeEach(() => {
   resetServer(SERVER);
+  window.localStorage.clear();
 });
 
 describe("setProviders", () => {
@@ -215,9 +221,156 @@ describe("resetServer", () => {
       connected: [],
       defaultModels: {},
       defaultModel: null,
+      localDefault: null,
       loaded: false,
       activeBySession: {},
     });
     expect(modelStates[SERVER]).toBeUndefined();
+  });
+});
+
+describe("setLocalDefault (TASK-S1-01)", () => {
+  it("writes the slot and persists per server to localStorage", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+
+    expect(getServerModelState(SERVER).localDefault).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+    expect(
+      JSON.parse(localStorage.getItem(DEFAULT_MODEL_STORAGE_PREFIX + SERVER) ?? "null"),
+    ).toEqual({ providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+  });
+
+  it("clears the slot and removes the stored key on a null ref", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+    setLocalDefault(SERVER, null);
+
+    expect(getServerModelState(SERVER).localDefault).toBeNull();
+    expect(localStorage.getItem(DEFAULT_MODEL_STORAGE_PREFIX + SERVER)).toBeNull();
+  });
+
+  it("is not clobbered by a later setProviders or setConfigDefault", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+
+    setProviders(SERVER, { ...RESPONSE, default: { openai: "openai:gpt-4.1" } });
+    setConfigDefault(SERVER, { openai: "openai:gpt-4.1" });
+
+    expect(getServerModelState(SERVER).localDefault).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+  });
+
+  it("hydrates the persisted choice when the catalog loads", () => {
+    localStorage.setItem(
+      DEFAULT_MODEL_STORAGE_PREFIX + SERVER,
+      JSON.stringify({ providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" }),
+    );
+    setProviders(SERVER, RESPONSE);
+
+    expect(getServerModelState(SERVER).localDefault).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+  });
+
+  it("hydrates the persisted choice on a config-default-only load", () => {
+    localStorage.setItem(
+      DEFAULT_MODEL_STORAGE_PREFIX + SERVER,
+      JSON.stringify({ providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" }),
+    );
+    setConfigDefault(SERVER, { openai: "openai:gpt-5" });
+
+    expect(getServerModelState(SERVER).localDefault).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+  });
+
+  it("ignores malformed persisted data", () => {
+    localStorage.setItem(DEFAULT_MODEL_STORAGE_PREFIX + SERVER, "{not json");
+    setProviders(SERVER, RESPONSE);
+    expect(getServerModelState(SERVER).localDefault).toBeNull();
+
+    localStorage.setItem(
+      DEFAULT_MODEL_STORAGE_PREFIX + SERVER,
+      JSON.stringify({ providerID: 42, modelID: "gpt-5" }),
+    );
+    setConfigDefault(SERVER, { openai: "openai:gpt-5" });
+    expect(getServerModelState(SERVER).localDefault).toBeNull();
+  });
+});
+
+describe("activeModelFor with a local default (TASK-S1-01)", () => {
+  it("prefers the local default over the config default", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "anthropic",
+      modelID: "anthropic:claude-sonnet-4-5",
+    });
+  });
+
+  it("still prefers the per-session selection over the local default", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+    setModelForSession(SERVER, "ses_1", { providerID: "openai", modelID: "openai:gpt-4.1" });
+
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "openai",
+      modelID: "openai:gpt-4.1",
+    });
+  });
+
+  it("skips a local default whose provider is disconnected", () => {
+    setProviders(SERVER, { ...RESPONSE, connected: ["openai"] });
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "openai",
+      modelID: "openai:gpt-5",
+    });
+  });
+
+  it("skips a local default whose model vanished from the catalog", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "openai", modelID: "openai:gone" });
+
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "openai",
+      modelID: "openai:gpt-5",
+    });
+  });
+
+  it("restores the config default after clearing", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+    setLocalDefault(SERVER, null);
+
+    expect(activeModelFor(SERVER, "ses_1")).toEqual({
+      providerID: "openai",
+      modelID: "openai:gpt-5",
+    });
+  });
+
+  it("is per server: another server keeps its own (or no) choice", () => {
+    setProviders(SERVER, RESPONSE);
+    setLocalDefault(SERVER, { providerID: "anthropic", modelID: "anthropic:claude-sonnet-4-5" });
+
+    setProviders("srv-models-b", RESPONSE);
+    expect(getServerModelState("srv-models-b").localDefault).toBeNull();
+    expect(activeModelFor("srv-models-b", "ses_1")).toEqual({
+      providerID: "openai",
+      modelID: "openai:gpt-5",
+    });
   });
 });

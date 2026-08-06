@@ -6,10 +6,11 @@
 // sessions restores each session's model (the server has no per-session
 // model PATCH, so the choice lives client-side). Resolving a session's
 // model falls back from the recorded selection to the session's own model
-// (when it is still in the catalog) to the config default and finally to
-// the first model of the first connected provider; each preselection is
-// additionally gated on the provider being connected, so a disconnected
-// provider never preselects (TASK-M6-06).
+// (when it is still in the catalog) to the client-side per-server default
+// (TASK-S1-01, the Settings pick persisted in localStorage) to the config
+// default and finally to the first model of the first connected provider;
+// each preselection is additionally gated on the provider being connected,
+// so a disconnected provider never preselects (TASK-M6-06).
 
 import { createStore, produce } from "solid-js/store";
 import { type Model, type Provider, type ProviderListResponse } from "../services/provider.js";
@@ -32,6 +33,13 @@ export interface ServerModelState {
   defaultModels: Record<string, string>;
   /** The first entry of defaultModels (resolution-chain fallback). */
   defaultModel: ModelRef | null;
+  /**
+   * The client-side per-server default model picked in Settings
+   * (TASK-S1-01), persisted under `oc-default-model:{serverId}` and
+   * hydrated from localStorage whenever the catalog loads. It sits
+   * ABOVE the config default and BELOW a session's explicit selection.
+   */
+  localDefault: ModelRef | null;
   /** A catalog was fetched successfully (fetch failures stay false). */
   loaded: boolean;
   /** Per-session model selection keyed by session id. */
@@ -45,6 +53,7 @@ export const EMPTY_SERVER_MODEL_STATE: ServerModelState = {
   connected: [],
   defaultModels: {},
   defaultModel: null,
+  localDefault: null,
   loaded: false,
   activeBySession: {},
 };
@@ -84,6 +93,24 @@ function firstDefaultRef(defaultModels: Record<string, string>): ModelRef | null
   return null;
 }
 
+/** localStorage key prefix for the per-server default model choice. */
+export const DEFAULT_MODEL_STORAGE_PREFIX = "oc-default-model:";
+
+/** Reads the persisted per-server default model; tolerant of bad data. */
+export function loadLocalDefault(serverId: string): ModelRef | null {
+  try {
+    const raw = window.localStorage.getItem(DEFAULT_MODEL_STORAGE_PREFIX + serverId);
+    if (raw === null) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== "object" || parsed === null) return null;
+    const ref = parsed as Partial<ModelRef>;
+    if (typeof ref.providerID !== "string" || typeof ref.modelID !== "string") return null;
+    return { providerID: ref.providerID, modelID: ref.modelID };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Replaces the catalog from GET /provider (marks the server as loaded)
  * and seeds the default models from the response's default record.
@@ -96,6 +123,7 @@ export function setProviders(serverId: string, response: ProviderListResponse): 
       state.connected = [...(response.connected ?? [])];
       state.defaultModels = { ...(response.default ?? {}) };
       state.defaultModel = firstDefaultRef(state.defaultModels);
+      state.localDefault = loadLocalDefault(serverId);
       state.loaded = true;
       draft[serverId] = state;
     }),
@@ -113,6 +141,7 @@ export function setConfigDefault(serverId: string, defaultModels: Record<string,
       const state = draft[serverId] ?? { ...EMPTY_SERVER_MODEL_STATE };
       state.defaultModels = { ...defaultModels };
       state.defaultModel = firstDefaultRef(state.defaultModels);
+      state.localDefault = loadLocalDefault(serverId);
       draft[serverId] = state;
     }),
   );
@@ -130,11 +159,38 @@ export function setModelForSession(serverId: string, sessionId: string, ref: Mod
 }
 
 /**
+ * Sets (or clears, with a null ref) the client-side per-server default
+ * model (TASK-S1-01): the slot feeds the resolution chain above the
+ * config default, and the choice persists per server so it survives
+ * restarts. A null ref removes the stored key.
+ */
+export function setLocalDefault(serverId: string, ref: ModelRef | null): void {
+  const slot = ref === null ? null : { ...ref };
+  setModelStates(
+    produce((draft) => {
+      const state = draft[serverId] ?? { ...EMPTY_SERVER_MODEL_STATE };
+      state.localDefault = slot;
+      draft[serverId] = state;
+    }),
+  );
+  try {
+    if (ref === null) {
+      window.localStorage.removeItem(DEFAULT_MODEL_STORAGE_PREFIX + serverId);
+    } else {
+      window.localStorage.setItem(DEFAULT_MODEL_STORAGE_PREFIX + serverId, JSON.stringify(ref));
+    }
+  } catch {
+    // Storage unavailable (private mode / quota): the choice stays in-memory.
+  }
+}
+
+/**
  * Resolves the effective model reference for a session: the recorded
- * selection first, then the session's own model, then the config
- * default — each dropped when it left the catalog OR its provider is
- * disconnected — then the first model of the first connected provider.
- * Null when the server exposes no usable model.
+ * selection first, then the session's own model, then the client-side
+ * per-server default (TASK-S1-01), then the config default — each dropped
+ * when it left the catalog OR its provider is disconnected — then the
+ * first model of the first connected provider. Null when the server
+ * exposes no usable model.
  */
 export function activeModelFor(
   serverId: string,
@@ -151,6 +207,9 @@ export function activeModelFor(
     if (usable(state, ref)) {
       return ref;
     }
+  }
+  if (state.localDefault !== null && usable(state, state.localDefault)) {
+    return state.localDefault;
   }
   if (state.defaultModel !== null && usable(state, state.defaultModel)) {
     return state.defaultModel;

@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### 新增
+
+- 设置页「模型」分区与全局默认模型 (TASK-S1-01)：新增 `models` 设置分区（位于模型服务商之后），可复用模型选择器 UI（搜索 / 分组 / 收藏 / 成本徽标）为每台服务器挑选默认模型。该选择是客户端按服务器持久化的偏好（localStorage `oc-default-model:{serverId}`，models store 的 `setLocalDefault`），插入模型解析链中**高于**服务端配置默认、**低于**会话显式选择的位置——未显式选择的新会话解析到该模型，输入框 chip 仍可按会话覆盖。分区展示当前生效默认（本地选择 ?? 服务端配置默认），提供「更改」对话框与「清除」按钮（重置回服务端默认），目录加载失败时提供空态与重试；持久化的选择在目录加载时从 localStorage 水合，且不会被 `setProviders`/`setConfigDefault` 覆盖。(TASK-S1-01)
+
 ### 修复
 
 - 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)

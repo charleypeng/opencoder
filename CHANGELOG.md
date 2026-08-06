@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Settings Models section with a global default model (TASK-S1-01): a new `models` settings section (after Providers) where each server's default model can be picked through the reused model picker UI (search / grouping / favorites / cost badges). The choice is a client-side per-server preference persisted in localStorage (`oc-default-model:{serverId}`, models store `setLocalDefault`) that slots into the model resolution chain ABOVE the server's config default and BELOW a session's explicit selection — new sessions without a choice resolve to it, and the prompt box chip still overrides per session. The section shows the current effective default (local choice ?? server config default) with a Change dialog and a Clear button (resets to the server default), plus a retry from the empty state when the catalog fetch fails; the persisted choice is hydrated from localStorage whenever the catalog loads and is never clobbered by `setProviders`/`setConfigDefault`. (TASK-S1-01)
+
 ### Fixed
 
 - Duplicate user message after sending (fix(messages)): the optimistic local-* insert was reconciled onto a metadata-only server echo by renaming its part under `prt-{echoId}`, but real opencode servers stream the echo's OWN `message.part.updated` right after — the renamed local and the real part then rendered the prompt text twice. The renamed part ids are now tracked per session and dropped when the echo's real part lands, so the text renders exactly once. (messages)

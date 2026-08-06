@@ -94,6 +94,7 @@ describe("SettingsPage", () => {
       "appearance",
       "language",
       "providers",
+      "models",
       "mcp",
       "servers",
       "shortcuts",
@@ -125,6 +126,7 @@ describe("SettingsPage", () => {
     const cases: Array<[string, string]> = [
       ["appearance", "appearance-section"],
       ["language", "language-section"],
+      ["models", "models-section"],
       ["mcp", "mcp-section"],
       ["servers", "servers-section"],
       ["shortcuts", "shortcuts-section"],

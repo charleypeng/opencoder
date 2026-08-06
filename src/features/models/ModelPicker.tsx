@@ -188,11 +188,18 @@ interface ModelPickerContentProps {
   serverId: string;
   sessionId: string;
   onClose: () => void;
+  /** When set, selecting a model calls onPick instead of recording the
+   *  per-session choice and does NOT close the picker (the Settings
+   *  Models section closes its own dialog, TASK-S1-01). */
+  onPick?: (ref: ModelRef) => void;
+  /** Overrides the Current marker when onPick is set — the section shows
+   *  its own default as the current model. */
+  activeRef?: ModelRef | null;
 }
 
 /** The picker body — the search box, the grouped model list and the Close
  *  button — shared by the desktop dialog and the mobile bottom sheet. */
-function ModelPickerContent(props: ModelPickerContentProps) {
+export function ModelPickerContent(props: ModelPickerContentProps) {
   const t = useT();
   const [search, setSearch] = createSignal("");
   const [favorites, setFavorites] = createSignal<string[]>(loadFavorites());
@@ -200,7 +207,11 @@ function ModelPickerContent(props: ModelPickerContentProps) {
   const sessionModel = createMemo(
     () => getServerSessionState(props.serverId).sessions[props.sessionId]?.model,
   );
-  const active = createMemo(() => activeModelFor(props.serverId, props.sessionId, sessionModel()));
+  const active = createMemo<ModelRef | null>(() =>
+    props.activeRef !== undefined
+      ? props.activeRef
+      : activeModelFor(props.serverId, props.sessionId, sessionModel()),
+  );
 
   /** Whether the model row matches the search (provider or model name). */
   function rowMatches(provider: Provider, model: Model, needle: string): boolean {
@@ -245,7 +256,12 @@ function ModelPickerContent(props: ModelPickerContentProps) {
   }
 
   function selectModel(providerID: string, modelID: string): void {
-    setModelForSession(props.serverId, props.sessionId, { providerID, modelID });
+    const ref = { providerID, modelID };
+    if (props.onPick !== undefined) {
+      props.onPick(ref);
+      return;
+    }
+    setModelForSession(props.serverId, props.sessionId, ref);
     props.onClose();
   }
 
