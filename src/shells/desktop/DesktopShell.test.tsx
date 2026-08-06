@@ -1073,6 +1073,59 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
   });
 });
 
+describe("DesktopShell prominent settings entry (TASK-S1-03)", () => {
+  it("the rail gear is visible in the chat view and opens settings", async () => {
+    const alpha = server({ id: "srv-s1rail", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    const railSettings = screen.getByTestId("rail-settings");
+    expect(railSettings).toBeInTheDocument();
+    fireEvent.click(railSettings);
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+
+  it("the rail gear persists into the terminal and diff views and opens settings from there", async () => {
+    const alpha = server({ id: "srv-s1rail", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-s1rail", [session("sess_s1_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("session-item-sess_s1_01"));
+
+    // Terminal view: the main-area tab bar is gone but the rail gear stays.
+    fireEvent.click(screen.getByTestId("terminal-toggle"));
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
+    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    expect(screen.getByTestId("rail-settings")).toBeInTheDocument();
+
+    // Diff view: same persistence for the other main-view switch target.
+    fireEvent.click(screen.getByTestId("terminal-back"));
+    await waitFor(() => expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: "d", metaKey: true });
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    expect(screen.getByTestId("rail-settings")).toBeInTheDocument();
+
+    // The rail gear works from the diff view too.
+    fireEvent.click(screen.getByTestId("rail-settings"));
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+  });
+
+  it("⌘, opens settings from a non-chat view as well", async () => {
+    const alpha = server({ id: "srv-s1rail", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId("terminal-toggle"));
+    await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
+    fireEvent.keyDown(window, { key: ",", metaKey: true });
+    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+  });
+});
+
 describe("DesktopShell terminal view (TASK-M6-02)", () => {
   it("⌘J opens the terminal view and toggles back to chat", async () => {
     const alpha = server({ id: "srv-m6term", name: "Alpha" });
