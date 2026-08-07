@@ -32,10 +32,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
   });
 
   return (
-    <div
-      data-testid="subtask-part"
-      class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
-    >
+    <div data-testid="subtask-part" class="my-1 overflow-hidden rounded-md bg-bg-sunken/50">
       <button
         type="button"
         data-testid="subtask-toggle"

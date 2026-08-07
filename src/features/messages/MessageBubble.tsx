@@ -186,12 +186,16 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
         onFork={props.onFork}
         onRevert={props.onRevert}
       >
+        {/* Assistant messages render chrome-free directly on the transcript
+          (content-first, docs/ui-design.md §1): only the user side keeps a
+          bubble. Part rows carry their own subtle chrome, so wrapping the
+          assistant message in a card produced noisy box-in-box nesting. */}
         <div
-          class={`max-w-[78%] rounded-lg px-3 py-2 ${
+          class={
             user()
-              ? "rounded-br-sm bg-accent-soft"
-              : "rounded-bl-sm border border-bg-sunken bg-bg-elevated"
-          }`}
+              ? "max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+              : "w-full max-w-3xl"
+          }
         >
           <For each={props.partIds}>
             {(partId) => {

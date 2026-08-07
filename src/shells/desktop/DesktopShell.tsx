@@ -1028,6 +1028,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               scope (TASK-M8-01): keyboard focus on a row scopes list-only
               shortcuts; leaving the list restores the global scope. */}
             <div
+              class="flex min-h-0 flex-1 flex-col"
               onFocusIn={() => setActiveScope("list")}
               onFocusOut={(event) => {
                 if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -1054,58 +1055,88 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   action buttons (search/changes/terminal/settings), so it
                   is NOT a tablist (axe aria-required-children); the active
                   view uses aria-current instead of aria-selected. */}
-                <div class="flex shrink-0 gap-1 border-b border-bg-sunken px-3 py-2">
-                  <button
-                    type="button"
-                    data-testid="main-tab-chat"
-                    aria-current={mainView() === "chat" ? "true" : undefined}
-                    class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                      mainView() === "chat"
-                        ? "bg-accent-soft text-fg-primary"
-                        : "text-fg-secondary hover:text-fg-primary"
-                    }`}
-                    onClick={() => setMainView("chat")}
-                  >
-                    Chat
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="main-tab-files"
-                    aria-current={mainView() === "files" ? "true" : undefined}
-                    class={`flex-1 rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                      mainView() === "files"
-                        ? "bg-accent-soft text-fg-primary"
-                        : "text-fg-secondary hover:text-fg-primary"
-                    }`}
-                    onClick={() => setMainView("files")}
-                  >
-                    Files
-                  </button>
-                  <Show when={mainView() === "files"}>
+                <div class="flex shrink-0 items-center gap-1 border-b border-bg-sunken px-3 py-2">
+                  {/* Segmented view switch: compact auto-width control (the
+                    previous flex-1 tabs stretched into full-width pills). */}
+                  <div class="flex gap-0.5 rounded-lg bg-bg-sunken/60 p-0.5">
                     <button
                       type="button"
-                      data-testid="files-search-toggle"
-                      aria-pressed={filesMode() === "search" ? "true" : "false"}
-                      aria-label={t("desktop:toggleSearch")}
-                      title={t("desktop:searchHint")}
-                      class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
-                        filesMode() === "search"
-                          ? "text-accent"
+                      data-testid="main-tab-chat"
+                      aria-current={mainView() === "chat" ? "true" : undefined}
+                      class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                        mainView() === "chat"
+                          ? "bg-accent-soft text-fg-primary"
                           : "text-fg-secondary hover:text-fg-primary"
                       }`}
-                      onClick={() =>
-                        setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
-                      }
+                      onClick={() => setMainView("chat")}
                     >
-                      <SearchIcon />
+                      Chat
                     </button>
                     <button
                       type="button"
-                      data-testid="changes-toggle"
-                      aria-label={t("desktop:openVcs")}
-                      title={t("desktop:vcsHint")}
+                      data-testid="main-tab-files"
+                      aria-current={mainView() === "files" ? "true" : undefined}
+                      class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                        mainView() === "files"
+                          ? "bg-accent-soft text-fg-primary"
+                          : "text-fg-secondary hover:text-fg-primary"
+                      }`}
+                      onClick={() => setMainView("files")}
+                    >
+                      Files
+                    </button>
+                  </div>
+                  <div class="ml-auto flex items-center gap-1">
+                    <Show when={mainView() === "files"}>
+                      <button
+                        type="button"
+                        data-testid="files-search-toggle"
+                        aria-pressed={filesMode() === "search" ? "true" : "false"}
+                        aria-label={t("desktop:toggleSearch")}
+                        title={t("desktop:searchHint")}
+                        class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                          filesMode() === "search"
+                            ? "text-accent"
+                            : "text-fg-secondary hover:text-fg-primary"
+                        }`}
+                        onClick={() =>
+                          setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
+                        }
+                      >
+                        <SearchIcon />
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="changes-toggle"
+                        aria-label={t("desktop:openVcs")}
+                        title={t("desktop:vcsHint")}
+                        class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+                        onClick={() => setMainView("changes")}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="h-4 w-4"
+                          aria-hidden="true"
+                        >
+                          <circle cx="6" cy="6" r="2.4" />
+                          <circle cx="6" cy="18" r="2.4" />
+                          <circle cx="18" cy="8" r="2.4" />
+                          <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+                        </svg>
+                      </button>
+                    </Show>
+                    <button
+                      type="button"
+                      data-testid="terminal-toggle"
+                      aria-label={t("desktop:openTerminal")}
+                      title={t("desktop:terminalHint")}
                       class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                      onClick={() => setMainView("changes")}
+                      onClick={() => setMainView("terminal")}
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -1117,56 +1148,32 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         class="h-4 w-4"
                         aria-hidden="true"
                       >
-                        <circle cx="6" cy="6" r="2.4" />
-                        <circle cx="6" cy="18" r="2.4" />
-                        <circle cx="18" cy="8" r="2.4" />
-                        <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+                        <path d="m4 7 5 5-5 5M12 17h8" />
                       </svg>
                     </button>
-                  </Show>
-                  <button
-                    type="button"
-                    data-testid="terminal-toggle"
-                    aria-label={t("desktop:openTerminal")}
-                    title={t("desktop:terminalHint")}
-                    class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                    onClick={() => setMainView("terminal")}
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.6"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="h-4 w-4"
-                      aria-hidden="true"
+                    <button
+                      type="button"
+                      data-testid="settings-toggle"
+                      aria-label={t("desktop:openSettings")}
+                      title={t("settings:settings")}
+                      class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+                      onClick={() => setMainView("settings")}
                     >
-                      <path d="m4 7 5 5-5 5M12 17h8" />
-                    </svg>
-                  </button>
-                  <button
-                    type="button"
-                    data-testid="settings-toggle"
-                    aria-label={t("desktop:openSettings")}
-                    title={t("settings:settings")}
-                    class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                    onClick={() => setMainView("settings")}
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="1.6"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      class="h-4 w-4"
-                      aria-hidden="true"
-                    >
-                      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-                      <circle cx="12" cy="12" r="3" />
-                    </svg>
-                  </button>
+                      <svg
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="1.6"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        class="h-4 w-4"
+                        aria-hidden="true"
+                      >
+                        <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
                 <Show
                   when={mainView() === "chat"}

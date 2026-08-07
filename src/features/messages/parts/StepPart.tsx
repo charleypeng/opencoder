@@ -79,7 +79,7 @@ const StepFinishPart: Component<StepFinishPartProps> = (props) => {
   return (
     <div
       data-testid="step-finish-part"
-      class="my-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md border border-bg-sunken bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
+      class="my-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded-md bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
     >
       <span class="font-medium text-fg-primary">{t("messages:stepComplete")}</span>
       <span data-testid="step-finish-reason" class="text-fg-faint">

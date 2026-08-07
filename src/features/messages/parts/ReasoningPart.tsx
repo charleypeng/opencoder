@@ -26,10 +26,7 @@ const ReasoningPart: Component<ReasoningPartProps> = (props) => {
       : props.part.text;
 
   return (
-    <div
-      data-testid="reasoning-part"
-      class="my-1 rounded-md border border-bg-sunken bg-bg-sunken/60"
-    >
+    <div data-testid="reasoning-part" class="my-1 rounded-md bg-bg-sunken/50">
       <button
         type="button"
         data-testid="reasoning-toggle"

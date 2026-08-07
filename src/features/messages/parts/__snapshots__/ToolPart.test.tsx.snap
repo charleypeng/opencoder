@@ -3,7 +3,7 @@
 exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
@@ -141,7 +141,7 @@ components/
 exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
@@ -270,7 +270,7 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
@@ -387,7 +387,7 @@ src/auth/session.ts
 exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
@@ -508,7 +508,7 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
@@ -636,7 +636,7 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >

@@ -3,7 +3,7 @@
 exports[`SubtaskPart snapshot > matches the fixture's subtask part 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     data-testid="subtask-part"
   >
     <button

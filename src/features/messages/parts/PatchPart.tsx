@@ -23,10 +23,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
   const shortHash = createMemo(() => props.part.hash.slice(0, 7));
 
   return (
-    <div
-      data-testid="patch-part"
-      class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
-    >
+    <div data-testid="patch-part" class="my-1 overflow-hidden rounded-md bg-bg-sunken/50">
       <div class="flex items-center gap-2 px-2 py-1.5 text-xs">
         <svg
           aria-hidden

@@ -49,7 +49,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
   return (
     <div
       data-testid="compaction-part"
-      class="my-1 inline-flex w-fit flex-col overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/40 text-xs text-fg-secondary"
+      class="my-1 inline-flex w-fit flex-col overflow-hidden rounded-md bg-bg-sunken/40 text-xs text-fg-secondary"
     >
       <Show
         when={hasDetail()}

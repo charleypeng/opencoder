@@ -58,7 +58,7 @@ const RetryPart: Component<RetryPartProps> = (props) => {
   return (
     <div
       data-testid="retry-part"
-      class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md border border-bg-sunken bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
+      class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
     >
       <span class="flex flex-wrap items-center gap-1.5">
         <svg

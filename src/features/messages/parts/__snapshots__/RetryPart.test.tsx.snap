@@ -3,7 +3,7 @@
 exports[`RetryPart snapshot > matches the fixture's retry part 1`] = `
 <div>
   <div
-    class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md border border-bg-sunken bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
+    class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
     data-testid="retry-part"
   >
     <span

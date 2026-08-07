@@ -80,7 +80,7 @@ const FilePart: Component<FilePartProps> = (props) => {
     <div
       data-testid="file-part"
       data-mime-kind={kind()}
-      class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+      class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     >
       <button
         type="button"

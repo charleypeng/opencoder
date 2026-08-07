@@ -31,7 +31,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             tabindex="0"
           >
             <div
-              class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
+              class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
             >
               <div
                 data-testid="text-part"
@@ -82,10 +82,10 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             tabindex="0"
           >
             <div
-              class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
+              class="w-full max-w-3xl"
             >
               <div
-                class="my-1 rounded-md border border-bg-sunken bg-bg-sunken/60"
+                class="my-1 rounded-md bg-bg-sunken/50"
                 data-testid="reasoning-part"
               >
                 <button
@@ -129,7 +129,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                 
               </div>
               <div
-                class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
                 data-status="running"
                 data-testid="tool-part"
               >
@@ -185,7 +185,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                 
               </div>
               <div
-                class="my-1 overflow-hidden rounded-md border border-bg-sunken bg-bg-sunken/60"
+                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
                 data-status="completed"
                 data-testid="tool-part"
               >
@@ -287,7 +287,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             tabindex="0"
           >
             <div
-              class="max-w-[78%] rounded-lg px-3 py-2 rounded-br-sm bg-accent-soft"
+              class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
             >
               <div
                 data-testid="text-part"
@@ -338,7 +338,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             tabindex="0"
           >
             <div
-              class="max-w-[78%] rounded-lg px-3 py-2 rounded-bl-sm border border-bg-sunken bg-bg-elevated"
+              class="w-full max-w-3xl"
             >
               <div
                 data-testid="text-part"
