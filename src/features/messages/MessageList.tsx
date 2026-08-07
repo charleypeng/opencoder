@@ -309,31 +309,31 @@ const MessageList: Component<MessageListProps> = (props) => {
   //
   // Scrolling uses the container's REAL scrollHeight (not the virtual
   // list's estimated total): the browser may not have laid out the latest
-  // rows yet, so the pin is re-applied every frame until the target stops
-  // moving and the DOM is actually there — WKWebView settles layout
-  // asynchronously and a single scrollTo gets clamped to the stale
-  // scrollHeight, leaving the last line out of view. Same-frame triggers
-  // coalesce into one rAF pass (no scroll storm while tokens stream), and
-  // frames where nothing moved are skipped (no redundant scrollTo that
-  // would flicker the scrollbar / re-render the virtual rows).
+  // rows yet, so the target is re-applied on the next animation frame —
+  // WKWebView settles layout asynchronously and a single scrollTo gets
+  // clamped to the stale scrollHeight, leaving the last line out of view.
+  // Same-frame triggers coalesce into one rAF pass (no scroll storm while
+  // tokens stream), and equal targets are skipped (no redundant scrollTo
+  // that would flicker the scrollbar / re-render the virtual rows).
   let followRaf = 0;
   let lastFollowTarget = -1;
   function followBottom(): void {
     const el = scrollRef;
-    if (el === undefined || paused() || followRaf !== 0) return;
+    if (el === undefined || paused()) return;
+    const target = Math.max(0, contentHeight() - el.clientHeight);
+    if (target === lastFollowTarget) return;
+    lastFollowTarget = target;
+    if (followRaf !== 0) return;
     followRaf = requestAnimationFrame(() => {
       followRaf = 0;
       const current = scrollRef;
       if (current === undefined || paused()) return;
+      // Re-read after the frame: layout may still settle, so the second
+      // pass in the same frame is unnecessary, but the NEXT group/delta
+      // trigger re-runs this. One rAF is enough when the height is final;
+      // when it is not, the subsequent trigger re-pins.
       const next = Math.max(0, contentHeight() - current.clientHeight);
-      const moved = next !== current.scrollTop;
-      const changed = next !== lastFollowTarget;
-      lastFollowTarget = next;
-      if (moved) list.scrollTo(next, "auto");
-      // Layout may still be settling: keep pinning on each frame until the
-      // bottom stops moving. Terminates once the target is stable and the
-      // DOM has reached it.
-      if (moved || changed) followBottom();
+      if (next !== current.scrollTop) list.scrollTo(next, "auto");
     });
   }
   createEffect(() => {
@@ -371,10 +371,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     if (list.scrollTop() <= EARLIER_TRIGGER_PX) {
       void loadEarlier();
     }
-    // Distance to the bottom uses the REAL scroll metrics (the virtual
-    // total is an estimate and drifts from the laid-out height, which both
-    // missed the bottom and fought the user's scroll).
-    const nearBottom = contentHeight() - el.scrollTop - el.clientHeight <= 80;
+    const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;
     if (nearBottom) {
       if (hasNew()) setHasNew(false);
       setPaused(false);
@@ -392,9 +389,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     setPaused(false);
     setHasNew(false);
     lastFollowTarget = -1;
-    // Target the real bottom (scrollHeight), not the virtual prefix sums:
-    // unmounted rows priced at the estimate can leave the last line short.
-    list.scrollTo(Math.max(0, contentHeight() - el.clientHeight), "smooth");
+    list.scrollToIndex(groups().length - 1, "smooth");
   }
 
   return (
@@ -414,7 +409,7 @@ const MessageList: Component<MessageListProps> = (props) => {
           class="flex h-6 shrink-0 items-center justify-center"
           aria-hidden="true"
         >
-          <span class="inline-block h-3 w-3 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+          <span class="inline-block h-3 w-3 animate-n rounded-full border-2 border-accent border-t-transparent" />
         </div>
       </Show>
       {/* M6-04: the reverted bar — visible while the session carries a

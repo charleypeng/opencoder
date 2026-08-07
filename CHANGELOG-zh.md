@@ -9,12 +9,18 @@
 
 ### 新增
 
+- 思考折叠在生成期间自动展开（feat(messages)）：会话开始流式输出时思考折叠自动打开、生成结束时自动收起，让思考过程像 codex / claude code 那样实时可见。任意时刻仍可手动点击折叠/展开。(messages)
 - 桌面端设置入口增强 (TASK-S1-03)：侧栏（服务器切换列）底部新增齿轮按钮（位于「+」添加服务器按钮之下，以 `mt-auto` 钉在侧栏底缘），使设置在任何主视图下都一键可达——侧栏在主区视图切换之外，因此入口不再在 diff/终端/变更等隐藏主区标签栏（及其齿轮）的视图中消失。按钮与既有主区标签栏 `settings-toggle` 共用同一 `setMainView("settings")` 处理器与 i18n 文案（`desktop:openSettings` / `settings:settings`），后者保留作为 chat/files 视图中的上下文入口；⌘, 快捷键在任意视图仍可打开设置（新增从终端视图触发的测试覆盖）。
 - 设置页提供商「可添加」入口（TASK-S1-02）：模型服务商分区新增「添加服务商」按钮，打开对话框注册动态服务商——契约没有 providers 注册表键，因此对话框通过 Config PATCH 家族写入 `provider.<id>`（ProviderConfig：显示名称 + 面向 OpenAI 兼容端点的 options.baseURL / options.apiKey），默认写入全局配置，也可选择写入项目配置（当前服务器活动项目目录），随后重拉服务商目录，使新服务商出现在服务商列表与「模型」分区中（未连接状态，可通过既有密钥表单配置密钥）。服务商 ID 必须为 slug（字母、数字、短横线与下划线）；未填写基础 URL 时仍可填写 API 密钥（将发送到服务商内置端点，仅提示不拦截）。(TASK-S1-02)
 - 设置页「模型」分区与全局默认模型 (TASK-S1-01)：新增 `models` 设置分区（位于模型服务商之后），可复用模型选择器 UI（搜索 / 分组 / 收藏 / 成本徽标）为每台服务器挑选默认模型。该选择是客户端按服务器持久化的偏好（localStorage `oc-default-model:{serverId}`，models store 的 `setLocalDefault`），插入模型解析链中**高于**服务端配置默认、**低于**会话显式选择的位置——未显式选择的新会话解析到该模型，输入框 chip 仍可按会话覆盖。分区展示当前生效默认（本地选择 ?? 服务端配置默认），提供「更改」对话框与「清除」按钮（重置回服务端默认），目录加载失败时提供空态与重试；持久化的选择在目录加载时从 localStorage 水合，且不会被 `setProviders`/`setConfigDefault` 覆盖。(TASK-S1-01)
 
+### 移除
+
+- 聊天记录中的步骤边界标记（refactor(messages)）：不再渲染「步骤」标签与其快照 id、步骤分隔线以及「步骤完成」汇总行（结束原因、token 数、成本）——流式 part 仍保留在 store 中但不再产生任何 UI，思考区域得以精简；相关的 i18n 键一并删除。(messages)
+
 ### 修复
 
+- 流式期间思考折叠无法展开（fix(messages)）：part 分发 memo 在每次 `message.part.updated` 事件整体替换 part 对象时返回全新组件元素，导致思考组件被重建、展开状态被重置——生成过程中点击展开会立刻收起。memo 的相等比较现改为对比渲染的组件类型而非元素身份，同类型 part 替换时保留已挂载的组件实例与其本地状态。(messages)
 - Mock 服务商目录反映新增的服务商（fix(mock)）：新用户走查（TASK-S1-04）端到端验证了 S1-01/02/03 已实现特性——添加服务器 → Rail 齿轮进设置 → 模型分区默认模型选择（展示配置默认，选择后 chip 变「本地默认」，Clear 可用）→ 切换浅色主题（data-theme 翻转）→ 切换中文（激活态正确）→ 添加服务商对话框打开/提交（PATCH /global/config 写入 `provider.myllm`）——但添加**之后**新服务商未出现在 Providers 列表：`GET /provider` 返回的是**静态 fixture**，而真实 opencode server 会把配置中声明的 provider 加载进目录。mock 的 `GET /provider` 现改为动态处理——把 `globalConfig.provider` 条目合并进 fixture 目录（合成 Provider：`source: "config"`、env/options 取自 ProviderConfig、models 为空——未配 key 前显示「未连接」），保留 fixture 的 `default`/`connected` 记录；客户端代码零改动（添加后本就会重拉目录）。mock self-test 新增断言（新 id 出现、静态目录与 default/connected 保留）；走查结果记录于 docs/plans/settings-center.md。(TASK-S1-04)
 - 默认模型展示未过滤不可用的本地选择（fix(settings)）：设置页「模型」分区展示客户端本地默认时未校验其提供商仍处于连接状态、模型仍在目录中，因此可能显示「本地默认」+「新会话使用该模型」，而实际解析链（以及新会话）已回退到服务端配置默认。本地默认的展示现与解析链应用同一可用性规则（提供商已连接 + 模型在目录中），本地选择失效时回退显示配置默认与 Default 徽标；「清除」按钮仍可清除过期槽位。(TASK-S1-01)
 - 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)

@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
-import { render, screen, waitFor } from "@solidjs/testing-library";
+import { render, screen, fireEvent, waitFor } from "@solidjs/testing-library";
 import MessageBubble from "./MessageBubble";
 import {
   applyPartDelta,
@@ -149,7 +149,7 @@ describe("MessageBubble", () => {
     await waitFor(() => expect(bubble.querySelector('[data-testid="typing-cursor"]')).toBeNull());
   });
 
-  it("renders file, patch, snapshot, step, subtask, agent, retry and compaction parts from the all-parts fixture", async () => {
+  it("renders file, patch, snapshot, subtask, agent, retry and compaction parts from the all-parts fixture", async () => {
     for (const partId of [
       "prt_p3",
       "prt_p6",
@@ -204,15 +204,10 @@ describe("MessageBubble", () => {
     expect(snapshot).toHaveTextContent("Snapshot");
     expect(snapshot).toHaveTextContent("snp_a1b2c3d4");
 
-    const stepStart = bubble.querySelector('[data-testid="step-start-part"]');
-    expect(stepStart).not.toBeNull();
-    expect(stepStart).toHaveTextContent("Step");
-
-    const stepFinish = bubble.querySelector('[data-testid="step-finish-part"]');
-    expect(stepFinish).not.toBeNull();
-    expect(stepFinish).toHaveTextContent("Step complete");
-    expect(stepFinish).toHaveTextContent("1.8k tokens");
-    expect(stepFinish).toHaveTextContent("$0.42");
+    // Step boundary parts are deliberately not rendered (chat refactor):
+    // the store still carries them, the bubble skips them.
+    expect(bubble.querySelector('[data-testid="step-start-part"]')).toBeNull();
+    expect(bubble.querySelector('[data-testid="step-finish-part"]')).toBeNull();
 
     const subtask = bubble.querySelector('[data-testid="subtask-part"]');
     expect(subtask).not.toBeNull();
@@ -259,6 +254,88 @@ describe("MessageBubble", () => {
       expect(bubble.querySelector('[data-testid="typing-cursor"]')).not.toBeNull(),
     );
     expect(messages[SERVER][SESSION].parts["prt_1"]).toMatchObject({ text: "one two" });
+  });
+
+  it("keeps the reasoning fold expanded across part replacements and deltas", async () => {
+    upsertMessage(SERVER, SESSION, userMessage("msg_r"));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_r",
+      type: "reasoning",
+      text: "first reasoning line",
+      time: { start: 1, end: 2 },
+    } as never);
+    render(() => (
+      <MessageBubble serverId={SERVER} sessionId={SESSION} messageID="msg_r" partIds={["prt_r"]} />
+    ));
+    const toggle = screen.getByTestId("reasoning-toggle");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
+
+    // A streamed delta appends without collapsing the fold.
+    applyTextDelta(SERVER, SESSION, {
+      messageID: "msg_r",
+      partID: "prt_r",
+      field: "text",
+      delta: " + more reasoning",
+    });
+    expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
+
+    // message.part.updated replaces the part object wholesale; the fold
+    // must stay expanded (the component instance survives the swap).
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_r",
+      type: "reasoning",
+      text: "first reasoning line + more reasoning",
+      time: { start: 1, end: 2 },
+    } as never);
+    expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent(
+      "first reasoning line + more reasoning",
+    );
+  });
+
+  it("auto-expands the reasoning fold while streaming and collapses when it ends", async () => {
+    const [streaming, setStreaming] = createSignal(true);
+    upsertMessage(SERVER, SESSION, userMessage("msg_r"));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_r",
+      type: "reasoning",
+      text: "thinking in progress",
+      time: { start: 1 },
+    } as never);
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_r"
+        partIds={["prt_r"]}
+        streaming={streaming()}
+      />
+    ));
+
+    // While streaming the fold is auto-expanded.
+    await waitFor(() =>
+      expect(screen.getByTestId("reasoning-toggle")).toHaveAttribute("aria-expanded", "true"),
+    );
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking in progress");
+
+    // Generation ended: the fold auto-collapses.
+    setStreaming(false);
+    await waitFor(() =>
+      expect(screen.getByTestId("reasoning-toggle")).toHaveAttribute("aria-expanded", "false"),
+    );
+    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
+
+    // A manual click still re-opens it.
+    fireEvent.click(screen.getByTestId("reasoning-toggle"));
+    expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
 });
 

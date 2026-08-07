@@ -187,14 +187,15 @@ describe("MessageList", () => {
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-msg_m2")).toBeInTheDocument());
 
-    // text / reasoning / tool plus the step / subtask / agent hierarchy.
+    // text / reasoning / tool plus the subtask / agent hierarchy.
     expect(
       screen.getByText("Let me check the existing project structure first."),
     ).toBeInTheDocument();
     expect(screen.getByText("Reasoning")).toBeInTheDocument();
     expect(screen.getAllByTestId("tool-part")).toHaveLength(9);
-    expect(screen.getAllByTestId("step-start-part")).toHaveLength(2);
-    expect(screen.getAllByTestId("step-finish-part")).toHaveLength(2);
+    // Step boundary parts are not rendered (chat refactor).
+    expect(screen.queryAllByTestId("step-start-part")).toHaveLength(0);
+    expect(screen.queryAllByTestId("step-finish-part")).toHaveLength(0);
     expect(screen.getByTestId("subtask-part")).toHaveTextContent(
       "Implement the auth API client and wire it into the login form",
     );

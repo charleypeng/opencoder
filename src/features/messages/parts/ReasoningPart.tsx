@@ -3,8 +3,13 @@
 // clicking toggles the full reasoning text. No state tracking is needed:
 // the part renders whatever text the store holds, so streamed deltas keep
 // updating both preview and expanded body (M2-09).
+//
+// Chat refactor: while the session is generating (`streaming`), the fold
+// AUTO-EXPANDS so the thinking process is visible live as it streams (like
+// codex / claude code); when generation ends it auto-collapses back to the
+// default folded state. A manual click still toggles at any time.
 
-import { createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
@@ -13,6 +18,9 @@ export type ReasoningPartData = Extract<Part, { type: "reasoning" }>;
 
 export interface ReasoningPartProps {
   part: ReasoningPartData;
+  /** Session-level streaming flag: auto-expands the fold while the agent
+   *  is generating and auto-collapses it when generation ends. */
+  streaming?: boolean;
 }
 
 const PREVIEW_LENGTH = 60;
@@ -24,6 +32,13 @@ const ReasoningPart: Component<ReasoningPartProps> = (props) => {
     props.part.text.length > PREVIEW_LENGTH
       ? `${props.part.text.slice(0, PREVIEW_LENGTH)}…`
       : props.part.text;
+
+  // Auto-expand while streaming, auto-collapse when it ends. The effect
+  // only runs on streaming flips, so a manual click in between still wins.
+  createEffect(() => {
+    if (props.streaming === true) setExpanded(true);
+    else setExpanded(false);
+  });
 
   return (
     <div data-testid="reasoning-part" class="my-1 rounded-md bg-bg-sunken/50">

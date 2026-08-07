@@ -22,7 +22,6 @@ import PatchPart from "./parts/PatchPart.js";
 import RetryPart from "./parts/RetryPart.js";
 import ReasoningPart from "./parts/ReasoningPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
-import { StepFinishPart, StepStartPart } from "./parts/StepPart.js";
 import SubtaskPart from "./parts/SubtaskPart.js";
 import TextPart from "./parts/TextPart.js";
 import ToolPart from "./parts/ToolPart.js";
@@ -38,6 +37,10 @@ export interface MessageBubbleProps {
   partIds: string[];
   /** Shows the breathing caret on the message's last text part. */
   typing?: boolean;
+  /** Session-level streaming flag (busy + recent deltas): the reasoning
+   *  fold auto-expands while the agent is generating and auto-collapses
+   *  when generation ends, so the thinking process is visible live. */
+  streaming?: boolean;
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the message menu's "View diff" item stays disabled. */
   onViewDiff?: (messageID: string) => void;
@@ -63,8 +66,6 @@ type RenderablePart = Extract<
   | { type: "file" }
   | { type: "patch" }
   | { type: "snapshot" }
-  | { type: "step-start" }
-  | { type: "step-finish" }
   | { type: "subtask" }
   | { type: "agent" }
   | { type: "retry" }
@@ -80,8 +81,6 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
       part.type === "file" ||
       part.type === "patch" ||
       part.type === "snapshot" ||
-      part.type === "step-start" ||
-      part.type === "step-finish" ||
       part.type === "subtask" ||
       part.type === "agent" ||
       part.type === "retry" ||
@@ -96,55 +95,77 @@ function formatMessageTime(timestampMs: number): string {
 
 function PartView(props: {
   part: Part | undefined;
+  /** Breathing-caret streaming flag for the last text part. */
   streaming?: boolean;
+  /** Session-level streaming flag: the reasoning fold auto-expands while
+   *  the agent is generating (see ReasoningPart). */
+  sessionStreaming?: boolean;
   onRevert?: (messageID: string) => void;
   onOpenChild?: (sessionId: string) => void;
 }) {
   // Memoized dispatch so the type switch stays inside a tracked scope; a
   // part's type is immutable for a given identity.
-  const view = createMemo<JSX.Element>(() => {
-    switch (props.part?.type) {
-      case "text":
-        return <TextPart part={props.part} streaming={props.streaming} />;
-      case "reasoning":
-        return <ReasoningPart part={props.part} />;
-      case "tool":
-        return <ToolPart part={props.part} />;
-      case "file":
-        return <FilePart part={props.part} />;
-      case "patch":
-        return <PatchPart part={props.part} />;
-      case "snapshot":
-        // M6-04: the snapshot chip reverts its containing message.
-        return <SnapshotPart part={props.part} onRevert={props.onRevert} />;
-      case "step-start":
-        return <StepStartPart part={props.part} />;
-      case "step-finish":
-        return <StepFinishPart part={props.part} />;
-      case "subtask":
-        // M6-07: the subtask part's session id is the session that owns the
-        // part; the wired handler resolves the child session from it.
-        return (
-          <SubtaskPart
-            part={props.part}
-            onOpenChild={
-              props.onOpenChild === undefined
-                ? undefined
-                : () => props.onOpenChild?.(props.part?.sessionID ?? "")
-            }
-          />
-        );
-      case "agent":
-        return <AgentPart part={props.part} />;
-      case "retry":
-        return <RetryPart part={props.part} />;
-      case "compaction":
-        return <CompactionPart part={props.part} />;
-      default:
-        // Unsupported part types render nothing until their milestones land.
-        return null;
-    }
-  });
+  //
+  // The memo's EQUALITY compares the rendered component type (the JSX
+  // element's `.type`), NOT the element identity: `message.part.updated`
+  // replaces the part object wholesale while streaming, and without the
+  // custom equals the memo would return a fresh element on every
+  // replacement, re-creating the part component and resetting its local
+  // state (the reasoning fold collapsed mid-stream). Same-type updates
+  // keep the previous element (same component instance, props flow through
+  // reactively); a genuine type change (delta stub -> real part) still
+  // swaps the component.
+  const view = createMemo<JSX.Element>(
+    () => {
+      switch (props.part?.type) {
+        case "text":
+          return <TextPart part={props.part} streaming={props.streaming} />;
+        case "reasoning":
+          return <ReasoningPart part={props.part} streaming={props.sessionStreaming} />;
+        case "tool":
+          return <ToolPart part={props.part} />;
+        case "file":
+          return <FilePart part={props.part} />;
+        case "patch":
+          return <PatchPart part={props.part} />;
+        case "snapshot":
+          // M6-04: the snapshot chip reverts its containing message.
+          return <SnapshotPart part={props.part} onRevert={props.onRevert} />;
+        case "subtask":
+          // M6-07: the subtask part's session id is the session that owns the
+          // part; the wired handler resolves the child session from it.
+          return (
+            <SubtaskPart
+              part={props.part}
+              onOpenChild={
+                props.onOpenChild === undefined
+                  ? undefined
+                  : () => props.onOpenChild?.(props.part?.sessionID ?? "")
+              }
+            />
+          );
+        case "agent":
+          return <AgentPart part={props.part} />;
+        case "retry":
+          return <RetryPart part={props.part} />;
+        case "compaction":
+          return <CompactionPart part={props.part} />;
+        default:
+          // Unsupported part types render nothing until their milestones land.
+          return null;
+      }
+    },
+    undefined,
+    {
+      // JSX elements carry the component function as `.type`; comparing the
+      // rendered component type keeps the memo value stable across part
+      // object replacements (see the comment above).
+      equals: (a, b) =>
+        a === b ||
+        ((a as { type?: unknown } | null)?.type ?? null) ===
+          ((b as { type?: unknown } | null)?.type ?? null),
+    },
+  );
   return <>{view()}</>;
 }
 
@@ -204,6 +225,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                 <PartView
                   part={part()}
                   streaming={props.typing === true && lastTextPartId() === partId}
+                  sessionStreaming={props.streaming === true}
                   onRevert={props.onRevert}
                   onOpenChild={props.onOpenChild}
                 />
