@@ -349,6 +349,37 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const disabled = () => props.disabled === true || busy() || sending();
   const canSend = () => !disabled() && (text().trim() !== "" || attachments().length > 0);
 
+  // IA-18 wait indicator: tracks elapsed busy time for progressive status
+  // text (spinner <1s, brief 1-3s, descriptive >3s, progress+interrupt >10s).
+  const [busyElapsed, setBusyElapsed] = createSignal(0);
+  let busyTimer: ReturnType<typeof setInterval> | undefined;
+  createEffect(() => {
+    if (busy()) {
+      setBusyElapsed(0);
+      busyTimer = setInterval(() => setBusyElapsed((prev) => prev + 1), 1000);
+    } else {
+      setBusyElapsed(0);
+      if (busyTimer !== undefined) {
+        clearInterval(busyTimer);
+        busyTimer = undefined;
+      }
+    }
+    onCleanup(() => {
+      if (busyTimer !== undefined) {
+        clearInterval(busyTimer);
+        busyTimer = undefined;
+      }
+    });
+  });
+  /** Progressive wait text per IA-18: <1s none, 1-3s spinner, >3s descriptive, >10s progress. */
+  const waitText = createMemo(() => {
+    if (!busy()) return null;
+    const elapsed = busyElapsed();
+    if (elapsed < 3) return t("messages:waitSpinner");
+    if (elapsed < 10) return t("messages:waitIndicator3s");
+    return t("messages:waitIndicator10s");
+  });
+
   // Agent catalog (TASK-M5-04): fetched once per mount unless the store
   // already holds the server's agents; a failed fetch keeps loaded=false so
   // a later mount retries. The effective agent resolves per session
@@ -1383,7 +1414,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   title={t("messages:stopHint")}
                   disabled={aborting()}
                   onClick={() => void stopGeneration()}
-                  class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md bg-danger px-3 py-1.5 text-sm font-medium text-bg-base outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  class="mb-0.5 flex shrink-0 items-center gap-1.5 rounded-md border border-danger/60 bg-danger px-3 py-1.5 text-sm font-medium text-white outline-none transition-opacity hover:opacity-90 focus:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <SquareIcon />
                   {t("messages:stop")}
@@ -1402,7 +1433,21 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
             </div>
           </div>
           <p class="mt-1 px-1 text-xs text-fg-faint">
-            {busy() ? t("messages:generatingHint") : t("messages:sendHint")}
+            {busy() ? (
+              <span
+                data-testid="wait-indicator"
+                role="status"
+                aria-live="polite"
+                class="inline-flex items-center gap-1.5"
+              >
+                {busyElapsed() < 3 && (
+                  <span class="inline-block h-3 w-3 animate-spin rounded-full border border-accent border-t-transparent" />
+                )}
+                {waitText()}
+              </span>
+            ) : (
+              t("messages:sendHint")
+            )}
           </p>
         </div>
       </div>

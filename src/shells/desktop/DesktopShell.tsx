@@ -1210,14 +1210,17 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       </div>
                     }
                   >
-                    <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-2">
+                    <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-1.5">
                       <h2
                         data-testid="chat-session-title"
-                        class="min-w-0 truncate text-sm font-semibold"
+                        class="min-w-0 truncate text-xs font-medium text-fg-secondary"
                       >
                         {titleOf(activeServerId(), activeSessionId() as string)}
                       </h2>
-                      <div class="flex shrink-0 items-center gap-1">
+                      <div
+                        class="flex shrink-0 items-center gap-0.5"
+                        aria-label={t("desktop:chatHeaderActions")}
+                      >
                         <button
                           type="button"
                           data-testid="session-share-toggle"
@@ -1438,9 +1441,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
       {/* Status bar (TASK-M4-08): minimal bottom bar with the branch chip,
           reactive to the vcs store (M9-07 extends it with the LSP count,
-          the enabled formatter names and the active session's tokens+cost). */}
+          the enabled formatter names and the active session's tokens+cost).
+          IA-22: aria-label for screen readers; contrast ≥4.5:1 via
+          --fg-secondary (#9aa3b2) on --bg-elevated (#161a22) ≈ 6.4:1. */}
       <footer
         data-testid="status-bar"
+        aria-label={t("desktop:statusBar")}
+        role="status"
         class="flex h-7 shrink-0 items-center gap-3 border-t border-bg-sunken bg-bg-elevated px-3"
       >
         <StatusBarBranch serverId={activeServerId()} />

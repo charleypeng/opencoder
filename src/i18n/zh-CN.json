@@ -139,7 +139,12 @@
     "noProjects": "未找到项目",
     "noProjectsHint": "使用 OpenCode CLI 打开的项目会显示在这里。",
     "noTodos": "暂无待办事项",
-    "todosLoadFailed": "待办事项加载失败。"
+    "todosLoadFailed": "待办事项加载失败。",
+    "todoPanelTitle": "任务清单",
+    "todoCount_one": "{{count}} 个任务",
+    "todoCount_other": "{{count}} 个任务",
+    "todoCompleted_one": "{{count}} 已完成",
+    "todoCompleted_other": "{{count}} 已完成"
   },
   "messages": {
     "send": "发送",
@@ -193,10 +198,10 @@
     "attachNotSent": "命令发送时不附带附件",
     "stopGenerating": "停止生成",
     "stopHint": "停止（Esc）",
-    "statusWaiting": "等待中…",
-    "statusRunning": "运行中…",
-    "statusCompleted": "已完成",
-    "statusFailed": "失败",
+    "statusWaiting": "等待中：{{tool}}",
+    "statusRunning": "正在运行 {{tool}}",
+    "statusCompleted": "{{tool}} 已完成",
+    "statusFailed": "{{tool}} 失败",
     "retrying": "重试中…",
     "retryAttempt": "正在重试（第 {{attempt}} 次）",
     "retryCountdown": "{{seconds}} 秒后重试",
@@ -220,7 +225,17 @@
     "revertSnapshotM6": "回退到快照将在 M6 实现",
     "openChildSession": "打开子会话",
     "model": "模型",
-    "command": "命令"
+    "command": "命令",
+    "aiLabel": "AI",
+    "streamingUpdate": "有新内容",
+    "fileContentUnavailable": "内容不可用",
+    "waitSpinner": "处理中…",
+    "waitIndicator3s": "正在生成回复…",
+    "waitIndicator10s": "仍在生成中 — 按 Esc 停止",
+    "errorWhatFailed": "出了什么问题：",
+    "errorWhy": "原因：",
+    "errorOptions": "您可以：",
+    "errorNewSession": "开始新会话"
   },
   "files": {
     "fileTree": "文件",
@@ -639,7 +654,8 @@
     "chat": "对话",
     "unknownPage": "未知页面",
     "placeholderHint": "{{title}} — 移动端页面将在后续 M7 任务中实现",
-    "diff": "差异"
+    "diff": "差异",
+    "noSession": "无会话"
   },
   "desktop": {
     "closeToTray": "关闭到托盘",
@@ -683,7 +699,9 @@
     "fullTextSearch": "全文搜索",
     "lspHint": "活跃语言服务器数",
     "formatterHint": "已启用的格式化器",
-    "usageHint": "当前会话 tokens 与费用"
+    "usageHint": "当前会话 tokens 与费用",
+    "chatHeaderActions": "对话操作",
+    "statusBar": "状态栏"
   },
   "updates": {
     "checkForUpdates": "检查更新",

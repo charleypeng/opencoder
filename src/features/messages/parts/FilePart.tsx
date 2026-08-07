@@ -6,10 +6,17 @@
 // a text block). Remote URLs are NEVER loaded: the preview only reads
 // inline content from the part itself; without content the chip shows a
 // "Content unavailable" note and stays non-expandable.
+//
+// IA-24: FilePart renders as a context entry — a visual cue that this
+// file is part of the AI's current context. The file path is shown in
+// monospace, the mime type is displayed as a small badge, and the card
+// carries a subtle "context" indicator so users can see what the AI
+// knows about.
 
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { useT } from "../../../i18n/index.js";
 
 export type FilePartData = Extract<Part, { type: "file" }>;
 
@@ -60,12 +67,30 @@ function sourcePath(source: FilePartData["source"]): string | undefined {
   return undefined;
 }
 
+/** Extract short mime type label (e.g. "image/png" → "png", "text/plain" → "txt"). */
+function mimeLabel(mime: string): string {
+  const slash = mime.indexOf("/");
+  const sub = slash >= 0 ? mime.slice(slash + 1) : mime;
+  // Shorten common types
+  if (sub === "plain") return "txt";
+  if (sub === "javascript") return "js";
+  if (sub === "typescript") return "ts";
+  if (sub === "x-typescript") return "ts";
+  if (sub === "x-javascript") return "js";
+  if (sub === "x-sh") return "sh";
+  if (sub === "x-python") return "py";
+  if (sub === "x-rust") return "rs";
+  return sub.length > 8 ? sub.slice(0, 6) + "…" : sub;
+}
+
 const FilePart: Component<FilePartProps> = (props) => {
+  const t = useT();
   // Inline content lives in the part's source text; the 1.18.11 schema has
   // no separate content field on FilePart itself.
   const content = () => props.part.source?.text?.value ?? "";
   const hasContent = createMemo(() => content().length > 0);
   const kind = createMemo(() => mimeKind(props.part.mime));
+  const mimeLbl = createMemo(() => mimeLabel(props.part.mime));
   const displayName = createMemo(
     () =>
       props.part.filename ?? basename(props.part.url) ?? sourcePath(props.part.source) ?? "file",
@@ -82,6 +107,7 @@ const FilePart: Component<FilePartProps> = (props) => {
       data-mime-kind={kind()}
       class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
     >
+      {/* IA-24: context entry header — file icon + path (monospace) + mime badge */}
       <button
         type="button"
         aria-expanded={expanded()}
@@ -101,10 +127,19 @@ const FilePart: Component<FilePartProps> = (props) => {
         >
           {MIME_ICON[kind()]}
         </svg>
-        <span class="truncate font-medium text-fg-primary">{displayName()}</span>
+        <span class="min-w-0 flex-1 truncate font-code font-medium text-fg-primary">
+          {displayName()}
+        </span>
+        {/* IA-24: mime type badge for quick identification */}
+        <span
+          class="shrink-0 rounded-sm bg-bg-elevated px-1 py-0.5 font-code text-[10px] text-fg-faint"
+          aria-label={props.part.mime}
+        >
+          {mimeLbl()}
+        </span>
         <Show when={!hasContent()}>
-          <span data-testid="file-unavailable" class="ml-auto shrink-0 text-fg-faint">
-            Content unavailable
+          <span data-testid="file-unavailable" class="shrink-0 text-fg-faint">
+            {t("messages:fileContentUnavailable")}
           </span>
         </Show>
       </button>

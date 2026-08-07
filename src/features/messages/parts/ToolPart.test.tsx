@@ -101,10 +101,10 @@ const unknownCompleted = toolPart("webFetch", {
 });
 
 const STATUS_LABELS: Record<ToolStatus, string> = {
-  pending: "Waiting…",
-  running: "Running…",
-  completed: "Completed",
-  error: "Failed",
+  pending: "Waiting: bash",
+  running: "Running bash",
+  completed: "bash completed",
+  error: "bash failed",
 };
 
 function renderExpanded(part: ToolPartData) {
@@ -275,13 +275,13 @@ describe("ToolPart", () => {
       render(() => <ToolPart part={part()} />);
 
       expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "pending");
-      expect(screen.getByTestId("tool-status-label")).toHaveTextContent("Waiting…");
+      expect(screen.getByTestId("tool-status-label")).toHaveTextContent("Waiting: bash");
       expect(screen.queryByTestId("tool-shimmer")).not.toBeInTheDocument();
       expect(screen.queryByTestId("tool-duration")).not.toBeInTheDocument();
 
       setPart(bashRunning);
       expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "running");
-      expect(screen.getByTestId("tool-status-label")).toHaveTextContent("Running…");
+      expect(screen.getByTestId("tool-status-label")).toHaveTextContent("Running bash");
       expect(screen.getByTestId("tool-shimmer")).toBeInTheDocument();
 
       vi.advanceTimersByTime(1250);

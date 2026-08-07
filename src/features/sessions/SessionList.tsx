@@ -144,9 +144,9 @@ function SessionRow(props: {
       data-depth={props.depth}
       data-active={props.active ? "true" : "false"}
       data-forked={forked() ? "true" : "false"}
-      class={`group relative flex w-full cursor-pointer items-center gap-2 py-2 pr-3 hover:bg-accent-soft ${
-        props.depth > 0 ? "border-l border-bg-sunken" : ""
-      }`}
+      class={`group relative flex w-full cursor-pointer items-center gap-2 py-1.5 pr-3 transition-colors ${
+        props.active ? "bg-accent-soft" : "hover:bg-bg-sunken/50"
+      } ${props.depth > 0 ? "border-l border-bg-sunken" : ""}`}
       style={{ "padding-left": `${indent()}px` }}
       onClick={() => props.onSelect(props.session.id)}
       onKeyDown={(event) => {
@@ -445,15 +445,15 @@ const SessionList: Component<SessionListProps> = (props) => {
 
   return (
     <div data-testid="session-list" class="flex min-h-0 flex-1 flex-col">
-      <div class="px-3 pb-2 pt-3">
+      <div class="px-3 pb-1.5 pt-2">
         <ErrorBanner error={createError()} onDismiss={() => setCreateError(null)} />
-        <div class="pt-2">
+        <div class="pt-1.5">
           <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
         </div>
         <button
           type="button"
           data-testid="new-session-button"
-          class="mb-2 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
+          class="mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
           disabled={creating()}
           onClick={handleCreate}
         >
@@ -466,7 +466,7 @@ const SessionList: Component<SessionListProps> = (props) => {
           placeholder={t("sessions:search")}
           value={query()}
           onInput={(event) => setQuery(event.currentTarget.value)}
-          class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm outline-none placeholder:text-fg-faint focus:border-fg-faint"
+          class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
         />
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto pb-3">
@@ -502,7 +502,7 @@ const SessionList: Component<SessionListProps> = (props) => {
               <section aria-label={t(group.labelKey)}>
                 <div
                   data-testid={`session-group-${group.key}`}
-                  class="sticky top-0 z-10 border-b border-bg-sunken bg-bg-elevated px-3 pb-1 pt-2 text-xs font-medium uppercase tracking-wide text-fg-faint"
+                  class="sticky top-0 z-10 border-b border-bg-sunken bg-bg-elevated px-3 pb-0.5 pt-2 text-[10px] font-medium uppercase tracking-wider text-fg-faint"
                 >
                   {t(group.labelKey)}
                 </div>

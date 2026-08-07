@@ -40,12 +40,18 @@ exports[`FilePart snapshot > matches the fixture's file part (no inline content)
         />
       </svg>
       <span
-        class="truncate font-medium text-fg-primary"
+        class="min-w-0 flex-1 truncate font-code font-medium text-fg-primary"
       >
         login-flow.png
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        aria-label="image/png"
+        class="shrink-0 rounded-sm bg-bg-elevated px-1 py-0.5 font-code text-[10px] text-fg-faint"
+      >
+        png
+      </span>
+      <span
+        class="shrink-0 text-fg-faint"
         data-testid="file-unavailable"
       >
         Content unavailable

@@ -10,8 +10,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
     
     
     <div
+      aria-atomic="false"
+      aria-live="polite"
       class="min-h-0 flex-1 overflow-y-auto"
       data-testid="message-list-scroll"
+      role="log"
     >
       <div
         class="relative"
@@ -81,6 +84,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             data-testid="message-msg_m2"
             tabindex="0"
           >
+            <span
+              class="ai-label"
+              data-testid="ai-label"
+            >
+              AI
+            </span>
             <div
               class="w-full max-w-3xl"
             >
@@ -129,7 +138,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                 
               </div>
               <div
-                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
                 data-status="running"
                 data-testid="tool-part"
               >
@@ -174,7 +183,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     class="ml-auto shrink-0 text-fg-faint"
                     data-testid="tool-status-label"
                   >
-                    Running…
+                    Running bash
                   </span>
                   <span
                     aria-hidden=""
@@ -247,7 +256,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     class="ml-auto shrink-0 text-fg-faint"
                     data-testid="tool-status-label"
                   >
-                    Completed
+                    bash completed
                   </span>
                   
                 </button>
@@ -337,6 +346,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
             data-testid="message-msg_m4"
             tabindex="0"
           >
+            <span
+              class="ai-label"
+              data-testid="ai-label"
+            >
+              AI
+            </span>
             <div
               class="w-full max-w-3xl"
             >
@@ -378,6 +393,11 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
       </div>
       
     </div>
+    <div
+      aria-atomic="true"
+      aria-live="polite"
+      class="sr-only"
+    />
   </div>
 </div>
 `;

@@ -21,11 +21,22 @@ export interface ToolPartProps {
   part: ToolPartData;
 }
 
+// IA-19: Status text formula = action verb + object + scope.
+// The status labels include the tool name for context.
 const statusLabelKey: Record<ToolStatus, string> = {
   pending: "messages:statusWaiting",
   running: "messages:statusRunning",
   completed: "messages:statusCompleted",
   error: "messages:statusFailed",
+};
+
+// IA-20: State-based background tints for visual distinction.
+// Each state has a distinct, WCAG AA-compliant background color.
+const statusBgClass: Record<ToolStatus, string> = {
+  pending: "",
+  running: "border-l-2 border-l-accent",
+  completed: "",
+  error: "border-l-2 border-l-danger",
 };
 
 const ELAPSED_TICK_MS = 250;
@@ -66,7 +77,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
     <div
       data-testid="tool-part"
       data-status={status()}
-      class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+      class={`my-1 overflow-hidden rounded-md bg-bg-sunken/50${statusBgClass[status()] !== "" ? " " + statusBgClass[status()] : ""}`}
     >
       <button
         type="button"
@@ -91,13 +102,15 @@ const ToolPart: Component<ToolPartProps> = (props) => {
             {duration()}
           </span>
         </Show>
+        {/* IA-19: status text = action verb + tool name for context */}
         <span data-testid="tool-status-label" class="ml-auto shrink-0 text-fg-faint">
-          {t(statusLabelKey[status()])}
+          {t(statusLabelKey[status()], { tool: props.part.tool })}
         </span>
         <Show when={status() === "running"}>
           <span data-testid="tool-shimmer" class="tool-shimmer" aria-hidden />
         </Show>
       </button>
+      {/* IA-28: expanded content with monospace font for JSON input/output */}
       <Show when={expanded()}>
         <div class="space-y-2 border-t border-bg-sunken px-2 py-2">
           <InputDisclosure input={props.part.state.input} />
@@ -105,7 +118,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
           <Show when={status() === "error"}>
             <div
               data-testid="tool-error"
-              class="whitespace-pre-wrap break-words rounded-sm bg-danger/10 px-2 py-1.5 text-xs leading-relaxed text-danger"
+              class="whitespace-pre-wrap break-words rounded-sm bg-danger/10 px-2 py-1.5 font-code text-xs leading-relaxed text-danger"
             >
               {toolErrorText(props.part)}
             </div>

@@ -229,13 +229,14 @@ const MobileShell: Component<MobileShellProps> = (props) => {
 
       {/* Web nav (Android Material 3 style + iOS fallback without the
           plugin): hidden while the native bar is in charge. pb-safe pads
-          the home-indicator inset (TASK-M7-04). */}
+          the home-indicator inset (TASK-M7-04). Glass styling (tier B,
+          ui-design §5) gives the nav bar a translucent frosted background
+          with border highlight matching the design tokens. */}
       <nav
         data-testid="mobile-nav"
         aria-label={t("mobile:mainNavigation")}
-        class={
-          nativeGlass ? "hidden" : "flex shrink-0 border-t border-bg-sunken bg-bg-elevated pb-safe"
-        }
+        class={nativeGlass ? "hidden" : "glass flex shrink-0 border-t pb-safe"}
+        style={!nativeGlass ? { "border-color": "var(--glass-border)" } : undefined}
       >
         <For each={TAB_ORDER}>
           {(tab) => (
@@ -244,9 +245,10 @@ const MobileShell: Component<MobileShellProps> = (props) => {
               role="tab"
               data-testid={`mobile-tab-${tab}`}
               aria-selected={nav.activeTab === tab ? "true" : "false"}
-              class={`flex flex-1 flex-col items-center gap-0.5 py-2 text-[10px] font-medium outline-none transition-colors ${
+              class={`flex flex-1 flex-col items-center gap-0.5 py-2.5 text-[10px] font-medium outline-none transition-colors ${
                 nav.activeTab === tab ? "text-accent" : "text-fg-secondary hover:text-fg-primary"
               }`}
+              style={{ "min-height": "44px" }}
               onClick={() => {
                 selectTab(tab);
                 // Mirror web taps on the native bar when the bridge exists.

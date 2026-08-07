@@ -139,7 +139,12 @@
     "noProjects": "No projects found",
     "noProjectsHint": "Projects opened with the OpenCode CLI appear here.",
     "noTodos": "No todos yet",
-    "todosLoadFailed": "Failed to load todos."
+    "todosLoadFailed": "Failed to load todos.",
+    "todoPanelTitle": "Task List",
+    "todoCount_one": "{{count}} task",
+    "todoCount_other": "{{count}} tasks",
+    "todoCompleted_one": "{{count}} done",
+    "todoCompleted_other": "{{count}} done"
   },
   "messages": {
     "send": "Send",
@@ -193,10 +198,10 @@
     "attachNotSent": "Attachments are not sent with commands",
     "stopGenerating": "Stop generating",
     "stopHint": "Stop (Esc)",
-    "statusWaiting": "Waiting…",
-    "statusRunning": "Running…",
-    "statusCompleted": "Completed",
-    "statusFailed": "Failed",
+    "statusWaiting": "Waiting: {{tool}}",
+    "statusRunning": "Running {{tool}}",
+    "statusCompleted": "{{tool}} completed",
+    "statusFailed": "{{tool}} failed",
     "retrying": "Retrying…",
     "retryAttempt": "Retrying (attempt {{attempt}})",
     "retryCountdown": "next attempt in {{seconds}}s",
@@ -220,7 +225,17 @@
     "revertSnapshotM6": "Reverting to a snapshot lands in M6",
     "openChildSession": "Open child session",
     "model": "Model",
-    "command": "Command"
+    "command": "Command",
+    "aiLabel": "AI",
+    "streamingUpdate": "New content available",
+    "fileContentUnavailable": "Content unavailable",
+    "waitSpinner": "Working…",
+    "waitIndicator3s": "Generating response…",
+    "waitIndicator10s": "Still generating — press Esc to stop",
+    "errorWhatFailed": "What failed:",
+    "errorWhy": "Reason:",
+    "errorOptions": "Options:",
+    "errorNewSession": "Start a new session"
   },
   "files": {
     "fileTree": "Files",
@@ -639,7 +654,8 @@
     "chat": "Chat",
     "unknownPage": "Unknown page",
     "placeholderHint": "{{title}} — mobile page lands in a later M7 task",
-    "diff": "Diff"
+    "diff": "Diff",
+    "noSession": "No session"
   },
   "desktop": {
     "closeToTray": "Close to tray",
@@ -683,7 +699,9 @@
     "fullTextSearch": "Full-text search",
     "lspHint": "Active language servers",
     "formatterHint": "Enabled formatter",
-    "usageHint": "Active session tokens and cost"
+    "usageHint": "Active session tokens and cost",
+    "chatHeaderActions": "Chat actions",
+    "statusBar": "Status bar"
   },
   "updates": {
     "checkForUpdates": "Check for updates",

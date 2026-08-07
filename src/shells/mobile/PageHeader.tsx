@@ -27,7 +27,8 @@ export const PageHeader: Component<PageHeaderProps> = (props) => {
           type="button"
           data-testid="page-back"
           aria-label={props.backLabel ?? t("mobile:back")}
-          class="flex shrink-0 items-center gap-0.5 rounded-md px-1.5 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+          class="flex shrink-0 items-center gap-0.5 rounded-md px-2 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+          style={{ "min-height": "44px", "min-width": "44px" }}
           onClick={() => props.onBack?.()}
         >
           <svg

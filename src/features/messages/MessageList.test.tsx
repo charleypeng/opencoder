@@ -173,8 +173,8 @@ describe("MessageList", () => {
     const completed = within(assistant).getAllByTestId("tool-part")[1];
     expect(running).toHaveAttribute("data-status", "running");
     expect(completed).toHaveAttribute("data-status", "completed");
-    expect(within(running).getByTestId("tool-status-label")).toHaveTextContent("Running…");
-    expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("Completed");
+    expect(within(running).getByTestId("tool-status-label")).toHaveTextContent("Running bash");
+    expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("bash completed");
 
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
     expect(within(completed).getByTestId("tool-terminal")).toBeInTheDocument();

@@ -107,6 +107,13 @@ const MessageList: Component<MessageListProps> = (props) => {
   // synchronous part, so a signal would already read false.
   let prepending = false;
 
+  // IA-01: debounced streaming announcement for screen readers.
+  // During streaming, content changes are batched and announced at most
+  // once per second so the screen reader does not read every delta.
+  const [streamAnnounce, setStreamAnnounce] = createSignal("");
+  let announceDebounce: ReturnType<typeof setTimeout> | undefined;
+  onCleanup(() => clearTimeout(announceDebounce));
+
   const pagination = usePaginatedMessages(
     () => props.serverId,
     () => props.sessionId,
@@ -341,6 +348,14 @@ const MessageList: Component<MessageListProps> = (props) => {
     const stamp = messages[props.serverId]?.[props.sessionId]?.lastDeltaAt ?? 0;
     if (count > lastGroupCount || stamp !== lastDeltaStamp) {
       if (paused() && !prepending) setHasNew(true);
+      // IA-01: debounce streaming announcements for screen readers.
+      // Announce at most once per second during active streaming.
+      if (streaming.streaming()) {
+        clearTimeout(announceDebounce);
+        announceDebounce = setTimeout(() => {
+          setStreamAnnounce(t("messages:streamingUpdate"));
+        }, 1000);
+      }
     }
     lastGroupCount = count;
     lastDeltaStamp = stamp;
@@ -389,7 +404,11 @@ const MessageList: Component<MessageListProps> = (props) => {
     setPaused(false);
     setHasNew(false);
     lastFollowTarget = -1;
-    list.scrollToIndex(groups().length - 1, "smooth");
+    // The virtual list exposes scrollTo (pixel offset), not scrollToIndex;
+    // the bottom of the transcript is the total content height minus the
+    // viewport — the same target the auto-follow uses.
+    const target = Math.max(0, contentHeight() - el.clientHeight);
+    list.scrollTo(target, "smooth");
   }
 
   return (
@@ -435,6 +454,9 @@ const MessageList: Component<MessageListProps> = (props) => {
       <div
         ref={scrollRef}
         data-testid="message-list-scroll"
+        role="log"
+        aria-live="polite"
+        aria-atomic="false"
         class="min-h-0 flex-1 overflow-y-auto"
         onScroll={handleScroll}
       >
@@ -516,6 +538,11 @@ const MessageList: Component<MessageListProps> = (props) => {
             </button>
           </div>
         </Show>
+      </div>
+      {/* IA-01: hidden live region for debounced streaming announcements
+          (screen readers read this instead of every delta in the log) */}
+      <div aria-live="polite" aria-atomic="true" class="sr-only">
+        {streamAnnounce()}
       </div>
     </div>
   );

@@ -6,12 +6,20 @@
 // container (buttons are injected as HTML, so delegated clicks avoid
 // re-scanning on every render).
 
-import { createEffect, createMemo } from "solid-js";
+import { createEffect, createMemo, onCleanup } from "solid-js";
 import type { Component } from "solid-js";
 import { highlightCode } from "./highlighter.js";
 import { CODE_FENCE_SELECTOR, decodeFenceCode, escapeHtml, renderMarkdown } from "./markdown.js";
 import { useT } from "../../../i18n/index.js";
 import "./markdown.css";
+
+/**
+ * IA-09 highlight debounce: during streaming, syntax highlighting re-runs on
+ * every delta. Debouncing at 250ms prevents expensive Shiki re-runs on every
+ * token while keeping the visual latency under 300ms. Static (non-streaming)
+ * renders hydrate immediately.
+ */
+const HIGHLIGHT_DEBOUNCE_MS = 250;
 
 /** Code payload per copy button; a WeakMap keeps large snippets out of the
  *  DOM attributes. */
@@ -90,11 +98,26 @@ const MarkdownText: Component<MarkdownTextProps> = (props) => {
   let containerRef: HTMLDivElement | undefined;
   const html = createMemo(() => renderMarkdown(props.text));
 
-  // Re-hydrates fences after every render pass; placeholders from a newer
-  // pass replace the old nodes, so hydration is always idempotent.
+  // IA-09: Re-hydrates fences after every render pass; placeholders from a
+  // newer pass replace the old nodes, so hydration is always idempotent.
+  // During streaming, hydration is debounced to avoid expensive Shiki
+  // re-runs on every delta token. Static renders hydrate immediately.
+  let hydrateTimer: ReturnType<typeof setTimeout> | undefined;
+  let firstRender = true;
+  onCleanup(() => clearTimeout(hydrateTimer));
   createEffect(() => {
     void html();
-    hydrateFences(containerRef, t);
+    if (firstRender) {
+      // First render: hydrate immediately for snappy static display.
+      firstRender = false;
+      hydrateFences(containerRef, t);
+    } else {
+      // Streaming / subsequent renders: debounce to ~250ms.
+      clearTimeout(hydrateTimer);
+      hydrateTimer = setTimeout(() => {
+        hydrateFences(containerRef, t);
+      }, HIGHLIGHT_DEBOUNCE_MS);
+    }
   });
 
   function handleClick(event: MouseEvent) {

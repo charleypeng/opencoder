@@ -4,8 +4,14 @@
 // through `onOpenDiff`; until then nothing is passed and the rows are
 // inert. The 1.18.11 schema carries no per-file add/del counts (only
 // `hash` + `files`), so no +/- count badges are rendered.
+//
+// IA-13/14/15: the card provides a unified diff summary view with an
+// intent description slot. When the data carries an intent string, it is
+// shown below the header. The file list uses monospace font and diff-
+// convention color hints. The diff view itself (triggered by onOpenDiff)
+// uses +green/-red conventions via EditCard.
 
-import { createMemo, For } from "solid-js";
+import { createMemo, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
@@ -16,6 +22,10 @@ export interface PatchPartProps {
   part: PatchPartData;
   /** Jump-to-diff callback per file; wired by M4's diff view. */
   onOpenDiff?: (file: string) => void;
+  /** IA-15: optional intent description explaining why this patch was made.
+   *  When the data carries an intent string, it is displayed; otherwise
+   *  the slot is hidden (data does not currently carry intent). */
+  intent?: string;
 }
 
 const PatchPart: Component<PatchPartProps> = (props) => {
@@ -48,6 +58,16 @@ const PatchPart: Component<PatchPartProps> = (props) => {
           {t("messages:filesCount", { count: props.part.files.length })}
         </span>
       </div>
+      {/* IA-15: intent description slot — visible when the data carries
+          an intent string explaining why this patch was made. */}
+      <Show when={props.intent !== undefined && props.intent !== ""}>
+        <div
+          data-testid="patch-intent"
+          class="border-t border-bg-sunken px-2 py-1.5 text-xs italic text-fg-secondary"
+        >
+          {props.intent}
+        </div>
+      </Show>
       <ul class="border-t border-bg-sunken">
         <For each={props.part.files}>
           {(file) => (
@@ -71,6 +91,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
                   <path d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z" />
                   <path d="M3 5.5l5 2.7 5-2.7M8 8.2v5" />
                 </svg>
+                {/* IA-13/14: file paths in monospace for diff-style display */}
                 <span class="truncate font-code">{file}</span>
                 <span aria-hidden class="ml-auto shrink-0 text-fg-faint">
                   ▸

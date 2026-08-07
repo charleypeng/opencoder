@@ -40,7 +40,9 @@ function iconClass(status: Todo["status"]): string {
     case "completed":
       return "h-4 w-4 shrink-0 text-success";
     case "in_progress":
-      return "h-4 w-4 shrink-0 animate-spin text-fg-secondary";
+      return "h-4 w-4 shrink-0 animate-spin text-accent";
+    case "cancelled":
+      return "h-4 w-4 shrink-0 text-danger/60";
     default:
       return "h-4 w-4 shrink-0 text-fg-faint";
   }
@@ -139,12 +141,27 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
 
   const list = () => todos[props.serverId]?.[props.sessionId] ?? [];
 
+  // IA-21: count summary for the supervision anchor header.
+  const totalCount = () => list().length;
+  const completedCount = () => list().filter((todo) => todo.status === "completed").length;
+
   return (
     <section
       data-testid="todo-panel"
       data-variant={props.variant ?? "panel"}
       class="flex h-full min-h-0 flex-col"
     >
+      {/* IA-21: Count summary header — supervision anchor with clear progress. */}
+      <Show when={!error() && totalCount() > 0}>
+        <div class="flex shrink-0 items-center justify-between border-b border-bg-sunken px-4 py-2">
+          <span class="text-xs font-medium text-fg-secondary">
+            {t("sessions:todoCount", { count: totalCount() })}
+          </span>
+          <span class="text-xs text-fg-faint">
+            {completedCount()}/{totalCount()}
+          </span>
+        </div>
+      </Show>
       <Show
         when={error()}
         fallback={
@@ -167,7 +184,7 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
           </button>
         </div>
       </Show>
-      <Show when={!error() && list().length === 0}>
+      <Show when={!error() && totalCount() === 0}>
         <p data-testid="todo-empty" class="px-4 py-6 text-center text-sm text-fg-secondary">
           {t("sessions:noTodos")}
         </p>

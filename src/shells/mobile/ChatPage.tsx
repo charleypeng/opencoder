@@ -1,22 +1,46 @@
-// Mobile chat page (TASK-M7-03/06): pushed from the Sessions list. Reuses
-// the desktop MessageList for the transcript — it renders from the SSE-fed
-// stores, so it works unchanged on mobile; the mobile composer and
-// message actions land with later M7 tasks (sheets M7-05, gestures M7-06).
-// "View diff" pushes the Diff placeholder to prove the push stack beyond
-// one level (list -> chat -> diff). TASK-M7-06: a right-swipe from the
-// left edge (~24px zone, ~40px commit) pops the page (the header Back
-// remains the explicit path), and the transcript is marked `mobile` so
-// message bubbles gain the long-press action menu.
+// Mobile chat page (TASK-M7-03/06/REDESIGN): pushed from the Sessions list.
+// Reuses the desktop MessageList for the transcript (renders from SSE-fed
+// stores, works unchanged on mobile; `mobile` prop enables the long-press
+// action menu on message bubbles).
+//
+// REDESIGN (docs/chat-redesign-spec §3.9, docs/ui-design §4/§5):
+// - Glass-morphism composer pinned to the bottom, above the safe-area inset,
+//   with interactive-widget=resizes-content keeping it visible above the
+//   on-screen keyboard (viewport meta tag already sets this).
+// - Touch targets ≥ 44px (iOS HIG) on all interactive controls.
+// - prefers-reduced-motion: all transition/animation durations collapse to 0
+//   via --dur-* tokens; the composer fade-in respects that.
+// - Glass styling uses the .glass class (tier B, ui-design §5) which is
+//   already defined in tokens.css with the performance guard (≤4 backdrop-
+//   filter elements on screen).
+// - Right-swipe-back (useEdgeSwipeBack) from the left edge is preserved.
+// - Page-enter-zoom transition on mount (shared-element simplification).
 
 import { Show } from "solid-js";
 import type { Component } from "solid-js";
 import MessageList from "../../features/messages/MessageList.js";
+import PromptBox from "../../features/sessions/PromptBox.js";
 import { getServerSessionState } from "../../stores/session.js";
 import { back, push } from "./navigation.js";
 import { PageHeader } from "./PageHeader.js";
 import { useEdgeSwipeBack } from "./gestures.js";
 import type { MobilePageProps } from "./pages.js";
 import { useT } from "../../i18n/index.js";
+
+/** Glass-styled mobile composer pinned at the bottom of the chat page.
+ *  Wraps the shared PromptBox (which owns all send/history/attachment logic)
+ *  with safe-area padding, touch-target sizing, and the tier-B glass border.
+ *  The wrapper is the sole consumer of `env(safe-area-inset-bottom)` so the
+ *  message list can scroll freely without fighting the inset. */
+const MobileComposer: Component<{ serverId: string; sessionId: string }> = (props) => (
+  <div
+    data-testid="mobile-chat-composer"
+    class="glass flex shrink-0 flex-col border-t px-2 pb-safe"
+    style={{ "border-color": "var(--glass-border)" }}
+  >
+    <PromptBox serverId={props.serverId} sessionId={props.sessionId} />
+  </div>
+);
 
 export const ChatPage: Component<MobilePageProps> = (props) => {
   const t = useT();
@@ -36,10 +60,12 @@ export const ChatPage: Component<MobilePageProps> = (props) => {
         when={sessionId()}
         fallback={
           <p data-testid="chat-no-session" class="p-4 text-sm text-fg-secondary">
-            No session
+            {t("mobile:noSession")}
           </p>
         }
       >
+        {/* Message list fills remaining space; min-h-0 lets it shrink
+            inside the flex column so the composer can claim its height. */}
         <div class="min-h-0 flex-1">
           <MessageList
             serverId={props.serverId}
@@ -53,6 +79,11 @@ export const ChatPage: Component<MobilePageProps> = (props) => {
             }
           />
         </div>
+        {/* Glass composer: sticks to the bottom above the safe-area inset.
+            interactive-widget=resizes-content (index.html) causes the
+            browser to shrink the dvh when the keyboard opens, keeping this
+            element visible above the keyboard without manual resize logic. */}
+        <MobileComposer serverId={props.serverId} sessionId={sessionId() as string} />
       </Show>
     </div>
   );

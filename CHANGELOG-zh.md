@@ -9,6 +9,7 @@
 
 ### 新增
 
+- 按 AI 编程聊天界面设计规范重做聊天界面（feat(chat)）：消息流现已满足规范 MUST 规则——消息流容器带 `role="log"` + `aria-live="polite"` + `aria-atomic="false"`，流式增量经 1s 防抖的屏幕阅读器播报（IA-01）；助手消息带持久的强调色 AI 标识徽章（IA-05）；语法高亮防抖 250ms，流式帧不再逐 token 重跑 Shiki（IA-09）；工具卡片状态文本为「动作词 + 工具名」（如「正在运行 bash」），running/error 状态带左侧强调色边线、错误输出等宽字体（IA-19/20/28）；patch part 暴露变更意图说明插槽（IA-15）；file part 带 mime 类型徽章与等宽路径（IA-24）。输入区在生成期间显示分阶段等待文本（<3s spinner、3–10s「正在生成回复…」、>10s「仍在生成 — 按 Esc 停止」）并置于 aria-live 区域（IA-18）；会话错误横幅遵循三段式失败格式（什么失败 + 为什么 + 重试/关闭）；待办面板新增计数摘要头（IA-21）；会话列表与聊天头部按桌面密度收紧；状态栏带 `role="status"` 与 aria-label；移动端聊天页新增玻璃拟态输入条（安全区内边距）、TabBar 与页头返回按钮触控目标 ≥44px、底部导航玻璃化（ui-design §4/§5）。双主题新增设计令牌 `--ai-label-bg`/`--ai-label-text`。设计规格见 docs/chat-redesign-spec.md。(chat-ui)
 - 思考折叠在生成期间自动展开（feat(messages)）：会话开始流式输出时思考折叠自动打开、生成结束时自动收起，让思考过程像 codex / claude code 那样实时可见。任意时刻仍可手动点击折叠/展开。(messages)
 - 桌面端设置入口增强 (TASK-S1-03)：侧栏（服务器切换列）底部新增齿轮按钮（位于「+」添加服务器按钮之下，以 `mt-auto` 钉在侧栏底缘），使设置在任何主视图下都一键可达——侧栏在主区视图切换之外，因此入口不再在 diff/终端/变更等隐藏主区标签栏（及其齿轮）的视图中消失。按钮与既有主区标签栏 `settings-toggle` 共用同一 `setMainView("settings")` 处理器与 i18n 文案（`desktop:openSettings` / `settings:settings`），后者保留作为 chat/files 视图中的上下文入口；⌘, 快捷键在任意视图仍可打开设置（新增从终端视图触发的测试覆盖）。
 - 设置页提供商「可添加」入口（TASK-S1-02）：模型服务商分区新增「添加服务商」按钮，打开对话框注册动态服务商——契约没有 providers 注册表键，因此对话框通过 Config PATCH 家族写入 `provider.<id>`（ProviderConfig：显示名称 + 面向 OpenAI 兼容端点的 options.baseURL / options.apiKey），默认写入全局配置，也可选择写入项目配置（当前服务器活动项目目录），随后重拉服务商目录，使新服务商出现在服务商列表与「模型」分区中（未连接状态，可通过既有密钥表单配置密钥）。服务商 ID 必须为 slug（字母、数字、短横线与下划线）；未填写基础 URL 时仍可填写 API 密钥（将发送到服务商内置端点，仅提示不拦截）。(TASK-S1-02)

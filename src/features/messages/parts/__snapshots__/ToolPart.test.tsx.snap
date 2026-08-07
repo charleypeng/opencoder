@@ -65,7 +65,7 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        bash completed
       </span>
       
     </button>
@@ -200,7 +200,7 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        edit completed
       </span>
       
     </button>
@@ -329,7 +329,7 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        glob completed
       </span>
       
     </button>
@@ -451,7 +451,7 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        grep completed
       </span>
       
     </button>
@@ -574,7 +574,7 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        read completed
       </span>
       
     </button>
@@ -705,7 +705,7 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
         class="ml-auto shrink-0 text-fg-faint"
         data-testid="tool-status-label"
       >
-        Completed
+        write completed
       </span>
       
     </button>

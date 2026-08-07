@@ -146,6 +146,8 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
+  --color-ai-label-bg: var(--ai-label-bg);
+  --color-ai-label-text: var(--ai-label-text);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -247,6 +249,27 @@
   to {
     background-position: -200% 0;
   }
+}
+
+/*
+ * IA-05: AI assistant label badge (IBM-Carbon AI label requirement).
+ * Persistent, small, accent-tinted badge shown alongside assistant messages.
+ */
+.ai-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25em;
+  padding: 0.1em 0.45em;
+  border-radius: var(--r-sm);
+  background: var(--ai-label-bg);
+  color: var(--ai-label-text);
+  font-size: 0.7em;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  vertical-align: middle;
+  user-select: none;
 }
 
 /*

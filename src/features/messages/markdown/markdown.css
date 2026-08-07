@@ -8,6 +8,7 @@
 .markdown-body {
   color: var(--fg-primary);
   overflow-wrap: break-word;
+  line-height: 1.65;
 }
 
 .markdown-body > :first-child {
@@ -120,9 +121,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5em;
-  padding: 0.3em 0.3em 0.3em 0.75em;
-  border-bottom: 1px solid var(--bg-sunken);
+  padding: 0.35em 0.35em 0.35em 0.75em;
+  border-bottom: 1px solid color-mix(in srgb, var(--fg-faint) 15%, transparent);
   background: var(--bg-elevated);
+  border-radius: var(--r-md) var(--r-md) 0 0;
 }
 
 .markdown-body .code-fence-lang {
@@ -140,6 +142,9 @@
   font-family: var(--font-ui);
   color: var(--fg-faint);
   cursor: pointer;
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast);
 }
 
 .markdown-body .code-fence-copy:hover,

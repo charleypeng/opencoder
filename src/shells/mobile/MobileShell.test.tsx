@@ -510,8 +510,6 @@ describe("MobileShell", () => {
   it("closes a dismissible sheet before popping on system back (TASK-M7-10)", async () => {
     stubAndroidTauri();
     applySessionList(SERVER.id, [session("sess_1")]);
-    const closeSheet = vi.fn();
-    registerSheet("model-picker", { id: "model-picker", dismissible: true, close: closeSheet });
     renderShell();
     await waitFor(() => screen.getByTestId("session-row-sess_1"));
 
@@ -521,6 +519,13 @@ describe("MobileShell", () => {
       expect(within(sessionsTab).getByTestId("mobile-page-chat")).toBeInTheDocument(),
     );
     await waitFor(() => expect(onBackButtonPressMock).toHaveBeenCalledWith(expect.any(Function)));
+
+    // Register the sheet AFTER the chat page renders — the PromptBox's
+    // ModelPicker registers/clears "model-picker" on mount, so registering
+    // before render would be overwritten. Registering after mount ensures
+    // the sheet is in the store when the back handler reads it.
+    const closeSheet = vi.fn();
+    registerSheet("model-picker", { id: "model-picker", dismissible: true, close: closeSheet });
 
     // Sheet wins over the route pop.
     const [onBack] = onBackButtonPressMock.mock.calls[0] as [

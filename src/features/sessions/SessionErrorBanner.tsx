@@ -96,18 +96,37 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
         class="mx-4 mt-3 flex shrink-0 items-start justify-between gap-3 rounded-md border border-danger/40 bg-danger/10 px-4 py-3"
       >
         <div class="min-w-0">
+          {/* IF-12: Three-part error — title (what failed). */}
           <p data-testid="session-error-title" class="text-sm font-semibold text-danger">
             {title()}
           </p>
           <Show when={hasDetail()}>
-            <button
-              type="button"
-              data-testid="session-error-expand"
-              class="mt-1 text-xs text-danger/80 underline outline-none hover:text-danger"
-              onClick={() => setExpanded((value) => !value)}
-            >
-              {expanded() ? t("permissions:hideDetails") : t("permissions:showDetails")}
-            </button>
+            {/* IF-12: Three-part error — reason (why it failed). */}
+            <p data-testid="session-error-reason" class="mt-0.5 text-xs text-danger/80">
+              {t("messages:errorWhy")}{" "}
+              {expanded() ? (
+                <>
+                  <span>{detail()}</span>
+                  <button
+                    type="button"
+                    data-testid="session-error-expand"
+                    class="ml-1 underline outline-none hover:text-danger"
+                    onClick={() => setExpanded(false)}
+                  >
+                    {t("permissions:hideDetails")}
+                  </button>
+                </>
+              ) : (
+                <button
+                  type="button"
+                  data-testid="session-error-expand"
+                  class="underline outline-none hover:text-danger"
+                  onClick={() => setExpanded(true)}
+                >
+                  {t("permissions:showDetails")}
+                </button>
+              )}
+            </p>
             <Show when={expanded()}>
               <pre
                 data-testid="session-error-detail"
@@ -118,7 +137,8 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
             </Show>
           </Show>
         </div>
-        <div class="flex shrink-0 items-center gap-2">
+        {/* IF-12: Three-part error — escape routes (at least two options). */}
+        <div class="flex shrink-0 flex-col items-end gap-2">
           <Show when={lastPrompt() !== undefined}>
             <button
               type="button"
@@ -134,10 +154,10 @@ const SessionErrorBanner: Component<SessionErrorBannerProps> = (props) => {
             type="button"
             data-testid="session-error-dismiss"
             aria-label={t("common:dismiss")}
-            class="shrink-0 rounded-md px-1.5 text-sm text-danger/70 outline-none hover:text-danger"
+            class="rounded-md px-1.5 text-xs text-danger/70 outline-none hover:text-danger"
             onClick={dismiss}
           >
-            ×
+            {t("common:dismiss")}
           </button>
         </div>
       </div>
