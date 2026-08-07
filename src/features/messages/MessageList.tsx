@@ -29,8 +29,9 @@
 // - auto-scroll pins the bottom while the user is near it; scrolling up
 //   pauses the follow and a "New messages" button jumps back.
 
-import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { Key } from "@solid-primitives/keyed";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { useT } from "../../i18n/index.js";
 import { ApiError } from "../../services/errors.js";
@@ -481,23 +482,33 @@ const MessageList: Component<MessageListProps> = (props) => {
                 }
               >
                 <div class="relative" style={{ height: `${list.totalHeight()}px` }}>
-                  <For each={rows()}>
+                  {/* Keyed by message id (solid-primitives Key): a row's
+                      measured height change re-positions it (style.top)
+                      WITHOUT rebuilding the row subtree. An unkeyed For
+                      re-creates the row's MarkdownText on every measurement,
+                      re-emitting code-fence placeholders and re-running
+                      async Shiki hydration — the row shrank and grew
+                      between 143px and 253px in a ResizeObserver feedback
+                      loop (the overlap/flicker bug: rows rendered on top of
+                      each other while streaming or scrolling). Keeping the
+                      DOM alive stops the loop. */}
+                  <Key each={rows()} by={(row) => row.messageID}>
                     {(row) => (
                       <div
-                        ref={(el) => list.measureRow(row.messageID, el)}
-                        data-virtual-row={row.index}
-                        data-reverted={row.reverted ? "true" : "false"}
-                        class={`absolute left-0 right-0 px-4 pb-4${row.index === 0 ? " pt-4" : ""}${
-                          row.reverted ? " opacity-45 saturate-50" : ""
+                        ref={(el) => list.measureRow(row().messageID, el)}
+                        data-virtual-row={row().index}
+                        data-reverted={row().reverted ? "true" : "false"}
+                        class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
+                          row().reverted ? " opacity-45 saturate-50" : ""
                         }`}
-                        style={{ top: `${row.start}px` }}
+                        style={{ top: `${row().start}px` }}
                       >
                         <MessageBubble
                           serverId={props.serverId}
                           sessionId={props.sessionId}
-                          messageID={row.messageID}
-                          partIds={row.partIds}
-                          typing={row.typing}
+                          messageID={row().messageID}
+                          partIds={row().partIds}
+                          typing={row().typing}
                           mobile={props.mobile}
                           onViewDiff={props.onViewDiff}
                           onFork={props.onFork}
@@ -506,7 +517,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                         />
                       </div>
                     )}
-                  </For>
+                  </Key>
                 </div>
               </Show>
             }

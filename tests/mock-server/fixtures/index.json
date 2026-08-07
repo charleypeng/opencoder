@@ -36,5 +36,6 @@
   "formatter": "formatter.json",
   "permission.saved": "permission.saved.json",
   "pty": "pty.list.json",
-  "pty.shells": "pty.shells.json"
+  "pty.shells": "pty.shells.json",
+  "session.messages.rich": "session.messages.rich.json"
 }

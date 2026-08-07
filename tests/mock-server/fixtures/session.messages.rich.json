@@ -1,0 +1,4699 @@
+[
+  {
+    "info": {
+      "id": "msg_rich_01",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749740920000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_001",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_01",
+        "type": "text",
+        "text": "请解释一下这个项目的整体架构，包括 Tauri 壳、SolidJS 前端和 Rust 后端的职责划分。",
+        "time": {
+          "start": 1749740920000,
+          "end": 1749740920000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_02",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749741040000,
+        "completed": 1749741040000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_002",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_02",
+        "type": "reasoning",
+        "text": "用户想了解整体架构。项目是 Tauri 2 + SolidJS。需要分层说明：Rust 侧负责 IPC/HTTP 传输，前端负责渲染与状态。",
+        "time": {
+          "start": 1749741040000,
+          "end": 1749741040000
+        }
+      },
+      {
+        "id": "prt_rich_003",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_02",
+        "type": "text",
+        "text": "## 项目架构总览\n\nopencoder 是一个 **Tauri 2 + SolidJS** 的桌面客户端，通过 HTTP + SSE 与 OpenCode 服务器通信。\n\n### 三层职责\n\n| 层 | 技术 | 职责 |\n|---|---|---|\n| 壳层 | Rust (Tauri) | 窗口、系统托盘、HTTP 传输（`http_request` invoke）、SSE 订阅 |\n| 状态层 | SolidJS stores | 归一化消息存储、会话/项目/服务器注册表、细粒度响应式 |\n| 渲染层 | SolidJS 组件 | 虚拟化消息流、Markdown/代码高亮、工具卡片、diff 视图 |\n\n### 数据流\n\n```ts\n// 消息从 SSE 事件进入归一化 store\nsubscribeToServerEvents(serverId, (event) => {\n  switch (event.type) {\n    case \"message.part.delta\":\n      applyPartDelta(serverId, event.partID, event.field, event.delta);\n      break;\n    case \"message.part.updated\":\n      upsertPart(serverId, event.part);\n      break;\n  }\n});\n```\n\n> **要点**：消息列表是虚拟化的，每行按消息 id 测量高度；流式期间只更新命中的 part 行。\n\n完整时序：\n\n1. 前端 `POST /session/{id}/prompt` 发送提示词\n2. 服务器回 `session.status: busy`\n3. 服务器流式推送 `message.part.delta` / `message.part.updated`\n4. 完成后推送 `session.status: idle`\n\n有任何一层想深入的话告诉我。",
+        "time": {
+          "start": 1749741040000,
+          "end": 1749741040000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_03",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749741160000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_004",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_03",
+        "type": "text",
+        "text": "那给我看一下 bash 工具调用的示例，包括输入和输出长什么样？",
+        "time": {
+          "start": 1749741160000,
+          "end": 1749741160000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_04",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749741280000,
+        "completed": 1749741280000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_005",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_04",
+        "type": "text",
+        "text": "这是一个完整的 bash 调用：",
+        "time": {
+          "start": 1749741280000,
+          "end": 1749741280000
+        }
+      },
+      {
+        "id": "prt_rich_006",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_04",
+        "type": "tool",
+        "callID": "call_rich_001",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "ls -la src/ && du -sh src/"
+          },
+          "output": "total 96\ndrwxr-xr-x  16 user  staff   512B Aug  7 10:00 .\ndrwxr-xr-x   9 user  staff   288B Aug  7 10:00 ..\ndrwxr-xr-x   7 user  staff   224B Aug  7 10:00 components\ndrwxr-xr-x   9 user  staff   288B Aug  7 10:00 features\ndrwxr-xr-x   4 user  staff   128B Aug  7 10:00 services\n 96K\t./src",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749741280000,
+            "end": 1749741280000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_007",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_04",
+        "type": "text",
+        "text": "如你所见，输出是纯文本，`exit: 0` 表示成功。",
+        "time": {
+          "start": 1749741280000,
+          "end": 1749741280000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_05",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749741400000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_008",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_05",
+        "type": "text",
+        "text": "如果命令失败会显示什么？",
+        "time": {
+          "start": 1749741400000,
+          "end": 1749741400000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_06",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749741520000,
+        "completed": 1749741520000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_009",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_06",
+        "type": "text",
+        "text": "失败的工具调用会进入 `error` 状态，错误信息展示在卡片里：",
+        "time": {
+          "start": 1749741520000,
+          "end": 1749741520000
+        }
+      },
+      {
+        "id": "prt_rich_010",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_06",
+        "type": "tool",
+        "callID": "call_rich_002",
+        "tool": "bash",
+        "state": {
+          "status": "error",
+          "input": {
+            "command": "cat /nonexistent/file.txt"
+          },
+          "output": "",
+          "error": "cat: /nonexistent/file.txt: No such file or directory",
+          "title": "bash",
+          "metadata": {
+            "exit": 1
+          },
+          "time": {
+            "start": 1749741520000,
+            "end": 1749741520000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_011",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_06",
+        "type": "text",
+        "text": "此时 `exit: 1`，错误信息用等宽字体显示在展开内容中。",
+        "time": {
+          "start": 1749741520000,
+          "end": 1749741520000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_07",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749741640000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_012",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_07",
+        "type": "text",
+        "text": "帮我看看 src/features/messages/MessageList.tsx 里滚动相关的代码，并建议改进。",
+        "time": {
+          "start": 1749741640000,
+          "end": 1749741640000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_08",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749741760000,
+        "completed": 1749741760000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_013",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "text",
+        "text": "我先读取这个文件：",
+        "time": {
+          "start": 1749741760000,
+          "end": 1749741760000
+        }
+      },
+      {
+        "id": "prt_rich_014",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "tool",
+        "callID": "call_rich_003",
+        "tool": "read",
+        "state": {
+          "status": "completed",
+          "input": {
+            "filePath": "src/features/messages/MessageList.tsx",
+            "offset": 300,
+            "limit": 80
+          },
+          "output": "export function handleScroll(event: Event) {\n  const el = event.currentTarget as HTMLDivElement;\n  list.onScroll(el);\n  if (Date.now() < suppressUntil) return;\n  if (list.scrollTop() <= EARLIER_TRIGGER_PX) {\n    void loadEarlier();\n  }\n  const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;\n  if (nearBottom) {\n    if (hasNew()) setHasNew(false);\n    setPaused(false);\n  } else {\n    setPaused(true);\n  }\n}",
+          "title": "read",
+          "metadata": {},
+          "time": {
+            "start": 1749741760000,
+            "end": 1749741760000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_015",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "text",
+        "text": "滚动处理看起来合理，但 `nearBottom` 用的是虚拟列表的估算总高。我建议一个改进：",
+        "time": {
+          "start": 1749741760000,
+          "end": 1749741760000
+        }
+      },
+      {
+        "id": "prt_rich_016",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "file",
+        "filePath": "src/features/messages/MessageList.tsx",
+        "content": "const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;",
+        "time": {
+          "start": 1749741760000,
+          "end": 1749741760000
+        }
+      },
+      {
+        "id": "prt_rich_017",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "patch",
+        "filePath": "src/features/messages/MessageList.tsx",
+        "patch": "--- a/src/features/messages/MessageList.tsx\n+++ b/src/features/messages/MessageList.tsx\n@@ -374,7 +374,7 @@\n-    const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;\n+    // Use the REAL scroll metrics: the virtual total lags measured heights\n+    // while rows hydrate, so the near-bottom check must read the container.\n+    const nearBottom =\n+      (el.scrollHeight ?? list.totalHeight()) - el.scrollTop - el.clientHeight <= 80;\n",
+        "time": {
+          "start": 1749741760000,
+          "end": 1749741760000
+        }
+      },
+      {
+        "id": "prt_rich_018",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_08",
+        "type": "text",
+        "text": "这个改动把 near-bottom 判定切到容器的真实滚动度量，避免虚拟总高滞后导致的误判。",
+        "time": {
+          "start": 1749741760000,
+          "end": 1749741760000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_09",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749741880000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_019",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_09",
+        "type": "text",
+        "text": "现在给我生成一份 Heartbeat 服务的接入文档，就是之前讨论的 SSE 流式接口。",
+        "time": {
+          "start": 1749741880000,
+          "end": 1749741880000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_10",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749742000000,
+        "completed": 1749742000000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_020",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_10",
+        "type": "reasoning",
+        "text": "用户要一份完整的接入文档。需要包含 curl 示例、浏览器 JS 示例、连接生命周期、数据格式、限制。这是纯文档任务，直接产出。",
+        "time": {
+          "start": 1749742000000,
+          "end": 1749742000000
+        }
+      },
+      {
+        "id": "prt_rich_021",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_10",
+        "type": "text",
+        "text": "# Heartbeat 配置开启与关闭\n\n## curl（推荐）\n\n```bash\n# 连接并接收所有数据（含最近5分钟历史）\ncurl -N http://localhost:5076/api/stream/amaninfo\n\n# 过滤特定航班\ncurl -N \"http://localhost:5076/api/stream/amaninfo?acid=OTC7294\"\n\n# 仅实时，不推送历史\ncurl -N \"http://localhost:5076/api/stream/amaninfo?historyMinutes=0\"\n```\n\n## 浏览器 JS\n\n```javascript\nconst es = new EventSource('/api/stream/amaninfo?historyMinutes=1');\nes.onmessage = (e) => console.log(JSON.parse(e.data));\nes.onerror = () => console.log('disconnected');\n```\n\n## 连接生命周期\n\n1. 客户端连接\n2. 服务端从 DB 查最近 N 分钟的历史数据，按 `ReceivedAt` 升序逐条推送\n3. 历史数据发完后，切换到实时模式——每条新 UDP 数据通过 `StreamService<AmanInfo>.Broadcast()` 实时推送\n4. 客户端断开或超时，服务端清理会话\n\n## 数据格式\n\n每条 SSE 消息：\n\n```\ndata: {\"id\":0,\"receivedAt\":\"2026-07-03T10:57:52.292658Z\",\"acid\":\"OTC7294\",\"adep\":\"ZPLJ\",\"ades\":\"ZGHA\",\"amanSequence\":12}\n```\n\n## 限制\n\n- 最大 100 个并发连接（超了返回 503）\n- 历史最多 1000 条\n- 前端缓存上限 500 条（FIFO）\n\n## 开启/关闭\n\n| 动作 | 配置 | 生效方式 |\n|---|---|---|\n| 开启 | `heartbeat.enabled = true` | 重启服务 |\n| 关闭 | `heartbeat.enabled = false` | 重启服务 |\n\n> ⚠️ 关闭后客户端将无法收到实时推送，历史查询不受影响。",
+        "time": {
+          "start": 1749742000000,
+          "end": 1749742000000
+        }
+      },
+      {
+        "id": "prt_rich_022",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_10",
+        "type": "snapshot",
+        "filePath": "docs/heartbeat-sse.md",
+        "content": "# Heartbeat SSE 接入文档\n\n见上方消息内容。",
+        "time": {
+          "start": 1749742000000,
+          "end": 1749742000000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_11",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749742120000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_023",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_11",
+        "type": "text",
+        "text": "把这个文档拆成两个子任务：一个写客户端接入，一个写服务端配置。",
+        "time": {
+          "start": 1749742120000,
+          "end": 1749742120000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_12",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749742240000,
+        "completed": 1749742240000
+      },
+      "agent": "plan",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_024",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_12",
+        "type": "text",
+        "text": "好的，拆成两个子任务并行推进：",
+        "time": {
+          "start": 1749742240000,
+          "end": 1749742240000
+        }
+      },
+      {
+        "id": "prt_rich_025",
+        "sessionID": "ses_rich_02",
+        "messageID": "msg_rich_12",
+        "type": "subtask",
+        "title": "客户端 SSE 接入文档",
+        "summary": "curl 与浏览器 EventSource 示例、数据格式、连接生命周期",
+        "time": {
+          "start": 1749742240000,
+          "end": 1749742240000
+        }
+      },
+      {
+        "id": "prt_rich_026",
+        "sessionID": "ses_rich_03",
+        "messageID": "msg_rich_12",
+        "type": "subtask",
+        "title": "服务端 Heartbeat 配置文档",
+        "summary": "heartbeat.enabled 配置项、限制参数、开启/关闭步骤",
+        "time": {
+          "start": 1749742240000,
+          "end": 1749742240000
+        }
+      },
+      {
+        "id": "prt_rich_027",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_12",
+        "type": "text",
+        "text": "两个子任务已建好，点击卡片可以跳转。",
+        "time": {
+          "start": 1749742240000,
+          "end": 1749742240000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_13",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749742360000,
+        "completed": 1749742360000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_028",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_13",
+        "type": "compaction",
+        "time": {
+          "start": 1749742360000,
+          "end": 1749742360000
+        }
+      },
+      {
+        "id": "prt_rich_029",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_13",
+        "type": "text",
+        "text": "（上下文已压缩）之前的讨论摘要：已产出 Heartbeat SSE 接入文档与两个子任务。",
+        "time": {
+          "start": 1749742360000,
+          "end": 1749742360000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_14",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749742480000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_030",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_14",
+        "type": "text",
+        "text": "这个 API 又超时了，帮我重试一下，另外看看 agent 切换的记录。",
+        "time": {
+          "start": 1749742480000,
+          "end": 1749742480000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_15",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749742600000,
+        "completed": 1749742600000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_031",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "retry",
+        "retriedMessageID": "msg_rich_14",
+        "reason": "API 超时，自动重试",
+        "time": {
+          "start": 1749742600000,
+          "end": 1749742600000
+        }
+      },
+      {
+        "id": "prt_rich_032",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "agent",
+        "from": "build",
+        "to": "plan",
+        "time": {
+          "start": 1749742600000,
+          "end": 1749742600000
+        }
+      },
+      {
+        "id": "prt_rich_033",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "text",
+        "text": "已切换 agent，重新执行：",
+        "time": {
+          "start": 1749742600000,
+          "end": 1749742600000
+        }
+      },
+      {
+        "id": "prt_rich_034",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "tool",
+        "callID": "call_rich_004",
+        "tool": "glob",
+        "state": {
+          "status": "completed",
+          "input": {
+            "pattern": "docs/*.md"
+          },
+          "output": [
+            "docs/PLAN.md",
+            "docs/architecture.md",
+            "docs/AGENT_PLAYBOOK.md",
+            "docs/testing.md",
+            "docs/heartbeat-sse.md"
+          ],
+          "title": "glob",
+          "metadata": {
+            "count": 5
+          },
+          "time": {
+            "start": 1749742600000,
+            "end": 1749742600000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_035",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "tool",
+        "callID": "call_rich_005",
+        "tool": "grep",
+        "state": {
+          "status": "completed",
+          "input": {
+            "pattern": "heartbeat",
+            "include": "docs/**"
+          },
+          "output": [
+            "docs/heartbeat-sse.md:1:# Heartbeat SSE 接入文档",
+            "docs/heartbeat-sse.md:12:heartbeat.enabled = true"
+          ],
+          "title": "grep",
+          "metadata": {
+            "count": 2
+          },
+          "time": {
+            "start": 1749742600000,
+            "end": 1749742600000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_036",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_15",
+        "type": "text",
+        "text": "重试完成，相关文件都在 `docs/` 下。",
+        "time": {
+          "start": 1749742600000,
+          "end": 1749742600000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_16",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749742720000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_037",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_16",
+        "type": "text",
+        "text": "再跑一次全量测试看看结果。",
+        "time": {
+          "start": 1749742720000,
+          "end": 1749742720000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_17",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749742840000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_038",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_17",
+        "type": "text",
+        "text": "正在运行测试套件：",
+        "time": {
+          "start": 1749742840000,
+          "end": 1749742840000
+        }
+      },
+      {
+        "id": "prt_rich_039",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_17",
+        "type": "tool",
+        "callID": "call_rich_006",
+        "tool": "bash",
+        "state": {
+          "status": "running",
+          "input": {
+            "command": "pnpm verify"
+          },
+          "title": "bash",
+          "time": {
+            "start": 1749742840000
+          }
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_18",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749742960000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_040",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_18",
+        "type": "text",
+        "text": "最后，帮我总结一下 Rust 侧的 HTTP 传输和 SSE 订阅是怎么实现的，给出关键代码。",
+        "time": {
+          "start": 1749742960000,
+          "end": 1749742960000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_19",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749743080000,
+        "completed": 1749743080000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_041",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_19",
+        "type": "reasoning",
+        "text": "总结 Rust 侧实现。关键点：tauri command、reqwest 客户端、SSE 事件流转发到前端。",
+        "time": {
+          "start": 1749743080000,
+          "end": 1749743080000
+        }
+      },
+      {
+        "id": "prt_rich_042",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_19",
+        "type": "text",
+        "text": "## Rust 侧传输实现\n\n### 1. HTTP 传输（`http_request` command）\n\n```rust\n#[tauri::command]\npub async fn http_request(request: TransportRequest) -> Result<HttpResponse, String> {\n    let client = reqwest::Client::new();\n    let mut builder = client\n        .request(Method::from_str(&request.method)?, request.url)\n        .timeout(Duration::from_secs(request.timeout_ms.unwrap_or(30)));\n    if let Some(body) = &request.body {\n        builder = builder.json(body);\n    }\n    let response = builder.send().await.map_err(|e| e.to_string())?;\n    let status = response.status().as_u16();\n    let headers = response\n        .headers()\n        .iter()\n        .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or(\"\").to_string()))\n        .collect();\n    let body_text = response.text().await.map_err(|e| e.to_string())?;\n    Ok(HttpResponse { status, headers, body_text })\n}\n```\n\n### 2. SSE 订阅\n\n```rust\npub struct SseSubscription {\n    pub id: u32,\n    pub stream: mpsc::UnboundedReceiver<ServerEvent>,\n}\n\n#[tauri::command]\npub async fn sse_subscribe(app: AppHandle) -> Result<u32, String> {\n    let (tx, rx) = mpsc::unbounded_channel();\n    let id = next_subscription_id();\n    subscriptions.lock().unwrap().insert(id, tx);\n    Ok(id)\n}\n```\n\n### 3. 事件转发到 WebView\n\n```rust\n// 服务器推送的每条 SSE 事件都被转换为 Tauri event 发出\napp.emit(&format!(\"server-event-{id}\"), &event).ok();\n```\n\n| 组件 | 文件 | 说明 |\n|---|---|---|\n| `http_request` | `src-tauri/src/commands/http.rs` | 通用 HTTP 代理 |\n| `sse_subscribe` | `src-tauri/src/commands/sse.rs` | SSE 订阅管理 |\n| 事件桥 | `src-tauri/src/events.rs` | Tauri event → 前端 listener |\n\n需要我深入某个部分吗？",
+        "time": {
+          "start": 1749743080000,
+          "end": 1749743080000
+        }
+      },
+      {
+        "id": "prt_rich_043",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_19",
+        "type": "tool",
+        "callID": "call_rich_007",
+        "tool": "read",
+        "state": {
+          "status": "completed",
+          "input": {
+            "filePath": "src-tauri/src/commands/sse.rs",
+            "offset": 1,
+            "limit": 40
+          },
+          "output": "pub struct SseSubscription {\n    pub id: u32,\n    pub stream: mpsc::UnboundedReceiver<ServerEvent>,\n}\n\n#[tauri::command]\npub async fn sse_subscribe(app: AppHandle) -> Result<u32, String> {\n    let (tx, rx) = mpsc::unbounded_channel();\n    let id = next_subscription_id();\n    subscriptions.lock().unwrap().insert(id, tx);\n    Ok(id)\n}",
+          "title": "read",
+          "metadata": {},
+          "time": {
+            "start": 1749743080000,
+            "end": 1749743080000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_044",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_19",
+        "type": "text",
+        "text": "以上就是传输层的核心实现。",
+        "time": {
+          "start": 1749743080000,
+          "end": 1749743080000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_20",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749743200000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_045",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_20",
+        "type": "text",
+        "text": "好的，今天的讨论先到这里，明天继续。",
+        "time": {
+          "start": 1749743200000,
+          "end": 1749743200000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_21",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749743320000,
+        "completed": 1749743320000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_046",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_21",
+        "type": "text",
+        "text": "没问题！明天见。今天的产出：架构说明、Heartbeat SSE 文档、传输层代码总结，以及两个进行中的子任务。",
+        "time": {
+          "start": 1749743320000,
+          "end": 1749743320000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_22",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749743440000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_047",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_22",
+        "type": "text",
+        "text": "填充问题 1：这一段是第 1 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749743440000,
+          "end": 1749743440000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_23",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749743560000,
+        "completed": 1749743560000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_048",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_23",
+        "type": "text",
+        "text": "这是第 1 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749743560000,
+          "end": 1749743560000
+        }
+      },
+      {
+        "id": "prt_rich_049",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_23",
+        "type": "tool",
+        "callID": "call_rich_fill_0",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 1\""
+          },
+          "output": "fill 1\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749743560000,
+            "end": 1749743560000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_050",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_23",
+        "type": "text",
+        "text": "```ts\n// filler 1\nexport function filler1(): string {\n  return \"filler-1\";\n}\n```",
+        "time": {
+          "start": 1749743560000,
+          "end": 1749743560000
+        }
+      },
+      {
+        "id": "prt_rich_051",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_23",
+        "type": "text",
+        "text": "回答结束（第 1 条）。",
+        "time": {
+          "start": 1749743560000,
+          "end": 1749743560000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_24",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749743680000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_052",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_24",
+        "type": "text",
+        "text": "填充问题 2：这一段是第 2 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749743680000,
+          "end": 1749743680000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_25",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749743800000,
+        "completed": 1749743800000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_053",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_25",
+        "type": "text",
+        "text": "这是第 2 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749743800000,
+          "end": 1749743800000
+        }
+      },
+      {
+        "id": "prt_rich_054",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_25",
+        "type": "tool",
+        "callID": "call_rich_fill_1",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 2\""
+          },
+          "output": "fill 2\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749743800000,
+            "end": 1749743800000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_055",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_25",
+        "type": "text",
+        "text": "```ts\n// filler 2\nexport function filler2(): string {\n  return \"filler-2\";\n}\n```",
+        "time": {
+          "start": 1749743800000,
+          "end": 1749743800000
+        }
+      },
+      {
+        "id": "prt_rich_056",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_25",
+        "type": "text",
+        "text": "回答结束（第 2 条）。",
+        "time": {
+          "start": 1749743800000,
+          "end": 1749743800000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_26",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749743920000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_057",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_26",
+        "type": "text",
+        "text": "填充问题 3：这一段是第 3 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749743920000,
+          "end": 1749743920000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_27",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749744040000,
+        "completed": 1749744040000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_058",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_27",
+        "type": "text",
+        "text": "这是第 3 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749744040000,
+          "end": 1749744040000
+        }
+      },
+      {
+        "id": "prt_rich_059",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_27",
+        "type": "tool",
+        "callID": "call_rich_fill_2",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 3\""
+          },
+          "output": "fill 3\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749744040000,
+            "end": 1749744040000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_060",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_27",
+        "type": "text",
+        "text": "```ts\n// filler 3\nexport function filler3(): string {\n  return \"filler-3\";\n}\n```",
+        "time": {
+          "start": 1749744040000,
+          "end": 1749744040000
+        }
+      },
+      {
+        "id": "prt_rich_061",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_27",
+        "type": "text",
+        "text": "回答结束（第 3 条）。",
+        "time": {
+          "start": 1749744040000,
+          "end": 1749744040000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_28",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749744160000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_062",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_28",
+        "type": "text",
+        "text": "填充问题 4：这一段是第 4 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749744160000,
+          "end": 1749744160000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_29",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749744280000,
+        "completed": 1749744280000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_063",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_29",
+        "type": "text",
+        "text": "这是第 4 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749744280000,
+          "end": 1749744280000
+        }
+      },
+      {
+        "id": "prt_rich_064",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_29",
+        "type": "tool",
+        "callID": "call_rich_fill_3",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 4\""
+          },
+          "output": "fill 4\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749744280000,
+            "end": 1749744280000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_065",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_29",
+        "type": "text",
+        "text": "```ts\n// filler 4\nexport function filler4(): string {\n  return \"filler-4\";\n}\n```",
+        "time": {
+          "start": 1749744280000,
+          "end": 1749744280000
+        }
+      },
+      {
+        "id": "prt_rich_066",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_29",
+        "type": "text",
+        "text": "回答结束（第 4 条）。",
+        "time": {
+          "start": 1749744280000,
+          "end": 1749744280000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_30",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749744400000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_067",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_30",
+        "type": "text",
+        "text": "填充问题 5：这一段是第 5 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749744400000,
+          "end": 1749744400000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_31",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749744520000,
+        "completed": 1749744520000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_068",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_31",
+        "type": "text",
+        "text": "这是第 5 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749744520000,
+          "end": 1749744520000
+        }
+      },
+      {
+        "id": "prt_rich_069",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_31",
+        "type": "tool",
+        "callID": "call_rich_fill_4",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 5\""
+          },
+          "output": "fill 5\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749744520000,
+            "end": 1749744520000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_070",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_31",
+        "type": "text",
+        "text": "```ts\n// filler 5\nexport function filler5(): string {\n  return \"filler-5\";\n}\n```",
+        "time": {
+          "start": 1749744520000,
+          "end": 1749744520000
+        }
+      },
+      {
+        "id": "prt_rich_071",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_31",
+        "type": "text",
+        "text": "回答结束（第 5 条）。",
+        "time": {
+          "start": 1749744520000,
+          "end": 1749744520000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_32",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749744640000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_072",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_32",
+        "type": "text",
+        "text": "填充问题 6：这一段是第 6 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749744640000,
+          "end": 1749744640000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_33",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749744760000,
+        "completed": 1749744760000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_073",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_33",
+        "type": "text",
+        "text": "这是第 6 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749744760000,
+          "end": 1749744760000
+        }
+      },
+      {
+        "id": "prt_rich_074",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_33",
+        "type": "tool",
+        "callID": "call_rich_fill_5",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 6\""
+          },
+          "output": "fill 6\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749744760000,
+            "end": 1749744760000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_075",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_33",
+        "type": "text",
+        "text": "```ts\n// filler 6\nexport function filler6(): string {\n  return \"filler-6\";\n}\n```",
+        "time": {
+          "start": 1749744760000,
+          "end": 1749744760000
+        }
+      },
+      {
+        "id": "prt_rich_076",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_33",
+        "type": "text",
+        "text": "回答结束（第 6 条）。",
+        "time": {
+          "start": 1749744760000,
+          "end": 1749744760000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_34",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749744880000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_077",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_34",
+        "type": "text",
+        "text": "填充问题 7：这一段是第 7 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749744880000,
+          "end": 1749744880000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_35",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749745000000,
+        "completed": 1749745000000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_078",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_35",
+        "type": "text",
+        "text": "这是第 7 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749745000000,
+          "end": 1749745000000
+        }
+      },
+      {
+        "id": "prt_rich_079",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_35",
+        "type": "tool",
+        "callID": "call_rich_fill_6",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 7\""
+          },
+          "output": "fill 7\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749745000000,
+            "end": 1749745000000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_080",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_35",
+        "type": "text",
+        "text": "```ts\n// filler 7\nexport function filler7(): string {\n  return \"filler-7\";\n}\n```",
+        "time": {
+          "start": 1749745000000,
+          "end": 1749745000000
+        }
+      },
+      {
+        "id": "prt_rich_081",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_35",
+        "type": "text",
+        "text": "回答结束（第 7 条）。",
+        "time": {
+          "start": 1749745000000,
+          "end": 1749745000000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_36",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749745120000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_082",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_36",
+        "type": "text",
+        "text": "填充问题 8：这一段是第 8 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749745120000,
+          "end": 1749745120000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_37",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749745240000,
+        "completed": 1749745240000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_083",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_37",
+        "type": "text",
+        "text": "这是第 8 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749745240000,
+          "end": 1749745240000
+        }
+      },
+      {
+        "id": "prt_rich_084",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_37",
+        "type": "tool",
+        "callID": "call_rich_fill_7",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 8\""
+          },
+          "output": "fill 8\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749745240000,
+            "end": 1749745240000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_085",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_37",
+        "type": "text",
+        "text": "```ts\n// filler 8\nexport function filler8(): string {\n  return \"filler-8\";\n}\n```",
+        "time": {
+          "start": 1749745240000,
+          "end": 1749745240000
+        }
+      },
+      {
+        "id": "prt_rich_086",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_37",
+        "type": "text",
+        "text": "回答结束（第 8 条）。",
+        "time": {
+          "start": 1749745240000,
+          "end": 1749745240000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_38",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749745360000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_087",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_38",
+        "type": "text",
+        "text": "填充问题 9：这一段是第 9 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749745360000,
+          "end": 1749745360000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_39",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749745480000,
+        "completed": 1749745480000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_088",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_39",
+        "type": "text",
+        "text": "这是第 9 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749745480000,
+          "end": 1749745480000
+        }
+      },
+      {
+        "id": "prt_rich_089",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_39",
+        "type": "tool",
+        "callID": "call_rich_fill_8",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 9\""
+          },
+          "output": "fill 9\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749745480000,
+            "end": 1749745480000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_090",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_39",
+        "type": "text",
+        "text": "```ts\n// filler 9\nexport function filler9(): string {\n  return \"filler-9\";\n}\n```",
+        "time": {
+          "start": 1749745480000,
+          "end": 1749745480000
+        }
+      },
+      {
+        "id": "prt_rich_091",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_39",
+        "type": "text",
+        "text": "回答结束（第 9 条）。",
+        "time": {
+          "start": 1749745480000,
+          "end": 1749745480000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_40",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749745600000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_092",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_40",
+        "type": "text",
+        "text": "填充问题 10：这一段是第 10 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749745600000,
+          "end": 1749745600000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_41",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749745720000,
+        "completed": 1749745720000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_093",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_41",
+        "type": "text",
+        "text": "这是第 10 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749745720000,
+          "end": 1749745720000
+        }
+      },
+      {
+        "id": "prt_rich_094",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_41",
+        "type": "tool",
+        "callID": "call_rich_fill_9",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 10\""
+          },
+          "output": "fill 10\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749745720000,
+            "end": 1749745720000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_095",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_41",
+        "type": "text",
+        "text": "```ts\n// filler 10\nexport function filler10(): string {\n  return \"filler-10\";\n}\n```",
+        "time": {
+          "start": 1749745720000,
+          "end": 1749745720000
+        }
+      },
+      {
+        "id": "prt_rich_096",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_41",
+        "type": "text",
+        "text": "回答结束（第 10 条）。",
+        "time": {
+          "start": 1749745720000,
+          "end": 1749745720000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_42",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749745840000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_097",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_42",
+        "type": "text",
+        "text": "填充问题 11：这一段是第 11 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749745840000,
+          "end": 1749745840000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_43",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749745960000,
+        "completed": 1749745960000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_098",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_43",
+        "type": "text",
+        "text": "这是第 11 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749745960000,
+          "end": 1749745960000
+        }
+      },
+      {
+        "id": "prt_rich_099",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_43",
+        "type": "tool",
+        "callID": "call_rich_fill_10",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 11\""
+          },
+          "output": "fill 11\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749745960000,
+            "end": 1749745960000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_100",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_43",
+        "type": "text",
+        "text": "```ts\n// filler 11\nexport function filler11(): string {\n  return \"filler-11\";\n}\n```",
+        "time": {
+          "start": 1749745960000,
+          "end": 1749745960000
+        }
+      },
+      {
+        "id": "prt_rich_101",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_43",
+        "type": "text",
+        "text": "回答结束（第 11 条）。",
+        "time": {
+          "start": 1749745960000,
+          "end": 1749745960000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_44",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749746080000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_102",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_44",
+        "type": "text",
+        "text": "填充问题 12：这一段是第 12 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749746080000,
+          "end": 1749746080000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_45",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749746200000,
+        "completed": 1749746200000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_103",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_45",
+        "type": "text",
+        "text": "这是第 12 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749746200000,
+          "end": 1749746200000
+        }
+      },
+      {
+        "id": "prt_rich_104",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_45",
+        "type": "tool",
+        "callID": "call_rich_fill_11",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 12\""
+          },
+          "output": "fill 12\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749746200000,
+            "end": 1749746200000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_105",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_45",
+        "type": "text",
+        "text": "```ts\n// filler 12\nexport function filler12(): string {\n  return \"filler-12\";\n}\n```",
+        "time": {
+          "start": 1749746200000,
+          "end": 1749746200000
+        }
+      },
+      {
+        "id": "prt_rich_106",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_45",
+        "type": "text",
+        "text": "回答结束（第 12 条）。",
+        "time": {
+          "start": 1749746200000,
+          "end": 1749746200000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_46",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749746320000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_107",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_46",
+        "type": "text",
+        "text": "填充问题 13：这一段是第 13 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749746320000,
+          "end": 1749746320000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_47",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749746440000,
+        "completed": 1749746440000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_108",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_47",
+        "type": "text",
+        "text": "这是第 13 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749746440000,
+          "end": 1749746440000
+        }
+      },
+      {
+        "id": "prt_rich_109",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_47",
+        "type": "tool",
+        "callID": "call_rich_fill_12",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 13\""
+          },
+          "output": "fill 13\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749746440000,
+            "end": 1749746440000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_110",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_47",
+        "type": "text",
+        "text": "```ts\n// filler 13\nexport function filler13(): string {\n  return \"filler-13\";\n}\n```",
+        "time": {
+          "start": 1749746440000,
+          "end": 1749746440000
+        }
+      },
+      {
+        "id": "prt_rich_111",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_47",
+        "type": "text",
+        "text": "回答结束（第 13 条）。",
+        "time": {
+          "start": 1749746440000,
+          "end": 1749746440000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_48",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749746560000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_112",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_48",
+        "type": "text",
+        "text": "填充问题 14：这一段是第 14 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749746560000,
+          "end": 1749746560000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_49",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749746680000,
+        "completed": 1749746680000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_113",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_49",
+        "type": "text",
+        "text": "这是第 14 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749746680000,
+          "end": 1749746680000
+        }
+      },
+      {
+        "id": "prt_rich_114",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_49",
+        "type": "tool",
+        "callID": "call_rich_fill_13",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 14\""
+          },
+          "output": "fill 14\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749746680000,
+            "end": 1749746680000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_115",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_49",
+        "type": "text",
+        "text": "```ts\n// filler 14\nexport function filler14(): string {\n  return \"filler-14\";\n}\n```",
+        "time": {
+          "start": 1749746680000,
+          "end": 1749746680000
+        }
+      },
+      {
+        "id": "prt_rich_116",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_49",
+        "type": "text",
+        "text": "回答结束（第 14 条）。",
+        "time": {
+          "start": 1749746680000,
+          "end": 1749746680000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_50",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749746800000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_117",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_50",
+        "type": "text",
+        "text": "填充问题 15：这一段是第 15 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749746800000,
+          "end": 1749746800000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_51",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749746920000,
+        "completed": 1749746920000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_118",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_51",
+        "type": "text",
+        "text": "这是第 15 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749746920000,
+          "end": 1749746920000
+        }
+      },
+      {
+        "id": "prt_rich_119",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_51",
+        "type": "tool",
+        "callID": "call_rich_fill_14",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 15\""
+          },
+          "output": "fill 15\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749746920000,
+            "end": 1749746920000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_120",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_51",
+        "type": "text",
+        "text": "```ts\n// filler 15\nexport function filler15(): string {\n  return \"filler-15\";\n}\n```",
+        "time": {
+          "start": 1749746920000,
+          "end": 1749746920000
+        }
+      },
+      {
+        "id": "prt_rich_121",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_51",
+        "type": "text",
+        "text": "回答结束（第 15 条）。",
+        "time": {
+          "start": 1749746920000,
+          "end": 1749746920000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_52",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749747040000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_122",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_52",
+        "type": "text",
+        "text": "填充问题 16：这一段是第 16 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749747040000,
+          "end": 1749747040000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_53",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749747160000,
+        "completed": 1749747160000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_123",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_53",
+        "type": "text",
+        "text": "这是第 16 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749747160000,
+          "end": 1749747160000
+        }
+      },
+      {
+        "id": "prt_rich_124",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_53",
+        "type": "tool",
+        "callID": "call_rich_fill_15",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 16\""
+          },
+          "output": "fill 16\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749747160000,
+            "end": 1749747160000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_125",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_53",
+        "type": "text",
+        "text": "```ts\n// filler 16\nexport function filler16(): string {\n  return \"filler-16\";\n}\n```",
+        "time": {
+          "start": 1749747160000,
+          "end": 1749747160000
+        }
+      },
+      {
+        "id": "prt_rich_126",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_53",
+        "type": "text",
+        "text": "回答结束（第 16 条）。",
+        "time": {
+          "start": 1749747160000,
+          "end": 1749747160000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_54",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749747280000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_127",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_54",
+        "type": "text",
+        "text": "填充问题 17：这一段是第 17 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749747280000,
+          "end": 1749747280000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_55",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749747400000,
+        "completed": 1749747400000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_128",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_55",
+        "type": "text",
+        "text": "这是第 17 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749747400000,
+          "end": 1749747400000
+        }
+      },
+      {
+        "id": "prt_rich_129",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_55",
+        "type": "tool",
+        "callID": "call_rich_fill_16",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 17\""
+          },
+          "output": "fill 17\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749747400000,
+            "end": 1749747400000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_130",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_55",
+        "type": "text",
+        "text": "```ts\n// filler 17\nexport function filler17(): string {\n  return \"filler-17\";\n}\n```",
+        "time": {
+          "start": 1749747400000,
+          "end": 1749747400000
+        }
+      },
+      {
+        "id": "prt_rich_131",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_55",
+        "type": "text",
+        "text": "回答结束（第 17 条）。",
+        "time": {
+          "start": 1749747400000,
+          "end": 1749747400000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_56",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749747520000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_132",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_56",
+        "type": "text",
+        "text": "填充问题 18：这一段是第 18 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749747520000,
+          "end": 1749747520000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_57",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749747640000,
+        "completed": 1749747640000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_133",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_57",
+        "type": "text",
+        "text": "这是第 18 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749747640000,
+          "end": 1749747640000
+        }
+      },
+      {
+        "id": "prt_rich_134",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_57",
+        "type": "tool",
+        "callID": "call_rich_fill_17",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 18\""
+          },
+          "output": "fill 18\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749747640000,
+            "end": 1749747640000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_135",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_57",
+        "type": "text",
+        "text": "```ts\n// filler 18\nexport function filler18(): string {\n  return \"filler-18\";\n}\n```",
+        "time": {
+          "start": 1749747640000,
+          "end": 1749747640000
+        }
+      },
+      {
+        "id": "prt_rich_136",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_57",
+        "type": "text",
+        "text": "回答结束（第 18 条）。",
+        "time": {
+          "start": 1749747640000,
+          "end": 1749747640000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_58",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749747760000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_137",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_58",
+        "type": "text",
+        "text": "填充问题 19：这一段是第 19 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749747760000,
+          "end": 1749747760000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_59",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749747880000,
+        "completed": 1749747880000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_138",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_59",
+        "type": "text",
+        "text": "这是第 19 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749747880000,
+          "end": 1749747880000
+        }
+      },
+      {
+        "id": "prt_rich_139",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_59",
+        "type": "tool",
+        "callID": "call_rich_fill_18",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 19\""
+          },
+          "output": "fill 19\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749747880000,
+            "end": 1749747880000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_140",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_59",
+        "type": "text",
+        "text": "```ts\n// filler 19\nexport function filler19(): string {\n  return \"filler-19\";\n}\n```",
+        "time": {
+          "start": 1749747880000,
+          "end": 1749747880000
+        }
+      },
+      {
+        "id": "prt_rich_141",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_59",
+        "type": "text",
+        "text": "回答结束（第 19 条）。",
+        "time": {
+          "start": 1749747880000,
+          "end": 1749747880000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_60",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749748000000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_142",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_60",
+        "type": "text",
+        "text": "填充问题 20：这一段是第 20 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749748000000,
+          "end": 1749748000000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_61",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749748120000,
+        "completed": 1749748120000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_143",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_61",
+        "type": "text",
+        "text": "这是第 20 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749748120000,
+          "end": 1749748120000
+        }
+      },
+      {
+        "id": "prt_rich_144",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_61",
+        "type": "tool",
+        "callID": "call_rich_fill_19",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 20\""
+          },
+          "output": "fill 20\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749748120000,
+            "end": 1749748120000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_145",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_61",
+        "type": "text",
+        "text": "```ts\n// filler 20\nexport function filler20(): string {\n  return \"filler-20\";\n}\n```",
+        "time": {
+          "start": 1749748120000,
+          "end": 1749748120000
+        }
+      },
+      {
+        "id": "prt_rich_146",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_61",
+        "type": "text",
+        "text": "回答结束（第 20 条）。",
+        "time": {
+          "start": 1749748120000,
+          "end": 1749748120000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_62",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749748240000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_147",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_62",
+        "type": "text",
+        "text": "填充问题 21：这一段是第 21 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749748240000,
+          "end": 1749748240000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_63",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749748360000,
+        "completed": 1749748360000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_148",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_63",
+        "type": "text",
+        "text": "这是第 21 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749748360000,
+          "end": 1749748360000
+        }
+      },
+      {
+        "id": "prt_rich_149",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_63",
+        "type": "tool",
+        "callID": "call_rich_fill_20",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 21\""
+          },
+          "output": "fill 21\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749748360000,
+            "end": 1749748360000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_150",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_63",
+        "type": "text",
+        "text": "```ts\n// filler 21\nexport function filler21(): string {\n  return \"filler-21\";\n}\n```",
+        "time": {
+          "start": 1749748360000,
+          "end": 1749748360000
+        }
+      },
+      {
+        "id": "prt_rich_151",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_63",
+        "type": "text",
+        "text": "回答结束（第 21 条）。",
+        "time": {
+          "start": 1749748360000,
+          "end": 1749748360000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_64",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749748480000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_152",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_64",
+        "type": "text",
+        "text": "填充问题 22：这一段是第 22 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749748480000,
+          "end": 1749748480000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_65",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749748600000,
+        "completed": 1749748600000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_153",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_65",
+        "type": "text",
+        "text": "这是第 22 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749748600000,
+          "end": 1749748600000
+        }
+      },
+      {
+        "id": "prt_rich_154",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_65",
+        "type": "tool",
+        "callID": "call_rich_fill_21",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 22\""
+          },
+          "output": "fill 22\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749748600000,
+            "end": 1749748600000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_155",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_65",
+        "type": "text",
+        "text": "```ts\n// filler 22\nexport function filler22(): string {\n  return \"filler-22\";\n}\n```",
+        "time": {
+          "start": 1749748600000,
+          "end": 1749748600000
+        }
+      },
+      {
+        "id": "prt_rich_156",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_65",
+        "type": "text",
+        "text": "回答结束（第 22 条）。",
+        "time": {
+          "start": 1749748600000,
+          "end": 1749748600000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_66",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749748720000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_157",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_66",
+        "type": "text",
+        "text": "填充问题 23：这一段是第 23 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749748720000,
+          "end": 1749748720000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_67",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749748840000,
+        "completed": 1749748840000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_158",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_67",
+        "type": "text",
+        "text": "这是第 23 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749748840000,
+          "end": 1749748840000
+        }
+      },
+      {
+        "id": "prt_rich_159",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_67",
+        "type": "tool",
+        "callID": "call_rich_fill_22",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 23\""
+          },
+          "output": "fill 23\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749748840000,
+            "end": 1749748840000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_160",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_67",
+        "type": "text",
+        "text": "```ts\n// filler 23\nexport function filler23(): string {\n  return \"filler-23\";\n}\n```",
+        "time": {
+          "start": 1749748840000,
+          "end": 1749748840000
+        }
+      },
+      {
+        "id": "prt_rich_161",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_67",
+        "type": "text",
+        "text": "回答结束（第 23 条）。",
+        "time": {
+          "start": 1749748840000,
+          "end": 1749748840000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_68",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749748960000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_162",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_68",
+        "type": "text",
+        "text": "填充问题 24：这一段是第 24 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749748960000,
+          "end": 1749748960000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_69",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749749080000,
+        "completed": 1749749080000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_163",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_69",
+        "type": "text",
+        "text": "这是第 24 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749749080000,
+          "end": 1749749080000
+        }
+      },
+      {
+        "id": "prt_rich_164",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_69",
+        "type": "tool",
+        "callID": "call_rich_fill_23",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 24\""
+          },
+          "output": "fill 24\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749749080000,
+            "end": 1749749080000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_165",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_69",
+        "type": "text",
+        "text": "```ts\n// filler 24\nexport function filler24(): string {\n  return \"filler-24\";\n}\n```",
+        "time": {
+          "start": 1749749080000,
+          "end": 1749749080000
+        }
+      },
+      {
+        "id": "prt_rich_166",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_69",
+        "type": "text",
+        "text": "回答结束（第 24 条）。",
+        "time": {
+          "start": 1749749080000,
+          "end": 1749749080000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_70",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749749200000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_167",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_70",
+        "type": "text",
+        "text": "填充问题 25：这一段是第 25 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749749200000,
+          "end": 1749749200000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_71",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749749320000,
+        "completed": 1749749320000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_168",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_71",
+        "type": "text",
+        "text": "这是第 25 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749749320000,
+          "end": 1749749320000
+        }
+      },
+      {
+        "id": "prt_rich_169",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_71",
+        "type": "tool",
+        "callID": "call_rich_fill_24",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 25\""
+          },
+          "output": "fill 25\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749749320000,
+            "end": 1749749320000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_170",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_71",
+        "type": "text",
+        "text": "```ts\n// filler 25\nexport function filler25(): string {\n  return \"filler-25\";\n}\n```",
+        "time": {
+          "start": 1749749320000,
+          "end": 1749749320000
+        }
+      },
+      {
+        "id": "prt_rich_171",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_71",
+        "type": "text",
+        "text": "回答结束（第 25 条）。",
+        "time": {
+          "start": 1749749320000,
+          "end": 1749749320000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_72",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749749440000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_172",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_72",
+        "type": "text",
+        "text": "填充问题 26：这一段是第 26 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749749440000,
+          "end": 1749749440000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_73",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749749560000,
+        "completed": 1749749560000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_173",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_73",
+        "type": "text",
+        "text": "这是第 26 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749749560000,
+          "end": 1749749560000
+        }
+      },
+      {
+        "id": "prt_rich_174",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_73",
+        "type": "tool",
+        "callID": "call_rich_fill_25",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 26\""
+          },
+          "output": "fill 26\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749749560000,
+            "end": 1749749560000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_175",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_73",
+        "type": "text",
+        "text": "```ts\n// filler 26\nexport function filler26(): string {\n  return \"filler-26\";\n}\n```",
+        "time": {
+          "start": 1749749560000,
+          "end": 1749749560000
+        }
+      },
+      {
+        "id": "prt_rich_176",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_73",
+        "type": "text",
+        "text": "回答结束（第 26 条）。",
+        "time": {
+          "start": 1749749560000,
+          "end": 1749749560000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_74",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749749680000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_177",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_74",
+        "type": "text",
+        "text": "填充问题 27：这一段是第 27 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749749680000,
+          "end": 1749749680000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_75",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749749800000,
+        "completed": 1749749800000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_178",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_75",
+        "type": "text",
+        "text": "这是第 27 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749749800000,
+          "end": 1749749800000
+        }
+      },
+      {
+        "id": "prt_rich_179",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_75",
+        "type": "tool",
+        "callID": "call_rich_fill_26",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 27\""
+          },
+          "output": "fill 27\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749749800000,
+            "end": 1749749800000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_180",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_75",
+        "type": "text",
+        "text": "```ts\n// filler 27\nexport function filler27(): string {\n  return \"filler-27\";\n}\n```",
+        "time": {
+          "start": 1749749800000,
+          "end": 1749749800000
+        }
+      },
+      {
+        "id": "prt_rich_181",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_75",
+        "type": "text",
+        "text": "回答结束（第 27 条）。",
+        "time": {
+          "start": 1749749800000,
+          "end": 1749749800000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_76",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749749920000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_182",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_76",
+        "type": "text",
+        "text": "填充问题 28：这一段是第 28 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749749920000,
+          "end": 1749749920000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_77",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749750040000,
+        "completed": 1749750040000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_183",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_77",
+        "type": "text",
+        "text": "这是第 28 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749750040000,
+          "end": 1749750040000
+        }
+      },
+      {
+        "id": "prt_rich_184",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_77",
+        "type": "tool",
+        "callID": "call_rich_fill_27",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 28\""
+          },
+          "output": "fill 28\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749750040000,
+            "end": 1749750040000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_185",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_77",
+        "type": "text",
+        "text": "```ts\n// filler 28\nexport function filler28(): string {\n  return \"filler-28\";\n}\n```",
+        "time": {
+          "start": 1749750040000,
+          "end": 1749750040000
+        }
+      },
+      {
+        "id": "prt_rich_186",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_77",
+        "type": "text",
+        "text": "回答结束（第 28 条）。",
+        "time": {
+          "start": 1749750040000,
+          "end": 1749750040000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_78",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749750160000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_187",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_78",
+        "type": "text",
+        "text": "填充问题 29：这一段是第 29 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749750160000,
+          "end": 1749750160000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_79",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749750280000,
+        "completed": 1749750280000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_188",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_79",
+        "type": "text",
+        "text": "这是第 29 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749750280000,
+          "end": 1749750280000
+        }
+      },
+      {
+        "id": "prt_rich_189",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_79",
+        "type": "tool",
+        "callID": "call_rich_fill_28",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 29\""
+          },
+          "output": "fill 29\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749750280000,
+            "end": 1749750280000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_190",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_79",
+        "type": "text",
+        "text": "```ts\n// filler 29\nexport function filler29(): string {\n  return \"filler-29\";\n}\n```",
+        "time": {
+          "start": 1749750280000,
+          "end": 1749750280000
+        }
+      },
+      {
+        "id": "prt_rich_191",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_79",
+        "type": "text",
+        "text": "回答结束（第 29 条）。",
+        "time": {
+          "start": 1749750280000,
+          "end": 1749750280000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_80",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749750400000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_192",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_80",
+        "type": "text",
+        "text": "填充问题 30：这一段是第 30 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749750400000,
+          "end": 1749750400000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_81",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749750520000,
+        "completed": 1749750520000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_193",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_81",
+        "type": "text",
+        "text": "这是第 30 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749750520000,
+          "end": 1749750520000
+        }
+      },
+      {
+        "id": "prt_rich_194",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_81",
+        "type": "tool",
+        "callID": "call_rich_fill_29",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 30\""
+          },
+          "output": "fill 30\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749750520000,
+            "end": 1749750520000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_195",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_81",
+        "type": "text",
+        "text": "```ts\n// filler 30\nexport function filler30(): string {\n  return \"filler-30\";\n}\n```",
+        "time": {
+          "start": 1749750520000,
+          "end": 1749750520000
+        }
+      },
+      {
+        "id": "prt_rich_196",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_81",
+        "type": "text",
+        "text": "回答结束（第 30 条）。",
+        "time": {
+          "start": 1749750520000,
+          "end": 1749750520000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_82",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749750640000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_197",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_82",
+        "type": "text",
+        "text": "填充问题 31：这一段是第 31 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749750640000,
+          "end": 1749750640000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_83",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749750760000,
+        "completed": 1749750760000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_198",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_83",
+        "type": "text",
+        "text": "这是第 31 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749750760000,
+          "end": 1749750760000
+        }
+      },
+      {
+        "id": "prt_rich_199",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_83",
+        "type": "tool",
+        "callID": "call_rich_fill_30",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 31\""
+          },
+          "output": "fill 31\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749750760000,
+            "end": 1749750760000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_200",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_83",
+        "type": "text",
+        "text": "```ts\n// filler 31\nexport function filler31(): string {\n  return \"filler-31\";\n}\n```",
+        "time": {
+          "start": 1749750760000,
+          "end": 1749750760000
+        }
+      },
+      {
+        "id": "prt_rich_201",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_83",
+        "type": "text",
+        "text": "回答结束（第 31 条）。",
+        "time": {
+          "start": 1749750760000,
+          "end": 1749750760000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_84",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749750880000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_202",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_84",
+        "type": "text",
+        "text": "填充问题 32：这一段是第 32 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749750880000,
+          "end": 1749750880000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_85",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749751000000,
+        "completed": 1749751000000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_203",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_85",
+        "type": "text",
+        "text": "这是第 32 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749751000000,
+          "end": 1749751000000
+        }
+      },
+      {
+        "id": "prt_rich_204",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_85",
+        "type": "tool",
+        "callID": "call_rich_fill_31",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 32\""
+          },
+          "output": "fill 32\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749751000000,
+            "end": 1749751000000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_205",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_85",
+        "type": "text",
+        "text": "```ts\n// filler 32\nexport function filler32(): string {\n  return \"filler-32\";\n}\n```",
+        "time": {
+          "start": 1749751000000,
+          "end": 1749751000000
+        }
+      },
+      {
+        "id": "prt_rich_206",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_85",
+        "type": "text",
+        "text": "回答结束（第 32 条）。",
+        "time": {
+          "start": 1749751000000,
+          "end": 1749751000000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_86",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749751120000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_207",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_86",
+        "type": "text",
+        "text": "填充问题 33：这一段是第 33 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749751120000,
+          "end": 1749751120000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_87",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749751240000,
+        "completed": 1749751240000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_208",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_87",
+        "type": "text",
+        "text": "这是第 33 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749751240000,
+          "end": 1749751240000
+        }
+      },
+      {
+        "id": "prt_rich_209",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_87",
+        "type": "tool",
+        "callID": "call_rich_fill_32",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 33\""
+          },
+          "output": "fill 33\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749751240000,
+            "end": 1749751240000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_210",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_87",
+        "type": "text",
+        "text": "```ts\n// filler 33\nexport function filler33(): string {\n  return \"filler-33\";\n}\n```",
+        "time": {
+          "start": 1749751240000,
+          "end": 1749751240000
+        }
+      },
+      {
+        "id": "prt_rich_211",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_87",
+        "type": "text",
+        "text": "回答结束（第 33 条）。",
+        "time": {
+          "start": 1749751240000,
+          "end": 1749751240000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_88",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749751360000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_212",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_88",
+        "type": "text",
+        "text": "填充问题 34：这一段是第 34 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749751360000,
+          "end": 1749751360000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_89",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749751480000,
+        "completed": 1749751480000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_213",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_89",
+        "type": "text",
+        "text": "这是第 34 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749751480000,
+          "end": 1749751480000
+        }
+      },
+      {
+        "id": "prt_rich_214",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_89",
+        "type": "tool",
+        "callID": "call_rich_fill_33",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 34\""
+          },
+          "output": "fill 34\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749751480000,
+            "end": 1749751480000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_215",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_89",
+        "type": "text",
+        "text": "```ts\n// filler 34\nexport function filler34(): string {\n  return \"filler-34\";\n}\n```",
+        "time": {
+          "start": 1749751480000,
+          "end": 1749751480000
+        }
+      },
+      {
+        "id": "prt_rich_216",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_89",
+        "type": "text",
+        "text": "回答结束（第 34 条）。",
+        "time": {
+          "start": 1749751480000,
+          "end": 1749751480000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_90",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749751600000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_217",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_90",
+        "type": "text",
+        "text": "填充问题 35：这一段是第 35 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749751600000,
+          "end": 1749751600000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_91",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749751720000,
+        "completed": 1749751720000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_218",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_91",
+        "type": "text",
+        "text": "这是第 35 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749751720000,
+          "end": 1749751720000
+        }
+      },
+      {
+        "id": "prt_rich_219",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_91",
+        "type": "tool",
+        "callID": "call_rich_fill_34",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 35\""
+          },
+          "output": "fill 35\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749751720000,
+            "end": 1749751720000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_220",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_91",
+        "type": "text",
+        "text": "```ts\n// filler 35\nexport function filler35(): string {\n  return \"filler-35\";\n}\n```",
+        "time": {
+          "start": 1749751720000,
+          "end": 1749751720000
+        }
+      },
+      {
+        "id": "prt_rich_221",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_91",
+        "type": "text",
+        "text": "回答结束（第 35 条）。",
+        "time": {
+          "start": 1749751720000,
+          "end": 1749751720000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_92",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749751840000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_222",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_92",
+        "type": "text",
+        "text": "填充问题 36：这一段是第 36 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749751840000,
+          "end": 1749751840000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_93",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749751960000,
+        "completed": 1749751960000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_223",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_93",
+        "type": "text",
+        "text": "这是第 36 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749751960000,
+          "end": 1749751960000
+        }
+      },
+      {
+        "id": "prt_rich_224",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_93",
+        "type": "tool",
+        "callID": "call_rich_fill_35",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 36\""
+          },
+          "output": "fill 36\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749751960000,
+            "end": 1749751960000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_225",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_93",
+        "type": "text",
+        "text": "```ts\n// filler 36\nexport function filler36(): string {\n  return \"filler-36\";\n}\n```",
+        "time": {
+          "start": 1749751960000,
+          "end": 1749751960000
+        }
+      },
+      {
+        "id": "prt_rich_226",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_93",
+        "type": "text",
+        "text": "回答结束（第 36 条）。",
+        "time": {
+          "start": 1749751960000,
+          "end": 1749751960000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_94",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749752080000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_227",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_94",
+        "type": "text",
+        "text": "填充问题 37：这一段是第 37 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749752080000,
+          "end": 1749752080000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_95",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749752200000,
+        "completed": 1749752200000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_228",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_95",
+        "type": "text",
+        "text": "这是第 37 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749752200000,
+          "end": 1749752200000
+        }
+      },
+      {
+        "id": "prt_rich_229",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_95",
+        "type": "tool",
+        "callID": "call_rich_fill_36",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 37\""
+          },
+          "output": "fill 37\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749752200000,
+            "end": 1749752200000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_230",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_95",
+        "type": "text",
+        "text": "```ts\n// filler 37\nexport function filler37(): string {\n  return \"filler-37\";\n}\n```",
+        "time": {
+          "start": 1749752200000,
+          "end": 1749752200000
+        }
+      },
+      {
+        "id": "prt_rich_231",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_95",
+        "type": "text",
+        "text": "回答结束（第 37 条）。",
+        "time": {
+          "start": 1749752200000,
+          "end": 1749752200000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_96",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749752320000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_232",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_96",
+        "type": "text",
+        "text": "填充问题 38：这一段是第 38 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749752320000,
+          "end": 1749752320000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_97",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749752440000,
+        "completed": 1749752440000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_233",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_97",
+        "type": "text",
+        "text": "这是第 38 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749752440000,
+          "end": 1749752440000
+        }
+      },
+      {
+        "id": "prt_rich_234",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_97",
+        "type": "tool",
+        "callID": "call_rich_fill_37",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 38\""
+          },
+          "output": "fill 38\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749752440000,
+            "end": 1749752440000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_235",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_97",
+        "type": "text",
+        "text": "```ts\n// filler 38\nexport function filler38(): string {\n  return \"filler-38\";\n}\n```",
+        "time": {
+          "start": 1749752440000,
+          "end": 1749752440000
+        }
+      },
+      {
+        "id": "prt_rich_236",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_97",
+        "type": "text",
+        "text": "回答结束（第 38 条）。",
+        "time": {
+          "start": 1749752440000,
+          "end": 1749752440000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_98",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749752560000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_237",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_98",
+        "type": "text",
+        "text": "填充问题 39：这一段是第 39 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749752560000,
+          "end": 1749752560000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_99",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749752680000,
+        "completed": 1749752680000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_238",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_99",
+        "type": "text",
+        "text": "这是第 39 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749752680000,
+          "end": 1749752680000
+        }
+      },
+      {
+        "id": "prt_rich_239",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_99",
+        "type": "tool",
+        "callID": "call_rich_fill_38",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 39\""
+          },
+          "output": "fill 39\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749752680000,
+            "end": 1749752680000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_240",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_99",
+        "type": "text",
+        "text": "```ts\n// filler 39\nexport function filler39(): string {\n  return \"filler-39\";\n}\n```",
+        "time": {
+          "start": 1749752680000,
+          "end": 1749752680000
+        }
+      },
+      {
+        "id": "prt_rich_241",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_99",
+        "type": "text",
+        "text": "回答结束（第 39 条）。",
+        "time": {
+          "start": 1749752680000,
+          "end": 1749752680000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_100",
+      "sessionID": "ses_rich_01",
+      "role": "user",
+      "time": {
+        "created": 1749752800000
+      }
+    },
+    "parts": [
+      {
+        "id": "prt_rich_242",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_100",
+        "type": "text",
+        "text": "填充问题 40：这一段是第 40 条较长的问题，用来撑起会话长度，便于验证虚拟列表在大量消息下的滚动与测量表现。",
+        "time": {
+          "start": 1749752800000,
+          "end": 1749752800000
+        }
+      }
+    ]
+  },
+  {
+    "info": {
+      "id": "msg_rich_101",
+      "sessionID": "ses_rich_01",
+      "role": "assistant",
+      "time": {
+        "created": 1749752920000,
+        "completed": 1749752920000
+      },
+      "agent": "build",
+      "modelID": "gpt-5",
+      "providerID": "openai"
+    },
+    "parts": [
+      {
+        "id": "prt_rich_243",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_101",
+        "type": "text",
+        "text": "这是第 40 条回答。包含一段示例代码：",
+        "time": {
+          "start": 1749752920000,
+          "end": 1749752920000
+        }
+      },
+      {
+        "id": "prt_rich_244",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_101",
+        "type": "tool",
+        "callID": "call_rich_fill_39",
+        "tool": "bash",
+        "state": {
+          "status": "completed",
+          "input": {
+            "command": "echo \"fill 40\""
+          },
+          "output": "fill 40\n",
+          "title": "bash",
+          "metadata": {
+            "exit": 0
+          },
+          "time": {
+            "start": 1749752920000,
+            "end": 1749752920000
+          }
+        }
+      },
+      {
+        "id": "prt_rich_245",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_101",
+        "type": "text",
+        "text": "```ts\n// filler 40\nexport function filler40(): string {\n  return \"filler-40\";\n}\n```",
+        "time": {
+          "start": 1749752920000,
+          "end": 1749752920000
+        }
+      },
+      {
+        "id": "prt_rich_246",
+        "sessionID": "ses_rich_01",
+        "messageID": "msg_rich_101",
+        "type": "text",
+        "text": "回答结束（第 40 条）。",
+        "time": {
+          "start": 1749752920000,
+          "end": 1749752920000
+        }
+      }
+    ]
+  }
+]

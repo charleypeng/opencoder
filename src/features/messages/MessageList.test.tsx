@@ -42,6 +42,32 @@ vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
 const SERVER = "srv-msg";
 const SESSION = "ses_1";
 
+// ResizeObserver stub: the virtual list registers a callback per mounted
+// row; tests fire them manually to simulate a row's measured height
+// changing (as async code-fence hydration does in the real WebView).
+const observers: Array<{ cb: () => void }> = [];
+const originalResizeObserver = globalThis.ResizeObserver;
+
+beforeEach(() => {
+  getApiClientMock.mockReset();
+  mockClient([]);
+  observers.length = 0;
+  globalThis.ResizeObserver = class {
+    constructor(cb: () => void) {
+      observers.push({ cb });
+    }
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  } as unknown as typeof ResizeObserver;
+});
+
+afterEach(() => {
+  resetMessages(SERVER);
+  resetSessions(SERVER);
+  globalThis.ResizeObserver = originalResizeObserver;
+});
+
 function mockClient(history: SessionMessage[]) {
   const client = {
     get: vi.fn(async () => history),
@@ -115,16 +141,6 @@ function paginatedClientFrom(messages: SessionMessage[], includeCursor = false) 
   });
   return client;
 }
-
-beforeEach(() => {
-  getApiClientMock.mockReset();
-  mockClient([]);
-});
-
-afterEach(() => {
-  resetMessages(SERVER);
-  resetSessions(SERVER);
-});
 
 function renderList(serverId = SERVER, sessionId = SESSION) {
   return render(() => <MessageList serverId={serverId} sessionId={sessionId} />);
@@ -644,5 +660,42 @@ describe("MessageList revert state (TASK-M6-04)", () => {
 
     fireEvent.click(within(screen.getByTestId("reverted-bar")).getByTestId("unrevert"));
     expect(unreverted).toBe(1);
+  });
+
+  it("keeps row DOM alive when a measurement re-positions it (keyed rows)", async () => {
+    // Regression for the overlap/flicker bug: an unkeyed For re-created the
+    // row subtree whenever a measured height changed (the code-fence
+    // placeholder shrank and grew in a ResizeObserver feedback loop, and
+    // rows rendered on top of each other). Rows must be keyed by message id
+    // so a re-position only moves style.top and the bubble DOM survives.
+    mockClient(historyFixture);
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-msg_m4")).toBeInTheDocument());
+
+    const rowOf = (id: string) =>
+      screen.getByTestId(`message-${id}`).closest("[data-virtual-row]") as HTMLElement;
+    const first = rowOf("msg_m1");
+    const last = rowOf("msg_m4");
+    const lastTop = last.style.top;
+
+    // Simulate async Shiki hydration growing a middle row: stub its
+    // measured height and fire the ResizeObserver callback the virtual list
+    // registered. The keyed list must MOVE the rows below it (style.top
+    // changes) without replacing any row DOM — replacing it would drop the
+    // hydrated code fences and restart the placeholder loop.
+    const middle = rowOf("msg_m2");
+    Object.defineProperty(middle, "offsetHeight", { configurable: true, value: 400 });
+    for (const { cb } of observers) cb();
+
+    await waitFor(() => {
+      // The row below the grown one moved down (its style.top changed)…
+      expect(rowOf("msg_m3").style.top).not.toBe("");
+      // …and every message node is the SAME DOM node as before the
+      // re-position: keyed rows are moved, not rebuilt.
+      expect(rowOf("msg_m1")).toBe(first);
+      expect(rowOf("msg_m2")).toBe(middle);
+      expect(rowOf("msg_m4")).toBe(last);
+      expect(rowOf("msg_m4").style.top).not.toBe(lastTop);
+    });
   });
 });

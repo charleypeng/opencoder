@@ -665,10 +665,13 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   // `before` pages strictly older than the given message id (combined with
   // `limit`; unknown ids yield an empty array). The client opens the
   // transcript with the recent page and walks backwards with `before`.
+  // The rich session (ses_rich_01, added for chat-UI visual verification)
+  // serves the 100+ message fixture exercising every part type; all other
+  // sessions keep the compact fixture.
   app.get("/session/:sessionID/message", (req, res) => {
-    const messages = Array.isArray(fixtures["session.messages"])
-      ? fixtures["session.messages"]
-      : [];
+    const key =
+      req.params.sessionID === "ses_rich_01" ? "session.messages.rich" : "session.messages";
+    const messages = Array.isArray(fixtures[key]) ? fixtures[key] : [];
     const limit = Number(req.query.limit);
     const before = queryString(req, "before");
     let window = messages;

@@ -9,6 +9,7 @@
 
 ### 新增
 
+- Mock 服务器大量对话 fixture（feat(mock)）：新增 `ses_rich_01` 会话（「Heartbeat SSE 与架构讨论（大量消息）」），提供由 `scripts/gen-rich-messages.mjs` 生成的 100+ 条消息 fixture，覆盖全部 part 类型——含代码块与表格的长 markdown 文档、思考折叠、四种状态的工具调用、file/patch/snapshot/subtask/agent/retry/compaction part——外加 40 轮填充问答以压测虚拟化滚动。其他会话保持紧凑 fixture。(mock)
 - 按 AI 编程聊天界面设计规范重做聊天界面（feat(chat)）：消息流现已满足规范 MUST 规则——消息流容器带 `role="log"` + `aria-live="polite"` + `aria-atomic="false"`，流式增量经 1s 防抖的屏幕阅读器播报（IA-01）；助手消息带持久的强调色 AI 标识徽章（IA-05）；语法高亮防抖 250ms，流式帧不再逐 token 重跑 Shiki（IA-09）；工具卡片状态文本为「动作词 + 工具名」（如「正在运行 bash」），running/error 状态带左侧强调色边线、错误输出等宽字体（IA-19/20/28）；patch part 暴露变更意图说明插槽（IA-15）；file part 带 mime 类型徽章与等宽路径（IA-24）。输入区在生成期间显示分阶段等待文本（<3s spinner、3–10s「正在生成回复…」、>10s「仍在生成 — 按 Esc 停止」）并置于 aria-live 区域（IA-18）；会话错误横幅遵循三段式失败格式（什么失败 + 为什么 + 重试/关闭）；待办面板新增计数摘要头（IA-21）；会话列表与聊天头部按桌面密度收紧；状态栏带 `role="status"` 与 aria-label；移动端聊天页新增玻璃拟态输入条（安全区内边距）、TabBar 与页头返回按钮触控目标 ≥44px、底部导航玻璃化（ui-design §4/§5）。双主题新增设计令牌 `--ai-label-bg`/`--ai-label-text`。设计规格见 docs/chat-redesign-spec.md。(chat-ui)
 - 思考折叠在生成期间自动展开（feat(messages)）：会话开始流式输出时思考折叠自动打开、生成结束时自动收起，让思考过程像 codex / claude code 那样实时可见。任意时刻仍可手动点击折叠/展开。(messages)
 - 桌面端设置入口增强 (TASK-S1-03)：侧栏（服务器切换列）底部新增齿轮按钮（位于「+」添加服务器按钮之下，以 `mt-auto` 钉在侧栏底缘），使设置在任何主视图下都一键可达——侧栏在主区视图切换之外，因此入口不再在 diff/终端/变更等隐藏主区标签栏（及其齿轮）的视图中消失。按钮与既有主区标签栏 `settings-toggle` 共用同一 `setMainView("settings")` 处理器与 i18n 文案（`desktop:openSettings` / `settings:settings`），后者保留作为 chat/files 视图中的上下文入口；⌘, 快捷键在任意视图仍可打开设置（新增从终端视图触发的测试覆盖）。
@@ -21,6 +22,7 @@
 
 ### 修复
 
+- 聊天消息行重叠与滚动闪烁（fix(messages)）：消息行此前由**非 keyed** 的 For 渲染，任何测量高度变化（异步 Shiki 代码块高亮在占位符被测量后撑高行）都会重建整行子树——行在占位符高度与高亮高度之间反复伸缩，形成 ResizeObserver 反馈循环，行与行互相叠压（用户气泡盖在助手文本上），消息流底部永远无法稳定（「回到底部」目标每行滞后约 110px）。行现按消息 id 做 keyed 渲染（solid-primitives `Key`），重新测量只移动 `style.top`，气泡 DOM（含已高亮的代码块）得以保留；循环消除，消息流可稳定落底。回归测试模拟 ResizeObserver 高度变化并断言行 DOM 身份不变。(messages)
 - 流式期间思考折叠无法展开（fix(messages)）：part 分发 memo 在每次 `message.part.updated` 事件整体替换 part 对象时返回全新组件元素，导致思考组件被重建、展开状态被重置——生成过程中点击展开会立刻收起。memo 的相等比较现改为对比渲染的组件类型而非元素身份，同类型 part 替换时保留已挂载的组件实例与其本地状态。(messages)
 - Mock 服务商目录反映新增的服务商（fix(mock)）：新用户走查（TASK-S1-04）端到端验证了 S1-01/02/03 已实现特性——添加服务器 → Rail 齿轮进设置 → 模型分区默认模型选择（展示配置默认，选择后 chip 变「本地默认」，Clear 可用）→ 切换浅色主题（data-theme 翻转）→ 切换中文（激活态正确）→ 添加服务商对话框打开/提交（PATCH /global/config 写入 `provider.myllm`）——但添加**之后**新服务商未出现在 Providers 列表：`GET /provider` 返回的是**静态 fixture**，而真实 opencode server 会把配置中声明的 provider 加载进目录。mock 的 `GET /provider` 现改为动态处理——把 `globalConfig.provider` 条目合并进 fixture 目录（合成 Provider：`source: "config"`、env/options 取自 ProviderConfig、models 为空——未配 key 前显示「未连接」），保留 fixture 的 `default`/`connected` 记录；客户端代码零改动（添加后本就会重拉目录）。mock self-test 新增断言（新 id 出现、静态目录与 default/connected 保留）；走查结果记录于 docs/plans/settings-center.md。(TASK-S1-04)
 - 默认模型展示未过滤不可用的本地选择（fix(settings)）：设置页「模型」分区展示客户端本地默认时未校验其提供商仍处于连接状态、模型仍在目录中，因此可能显示「本地默认」+「新会话使用该模型」，而实际解析链（以及新会话）已回退到服务端配置默认。本地默认的展示现与解析链应用同一可用性规则（提供商已连接 + 模型在目录中），本地选择失效时回退显示配置默认与 Default 徽标；「清除」按钮仍可清除过期槽位。(TASK-S1-01)
