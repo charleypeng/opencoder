@@ -348,28 +348,34 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
         class="glass fixed z-50 min-w-44 p-1 outline-none"
         style={{ left: `${position().x}px`, top: `${position().y}px` }}
       >
-        <For each={props.items}>
-          {(item, index) => (
-            <MenuRow
-              item={item}
-              testId={item.id !== undefined ? `${testId()}-${item.id}` : undefined}
-              highlighted={submenu() === null && highlight() === index()}
-              expanded={expandedAt(index())}
-              onMouseEnter={() => onRowMouseEnter(item, index())}
-              onActivate={() => {
-                if (item.submenu !== undefined) {
-                  openSubmenuAt(index(), itemRefs.get(index()));
-                  return;
-                }
-                selectItem(item);
-              }}
-              registerRef={(el) => {
-                if (el !== undefined) itemRefs.set(index(), el);
-                else itemRefs.delete(index());
-              }}
-            />
-          )}
-        </For>
+        {/* Inner clip: the glass panel has a large radius (--r-xl), while
+            row highlights use a small one; clipping the rows to the panel
+            radius keeps the hover highlight from poking out of the rounded
+            corners. The shadow lives on the outer glass panel. */}
+        <div class="overflow-hidden rounded-[calc(var(--r-xl)-4px)]">
+          <For each={props.items}>
+            {(item, index) => (
+              <MenuRow
+                item={item}
+                testId={item.id !== undefined ? `${testId()}-${item.id}` : undefined}
+                highlighted={submenu() === null && highlight() === index()}
+                expanded={expandedAt(index())}
+                onMouseEnter={() => onRowMouseEnter(item, index())}
+                onActivate={() => {
+                  if (item.submenu !== undefined) {
+                    openSubmenuAt(index(), itemRefs.get(index()));
+                    return;
+                  }
+                  selectItem(item);
+                }}
+                registerRef={(el) => {
+                  if (el !== undefined) itemRefs.set(index(), el);
+                  else itemRefs.delete(index());
+                }}
+              />
+            )}
+          </For>
+        </div>
       </div>
       <Show when={submenu() !== null}>
         <div
@@ -379,19 +385,21 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
           class="glass fixed z-50 min-w-44 p-1"
           style={{ left: `${subPos().x}px`, top: `${subPos().y}px` }}
         >
-          <For each={props.items[sub().index]?.submenu ?? []}>
-            {(item, index) => (
-              <MenuRow
-                item={item}
-                testId={item.id !== undefined ? `${testId()}-${item.id}` : undefined}
-                highlighted={subHighlight() === index()}
-                expanded={false}
-                onMouseEnter={() => setSubHighlight(index())}
-                onActivate={() => selectItem(item)}
-                registerRef={() => undefined}
-              />
-            )}
-          </For>
+          <div class="overflow-hidden rounded-[calc(var(--r-xl)-4px)]">
+            <For each={props.items[sub().index]?.submenu ?? []}>
+              {(item, index) => (
+                <MenuRow
+                  item={item}
+                  testId={item.id !== undefined ? `${testId()}-${item.id}` : undefined}
+                  highlighted={subHighlight() === index()}
+                  expanded={false}
+                  onMouseEnter={() => setSubHighlight(index())}
+                  onActivate={() => selectItem(item)}
+                  registerRef={() => undefined}
+                />
+              )}
+            </For>
+          </div>
         </div>
       </Show>
     </>
