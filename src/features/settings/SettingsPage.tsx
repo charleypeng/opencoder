@@ -3,9 +3,9 @@
 // or the horizontal chip row (mobile), the settings search (filters the
 // nav by translated title / hint / keywords) and the active-section
 // rendering; section state is component-local (URL-less). Desktop mounts
-// this view through the gear button with its own Back header; the mobile
-// settings tab renders the same page in the mobile variant (chips, no
-// Back header — a tab root has nothing to pop back to).
+// this view inside the settings dialog with its own close header; the
+// mobile settings tab renders the same page in the mobile variant (chips,
+// no header — the dialog provides the close button).
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
@@ -16,9 +16,9 @@ import { useT } from "../../i18n/index.js";
 export interface SettingsPageProps {
   /** The server whose settings are shown. */
   serverId: string;
-  /** Desktop header back button; the mobile tab root passes none. */
-  onBack?: () => void;
-  /** Desktop: sidebar nav + Back header. Mobile: horizontal chip nav. */
+  /** Desktop header close button; the mobile tab root passes none. */
+  onClose?: () => void;
+  /** Desktop: sidebar nav + header. Mobile: horizontal chip nav. */
   variant?: "desktop" | "mobile";
 }
 
@@ -96,11 +96,11 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
           <button
             type="button"
-            data-testid="settings-back"
+            data-testid="settings-close"
             class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-            onClick={() => props.onBack?.()}
+            onClick={() => props.onClose?.()}
           >
-            ← {t("common:back")}
+            ✕ {t("common:close")}
           </button>
           <h2 class="shrink-0 text-sm font-semibold">{t("settings:settings")}</h2>
         </header>

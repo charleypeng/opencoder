@@ -15,10 +15,11 @@
 // The `canGoBack` flag reflects WebView history, which a SPA does not
 // use, so the decision is resolved from OUR navigation state instead:
 //  1. a dismissible bottom sheet is open  -> close the sheet (priority)
-//  2. the active tab's stack is deeper    -> pop
-//  3. anything else (root, or a PINNED sheet — permission/question must
+//  2. the settings dialog is open         -> close it
+//  3. the active tab's stack is deeper    -> pop
+//  4. anything else (root, or a PINNED sheet — permission/question must
 //     be answered, not skipped, TASK-M7-05) -> NOTHING to handle.
-// In case 3 the facade UNREGISTERS the listener, so Android's native
+// In case 4 the facade UNREGISTERS the listener, so Android's native
 // back behavior (background the app) resumes automatically — nothing is
 // swallowed and no exit command is needed (`plugin:app|exit` is not
 // exposed through the core:app ACL, verified against the Rust "app"
@@ -34,11 +35,13 @@ import { onBackButtonPress } from "@tauri-apps/api/app";
 import type { PluginListener } from "@tauri-apps/api/core";
 import { platform } from "../platform/index.js";
 
-export type BackDecision = "closeSheet" | "pop" | "none";
+export type BackDecision = "closeSheet" | "closeSettings" | "pop" | "none";
 
 export interface BackContext {
   /** The topmost open bottom sheet (null when none). */
   sheet: { dismissible: boolean } | null;
+  /** Whether the settings dialog is open (TASK-UI-01). */
+  settingsOpen?: boolean;
   /** The active tab's route stack depth (1 = its root page). */
   stackDepth: number;
 }
@@ -46,6 +49,8 @@ export interface BackContext {
 export interface BackHandlers {
   /** Closes the open (dismissible) sheet. */
   closeSheet: () => void;
+  /** Closes the settings dialog (TASK-UI-01). */
+  closeSettings?: () => void;
   /** Pops the active tab's route stack. */
   pop: () => void;
 }
@@ -58,6 +63,7 @@ export function resolveBack(context: BackContext): BackDecision {
     // request must be answered, not skipped.
     return sheet.dismissible ? "closeSheet" : "none";
   }
+  if (context.settingsOpen === true) return "closeSettings";
   if (context.stackDepth > 1) return "pop";
   return "none";
 }
@@ -89,6 +95,7 @@ export function startAndroidBack(options: {
   function handleBackPress(): void {
     const decision = resolveBack(options.getContext());
     if (decision === "closeSheet") options.handlers.closeSheet();
+    else if (decision === "closeSettings") options.handlers.closeSettings?.();
     else if (decision === "pop") options.handlers.pop();
   }
 

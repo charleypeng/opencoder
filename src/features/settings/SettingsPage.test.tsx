@@ -83,7 +83,7 @@ afterEach(() => {
 
 describe("SettingsPage", () => {
   it("renders the header, the full sectioned nav and General active by default", () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     expect(screen.getByTestId("settings-page")).toHaveAttribute("data-variant", "desktop");
     expect(screen.getByText("Settings")).toBeInTheDocument();
@@ -109,19 +109,19 @@ describe("SettingsPage", () => {
     }
     expect(screen.getByTestId("settings-section-general")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("general-section")).toBeInTheDocument();
-    expect(screen.getByTestId("settings-back")).toBeInTheDocument();
+    expect(screen.getByTestId("settings-close")).toBeInTheDocument();
   });
 
-  it("invokes onBack from the header back button", () => {
-    const onBack = vi.fn();
-    render(() => <SettingsPage serverId={SERVER} onBack={onBack} />);
+  it("invokes onClose from the header close button", () => {
+    const onClose = vi.fn();
+    render(() => <SettingsPage serverId={SERVER} onClose={onClose} />);
 
-    fireEvent.click(screen.getByTestId("settings-back"));
-    expect(onBack).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByTestId("settings-close"));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 
   it("reaches every section from the nav", () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     const cases: Array<[string, string]> = [
       ["appearance", "appearance-section"],
@@ -148,7 +148,7 @@ describe("SettingsPage", () => {
   });
 
   it("hosts the providers section (API keys) and switches back", async () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId("settings-section-providers"));
     await screen.findByTestId("provider-key-row-openai");
@@ -164,7 +164,7 @@ describe("SettingsPage", () => {
   });
 
   it("filters the nav by title / hint / keywords and shows the no-match state", () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     const search = screen.getByTestId("settings-search");
     fireEvent.input(search, { target: { value: "accent" } });
@@ -182,7 +182,7 @@ describe("SettingsPage", () => {
   });
 
   it("keeps the active section rendered while it is filtered out", () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     fireEvent.input(screen.getByTestId("settings-search"), { target: { value: "zzz" } });
     expect(screen.getByTestId("settings-search-empty")).toBeInTheDocument();
@@ -191,7 +191,7 @@ describe("SettingsPage", () => {
 
   it("resets settings from the General section (two-step confirm)", () => {
     localStorage.setItem("oc-foo", "1");
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     const reset = screen.getByTestId("general-reset");
     fireEvent.click(reset);
@@ -210,7 +210,7 @@ describe("SettingsPage", () => {
       status: "ok",
       failCount: 0,
     });
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId("settings-section-about"));
     await waitFor(() => expect(screen.getByTestId("about-version")).toHaveTextContent("1.0.0"));
@@ -229,7 +229,7 @@ describe("SettingsPage", () => {
           ])
         : Promise.resolve(undefined),
     );
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     fireEvent.click(screen.getByTestId("settings-section-servers"));
     await screen.findByTestId("servers-row-srv-a");
@@ -249,7 +249,7 @@ describe("SettingsPage", () => {
     render(() => <SettingsPage serverId={SERVER} variant="mobile" />);
 
     expect(screen.getByTestId("settings-page")).toHaveAttribute("data-variant", "mobile");
-    expect(screen.queryByTestId("settings-back")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("settings-close")).not.toBeInTheDocument();
     expect(screen.getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
 
     fireEvent.click(screen.getByTestId("settings-section-about"));
@@ -258,7 +258,7 @@ describe("SettingsPage", () => {
   });
 
   it("switches the app language from the Language section", () => {
-    render(() => <SettingsPage serverId={SERVER} onBack={vi.fn()} />);
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
     const languageNav = screen.getByTestId("settings-section-language");
     expect(languageNav).not.toHaveAttribute("aria-current");

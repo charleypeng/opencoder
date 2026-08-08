@@ -72,6 +72,11 @@ describe("resolveBack", () => {
     expect(resolveBack({ ...base, stackDepth: 2 })).toBe("pop");
   });
 
+  it("closes the settings dialog before popping (TASK-UI-01)", () => {
+    expect(resolveBack({ ...base, settingsOpen: true, stackDepth: 2 })).toBe("closeSettings");
+    expect(resolveBack({ ...base, settingsOpen: true })).toBe("closeSettings");
+  });
+
   it("leaves the root page unhandled (native default resumes)", () => {
     expect(resolveBack(base)).toBe("none");
   });

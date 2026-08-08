@@ -251,19 +251,25 @@ describe("MobileShell", () => {
     await waitFor(() => expect(screen.getByTestId("session-row-sess_1")).toBeInTheDocument());
   });
 
-  it("wires the settings center into the Settings tab (mobile variant)", async () => {
+  it("the settings tab opens the settings dialog above the current page (mobile variant)", async () => {
     stubAndroid();
     renderShell();
     await waitFor(() => screen.getByTestId("mobile-shell"));
 
     fireEvent.click(screen.getByTestId("mobile-tab-settings"));
-    await waitFor(() =>
-      expect(screen.getByTestId("mobile-page-settings")).toHaveAttribute("data-active", "true"),
-    );
-    const page = screen.getByTestId("mobile-page-settings");
-    expect(within(page).getByTestId("settings-page")).toHaveAttribute("data-variant", "mobile");
-    expect(within(page).getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
-    expect(within(page).getByTestId("general-section")).toBeInTheDocument();
+    // Settings floats above the current tab instead of switching to it:
+    // the dialog is open and the sessions page is still the active tab.
+    const dialog = screen.getByTestId("settings-dialog");
+    expect(dialog).toHaveAttribute("data-variant", "mobile");
+    expect(within(dialog).getByTestId("settings-page")).toHaveAttribute("data-variant", "mobile");
+    expect(within(dialog).getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
+    expect(within(dialog).getByTestId("general-section")).toBeInTheDocument();
+    expect(screen.getByTestId("mobile-page-sessions")).toHaveAttribute("data-active", "true");
+
+    // The dialog's own close header dismisses it, returning to the tab.
+    fireEvent.click(within(dialog).getByTestId("settings-dialog-close"));
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
+    expect(screen.getByTestId("mobile-page-sessions")).toHaveAttribute("data-active", "true");
   });
 
   it("applies the enter transition classes on push and pop (TASK-M7-07)", async () => {
@@ -403,10 +409,15 @@ describe("MobileShell", () => {
       window.__glassTabSelected?.(1);
       expect(screen.getByTestId("mobile-page-files")).toHaveAttribute("data-active", "true");
     });
+    // The native settings item (index 3) opens the settings dialog above
+    // the current page instead of switching tabs (TASK-UI-01).
     await waitFor(() => {
       window.__glassTabSelected?.(3);
-      expect(screen.getByTestId("mobile-page-settings")).toHaveAttribute("data-active", "true");
+      expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
+      expect(screen.getByTestId("mobile-page-files")).toHaveAttribute("data-active", "true");
     });
+    fireEvent.click(screen.getByTestId("settings-dialog-close"));
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
   });
 
   it("shows the native glass bar on mount and hides it on unmount", async () => {

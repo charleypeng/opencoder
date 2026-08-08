@@ -33,6 +33,8 @@
 - part 展开按钮不再显示 hover 背景（fix(chat)）：思考、工具、子任务、压缩与文件 part 的展开/折叠按钮移除 `hover:bg-accent-soft`——浅色模式下该悬停底色看起来像一块阴影；键盘焦点样式（`focus:bg-accent-soft`）保留。(chat-ui)
 - 右键菜单 hover 高亮不再超出圆角（fix(ui)）：玻璃菜单面板使用大圆角（--r-xl）而菜单行高亮只有小圆角，鼠标滑过时高亮色块会戳出圆角之外。菜单行现按面板圆角裁剪（阴影仍在外层面板上）；主菜单与子菜单均生效。(chat-ui)
 - 补丁卡文件行可展开内联差异（feat(messages)）：点击补丁卡中被修改的文件行此前毫无反应（onOpenDiff 钩子从未接线）。每行现在可以展开/收起内联差异——每张卡片只从 `GET /session/{id}/diff`（按消息过滤）拉取一次，用共享的 DiffFileGroup 渲染：带行号配色的 unified 行、文件 +增 -删 统计与状态徽章，以及加载中/失败/空内容三种状态；再次展开直接使用缓存。(messages)
+- 应用外壳在所有平台固定（feat(ui)）：html/body/#root 锁定为视口尺寸（`overflow: hidden` + `overscroll-behavior: none`），所有元素统一 `overscroll-behavior: none`——滚动到边界不再回弹（iOS 橡皮筋、桌面 WebView 的 overscroll 光晕/滚动链），整个应用呈现桌面端手感而非网页。(TASK-UI-01)
+- 设置改为全平台模态对话框（feat(ui)）：设置中心现在以浮层形式悬浮于当前视图之上，而非替换视图——桌面端在暗色遮罩上显示居中的玻璃面板（齿轮按钮 / 命令面板 / ⌘, 均可打开；Esc、点击遮罩或 ✕ 关闭按钮均可关闭，聊天视图保持挂载于下层）；移动端设置标签打开全屏浮层覆盖当前页面（不再切换离开你的内容；Android 系统返回键优先关闭它）。页面头部按钮由「← 返回」改为「✕ 关闭」。(TASK-UI-01)
 - iOS 应用启动不再崩溃（fix(mobile)）：tauri 2.11 自带的 reqwest 0.13 依赖以 `rustls-no-provider` 编译，每次 `Client::new()` 都会 panic（「未配置 rustls 加密提供方」）——应用在 iOS 上一打开就立即退出。现于 Tauri builder 运行前安装 ring 加密提供方；updater 插件（其 reqwest 0.13 同样需要该提供方，而移动分发并不使用 updater——App Store 更新机制已覆盖）改为仅桌面端注册。(mobile)
 - 默认模型展示未过滤不可用的本地选择（fix(settings)）：设置页「模型」分区展示客户端本地默认时未校验其提供商仍处于连接状态、模型仍在目录中，因此可能显示「本地默认」+「新会话使用该模型」，而实际解析链（以及新会话）已回退到服务端配置默认。本地默认的展示现与解析链应用同一可用性规则（提供商已连接 + 模型在目录中），本地选择失效时回退显示配置默认与 Default 徽标；「清除」按钮仍可清除过期槽位。(TASK-S1-01)
 - 发送消息后用户消息重复显示（fix(messages)）：乐观插入的 local-* 消息在收到仅含元数据的服务端回显时，会将其 part 重命名到 `prt-{echoId}` 下；但真实 opencode server 会在回显后紧接着推送该消息自己的 `message.part.updated`——重命名产物与真实 part 同时存在，导致提示文本渲染两次。现按会话记录重命名出的 part id，并在回显的真实 part 到达时删除它们，文本恰好渲染一次。(messages)

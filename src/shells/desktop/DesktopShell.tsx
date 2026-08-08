@@ -109,7 +109,7 @@ import { resetServer as resetPermissions } from "../../stores/permission";
 import { createToast } from "../../stores/toasts";
 import PermissionSheet from "../../features/permissions/PermissionSheet";
 import QuestionSheet from "../../features/questions/QuestionSheet";
-import SettingsPage from "../../features/settings/SettingsPage";
+import SettingsDialog from "../../features/settings/SettingsDialog";
 // TASK-M9-08: the terminal panel (and with it the xterm.js bundle) is
 // loaded lazily — the view is only mounted on demand, so xterm stays out of
 // the startup chunk (bundle-size budget, docs/performance.md).
@@ -399,9 +399,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // center. TASK-M6-02 adds the Terminal view (terminal icon in the tab
   // bar or the provisional ⌘/Ctrl+J hook; its own Back header returns to
   // chat, and the tab bar is hidden while it is open like the others).
-  const [mainView, setMainView] = createSignal<
-    "chat" | "files" | "diff" | "changes" | "settings" | "terminal"
-  >("chat");
+  const [mainView, setMainView] = createSignal<"chat" | "files" | "diff" | "changes" | "terminal">(
+    "chat",
+  );
+  // Settings dialog (TASK-UI-01): settings floats above the active view
+  // as a modal instead of replacing it — the gear button, the command
+  // palette's settings action and the ⌘, shortcut open this dialog.
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
   // Diff message filter (TASK-M4-07): set when opened from a message's
   // "View diff"; the diff header's chip clears it back to the whole
   // session's diff.
@@ -666,7 +670,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       prevSession: () => stepSession(-1),
       nextSession: () => stepSession(1),
       toggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
-      openSettings: () => setMainView("settings"),
+      openSettings: () => setSettingsOpen(true),
     },
   });
 
@@ -938,7 +942,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             aria-label={t("desktop:openSettings")}
             title={t("settings:settings")}
             class="mt-auto flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
-            onClick={() => setMainView("settings")}
+            onClick={() => setSettingsOpen(true)}
           >
             <svg
               viewBox="0 0 24 24"
@@ -1043,12 +1047,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
         <main class="flex min-w-0 flex-1 flex-col">
           <Show
-            when={
-              mainView() === "diff" ||
-              mainView() === "changes" ||
-              mainView() === "settings" ||
-              mainView() === "terminal"
-            }
+            when={mainView() === "diff" || mainView() === "changes" || mainView() === "terminal"}
             fallback={
               <>
                 {/* TASK-M9-08: the main-pane switcher mixes view tabs with
@@ -1157,7 +1156,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       aria-label={t("desktop:openSettings")}
                       title={t("settings:settings")}
                       class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                      onClick={() => setMainView("settings")}
+                      onClick={() => setSettingsOpen(true)}
                     >
                       <svg
                         viewBox="0 0 24 24"
@@ -1339,63 +1338,46 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   when={mainView() === "changes"}
                   fallback={
                     <>
-                      <Show
-                        when={mainView() === "settings"}
-                        fallback={
-                          <>
-                            <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
-                              <button
-                                type="button"
-                                data-testid="diff-back"
-                                class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                                onClick={() => setMainView("chat")}
-                              >
-                                ← {t("common:back")}
-                              </button>
-                              <h2 class="shrink-0 text-sm font-semibold">
-                                {t("desktop:sessionDiff")}
-                              </h2>
-                              <Show when={diffMessageId() !== undefined}>
-                                <span
-                                  data-testid="diff-message-filter"
-                                  class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
-                                >
-                                  Message {diffMessageId()}
-                                  <button
-                                    type="button"
-                                    data-testid="diff-filter-clear"
-                                    aria-label={t("desktop:showWholeDiff")}
-                                    class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
-                                    onClick={() => setDiffMessageId(undefined)}
-                                  >
-                                    ×
-                                  </button>
-                                </span>
-                              </Show>
-                            </header>
-                            <Show
-                              when={activeSessionId()}
-                              fallback={
-                                <div class="flex flex-1 items-center justify-center p-4">
-                                  <p class="text-sm text-fg-secondary">Select a session — M2</p>
-                                </div>
-                              }
+                      <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
+                        <button
+                          type="button"
+                          data-testid="diff-back"
+                          class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                          onClick={() => setMainView("chat")}
+                        >
+                          ← {t("common:back")}
+                        </button>
+                        <h2 class="shrink-0 text-sm font-semibold">{t("desktop:sessionDiff")}</h2>
+                        <Show when={diffMessageId() !== undefined}>
+                          <span
+                            data-testid="diff-message-filter"
+                            class="flex shrink-0 items-center gap-1 rounded-full border border-accent bg-accent-soft px-2.5 py-0.5 text-xs"
+                          >
+                            Message {diffMessageId()}
+                            <button
+                              type="button"
+                              data-testid="diff-filter-clear"
+                              aria-label={t("desktop:showWholeDiff")}
+                              class="flex h-4 w-4 items-center justify-center rounded-full text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                              onClick={() => setDiffMessageId(undefined)}
                             >
-                              <DiffView
-                                serverId={activeServerId()}
-                                sessionId={activeSessionId() as string}
-                                messageId={diffMessageId()}
-                              />
-                            </Show>
-                          </>
+                              ×
+                            </button>
+                          </span>
+                        </Show>
+                      </header>
+                      <Show
+                        when={activeSessionId()}
+                        fallback={
+                          <div class="flex flex-1 items-center justify-center p-4">
+                            <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                          </div>
                         }
                       >
-                        {/* Settings view (TASK-M5-06): the gear button's own Back
-                          header returns to the chat view; the page hosts the
-                          provider API-key section (M9-04 expands the sections). */}
-                        <SettingsPage
+                        <DiffView
                           serverId={activeServerId()}
-                          onBack={() => setMainView("chat")}
+                          sessionId={activeSessionId() as string}
+                          messageId={diffMessageId()}
                         />
                       </Show>
                     </>
@@ -1508,7 +1490,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         onClose={() => setCommandPalette(false)}
         actions={{
           onNewSession: () => void handleNewSession(),
-          onOpenSettings: () => setMainView("settings"),
+          onOpenSettings: () => setSettingsOpen(true),
           onToggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
           onOpenTerminal: () => setMainView("terminal"),
           onOpenDiff: () => {
@@ -1579,6 +1561,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           items={textMenuItems()}
           onClose={() => setTextMenu(null)}
         />
+      </Show>
+
+      {/* Settings dialog (TASK-UI-01): settings floats above the active
+          view as a modal (gear button / command palette / ⌘,). The dialog
+          is mounted after the other overlays so it sits above them. */}
+      <Show when={settingsOpen()}>
+        <SettingsDialog serverId={activeServerId()} onClose={() => setSettingsOpen(false)} />
       </Show>
     </div>
   );

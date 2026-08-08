@@ -186,6 +186,26 @@
     color: var(--fg-primary);
   }
 
+  /* App-shell pinning (TASK-UI-01): the app is a full-screen shell whose
+     scrolling happens inside inner containers (lists, panels), never on
+     the document. Locking html/body height + overflow and disabling
+     overscroll makes every platform behave like a desktop app instead of
+     a web page: no rubber-band bounce on iOS, no overscroll glow or
+     scroll chaining on desktop WebViews. The universal rule also stops
+     inner scroll containers from chaining into each other (a list at its
+     end must not pull the panel behind it). */
+  html,
+  body,
+  #root {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  * {
+    overscroll-behavior: none;
+  }
+
   /*
    * TASK-M9-08: global keyboard focus ring (docs/a11y-report.md). Every
    * focusable element that does not paint its own focus state (custom

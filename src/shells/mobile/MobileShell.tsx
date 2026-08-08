@@ -21,7 +21,7 @@
 // resizes-content in index.html) leaves the bottom chrome visible above
 // it, and the web nav pads the home-indicator inset (pb-safe).
 
-import { For, onCleanup, onMount, Show, Suspense } from "solid-js";
+import { createSignal, For, onCleanup, onMount, Show, Suspense } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ServerEntry } from "../../services/servers";
 import { startHapticEvents } from "../../services/hapticEvents.js";
@@ -40,6 +40,7 @@ import type { MobilePage } from "./pages.js";
 import { pageEnterClass, pageEnterDir, routeKey } from "./transitions.js";
 import PermissionSheet from "../../features/permissions/PermissionSheet.js";
 import QuestionSheet from "../../features/questions/QuestionSheet.js";
+import SettingsDialog from "../../features/settings/SettingsDialog.js";
 import { useT } from "../../i18n/index.js";
 
 export interface MobileShellProps {
@@ -122,6 +123,11 @@ const MobileShell: Component<MobileShellProps> = (props) => {
   // Resolved once per mount (the platform never changes at runtime).
   const nativeGlass = capabilitiesOf(platform).supportsNativeGlass && hasGlassBridge();
 
+  // Settings dialog (TASK-UI-01): the settings tab opens settings as a
+  // modal floating above the current page instead of switching to a
+  // settings page — closing returns to the previous tab's content.
+  const [settingsOpen, setSettingsOpen] = createSignal(false);
+
   // M7-07 page transitions: the last rendered stack depth per tab decides
   // the enter animation of the next page (push slides in from the right,
   // pop from the left). Initialized to 1 — every stack starts at its root
@@ -130,10 +136,17 @@ const MobileShell: Component<MobileShellProps> = (props) => {
 
   onMount(() => {
     // Native -> web: route native bar taps through the same selectTab
-    // action the web nav uses; cleanup restores any previous handler.
+    // action the web nav uses; the settings tab opens the settings
+    // dialog instead of switching pages (TASK-UI-01). Cleanup restores
+    // any previous handler.
     const cleanup = installGlassTabHandler((index) => {
       const tab = TAB_ORDER[index];
-      if (tab !== undefined) selectTab(tab);
+      if (tab === undefined) return;
+      if (tab === "settings") {
+        setSettingsOpen(true);
+        return;
+      }
+      selectTab(tab);
     });
     onCleanup(cleanup);
     // TASK-M7-04: the workspace owns the bottom edge — show the native
@@ -145,21 +158,24 @@ const MobileShell: Component<MobileShellProps> = (props) => {
     // asked) — the facade itself no-ops outside Tauri mobile.
     onCleanup(startHapticEvents(props.server.id));
     // TASK-M7-10: Android system back drives the navigation stack — a
-    // dismissible sheet closes first, then the active tab's stack pops;
-    // with nothing to handle the native listener is dropped so Android's
-    // default (background the app) resumes. Mounted on Android only
-    // (supportsSystemBack); the facade additionally guards Tauri.
+    // dismissible sheet closes first, then the settings dialog, then the
+    // active tab's stack pops; with nothing to handle the native listener
+    // is dropped so Android's default (background the app) resumes.
+    // Mounted on Android only (supportsSystemBack); the facade
+    // additionally guards Tauri.
     if (capabilitiesOf(platform).supportsSystemBack) {
       const backController = startAndroidBack({
         getContext: () => {
           const sheet = topSheet();
           return {
             sheet: sheet === null ? null : { dismissible: sheet.dismissible },
+            settingsOpen: settingsOpen(),
             stackDepth: nav.stacks[nav.activeTab].length,
           };
         },
         handlers: {
           closeSheet: () => closeTopSheet(),
+          closeSettings: () => setSettingsOpen(false),
           pop: () => back(),
         },
       });
@@ -250,6 +266,12 @@ const MobileShell: Component<MobileShellProps> = (props) => {
               }`}
               style={{ "min-height": "44px" }}
               onClick={() => {
+                // The settings tab opens the settings dialog above the
+                // current page instead of switching tabs (TASK-UI-01).
+                if (tab === "settings") {
+                  setSettingsOpen(true);
+                  return;
+                }
                 selectTab(tab);
                 // Mirror web taps on the native bar when the bridge exists.
                 postGlassMessage({ type: "setActive", index: TAB_ORDER.indexOf(tab) });
@@ -270,6 +292,13 @@ const MobileShell: Component<MobileShellProps> = (props) => {
       {/* Question sheet (TASK-M5-02) mobile presentation (TASK-M7-05):
           same bottom-sheet treatment as the permission queue. */}
       <QuestionSheet serverId={props.server.id} variant="sheet" />
+
+      {/* Settings dialog (TASK-UI-01): settings floats above the current
+          page as a modal sheet; the settings tab and the native bar's
+          settings item open it, Esc / backdrop / close button dismiss it. */}
+      <Show when={settingsOpen()}>
+        <SettingsDialog serverId={props.server.id} mobile onClose={() => setSettingsOpen(false)} />
+      </Show>
     </div>
   );
 };

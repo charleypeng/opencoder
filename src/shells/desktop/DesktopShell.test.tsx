@@ -1047,16 +1047,18 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
 });
 
 describe("DesktopShell settings view (TASK-M5-06)", () => {
-  it("the gear button opens the settings view and its Back returns to chat", async () => {
+  it("the gear button opens the settings dialog and its close returns to chat", async () => {
     const alpha = server({ id: "srv-m5settings", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     fireEvent.click(screen.getByTestId("settings-toggle"));
+    expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
-    // The tab bar is hidden while the settings view is open.
-    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    // The settings dialog floats above the chat view; the chat tab bar
+    // stays in place underneath.
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
 
     // The settings center opens on the General section by default.
     expect(screen.getByTestId("general-section")).toBeInTheDocument();
@@ -1067,9 +1069,22 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     expect(screen.getByTestId("provider-key-row-openai")).toHaveAttribute("data-connected", "true");
     expect(screen.getByTestId("provider-oauth-authorize")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("settings-back"));
+    fireEvent.click(screen.getByTestId("settings-close"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
     expect(screen.queryByTestId("settings-page")).not.toBeInTheDocument();
+  });
+
+  it("the settings dialog backdrop click closes it", async () => {
+    const alpha = server({ id: "srv-m5backdrop", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId("settings-toggle"));
+    expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("settings-dialog-backdrop"));
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
   });
 });
 
@@ -1107,10 +1122,14 @@ describe("DesktopShell prominent settings entry (TASK-S1-03)", () => {
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
     expect(screen.getByTestId("rail-settings")).toBeInTheDocument();
 
-    // The rail gear works from the diff view too.
+    // The rail gear works from the diff view too — settings floats above
+    // the diff instead of replacing it.
     fireEvent.click(screen.getByTestId("rail-settings"));
+    expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
-    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("settings-close"));
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
   });
 
   it("⌘, opens settings from a non-chat view as well", async () => {
@@ -1894,19 +1913,20 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_a");
   });
 
-  it("⌘, opens the settings view and Esc stays context-local", async () => {
+  it("⌘, opens the settings dialog and Esc closes it", async () => {
     const alpha = server({ id: "srv-m8settings", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     fireEvent.keyDown(window, { key: ",", metaKey: true });
+    expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
     expect(screen.getByTestId("settings-section-shortcuts")).toBeInTheDocument();
 
-    // Esc is not registered globally (the todo drawer and sheets own it).
+    // Esc closes the modal settings dialog (its own keydown listener).
     fireEvent.keyDown(window, { key: "Escape" });
-    expect(screen.getByTestId("settings-page")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
   });
 
   it("a customized combo replaces the default dispatch", async () => {
