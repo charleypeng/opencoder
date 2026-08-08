@@ -129,8 +129,11 @@ jobs:
 
       # Updater artifacts must be signed; without a real secret generate a
       # throwaway key so unsigned verification builds still succeed.
+      # shell: bash — the step uses bash syntax ($RUNNER_TEMP, line
+      # continuation) and Windows runners default to PowerShell.
       - name: Generate CI updater signing key
         if: env.TAURI_SIGNING_PRIVATE_KEY == ''
+        shell: bash
         run: |
           pnpm tauri signer generate --ci -w "$RUNNER_TEMP/ci-signing.key"
           echo "TAURI_SIGNING_PRIVATE_KEY=$RUNNER_TEMP/ci-signing.key" \

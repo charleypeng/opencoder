@@ -131,9 +131,12 @@ jobs:
 
       # Unsigned debug builds never fail on the updater key: same throwaway
       # CI key fallback as desktop.yml (these .sig files must not be fed to
-      # the in-app updater).
+      # the in-app updater). shell: bash — the step uses bash syntax
+      # ($RUNNER_TEMP, line continuation) and Windows runners default to
+      # PowerShell.
       - name: Generate CI updater signing key
         if: env.TAURI_SIGNING_PRIVATE_KEY == ''
+        shell: bash
         run: |
           pnpm tauri signer generate --ci -w "$RUNNER_TEMP/ci-signing.key"
           echo "TAURI_SIGNING_PRIVATE_KEY=$RUNNER_TEMP/ci-signing.key" \
