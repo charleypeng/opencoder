@@ -8,7 +8,7 @@ exports[`SubtaskPart snapshot > matches the fixture's subtask part 1`] = `
   >
     <button
       aria-expanded="false"
-      class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="subtask-toggle"
       type="button"
     >

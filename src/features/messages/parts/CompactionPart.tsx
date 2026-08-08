@@ -64,7 +64,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
           type="button"
           data-testid="compaction-toggle"
           aria-expanded={expanded()}
-          class="flex w-full items-center gap-1.5 px-2 py-1 text-left outline-none hover:bg-accent-soft focus:bg-accent-soft"
+          class="flex w-full items-center gap-1.5 px-2 py-1 text-left outline-none focus:bg-accent-soft"
           onClick={() => setExpanded((value) => !value)}
         >
           <CompressIcon />

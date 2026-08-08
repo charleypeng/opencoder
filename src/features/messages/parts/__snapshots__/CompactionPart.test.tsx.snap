@@ -8,7 +8,7 @@ exports[`CompactionPart snapshot > matches the fixture's compaction part 1`] = `
   >
     <button
       aria-expanded="false"
-      class="flex w-full items-center gap-1.5 px-2 py-1 text-left outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="flex w-full items-center gap-1.5 px-2 py-1 text-left outline-none focus:bg-accent-soft"
       data-testid="compaction-toggle"
       type="button"
     >

@@ -6,7 +6,7 @@
 // container (buttons are injected as HTML, so delegated clicks avoid
 // re-scanning on every render).
 
-import { createEffect, createMemo, onCleanup } from "solid-js";
+import { createEffect, createMemo, onCleanup, onMount } from "solid-js";
 import type { Component } from "solid-js";
 import { highlightCode } from "./highlighter.js";
 import { CODE_FENCE_SELECTOR, decodeFenceCode, escapeHtml, renderMarkdown } from "./markdown.js";
@@ -118,6 +118,29 @@ const MarkdownText: Component<MarkdownTextProps> = (props) => {
         hydrateFences(containerRef, t);
       }, HIGHLIGHT_DEBOUNCE_MS);
     }
+  });
+
+  // Theme-aware highlighting: when the app theme flips (dark <-> light)
+  // the Shiki theme must follow, so already-hydrated fences are reset and
+  // re-highlighted. The theme lives on <html data-theme> (written by the
+  // theme store); a MutationObserver watches it for the container's life.
+  onMount(() => {
+    const observer = new MutationObserver(() => {
+      const container = containerRef;
+      if (container === undefined) return;
+      for (const el of Array.from(container.querySelectorAll<HTMLElement>(CODE_FENCE_SELECTOR))) {
+        // Re-hydration must rebuild the fence (header + highlighted body)
+        // with the new theme; clear the hydrated payload and state.
+        el.innerHTML = "";
+        delete el.dataset.fenceState;
+      }
+      hydrateFences(container, t);
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    onCleanup(() => observer.disconnect());
   });
 
   function handleClick(event: MouseEvent) {

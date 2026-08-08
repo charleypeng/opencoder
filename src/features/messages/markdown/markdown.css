@@ -154,7 +154,8 @@
   outline: none;
 }
 
-/* Shiki output (theme is github-dark for both app themes for now) */
+/* Shiki output: the inline background/colors come from the theme matching
+   the app theme (github-dark / github-light, see highlighter.ts). */
 .markdown-body .shiki {
   background: transparent;
 }

@@ -99,7 +99,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 <button
                   aria-expanded="false"
-                  class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                  class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
                   data-testid="reasoning-toggle"
                   type="button"
                 >
@@ -144,7 +144,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 <button
                   aria-expanded="false"
-                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
                   data-testid="tool-toggle"
                   type="button"
                 >
@@ -200,7 +200,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 <button
                   aria-expanded="false"
-                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
                   data-testid="tool-toggle"
                   type="button"
                 >

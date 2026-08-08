@@ -11,7 +11,8 @@
 // rendered at the end of its LAST text part (see TextPart streaming prop).
 
 import { createMemo, For, Show } from "solid-js";
-import type { Component, JSX } from "solid-js";
+import type { Component } from "solid-js";
+import { Dynamic } from "solid-js/web";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import { useT } from "../../i18n/index.js";
@@ -104,70 +105,60 @@ function PartView(props: {
   onRevert?: (messageID: string) => void;
   onOpenChild?: (sessionId: string) => void;
 }) {
-  // Memoized dispatch so the type switch stays inside a tracked scope; a
-  // part's type is immutable for a given identity.
-  //
-  // The memo's EQUALITY compares the rendered component type (the JSX
-  // element's `.type`), NOT the element identity: `message.part.updated`
-  // replaces the part object wholesale while streaming, and without the
-  // custom equals the memo would return a fresh element on every
-  // replacement, re-creating the part component and resetting its local
-  // state (the reasoning fold collapsed mid-stream). Same-type updates
-  // keep the previous element (same component instance, props flow through
-  // reactively); a genuine type change (delta stub -> real part) still
-  // swaps the component.
-  const view = createMemo<JSX.Element>(
-    () => {
-      switch (props.part?.type) {
-        case "text":
-          return <TextPart part={props.part} streaming={props.streaming} />;
-        case "reasoning":
-          return <ReasoningPart part={props.part} streaming={props.sessionStreaming} />;
-        case "tool":
-          return <ToolPart part={props.part} />;
-        case "file":
-          return <FilePart part={props.part} />;
-        case "patch":
-          return <PatchPart part={props.part} />;
-        case "snapshot":
-          // M6-04: the snapshot chip reverts its containing message.
-          return <SnapshotPart part={props.part} onRevert={props.onRevert} />;
-        case "subtask":
-          // M6-07: the subtask part's session id is the session that owns the
-          // part; the wired handler resolves the child session from it.
-          return (
-            <SubtaskPart
-              part={props.part}
-              onOpenChild={
-                props.onOpenChild === undefined
-                  ? undefined
-                  : () => props.onOpenChild?.(props.part?.sessionID ?? "")
-              }
-            />
-          );
-        case "agent":
-          return <AgentPart part={props.part} />;
-        case "retry":
-          return <RetryPart part={props.part} />;
-        case "compaction":
-          return <CompactionPart part={props.part} />;
-        default:
-          // Unsupported part types render nothing until their milestones land.
-          return null;
-      }
-    },
-    undefined,
-    {
-      // JSX elements carry the component function as `.type`; comparing the
-      // rendered component type keeps the memo value stable across part
-      // object replacements (see the comment above).
-      equals: (a, b) =>
-        a === b ||
-        ((a as { type?: unknown } | null)?.type ?? null) ===
-          ((b as { type?: unknown } | null)?.type ?? null),
-    },
+  // Part components receive at least `part`; extra props (onRevert etc.)
+  // are ignored by components that do not use them. The common props shape
+  // keeps Dynamic's type check satisfied for every part component.
+  type PartProps = {
+    part?: Part;
+    streaming?: boolean;
+    onRevert?: (messageID: string) => void;
+    onOpenChild?: (sessionId: string) => void;
+  };
+  const PartComponent = createMemo<Component<PartProps> | null>(() => {
+    switch (props.part?.type) {
+      case "text":
+        return TextPart as Component<PartProps>;
+      case "reasoning":
+        return ReasoningPart as Component<PartProps>;
+      case "tool":
+        return ToolPart as Component<PartProps>;
+      case "file":
+        return FilePart as Component<PartProps>;
+      case "patch":
+        return PatchPart as Component<PartProps>;
+      case "snapshot":
+        return SnapshotPart as Component<PartProps>;
+      case "subtask":
+        return SubtaskPart as Component<PartProps>;
+      case "agent":
+        return AgentPart as Component<PartProps>;
+      case "retry":
+        return RetryPart as Component<PartProps>;
+      case "compaction":
+        return CompactionPart as Component<PartProps>;
+      default:
+        // Unsupported part types render nothing until their milestones land.
+        return null;
+    }
+  });
+  return (
+    <Show when={PartComponent() !== null} fallback={null}>
+      <Dynamic
+        component={PartComponent() as Component<PartProps>}
+        part={props.part}
+        // Text parts carry the breathing-caret flag; other parts (reasoning
+        // folds) get the session-level streaming flag. The two share the
+        // `streaming` prop name but never apply to the same part type.
+        streaming={props.part?.type === "text" ? props.streaming : props.sessionStreaming}
+        onRevert={props.onRevert}
+        onOpenChild={
+          props.onOpenChild === undefined
+            ? undefined
+            : () => props.onOpenChild?.(props.part?.sessionID ?? "")
+        }
+      />
+    </Show>
   );
-  return <>{view()}</>;
 }
 
 const MessageBubble: Component<MessageBubbleProps> = (props) => {

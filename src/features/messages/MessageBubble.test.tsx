@@ -337,6 +337,58 @@ describe("MessageBubble", () => {
     fireEvent.click(screen.getByTestId("reasoning-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
+
+  it("keeps a manual mid-stream collapse effective after part replacement and stream end", async () => {
+    const [streaming, setStreaming] = createSignal(true);
+    upsertMessage(SERVER, SESSION, userMessage("msg_r"));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_r",
+      type: "reasoning",
+      text: "thinking in progress",
+      time: { start: 1 },
+    } as never);
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_r"
+        partIds={["prt_r"]}
+        streaming={streaming()}
+      />
+    ));
+
+    // Auto-expanded while streaming; the user manually collapses it.
+    const toggle = screen.getByTestId("reasoning-toggle");
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "true"));
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // message.part.updated replaces the part object; the manual choice
+    // (collapsed) must survive the swap instead of being reset.
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_r",
+      type: "reasoning",
+      text: "thinking in progress, still thinking",
+      time: { start: 1 },
+    } as never);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // Stream ends: fold stays collapsed (auto-collapse is a no-op).
+    setStreaming(false);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+
+    // And the toggle still works afterwards (the "can't collapse after
+    // streaming" bug: the click updated a signal the DOM was no longer
+    // bound to because the part component had been re-created).
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
 });
 
 /** The markdown container whose text equals `text` (trimmed). */

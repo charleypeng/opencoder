@@ -9,7 +9,7 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
@@ -147,7 +147,7 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
@@ -276,7 +276,7 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
@@ -393,7 +393,7 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
@@ -514,7 +514,7 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
@@ -642,7 +642,7 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >

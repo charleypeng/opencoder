@@ -83,7 +83,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         type="button"
         data-testid="tool-toggle"
         aria-expanded={expanded()}
-        class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none hover:bg-accent-soft focus:bg-accent-soft"
+        class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
         onClick={() => setExpanded((value) => !value)}
       >
         <span

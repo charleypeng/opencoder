@@ -139,4 +139,46 @@ describe("MarkdownText", () => {
     expect(el.querySelector("script")).toBeNull();
     expect(el.textContent).toContain("<script>alert(1)</script>");
   });
+
+  it("picks the dark Shiki theme by default", async () => {
+    // jsdom default: no data-theme -> dark theme.
+    await mount("```ts\nconst x = 1;\n```");
+    await hydratedFence();
+    expect(codeToHtmlMock).toHaveBeenLastCalledWith(
+      "const x = 1;\n",
+      expect.objectContaining({ theme: "github-dark" }),
+    );
+  });
+
+  it("picks the light Shiki theme in light mode", async () => {
+    document.documentElement.dataset.theme = "light";
+    try {
+      await mount("```ts\nconst y = 2;\n```");
+      await hydratedFence();
+      expect(codeToHtmlMock).toHaveBeenLastCalledWith(
+        "const y = 2;\n",
+        expect.objectContaining({ theme: "github-light" }),
+      );
+    } finally {
+      delete document.documentElement.dataset.theme;
+    }
+  });
+
+  it("re-highlights hydrated fences when the app theme changes", async () => {
+    await mount("```ts\nconst x = 1;\n```");
+    const el = await hydratedFence();
+    codeToHtmlMock.mockClear();
+
+    // Flip the theme: the observer must reset and re-hydrate the fence
+    // with the new theme (the header survives, the body is rebuilt).
+    document.documentElement.dataset.theme = "light";
+    await waitFor(() => expect(codeToHtmlMock).toHaveBeenCalled());
+    expect(codeToHtmlMock).toHaveBeenLastCalledWith(
+      "const x = 1;\n",
+      expect.objectContaining({ theme: "github-light" }),
+    );
+    expect(el.querySelector(".code-fence-header")).not.toBeNull();
+    expect(el.querySelector(".shiki")).not.toBeNull();
+    delete document.documentElement.dataset.theme;
+  });
 });
