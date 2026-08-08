@@ -154,6 +154,7 @@ pub fn start_health_monitoring(
         Some(Auth {
             username: entry.username,
             password: entry.password,
+            bearer: entry.oauth.as_ref().map(|oauth| oauth.access_token.clone()),
         }),
     );
     Ok(())
@@ -231,5 +232,326 @@ fn map_registry_error(error: RegistryError) -> ApiError {
     match error {
         RegistryError::NotFound(id) => ApiError::not_found(format!("server {id} not found")),
         RegistryError::Persist(message) => ApiError::persist(message),
+    }
+}
+
+// ---- RFC 9728 OAuth for servers (TASK-UI-01) ----
+
+/// Result of an OAuth discovery: the parsed RFC 9728 metadata, reduced to
+/// the fields the frontend needs to build the consent UX.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthDiscovery {
+    pub authorization_endpoint: String,
+    pub token_endpoint: String,
+    pub client_id: Option<String>,
+    pub scopes_supported: Option<Vec<String>>,
+}
+
+/// Discovers the RFC 9728 OAuth metadata of a server: GET
+/// `/.well-known/oauth-authorization-server` (the `www-authenticate`
+/// challenge of a 401 points there; the path is also probed directly when
+/// the server advertises OAuth). Returns the discovery summary or a
+/// classified error (404/network => the server has no OAuth metadata).
+#[tauri::command]
+pub async fn oauth_discover(url: String) -> Result<OAuthDiscovery, ApiError> {
+    let discovery = crate::connections::oauth::discovery_url(&url);
+    let request = HttpRequest {
+        url: Some(discovery.clone()),
+        method: "GET".to_string(),
+        path: "".to_string(),
+        timeout_ms: Some(10_000),
+        ..HttpRequest::default()
+    };
+    let response = do_request(request).await.map_err(|err| {
+        // 404 / 401 mean "not an OAuth-protected server"; surface the raw
+        // status so the frontend can distinguish "no OAuth" from "broken".
+        if err.status == Some(404) {
+            ApiError::not_found("no OAuth discovery document".to_string())
+        } else {
+            err
+        }
+    })?;
+    let body = response.body_text.unwrap_or_default();
+    let metadata = crate::connections::oauth::parse_discovery(&body)
+        .map_err(|_| ApiError::invalid_url("invalid OAuth discovery document".to_string()))?;
+    Ok(OAuthDiscovery {
+        authorization_endpoint: metadata.authorization_endpoint,
+        token_endpoint: metadata.token_endpoint,
+        client_id: metadata.client_id,
+        scopes_supported: metadata.scopes_supported,
+    })
+}
+
+/// OAuth authorization request: generates a PKCE pair and a state value
+/// for the server, persists them in the process-global pending store and
+/// returns the authorization URL (the frontend opens it in the system
+/// browser) plus the redirect URI the server must be configured to accept
+/// and the client id to use. The PKCE verifier never leaves the process:
+/// `oauth_exchange` picks it up from the pending store by server id.
+#[tauri::command]
+pub async fn oauth_authorize(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<OAuthAuthorizeResult, ApiError> {
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    let discovery_url = crate::connections::oauth::discovery_url(&entry.url);
+    // Re-discover on every authorize so endpoint changes are picked up;
+    // the entry's stored metadata stays authoritative for requests.
+    let metadata = fetch_discovery_metadata(&discovery_url)
+        .await
+        .map_err(|_| ApiError::network("failed to discover OAuth metadata".to_string()))?;
+    let client_id = metadata
+        .client_id
+        .clone()
+        .unwrap_or_else(|| "opencoder-client".to_string());
+    let pkce = crate::connections::oauth::generate_pkce();
+    let state = format!("oc_{:x}", crate::connections::oauth::now_millis());
+    // The redirect URI is a loopback callback the frontend passes on to
+    // the authorization server; the fixed port avoids NAT/firewall issues
+    // on localhost (RFC 8252 §7.3 prefers loopback with a fixed port).
+    let redirect_uri = "http://127.0.0.1:44777/callback".to_string();
+    let url = crate::connections::oauth::authorize_url(
+        &metadata,
+        &client_id,
+        &redirect_uri,
+        &pkce,
+        &state,
+        metadata
+            .scopes_supported
+            .as_ref()
+            .map(|scopes| scopes.join(" "))
+            .as_deref(),
+    )
+    .map_err(|err| ApiError::invalid_url(err.to_string()))?;
+    pending_oauth::set(
+        server_id.clone(),
+        pending_oauth::PendingAuth::new(state, pkce),
+    );
+    Ok(OAuthAuthorizeResult {
+        authorization_url: url,
+        redirect_uri,
+        client_id,
+    })
+}
+
+/// Result of `oauth_authorize`.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthAuthorizeResult {
+    pub authorization_url: String,
+    pub redirect_uri: String,
+    pub client_id: String,
+}
+
+/// Exchanges the authorization code for tokens (authorization code +
+/// PKCE grant) and stores them on the server entry. The PKCE verifier and
+/// state come from the pending store (set by `oauth_authorize`); a
+/// mismatched state aborts the exchange (CSRF defense).
+#[tauri::command]
+pub async fn oauth_exchange(
+    server_id: String,
+    code: String,
+    state: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    let pending = pending_oauth::take(&server_id)
+        .ok_or_else(|| ApiError::invalid_url("no pending OAuth authorization".to_string()))?;
+    if pending.state != state {
+        return Err(ApiError::invalid_url("OAuth state mismatch".to_string()));
+    }
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    let discovery_url = crate::connections::oauth::discovery_url(&entry.url);
+    let metadata = fetch_discovery_metadata(&discovery_url)
+        .await
+        .map_err(|_| ApiError::network("failed to discover OAuth metadata".to_string()))?;
+    let client_id = metadata
+        .client_id
+        .clone()
+        .unwrap_or_else(|| "opencoder-client".to_string());
+    let redirect_uri = "http://127.0.0.1:44777/callback".to_string();
+    let form = crate::connections::oauth::exchange_form(
+        &client_id,
+        &redirect_uri,
+        &code,
+        &pending.pkce.verifier,
+    );
+    let (access, refresh, expires_at, scope) =
+        post_token_form(&metadata.token_endpoint, &form).await?;
+    registry
+        .set_oauth(
+            server_id.clone(),
+            Some(crate::connections::registry::ServerOAuth {
+                client_id,
+                discovery_url,
+                authorization_endpoint: metadata.authorization_endpoint,
+                token_endpoint: metadata.token_endpoint,
+                scope,
+                access_token: access,
+                refresh_token: refresh,
+                expires_at,
+            }),
+        )
+        .map_err(map_registry_error)?;
+    Ok(())
+}
+
+/// Refreshes the server's access token with its stored refresh token
+/// (refresh grant, RFC 6749 §6) and updates the stored credentials.
+#[tauri::command]
+pub async fn oauth_refresh(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    let Some(oauth) = entry.oauth else {
+        return Err(ApiError::invalid_url(
+            "server has no OAuth credentials".to_string(),
+        ));
+    };
+    let Some(refresh_token) = oauth.refresh_token.clone() else {
+        return Err(ApiError::invalid_url(
+            crate::connections::oauth::OAuthError::NoRefreshToken.to_string(),
+        ));
+    };
+    let client_id = oauth.client_id.clone();
+    let token_endpoint = oauth.token_endpoint.clone();
+    let scope = oauth.scope.clone();
+    let form = crate::connections::oauth::refresh_form(&client_id, &refresh_token);
+    let (access, refresh, expires_at, new_scope) = post_token_form(&token_endpoint, &form).await?;
+    registry
+        .set_oauth(
+            server_id.clone(),
+            Some(crate::connections::registry::ServerOAuth {
+                client_id,
+                discovery_url: oauth.discovery_url,
+                authorization_endpoint: oauth.authorization_endpoint,
+                token_endpoint,
+                scope: new_scope.or(scope),
+                access_token: access,
+                refresh_token: refresh.or(Some(refresh_token)),
+                expires_at,
+            }),
+        )
+        .map_err(map_registry_error)?;
+    Ok(())
+}
+
+/// Clears the OAuth credentials of a server (logout / re-auth from
+/// scratch).
+#[tauri::command]
+pub fn oauth_clear(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<(), ApiError> {
+    registry
+        .set_oauth(server_id, None)
+        .map_err(map_registry_error)
+}
+
+/// Whether the server has stored OAuth credentials (used by the frontend
+/// to decide between the Basic re-auth form and the OAuth flow).
+#[tauri::command]
+pub fn oauth_status(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+) -> Result<OAuthStatus, ApiError> {
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    Ok(OAuthStatus {
+        configured: entry.oauth.is_some(),
+        has_refresh_token: entry
+            .oauth
+            .as_ref()
+            .map(|oauth| oauth.refresh_token.is_some())
+            .unwrap_or(false),
+    })
+}
+
+/// Summary of a server's OAuth credential state.
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OAuthStatus {
+    pub configured: bool,
+    pub has_refresh_token: bool,
+}
+
+/// Fetches and parses the RFC 9728 discovery document at the given URL.
+async fn fetch_discovery_metadata(
+    discovery_url: &str,
+) -> Result<crate::connections::oauth::OAuthServerMetadata, ApiError> {
+    let request = HttpRequest {
+        url: Some(discovery_url.to_string()),
+        method: "GET".to_string(),
+        path: "".to_string(),
+        timeout_ms: Some(10_000),
+        ..HttpRequest::default()
+    };
+    let response = do_request(request).await?;
+    let body = response.body_text.unwrap_or_default();
+    crate::connections::oauth::parse_discovery(&body)
+        .map_err(|_| ApiError::invalid_url("invalid OAuth discovery document".to_string()))
+}
+
+/// POSTs an OAuth form to the token endpoint and parses the response.
+async fn post_token_form(
+    token_endpoint: &str,
+    form: &[(&'static str, String)],
+) -> Result<crate::connections::oauth::TokenGrant, ApiError> {
+    let form_object = serde_json::json!(form
+        .iter()
+        .map(|(key, value)| (key, value))
+        .collect::<std::collections::HashMap<_, _>>());
+    let request = HttpRequest {
+        url: Some(token_endpoint.to_string()),
+        method: "POST".to_string(),
+        path: "".to_string(),
+        form: Some(form_object),
+        timeout_ms: Some(15_000),
+        ..HttpRequest::default()
+    };
+    let response = do_request(request).await?;
+    let text = response.body_text.unwrap_or_default();
+    crate::connections::oauth::parse_token_response(&text, crate::connections::oauth::now_millis())
+        .map_err(|err| ApiError::invalid_url(err.to_string()))
+}
+
+/// In-process store of the pending PKCE/state of an in-flight
+/// authorization; one entry per server, replaced on re-authorize.
+mod pending_oauth {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+
+    use crate::connections::oauth::PkcePair;
+
+    pub(super) struct PendingAuth {
+        pub(super) state: String,
+        pub(super) pkce: PkcePair,
+    }
+
+    impl PendingAuth {
+        pub(super) fn new(state: String, pkce: PkcePair) -> Self {
+            Self { state, pkce }
+        }
+    }
+
+    static PENDING: Mutex<Option<HashMap<String, PendingAuth>>> = Mutex::new(None);
+
+    pub(super) fn set(server_id: String, pending: PendingAuth) {
+        let mut map = PENDING.lock().unwrap();
+        map.get_or_insert_with(HashMap::new)
+            .insert(server_id, pending);
+    }
+
+    pub(super) fn take(server_id: &str) -> Option<PendingAuth> {
+        let mut map = PENDING.lock().unwrap();
+        map.as_mut().and_then(|map| map.remove(server_id))
     }
 }

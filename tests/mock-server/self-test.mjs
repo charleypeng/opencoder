@@ -1648,6 +1648,100 @@ try {
       );
     });
 
+    // TASK-UI-01: server-level RFC 9728 OAuth. The discovery document
+    // advertises the endpoints; the authorization page reports the client
+    // parameters; the token endpoint completes the code exchange (with
+    // the fixed mock code) and the refresh grant, rejecting wrong codes.
+    await test("server oauth discovery exposes the authorization and token endpoints", async () => {
+      const { status, body } = await request(baseUrl, "/.well-known/oauth-authorization-server");
+      expect(status === 200, `discovery status ${status}`);
+      expect(
+        typeof body?.authorization_endpoint === "string",
+        `authorization ${JSON.stringify(body)}`,
+      );
+      expect(typeof body?.token_endpoint === "string", `token ${JSON.stringify(body)}`);
+      expect(
+        Array.isArray(body?.code_challenge_methods_supported) &&
+          body.code_challenge_methods_supported.includes("S256"),
+        `pkce methods ${JSON.stringify(body?.code_challenge_methods_supported)}`,
+      );
+    });
+
+    await test("server oauth authorization page echoes the client parameters and issues the code", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/server-oauth/authorize?state=st_1&client_id=opencoder-client&code_challenge=abc",
+      );
+      expect(status === 200, `authorize status ${status}`);
+      expect(body?.code === "mock-server-oauth-code", `code ${JSON.stringify(body)}`);
+      expect(body?.state === "st_1", `state ${JSON.stringify(body)}`);
+      expect(body?.client_id === "opencoder-client", `client ${JSON.stringify(body)}`);
+      expect(body?.code_challenge === "abc", `challenge ${JSON.stringify(body)}`);
+    });
+
+    await test("server oauth token exchange accepts the mock code and issues tokens", async () => {
+      const { status, body } = await request(baseUrl, "/server-oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: "opencoder-client",
+          redirect_uri: "http://127.0.0.1:44777/callback",
+          code: "mock-server-oauth-code",
+          code_verifier: "verifier",
+        }).toString(),
+      });
+      expect(status === 200, `exchange status ${status}`);
+      expect(body?.access_token === "mock-server-access-token", `access ${JSON.stringify(body)}`);
+      expect(
+        body?.refresh_token === "mock-server-refresh-token",
+        `refresh ${JSON.stringify(body)}`,
+      );
+      expect(body?.expires_in === 3600, `expiry ${JSON.stringify(body)}`);
+
+      const bad = await request(baseUrl, "/server-oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          client_id: "opencoder-client",
+          redirect_uri: "http://127.0.0.1:44777/callback",
+          code: "wrong-code",
+          code_verifier: "verifier",
+        }).toString(),
+      });
+      expect(bad.status === 400, `wrong code status ${bad.status}`);
+      expect(bad.body?.error === "invalid_grant", `wrong code error ${JSON.stringify(bad.body)}`);
+    });
+
+    await test("server oauth refresh grant rotates the token and rejects a bad refresh token", async () => {
+      const ok = await request(baseUrl, "/server-oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: "opencoder-client",
+          refresh_token: "mock-server-refresh-token",
+        }).toString(),
+      });
+      expect(ok.status === 200, `refresh status ${ok.status}`);
+      expect(
+        ok.body?.access_token === "mock-server-access-token",
+        `refresh access ${JSON.stringify(ok.body)}`,
+      );
+
+      const bad = await request(baseUrl, "/server-oauth/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "refresh_token",
+          client_id: "opencoder-client",
+          refresh_token: "expired",
+        }).toString(),
+      });
+      expect(bad.status === 400, `bad refresh status ${bad.status}`);
+    });
+
     // TASK-M9-07: status bar (LSP + formatter shapes), log forwarding
     // (POST /log validation), saved permission rules (list + remove) and
     // the display-only global upgrade endpoint.

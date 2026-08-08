@@ -21,6 +21,8 @@ export type HttpMethod = "GET" | "POST" | "PATCH" | "PUT" | "DELETE";
 export interface AuthCredentials {
   username?: string;
   password?: string;
+  /** OAuth bearer token (RFC 9728); wins over Basic when set. */
+  bearer?: string;
 }
 
 export interface RequestOptions {
@@ -102,7 +104,11 @@ export const fetchTransport: Transport = {
   async request(input) {
     const url = buildUrl(input);
     const headers: Record<string, string> = { Accept: "application/json" };
-    if (input.auth?.password) {
+    // The Bearer token (RFC 9728 OAuth) wins over Basic credentials,
+    // mirroring the Rust transport.
+    if (input.auth?.bearer) {
+      headers.Authorization = `Bearer ${input.auth.bearer}`;
+    } else if (input.auth?.password) {
       headers.Authorization = basicAuthHeader(input.auth.username, input.auth.password);
     }
     if (input.body !== undefined) {

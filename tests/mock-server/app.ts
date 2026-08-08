@@ -20,6 +20,9 @@ export interface MockServerOptions {
 export function buildApp(options: MockServerOptions = {}): Express {
   const app = express();
   app.use(express.json());
+  // OAuth token endpoints speak application/x-www-form-urlencoded
+  // (TASK-UI-01); the Rust transport sends forms as urlencoded bodies.
+  app.use(express.urlencoded({ extended: true }));
 
   const fixtures = loadFixtures();
 

@@ -66,6 +66,12 @@ pub struct ServerHealth {
     pub last_ok: Option<i64>,
     pub fail_count: u32,
     pub status: HealthStatus,
+    /// True when the last probe was rejected with 401/403 — the saved
+    /// credentials (Basic or OAuth token) are no longer accepted, so the
+    /// frontend should offer re-authentication instead of a plain
+    /// "server down" state.
+    #[serde(default)]
+    pub auth_required: bool,
 }
 
 impl ServerHealth {
@@ -80,6 +86,7 @@ impl ServerHealth {
             last_ok: None,
             fail_count: 0,
             status: HealthStatus::Down,
+            auth_required: false,
         }
     }
 }
@@ -94,6 +101,9 @@ pub enum PollResult {
     },
     /// Network error, timeout or non-success status.
     Err,
+    /// The server rejected the credentials (401/403): the saved auth is no
+    /// longer accepted. Marked `auth_required` so the UI offers re-auth.
+    AuthRequired,
 }
 
 /// Pure state machine: applies one probe result to the snapshot and returns
@@ -104,7 +114,9 @@ pub enum PollResult {
 /// fail counter grows; at [`DOWN_AFTER_FAILURES`] the status flips to `down`
 /// and `healthy` becomes false. Failures before that keep the previous status
 /// and `healthy` keeps mirroring the last successful probe; latency/version
-/// are retained so the UI can show the last known values.
+/// are retained so the UI can show the last known values. `AuthRequired`
+/// behaves like a failure that also flips `auth_required` on (it is cleared
+/// by the next success).
 pub fn update_state(current: &mut ServerHealth, result: PollResult) -> bool {
     let previous = current.clone();
     match result {
@@ -117,6 +129,7 @@ pub fn update_state(current: &mut ServerHealth, result: PollResult) -> bool {
             current.latency_ms = Some(latency_ms);
             current.last_ok = Some(now_millis());
             current.fail_count = 0;
+            current.auth_required = false;
             current.status = if latency_ms >= SLOW_THRESHOLD_MS {
                 HealthStatus::Slow
             } else {
@@ -129,6 +142,15 @@ pub fn update_state(current: &mut ServerHealth, result: PollResult) -> bool {
                 current.healthy = false;
                 current.status = HealthStatus::Down;
             }
+        }
+        // Auth rejection is a hard failure: the stored credentials are
+        // wrong regardless of retries, so it flips `down` immediately (no
+        // three-strikes grace) and raises the re-auth flag for the UI.
+        PollResult::AuthRequired => {
+            current.fail_count += 1;
+            current.healthy = false;
+            current.status = HealthStatus::Down;
+            current.auth_required = true;
         }
     }
     current != &previous
@@ -238,6 +260,7 @@ impl<R: tauri::Runtime> HealthMonitor<R> {
                 Some(Auth {
                     username: entry.username,
                     password: entry.password,
+                    bearer: entry.oauth.as_ref().map(|oauth| oauth.access_token.clone()),
                 }),
                 config.clone(),
             );
@@ -307,7 +330,16 @@ async fn poll_server(url: &str, auth: &Option<Auth>, timeout: Duration) -> PollR
                 latency_ms,
             }
         }
-        Err(_) => PollResult::Err,
+        Err(err) => {
+            // 401/403: the saved credentials were rejected. The health
+            // monitor cannot fix this itself — the frontend must offer
+            // re-authentication (Basic form or OAuth flow).
+            if matches!(err.status, Some(401) | Some(403)) {
+                PollResult::AuthRequired
+            } else {
+                PollResult::Err
+            }
+        }
     }
 }
 
@@ -436,6 +468,44 @@ mod tests {
         update_state(&mut health, PollResult::Err);
         assert_eq!(health.version.as_deref(), Some("1.18.11"));
         assert_eq!(health.latency_ms, Some(30));
+    }
+
+    #[test]
+    fn auth_required_flips_down_immediately_and_clears_on_success() {
+        let mut health = ServerHealth::initial("srv_1");
+        update_state(&mut health, ok_result(Some("1.18.11"), 5));
+        assert!(!health.auth_required);
+
+        // One 401 is enough: no three-strikes grace for rejected credentials.
+        assert!(update_state(&mut health, PollResult::AuthRequired));
+        assert!(!health.healthy);
+        assert_eq!(health.status, HealthStatus::Down);
+        assert!(health.auth_required);
+        assert_eq!(health.fail_count, 1);
+
+        // The flag is sticky while auth keeps failing...
+        update_state(&mut health, PollResult::AuthRequired);
+        assert!(health.auth_required);
+
+        // ...and the next success clears it.
+        update_state(&mut health, ok_result(Some("1.18.11"), 5));
+        assert!(health.healthy);
+        assert!(!health.auth_required);
+        assert_eq!(health.fail_count, 0);
+    }
+
+    #[test]
+    fn serialized_health_carries_auth_required_flag() {
+        let mut health = ServerHealth::initial("srv_1");
+        update_state(&mut health, PollResult::AuthRequired);
+        let value = serde_json::to_value(&health).unwrap();
+        assert_eq!(value["authRequired"], true);
+        // Defaults to false when absent (old persisted snapshots): a
+        // JSON value without the key deserializes with auth_required off.
+        let mut legacy = value.clone();
+        legacy.as_object_mut().unwrap().remove("authRequired");
+        let restored: ServerHealth = serde_json::from_value(legacy).unwrap();
+        assert!(!restored.auth_required);
     }
 
     #[test]
@@ -686,6 +756,7 @@ mod tests {
             url: url.to_string(),
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
+            oauth: None,
             created_at: 1_700_000_000_000,
             last_connected_at: None,
         }

@@ -1376,6 +1376,75 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   app.post("/global/upgrade", (_req, res) => {
     res.json({ success: true, version: "1.19.0" });
   });
+
+  // ---- TASK-UI-01: RFC 9728 server OAuth (managed OAuth reference) ----
+  // The mock exposes an oauth-authorization-server discovery document at
+  // /.well-known/oauth-authorization-server, plus a token endpoint that
+  // completes the authorization-code grant (with the fixed mock code and
+  // any PKCE verifier) and the refresh grant. The authorization endpoint
+  // itself is simulated: the client opens the returned URL in a browser
+  // that does not exist in tests, so the flow is exercised through
+  // `oauth_discover` → `oauth_authorize` (URL shape) → paste the mock
+  // code → `oauth_exchange` → `oauth_refresh` → `oauth_clear`.
+  const MOCK_SERVER_OAUTH_CODE = "mock-server-oauth-code";
+  const MOCK_SERVER_REFRESH = "mock-server-refresh-token";
+
+  app.get("/.well-known/oauth-authorization-server", (req, res) => {
+    res.json({
+      issuer: `http://${reqHost(req)}`,
+      authorization_endpoint: `http://${reqHost(req)}/server-oauth/authorize`,
+      token_endpoint: `http://${reqHost(req)}/server-oauth/token`,
+      code_challenge_methods_supported: ["S256"],
+      scopes_supported: ["openid", "profile"],
+    });
+  });
+
+  // Simulated authorization page: reports the parameters the client would
+  // have sent (for the self-test assertions) and issues the mock code.
+  app.get("/server-oauth/authorize", (req, res) => {
+    res.json({
+      ok: true,
+      code: MOCK_SERVER_OAUTH_CODE,
+      state: req.query.state ?? null,
+      client_id: req.query.client_id ?? null,
+      code_challenge: req.query.code_challenge ?? null,
+    });
+  });
+
+  // Token endpoint: exchanges the mock code (authorization_code grant)
+  // or refreshes (refresh_token grant). Both issue an access token, a
+  // refresh token and a 3600s expiry.
+  app.post("/server-oauth/token", (req, res) => {
+    const grant = req.body?.grant_type;
+    const code = req.body?.code;
+    const refresh = req.body?.refresh_token;
+    if (grant === "authorization_code") {
+      if (code !== MOCK_SERVER_OAUTH_CODE) {
+        res.status(400).json({ error: "invalid_grant" });
+        return;
+      }
+    } else if (grant === "refresh_token") {
+      if (refresh !== MOCK_SERVER_REFRESH) {
+        res.status(400).json({ error: "invalid_grant" });
+        return;
+      }
+    } else {
+      res.status(400).json({ error: "unsupported_grant_type" });
+      return;
+    }
+    res.json({
+      access_token: "mock-server-access-token",
+      token_type: "Bearer",
+      expires_in: 3600,
+      refresh_token: MOCK_SERVER_REFRESH,
+      scope: "openid profile",
+    });
+  });
+}
+
+/** Host header of the current request (used to build absolute mock URLs). */
+function reqHost(req: Request): string {
+  return req.get("host") ?? "localhost:14096";
 }
 
 export function registerRoutes(app: Express, fixtures: Fixtures): void {

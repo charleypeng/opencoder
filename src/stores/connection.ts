@@ -17,6 +17,9 @@ export interface ConnectionState {
   status: HealthStatus;
   lastOk?: number;
   failCount: number;
+  /** True when the last probe was rejected 401/403 — the saved credentials
+   *  are no longer accepted (TASK-UI-01). */
+  authRequired?: boolean;
 }
 
 export type ConnectionMap = Record<string, ConnectionState>;

@@ -13,10 +13,11 @@ import {
 } from "../../services/discovery";
 import type { DiscoveredServer } from "../../services/discovery";
 import { ScanCancelledError, canScan, scanQrCode } from "../../services/scanner";
-import { addServer, probeServer, updateServer } from "../../services/servers";
+import { addServer, discoverOAuth, probeServer, updateServer } from "../../services/servers";
 import type { ServerEntry } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
 import { parseConnectUrl } from "./qrConnect";
+import ServerOAuthDialog from "./ServerOAuthDialog";
 
 export interface AddServerProps {
   /** Called with the saved entry (password stripped) after a successful save. */
@@ -66,6 +67,11 @@ function AddServer(props: AddServerProps) {
   const [saveError, setSaveError] = createSignal<string | null>(null);
   const [qrScanning, setQrScanning] = createSignal(false);
   const [qrScanError, setQrScanError] = createSignal<string | null>(null);
+  // RFC 9728 discovery result (TASK-UI-01): set when the probed server
+  // answers with an OAuth discovery document, meaning access requires
+  // OAuth consent. The dialog then authorizes AFTER the server is saved
+  // (oauth commands operate on saved entries).
+  const [oauthDiscovered, setOauthDiscovered] = createSignal(false);
 
   const scanVisible = () => !!props.scanEnabled && !props.server && canScan();
 
@@ -180,6 +186,16 @@ function AddServer(props: AddServerProps) {
       const health = await probeServer(normalized, auth());
       if (health.healthy) {
         setProbe({ kind: "success", version: health.version, latencyMs: health.latencyMs });
+        // RFC 9728 discovery (TASK-UI-01): a server that exposes an
+        // oauth-authorization-server document protects access with OAuth
+        // (e.g. Cloudflare Access managed OAuth). A 404 / missing document
+        // means plain (or no) auth — discovery is best-effort.
+        try {
+          await discoverOAuth(normalized);
+          setOauthDiscovered(true);
+        } catch {
+          setOauthDiscovered(false);
+        }
       } else {
         setProbe({
           kind: "failure",
@@ -193,6 +209,10 @@ function AddServer(props: AddServerProps) {
       });
     }
   }
+
+  // The saved entry that still needs OAuth authorization; the dialog is
+  // mounted below the form and keyed on this.
+  const [oauthEntry, setOauthEntry] = createSignal<ServerEntry | null>(null);
 
   async function onSave(event: SubmitEvent) {
     event.preventDefault();
@@ -220,6 +240,11 @@ function AddServer(props: AddServerProps) {
         lastConnectedAt: server.lastConnectedAt,
       };
       onAdded(publicEntry);
+      // An OAuth-protected server needs one more step: the consent flow
+      // runs against the SAVED entry (the OAuth commands are id-based).
+      if (oauthDiscovered() && !props.server) {
+        setOauthEntry(publicEntry);
+      }
       if (!props.server) {
         setName("");
         setUrl("");
@@ -228,6 +253,7 @@ function AddServer(props: AddServerProps) {
         setShowPassword(false);
         setProbe({ kind: "idle" });
         setQrScanError(null);
+        setOauthDiscovered(false);
       }
     } catch (err) {
       setSaveError(ApiError.fromUnknown(err).message);
@@ -377,6 +403,11 @@ function AddServer(props: AddServerProps) {
               {probeSuccessText(probe(), t)}
             </p>
           </Show>
+          <Show when={probe().kind === "success" && oauthDiscovered()}>
+            <p class="text-warning" data-testid="oauth-discovered-hint">
+              {t("servers:oauthProtected")}
+            </p>
+          </Show>
           <Show when={probe().kind === "failure"}>
             <p class="text-danger" data-testid="probe-failure">
               {probeFailureText(probe())}
@@ -443,6 +474,23 @@ function AddServer(props: AddServerProps) {
             </For>
           </ul>
         </section>
+      </Show>
+
+      {/* OAuth consent for a just-saved server (TASK-UI-01): the probe
+          found a discovery document, so after saving the entry the
+          authorization dialog opens once. */}
+      <Show when={oauthEntry()} keyed>
+        {(entry) => (
+          <ServerOAuthDialog
+            serverId={entry.id}
+            serverName={entry.name}
+            onClose={() => setOauthEntry(null)}
+            onAuthorized={() => {
+              setOauthEntry(null);
+              props.onAdded?.(entry);
+            }}
+          />
+        )}
       </Show>
     </div>
   );

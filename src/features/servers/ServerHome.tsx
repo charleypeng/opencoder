@@ -5,11 +5,12 @@
 // empty state that guides to the Add Server wizard. Clicking a card hands
 // the server to the parent (workspace shell lands in M1-08).
 
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { ContextMenu, Dialog, DropdownMenu } from "@kobalte/core";
 import AddServer from "./AddServer";
 import ReauthDialog from "./ReauthDialog";
+import ServerOAuthDialog from "./ServerOAuthDialog";
 import ServerQrDialog from "./ServerQrDialog";
 import ErrorBanner from "../../components/ErrorBanner";
 import { useT } from "../../i18n";
@@ -52,6 +53,7 @@ interface MenuActions {
   onShowQr: (server: ServerEntry) => void;
   onEdit: (server: ServerEntry) => void;
   onReconnect: (server: ServerEntry) => void;
+  onReauth: (server: ServerEntry) => void;
   onDelete: (server: ServerEntry) => void;
 }
 
@@ -108,6 +110,17 @@ function serverMenuItems(
       >
         {t("servers:reconnect")}
       </Item>
+      {/* OAuth servers get a dedicated re-authentication entry (TASK-UI-01):
+          the consent flow re-runs; Basic servers keep "Reconnect" as their
+          only credential path (a 401 there opens the credentials form). */}
+      <Show when={server.oauth !== undefined}>
+        <Item
+          class="rounded-sm px-3 py-1.5 text-sm text-fg-primary outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
+          onSelect={() => actions.onReauth(server)}
+        >
+          {t("servers:reauthenticate")}
+        </Item>
+      </Show>
       <Item
         class="rounded-sm px-3 py-1.5 text-sm text-danger outline-none hover:bg-accent-soft focus:bg-accent-soft data-[highlighted]:bg-accent-soft"
         onSelect={() => actions.onDelete(server)}
@@ -154,6 +167,7 @@ function ServerHome(props: ServerHomeProps) {
   const [deleteError, setDeleteError] = createSignal<string | null>(null);
   const [reauthServer, setReauthServer] = createSignal<ServerEntry | null>(null);
   const [reauthReason, setReauthReason] = createSignal<ApiError | null>(null);
+  const [oauthServer, setOauthServer] = createSignal<ServerEntry | null>(null);
   const [qrServer, setQrServer] = createSignal<ServerEntry | null>(null);
 
   async function refresh() {
@@ -175,6 +189,21 @@ function ServerHome(props: ServerHomeProps) {
     });
   });
 
+  // TASK-UI-01: auto re-authentication. The health monitor flags a probe
+  // rejected with 401/403 (`authRequired`); when the flagged server has
+  // stored OAuth credentials the consent dialog opens once so the user can
+  // re-authorize — the dialog's success restarts the monitor with the
+  // fresh token. Basic-auth servers keep the manual flow (Reconnect → 401
+  // opens the credentials form).
+  createEffect(() => {
+    const entry = servers().find(
+      (candidate) => candidate.oauth && connections[candidate.id]?.authRequired,
+    );
+    if (entry && oauthServer() === null) {
+      setOauthServer(entry);
+    }
+  });
+
   function startAdd() {
     setEditing(null);
     setAdding(true);
@@ -192,10 +221,15 @@ function ServerHome(props: ServerHomeProps) {
     } catch (err) {
       const apiErr = ApiError.fromUnknown(err);
       if (isAuthError(apiErr)) {
-        // A 401 means the saved credentials were rejected: ask for new ones
-        // instead of surfacing a plain banner.
-        setReauthReason(apiErr);
-        setReauthServer(server);
+        // A 401 means the saved credentials were rejected: servers with
+        // OAuth credentials go through the consent flow again, others ask
+        // for new Basic credentials.
+        if (server.oauth) {
+          setOauthServer(server);
+        } else {
+          setReauthReason(apiErr);
+          setReauthServer(server);
+        }
         return;
       }
       setBannerError(apiErr);
@@ -240,6 +274,25 @@ function ServerHome(props: ServerHomeProps) {
     void refresh();
   }
 
+  /**
+   * OAuth re-auth completion (TASK-UI-01): tokens are stored by the Rust
+   * exchange; the entry refresh picks up the new oauth field, the health
+   * monitor restarts so the next probe uses the fresh token, and the
+   * banner clears.
+   */
+  async function onOAuthAuthorized() {
+    const server = oauthServer();
+    if (!server) return;
+    setBannerError(null);
+    try {
+      await startHealthMonitoring(server.id);
+    } catch {
+      // The monitor may already be running; nothing to do.
+    }
+    setOauthServer(null);
+    void refresh();
+  }
+
   async function confirmDelete() {
     const server = deleting();
     if (!server) return;
@@ -259,6 +312,17 @@ function ServerHome(props: ServerHomeProps) {
       setEditing(entry);
     },
     onReconnect: (entry) => void reconnect(entry),
+    // Manual re-authentication: OAuth servers open the consent dialog;
+    // Basic-auth servers verify new credentials through the reauth form.
+    onReauth: (entry) => {
+      if (entry.oauth) {
+        setOauthServer(entry);
+        setReauthServer(null);
+      } else {
+        setReauthServer(entry);
+        setOauthServer(null);
+      }
+    },
     onDelete: (entry) => {
       setDeleteError(null);
       setDeleting(entry);
@@ -476,6 +540,20 @@ function ServerHome(props: ServerHomeProps) {
               setReauthServer(null);
               setReauthReason(null);
             }}
+          />
+        )}
+      </Show>
+
+      {/* OAuth consent dialog (TASK-UI-01): opened by the card menu's
+          "Re-authenticate", by a 401 on a server with OAuth credentials,
+          and by the Add Server flow once the server is saved. */}
+      <Show when={oauthServer()} keyed>
+        {(oauthEntry) => (
+          <ServerOAuthDialog
+            serverId={oauthEntry.id}
+            serverName={oauthEntry.name}
+            onClose={() => setOauthServer(null)}
+            onAuthorized={() => void onOAuthAuthorized()}
           />
         )}
       </Show>

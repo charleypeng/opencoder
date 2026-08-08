@@ -11,13 +11,17 @@ use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use tokio_util::sync::CancellationToken;
 
-/// Credentials for Basic Auth. The header is only sent when `password` is
-/// present (matching the OpenCode `OPENCODE_SERVER_PASSWORD` behavior).
+/// Credentials for a request. Basic Auth is sent when `password` is
+/// present (matching the OpenCode `OPENCODE_SERVER_PASSWORD` behavior);
+/// a `bearer` token wins over Basic and is sent as
+/// `Authorization: Bearer <token>` (RFC 9728 / OAuth 2.0).
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Auth {
     pub username: Option<String>,
     pub password: Option<String>,
+    #[serde(default)]
+    pub bearer: Option<String>,
 }
 
 /// Input of the `http_request` command.
@@ -31,6 +35,10 @@ pub struct HttpRequest {
     pub path: String,
     pub query: Option<serde_json::Value>,
     pub body: Option<serde_json::Value>,
+    /// OAuth form body (application/x-www-form-urlencoded); wins over
+    /// `body` when both are set. Values must be strings.
+    #[serde(default)]
+    pub form: Option<serde_json::Value>,
     pub auth: Option<Auth>,
     pub timeout_ms: Option<u64>,
     #[serde(rename = "requestID")]
@@ -193,12 +201,30 @@ fn assemble_request(
         .map_err(|_| ApiError::invalid_url(format!("invalid method: {}", request.method)))?;
     let mut builder = client.request(method, url);
     if let Some(auth) = &request.auth {
-        if let Some(password) = &auth.password {
+        // The Bearer token (RFC 9728 OAuth) wins over Basic credentials.
+        if let Some(token) = &auth.bearer {
+            if !token.is_empty() {
+                builder = builder.bearer_auth(token);
+            }
+        } else if let Some(password) = &auth.password {
             let username = auth.username.as_deref().unwrap_or("");
             builder = builder.basic_auth(username, Some(password));
         }
     }
-    if let Some(body) = &request.body {
+    // OAuth form bodies (application/x-www-form-urlencoded) win over JSON.
+    if let Some(form) = &request.form {
+        let pairs = form.as_object().ok_or_else(|| {
+            ApiError::invalid_url("form body must be a JSON object of strings".to_string())
+        })?;
+        let mut form_builder: Vec<(String, String)> = Vec::new();
+        for (key, value) in pairs {
+            let value = value
+                .as_str()
+                .ok_or_else(|| ApiError::invalid_url("form values must be strings".to_string()))?;
+            form_builder.push((key.clone(), value.to_string()));
+        }
+        builder = builder.form(&form_builder);
+    } else if let Some(body) = &request.body {
         builder = builder.json(body);
     }
     builder
@@ -448,6 +474,7 @@ mod tests {
                 auth: Some(Auth {
                     username: Some("user".to_string()),
                     password: Some("pass".to_string()),
+                    bearer: None,
                 }),
                 ..base_request("http://example.com")
             };
@@ -459,11 +486,31 @@ mod tests {
                 auth: Some(Auth {
                     username: Some("user".to_string()),
                     password: None,
+                    bearer: None,
                 }),
                 ..base_request("http://example.com")
             };
             let req = assemble_request(&client, &request).unwrap();
             assert!(req.headers().get(reqwest::header::AUTHORIZATION).is_none());
+        });
+    }
+
+    #[test]
+    fn bearer_token_wins_over_basic_credentials() {
+        let runtime = tokio::runtime::Runtime::new().unwrap();
+        runtime.block_on(async {
+            let client = reqwest::Client::new();
+            let request = HttpRequest {
+                auth: Some(Auth {
+                    username: Some("user".to_string()),
+                    password: Some("pass".to_string()),
+                    bearer: Some("at_123".to_string()),
+                }),
+                ..base_request("http://example.com")
+            };
+            let req = assemble_request(&client, &request).unwrap();
+            let auth = req.headers().get(reqwest::header::AUTHORIZATION).unwrap();
+            assert_eq!(auth, "Bearer at_123");
         });
     }
 

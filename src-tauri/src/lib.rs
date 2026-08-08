@@ -145,6 +145,12 @@ pub fn run() {
             commands::start_mdns_discovery,
             commands::stop_mdns_discovery,
             commands::get_discovered_servers,
+            commands::oauth_discover,
+            commands::oauth_authorize,
+            commands::oauth_exchange,
+            commands::oauth_refresh,
+            commands::oauth_clear,
+            commands::oauth_status,
             #[cfg(desktop)]
             desktop::set_close_to_tray,
             #[cfg(desktop)]

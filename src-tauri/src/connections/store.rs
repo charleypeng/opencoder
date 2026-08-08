@@ -127,6 +127,7 @@ mod tests {
             url: "http://localhost:14096".to_string(),
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
+            oauth: None,
             created_at: 1_700_000_000_000,
             last_connected_at: Some(1_700_000_060_000),
         }

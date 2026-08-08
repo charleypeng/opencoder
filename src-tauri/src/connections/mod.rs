@@ -9,11 +9,12 @@
 //! (health.rs) polls each server and emits `server-health` snapshots.
 
 pub mod health;
+pub mod oauth;
 pub mod registry;
 pub mod store;
 
 use crate::connections::registry::{
-    RegistryError, ServerEntry, ServerEntryInput, ServerRegistryCore,
+    RegistryError, ServerEntry, ServerEntryInput, ServerOAuth, ServerRegistryCore,
 };
 use crate::connections::store::{PersistError, ServerStore};
 use std::sync::Mutex;
@@ -126,6 +127,18 @@ impl<R: tauri::Runtime> ServerRegistry<R> {
         Ok(())
     }
 
+    /// Stores (or clears) the OAuth credentials of a server through the
+    /// same persist-first discipline as the other mutations.
+    pub fn set_oauth(&self, id: String, oauth: Option<ServerOAuth>) -> Result<(), RegistryError> {
+        let mut core = self.lock();
+        let mut next = ServerRegistryCore::from_entries(core.list());
+        next.set_oauth(&id, oauth)?;
+        self.persist_entries(&next.list())
+            .map_err(|err| RegistryError::Persist(err.to_string()))?;
+        *core = next;
+        Ok(())
+    }
+
     /// Marks the server as last connected at the current time (used by the
     /// health monitor in M1-04).
     pub fn touch_last_connected(&self, id: String) -> Result<(), RegistryError> {
@@ -182,6 +195,7 @@ mod tests {
             url: "http://localhost:14096".to_string(),
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
+            oauth: None,
             created_at: 1_700_000_000_000,
             last_connected_at: Some(1_700_000_060_000),
         }

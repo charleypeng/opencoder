@@ -634,3 +634,88 @@ describe("ServerHome error banner (TASK-M1-09)", () => {
     await waitFor(() => expect(screen.queryByTestId("error-banner")).toBeNull());
   });
 });
+
+// ---- TASK-UI-01: server OAuth (RFC 9728) ----
+
+function oauthServer(overrides: Partial<ServerEntry> = {}): ServerEntry {
+  return {
+    id: "srv-oauth",
+    name: "OAuth Server",
+    url: "http://localhost:14096",
+    oauth: {
+      clientId: "opencoder-client",
+      discoveryUrl: "http://localhost:14096/.well-known/oauth-authorization-server",
+      authorizationEndpoint: "http://localhost:14096/server-oauth/authorize",
+      tokenEndpoint: "http://localhost:14096/server-oauth/token",
+      accessToken: "at_old",
+      refreshToken: "rt_old",
+      expiresAt: 1_700_000_000_000,
+    },
+    createdAt: 1_700_000_000_000,
+    ...overrides,
+  };
+}
+
+describe("ServerHome OAuth (TASK-UI-01)", () => {
+  it("shows the Re-authenticate menu item only for OAuth servers", async () => {
+    invokeMock.mockResolvedValueOnce([oauthServer()]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    const card = await waitFor(() => screen.getByTestId("server-card-srv-oauth"));
+
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Re-authenticate" })).toBeInTheDocument(),
+    );
+
+    // The plain server (no oauth) has no such item.
+    invokeMock.mockResolvedValueOnce([server({ id: "srv-1" })]);
+    const { unmount } = render(() => <ServerHome onSelect={vi.fn()} />);
+    const plainCard = await waitFor(() => screen.getByTestId("server-card-srv-1"));
+    fireEvent.contextMenu(plainCard);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Reconnect" })).toBeInTheDocument(),
+    );
+    expect(screen.queryByRole("menuitem", { name: "Re-authenticate" })).toBeNull();
+    unmount();
+  });
+
+  it("opens the OAuth consent dialog from the Re-authenticate item", async () => {
+    invokeMock.mockResolvedValueOnce([oauthServer()]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    const card = await waitFor(() => screen.getByTestId("server-card-srv-oauth"));
+
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Re-authenticate" })).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByRole("menuitem", { name: "Re-authenticate" }), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(screen.getByTestId("server-oauth-dialog")).toBeInTheDocument());
+    expect(screen.getByText("Sign in to OAuth Server")).toBeInTheDocument();
+  });
+
+  it("routes a 401 on an OAuth server to the consent dialog, not the Basic form", async () => {
+    invokeMock.mockResolvedValueOnce([oauthServer()]);
+    render(() => <ServerHome onSelect={vi.fn()} />);
+    const card = await waitFor(() => screen.getByTestId("server-card-srv-oauth"));
+
+    fireEvent.contextMenu(card);
+    await waitFor(() =>
+      expect(screen.getByRole("menuitem", { name: "Reconnect" })).toBeInTheDocument(),
+    );
+    invokeMock.mockRejectedValueOnce({
+      status: 401,
+      code: "http",
+      message: '{"error":"unauthorized"}',
+      retriable: false,
+    });
+    fireEvent.pointerUp(screen.getByRole("menuitem", { name: "Reconnect" }), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(screen.getByTestId("server-oauth-dialog")).toBeInTheDocument());
+    expect(screen.queryByTestId("reauth-dialog")).toBeNull();
+  });
+});
