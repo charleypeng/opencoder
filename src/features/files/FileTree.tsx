@@ -184,7 +184,10 @@ const FileTree: Component<FileTreeProps> = (props) => {
     setError(null);
     try {
       const [treeNodes, statusEntries] = await Promise.all([
-        createFileService(getApiClient()).tree(),
+        // GET /file requires `path` (openapi: required query). The root
+        // listing is the empty relative path — omitting it makes real
+        // opencode servers answer 400 BadRequest "Missing key at [\"path\"]".
+        createFileService(getApiClient()).tree(""),
         createFileService(getApiClient()).status(),
       ]);
       if (seq !== fetchSeq) return;

@@ -64,8 +64,11 @@ const FIND_ROUTES: Route[] = [];
 // P2 — efficiency tools (M4): /file family. The tree is a flat FileNode[]
 // served declaratively; the viewer (M4-03) expands directories by re-listing
 // with `path`, and `/file/content` / `/file/status` are static fixtures.
+// `/file` itself is handled DYNAMICALLY (see registerDynamic): the real
+// server requires the `path` query (openapi required), so the mock answers
+// the same 400 BadRequest when it is missing — the client must always send
+// it (the empty string for the root listing).
 const FILE_ROUTES: Route[] = [
-  { method: "get", path: "/file", operation: "file.list", fixture: "file.tree" },
   { method: "get", path: "/file/content", operation: "file.read", fixture: "file.content" },
   { method: "get", path: "/file/status", operation: "file.status", fixture: "file.status" },
 ];
@@ -571,6 +574,21 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     }
     const needle = query.toLowerCase();
     res.json(files.filter((path) => path.toLowerCase().includes(needle)));
+  });
+
+  // File tree (TASK-M4-02): mirrors the real server's contract — `path` is a
+  // REQUIRED query (openapi file.list). The root listing uses the empty
+  // string; a missing key answers the same 400 BadRequest as opencode
+  // (previously the mock served the fixture unconditionally, hiding client
+  // bugs like the FileTree root load that omitted the key).
+  app.get("/file", (req, res) => {
+    if (queryString(req, "path") === undefined) {
+      res
+        .status(400)
+        .json({ _tag: "BadRequestError", message: 'Missing key\n at ["path"]', kind: "Query" });
+      return;
+    }
+    res.json(fixtures["file.tree"]);
   });
 
   // Workspace symbol search (TASK-M4-06): the fixture symbol list is

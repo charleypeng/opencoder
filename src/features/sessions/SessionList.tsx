@@ -21,7 +21,7 @@
 // counts grow, swap the <For> bodies for a virtualized list (e.g.
 // @tanstack/virtual) keeping the same group headers (M2-09).
 
-import { createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ContextMenu from "../../components/ContextMenu.js";
 import { useT } from "../../i18n/index.js";
@@ -312,6 +312,10 @@ const SessionList: Component<SessionListProps> = (props) => {
   // Tree mode (TASK-M6-07): the set of collapsed subtree roots (children
   // stay hidden until the chevron re-expands them), plus the set of parents
   // whose server-side children were already fetched (one-shot completeness).
+  // Sub-sessions are COLLAPSED BY DEFAULT: the initial set seeds every
+  // parent whose children are already in the store (from the session list
+  // / SSE), so forks and subagent trees do not flood the sidebar until the
+  // user expands them.
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(new Set());
   const [childrenFetched, setChildrenFetched] = createSignal<ReadonlySet<string>>(new Set());
 
@@ -338,6 +342,39 @@ const SessionList: Component<SessionListProps> = (props) => {
   const tree = createMemo(() => buildSessionTree(storeSessions(), roots()));
   const groups = createMemo(() => groupSessionsByTime(roots(), now()));
 
+  // Seed the collapsed set once the tree's parents are known: every parent
+  // with children starts collapsed (sub-sessions hidden by default). The
+  // effect re-runs when the tree grows (SSE upserts, /children fetch), so
+  // parents that appear AFTER mount also start collapsed — but a parent the
+  // user already expanded is left alone (removed from the seed scope by the
+  // explicit-state check below: setCollapsed only ADDS ids the user never
+  // toggled, tracked in `expandedByUser`).
+  const expandedByUser = new Set<string>();
+  createEffect(() => {
+    const nodes = tree();
+    const seed = new Set<string>();
+    const visit = (list: typeof nodes) => {
+      for (const node of list) {
+        if (node.children.length > 0 && !expandedByUser.has(node.session.id)) {
+          seed.add(node.session.id);
+        }
+        visit(node.children);
+      }
+    };
+    visit(nodes);
+    if (seed.size > 0)
+      setCollapsed((prev) => {
+        let changed = false;
+        const next = new Set(prev);
+        for (const id of seed)
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        return changed ? next : prev;
+      });
+  });
+
   /** Toggles a node's expand state. Expanding a node that WAS collapsed
    *  (wasCollapsed) asks the server's /children endpoint ONCE and upserts
    *  the returned sessions, so the tree stays complete (subagent sessions
@@ -347,8 +384,14 @@ const SessionList: Component<SessionListProps> = (props) => {
     const id = session.id;
     const next = new Set(collapsed());
     const wasCollapsed = next.has(id);
-    if (wasCollapsed) next.delete(id);
-    else next.add(id);
+    if (wasCollapsed) {
+      next.delete(id);
+      // Remember the user's explicit expand so the default-collapse seed
+      // effect never re-folds this subtree while it is open.
+      expandedByUser.add(id);
+    } else {
+      next.add(id);
+    }
     setCollapsed(next);
     const fetched = childrenFetched();
     if (wasCollapsed && !fetched.has(id)) {

@@ -18,6 +18,11 @@ test("E07 session search, rename, delete", async ({ page }) => {
   await expect(page.getByTestId("session-item-sess_02")).toHaveCount(0);
   await page.getByTestId("session-search").fill("");
 
+  // Sub-sessions are collapsed by default: expand sess_01's subtree so the
+  // forked children (sess_02…) are reachable for rename/delete.
+  await page.getByTestId("session-item-sess_01").getByTestId("session-tree-toggle").click();
+  await expect(page.getByTestId("session-item-sess_02")).toBeVisible();
+
   // Rename via the row menu (the ⋯ button is hover-revealed).
   await page.getByTestId("session-item-sess_02").hover();
   await page.getByTestId("session-item-sess_02").getByTestId("session-row-menu").click();

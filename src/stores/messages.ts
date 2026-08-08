@@ -169,6 +169,14 @@ function syncMessageParts(entry: SessionMessages): void {
  * A new part id also updates `messageParts` (replacing the map wholesale, so
  * grouping subscribers fire once) and bumps `lastDeltaAt`.
  *
+ * `overwrite` (default true) controls whether an EXISTING part is replaced:
+ * live `message.part.updated` events always overwrite (the server says this
+ * is the full current state), but history-page batches pass false — a part
+ * already in the store (streamed via SSE) must not be clobbered by an older
+ * server snapshot, which would truncate text the client already accumulated
+ * (the thinking-content "sometimes full, sometimes not" bug: the page's
+ * shorter reasoning snapshot replaced the streamed deltas).
+ *
  * TASK-M3-05 prepend: an older history page lands in FRONT of the already
  * loaded transcript — new part ids unshift the order and the message group
  * is inserted at the head of the grouping map, so render order always
@@ -179,10 +187,12 @@ function putPartDraft(
   sessionId: string,
   part: Part,
   prepend = false,
+  overwrite = true,
 ): void {
   if (typeof part?.id !== "string") return;
   const entry = bucket[sessionId] ?? freshSessionMessages();
-  if (!(part.id in entry.parts)) {
+  const isNew = !(part.id in entry.parts);
+  if (isNew) {
     if (prepend) {
       entry.order.unshift(part.id);
       const ids = entry.messageParts[part.messageID] ?? [];
@@ -193,8 +203,10 @@ function putPartDraft(
       entry.messageParts = { ...entry.messageParts, [part.messageID]: [...ids, part.id] };
     }
   }
-  entry.parts[part.id] = part;
-  entry.lastDeltaAt = Date.now();
+  if (overwrite || isNew) {
+    entry.parts[part.id] = part;
+    entry.lastDeltaAt = Date.now();
+  }
   bucket[sessionId] = entry;
 }
 
@@ -205,6 +217,11 @@ function putPartDraft(
  * { info, parts } shape; the event schema itself has no parts), then runs
  * the pending-message reconciliation (TASK-M2-08, see reconcilePendingDraft).
  *
+ * `overwriteParts` (default true) applies to carried parts only: live
+ * message events always overwrite; history batches pass false so an
+ * existing streamed part (with more text) is never clobbered by the page's
+ * snapshot (see putPartDraft).
+ *
  * TASK-M3-05 prepend: an older history page keeps its metadata in `infos`
  * but must NOT overwrite the most-recent info slot with an older message.
  */
@@ -213,7 +230,7 @@ function upsertMessageDraft(
   sessionId: string,
   key: string,
   info: Message,
-  opts: { prepend?: boolean } = {},
+  opts: { prepend?: boolean; overwriteParts?: boolean } = {},
 ): void {
   const entry = bucket[sessionId] ?? freshSessionMessages();
   if (!opts.prepend) entry.info = info;
@@ -221,7 +238,9 @@ function upsertMessageDraft(
   bucket[sessionId] = entry;
   const carried = (info as Message & { parts?: unknown }).parts;
   if (Array.isArray(carried)) {
-    for (const part of carried) putPartDraft(bucket, sessionId, part as Part, opts.prepend);
+    for (const part of carried) {
+      putPartDraft(bucket, sessionId, part as Part, opts.prepend, opts.overwriteParts ?? true);
+    }
   }
   reconcilePendingDraft(bucket, sessionId, key, info.id, info.role, carried as Part[] | undefined);
 }
@@ -387,8 +406,9 @@ function applyPartDeltaDraft(
   key: string,
   part: Part,
   prepend = false,
+  overwrite = true,
 ): void {
-  putPartDraft(bucket, sessionId, part, prepend);
+  putPartDraft(bucket, sessionId, part, prepend, overwrite);
   maybeReconcileOnPartDraft(bucket, sessionId, key, part.messageID, part);
 }
 
@@ -496,10 +516,17 @@ export function applyMessageBatch(
     for (const item of ordered) {
       switch (item.type) {
         case "message":
-          upsertMessageDraft(bucket, sessionId, key, item.info, options);
+          // History pages must not clobber parts already streamed into the
+          // store: a page snapshot can be SHORTER than the accumulated
+          // deltas (e.g. a reasoning part captured mid-generation), and
+          // overwriting would truncate the thinking text.
+          upsertMessageDraft(bucket, sessionId, key, item.info, {
+            ...options,
+            overwriteParts: false,
+          });
           break;
         case "part":
-          applyPartDeltaDraft(bucket, sessionId, key, item.part, options.prepend);
+          applyPartDeltaDraft(bucket, sessionId, key, item.part, options.prepend, false);
           break;
         case "delta":
           if (typeof item.delta?.partID !== "string" || typeof item.delta.delta !== "string") {

@@ -419,6 +419,22 @@ try {
       expect(Array.isArray(body) && body.length === 0, `expected []; got ${JSON.stringify(body)}`);
     });
 
+    // The real server requires the `path` query on /file (openapi
+    // file.list): the mock mirrors the 400 so client regressions (a root
+    // load that omitted the key) fail the E2E suite instead of passing on
+    // a lenient fixture.
+    await test("file tree requires the path query (400 without it)", async () => {
+      const { status, body } = await request(baseUrl, "/file");
+      expect(status === 400, `expected 400; got ${status}`);
+      expect(String(body?.message ?? "").includes("path"), `message ${JSON.stringify(body)}`);
+    });
+
+    await test("file tree serves the fixture with an explicit path", async () => {
+      const { status, body } = await request(baseUrl, "/file?path=");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "tree must be a non-empty array");
+    });
+
     await test("find returns text search matches", async () => {
       const { status, body } = await request(baseUrl, "/find?pattern=prompt");
       expect(status === 200, `status ${status}`);
@@ -529,7 +545,7 @@ try {
 
     // TASK-M4-01: /file family.
     await test("file list returns FileNode entries", async () => {
-      const { status, body } = await request(baseUrl, "/file");
+      const { status, body } = await request(baseUrl, "/file?path=");
       expect(status === 200, `status ${status}`);
       expect(Array.isArray(body) && body.length > 0, "body must be a non-empty array");
       const node = body[0];
@@ -2289,8 +2305,9 @@ try {
     expect(detail.body?.id === "ses_abc123", `detail id ${JSON.stringify(detail.body?.id)}`);
 
     // The recorded root maps file.tree and session.diff; the remaining M4
-    // routes fall back to the built-in mock fixtures.
-    const fileList = await request(fixtureUrl, "/file");
+    // routes fall back to the built-in mock fixtures. /file requires the
+    // `path` query (openapi contract), so the root listing passes it.
+    const fileList = await request(fixtureUrl, "/file?path=");
     expect(
       Array.isArray(fileList.body) && fileList.body.length > 0,
       "file tree must serve in fixture mode",

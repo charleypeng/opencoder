@@ -269,6 +269,13 @@ describe("SessionList forks (TASK-M6-03)", () => {
     applySessionList(SERVER, [parent, child]);
     renderList();
 
+    // Sub-sessions are collapsed by default: the child is hidden until the
+    // parent chevron expands the subtree.
+    expect(screen.queryByTestId("session-item-child")).toBeNull();
+    fireEvent.click(
+      within(screen.getByTestId("session-item-parent")).getByTestId("session-tree-toggle"),
+    );
+
     const rows = screen.getAllByTestId(/^session-item-/);
     expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual([
       "session-item-parent",
@@ -294,6 +301,9 @@ describe("SessionList forks (TASK-M6-03)", () => {
     applySessionList(SERVER, [parent, child]);
     renderList();
 
+    fireEvent.click(
+      within(screen.getByTestId("session-item-parent")).getByTestId("session-tree-toggle"),
+    );
     fireEvent.input(screen.getByTestId("session-search"), { target: { value: "alpha" } });
     expect(screen.getByTestId("session-item-parent")).toBeInTheDocument();
     expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
@@ -326,6 +336,11 @@ describe("SessionList forks (TASK-M6-03)", () => {
     const state = getServerSessionState(SERVER);
     expect(state.sessions["sess_forked"]).toEqual(child);
     expect(state.activeSessionId).toBe("sess_forked");
+    // The forked child joins the tree under its parent; the parent starts
+    // collapsed, so the fork's subtree is expanded manually to see it.
+    fireEvent.click(
+      within(screen.getByTestId("session-item-a")).getByTestId("session-tree-toggle"),
+    );
     expect(
       within(screen.getByTestId("session-item-sess_forked")).getByTestId("session-fork-badge"),
     ).toBeInTheDocument();
@@ -355,6 +370,15 @@ describe("SessionList tree (TASK-M6-07)", () => {
     applySessionList(SERVER, [root, child, grand]);
     renderList();
 
+    // Sub-sessions are collapsed by default: expand both levels first.
+    expect(screen.queryByTestId("session-item-child")).toBeNull();
+    fireEvent.click(
+      within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle"),
+    );
+    fireEvent.click(
+      within(screen.getByTestId("session-item-child")).getByTestId("session-tree-toggle"),
+    );
+
     const rows = screen.getAllByTestId(/^session-item-/);
     expect(rows.map((row) => row.getAttribute("data-testid"))).toEqual([
       "session-item-root",
@@ -381,8 +405,18 @@ describe("SessionList tree (TASK-M6-07)", () => {
 
     const rootToggle = () =>
       within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    // Sub-sessions are collapsed by default.
+    expect(rootToggle()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTestId("session-item-child")).toBeNull();
+
+    fireEvent.click(rootToggle());
     expect(rootToggle()).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+    // The child's own subtree is collapsed by default too; expand it.
+    fireEvent.click(
+      within(screen.getByTestId("session-item-child")).getByTestId("session-tree-toggle"),
+    );
+    expect(screen.getByTestId("session-item-grand")).toBeInTheDocument();
 
     fireEvent.click(rootToggle());
     expect(rootToggle()).toHaveAttribute("aria-expanded", "false");
@@ -393,6 +427,7 @@ describe("SessionList tree (TASK-M6-07)", () => {
     fireEvent.click(rootToggle());
     expect(rootToggle()).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("session-item-child")).toBeInTheDocument();
+    // The child's subtree stayed expanded by the user's earlier toggle.
     expect(screen.getByTestId("session-item-grand")).toBeInTheDocument();
   });
 
@@ -404,6 +439,8 @@ describe("SessionList tree (TASK-M6-07)", () => {
 
     const rootRow = screen.getByTestId("session-item-root");
     expect(within(rootRow).getByTestId("session-tree-toggle")).toBeInTheDocument();
+    // Expand the collapsed subtree to reach the leaf row.
+    fireEvent.click(within(rootRow).getByTestId("session-tree-toggle"));
     expect(
       within(screen.getByTestId("session-item-child")).queryByTestId("session-tree-toggle"),
     ).toBeNull();
@@ -418,6 +455,11 @@ describe("SessionList tree (TASK-M6-07)", () => {
     applySessionList(SERVER, [root, child]);
     const onSelect = renderList();
 
+    // Expand first (the subtree is collapsed by default) so the child row
+    // exists, then select the parent: selection must not toggle the tree.
+    fireEvent.click(
+      within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle"),
+    );
     fireEvent.click(screen.getByTestId("session-item-root"));
     expect(onSelect).toHaveBeenCalledWith("root");
     expect(getServerSessionState(SERVER).activeSessionId).toBe("root");
@@ -431,6 +473,14 @@ describe("SessionList tree (TASK-M6-07)", () => {
     applySessionList(SERVER, [gp, parent, grand]);
     renderList();
 
+    // Expand both levels (sub-sessions start collapsed) so the deep match
+    // can render inside the grandparent's subtree.
+    fireEvent.click(
+      within(screen.getByTestId("session-item-gp")).getByTestId("session-tree-toggle"),
+    );
+    fireEvent.click(
+      within(screen.getByTestId("session-item-parent")).getByTestId("session-tree-toggle"),
+    );
     fireEvent.input(screen.getByTestId("session-search"), { target: { value: "gamma" } });
     // gp AND grand match; the intermediate parent does not. The grandchild
     // must render ONCE, inside the grandparent's subtree, not also alone.
@@ -451,11 +501,11 @@ describe("SessionList tree (TASK-M6-07)", () => {
 
     const toggle = () =>
       within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    // Sub-sessions are collapsed by default: the unknown child is hidden.
     expect(screen.queryByTestId("session-item-remote")).toBeNull();
 
-    // Collapse, then expand: the re-expand fires the one-shot /children
-    // fetch and the unknown child joins the tree.
-    fireEvent.click(toggle());
+    // Expand: the expand fires the one-shot /children fetch and the
+    // unknown child joins the tree.
     fireEvent.click(toggle());
 
     await waitFor(() => expect(screen.getByTestId("session-item-remote")).toBeInTheDocument());
@@ -475,6 +525,9 @@ describe("SessionList tree (TASK-M6-07)", () => {
 
     const toggle = () =>
       within(screen.getByTestId("session-item-root")).getByTestId("session-tree-toggle");
+    // Sub-sessions are collapsed by default: expand, then collapse, then
+    // expand again — the second expand's children fetch fails.
+    fireEvent.click(toggle());
     fireEvent.click(toggle());
     fireEvent.click(toggle());
     // The failure is ignored (the store is the truth); the tree survives.

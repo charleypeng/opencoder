@@ -590,6 +590,83 @@ describe("messages store", () => {
       expect("prt-msg_echo_1" in entry.parts).toBe(false);
       expect(entry.order).toHaveLength(new Set(entry.order).size);
     });
+
+    it("does not clobber streamed parts with a shorter history snapshot", () => {
+      // Regression: a reasoning part streamed via SSE (deltas accumulated a
+      // LONG text) must survive a history-page batch whose snapshot is
+      // SHORTER — overwriting would truncate the thinking content the user
+      // already saw ("thinking sometimes full, sometimes not").
+      const reasoningId = "prt_think";
+      applyPartDelta("srv-msg", SESSION, {
+        id: reasoningId,
+        sessionID: SESSION,
+        messageID: "msg_2",
+        type: "reasoning",
+        text: "The user wants a summary of the architecture. ",
+      } as Part);
+      applyTextDelta("srv-msg", SESSION, {
+        messageID: "msg_2",
+        partID: reasoningId,
+        field: "text",
+        delta: "We need to cover the Tauri shell, the SolidJS frontend, ",
+      });
+      applyTextDelta("srv-msg", SESSION, {
+        messageID: "msg_2",
+        partID: reasoningId,
+        field: "text",
+        delta: "and the Rust transport layer.",
+      });
+      const streamed = textOf(messages["srv-msg"][SESSION].parts[reasoningId]);
+      expect(streamed.length).toBeGreaterThan(20);
+
+      // The history page arrives with a mid-generation snapshot: shorter
+      // than what the client already accumulated.
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: assistantMessage("msg_2") },
+        {
+          type: "part" as const,
+          part: {
+            id: reasoningId,
+            sessionID: SESSION,
+            messageID: "msg_2",
+            type: "reasoning",
+            text: "The user wants a summary. ",
+          } as Part,
+        },
+      ]);
+
+      // The streamed text is kept; the shorter snapshot is ignored.
+      const after = textOf(messages["srv-msg"][SESSION].parts[reasoningId]);
+      expect(after).toBe(streamed);
+      expect(after).toContain("Rust transport layer");
+      // The part still renders once (order unchanged, no duplicate).
+      expect(messages["srv-msg"][SESSION].order).toEqual([reasoningId]);
+    });
+
+    it("fills missing parts from a history page without touching existing ones", () => {
+      // The other half of the semantics: parts ABSENT from the store are
+      // inserted by the batch; only existing (streamed) parts are protected.
+      applyPartDelta("srv-msg", SESSION, {
+        id: "prt_keep",
+        sessionID: SESSION,
+        messageID: "msg_2",
+        type: "text",
+        text: "streamed text",
+      } as Part);
+
+      applyMessageBatch("srv-msg", SESSION, [
+        { type: "message", info: assistantMessage("msg_2") },
+        {
+          type: "part" as const,
+          part: { ...textPart("prt_missing", "from history"), messageID: "msg_2" } as Part,
+        },
+      ]);
+
+      const entry = messages["srv-msg"][SESSION];
+      expect(textOf(entry.parts["prt_keep"])).toBe("streamed text");
+      expect(textOf(entry.parts["prt_missing"])).toBe("from history");
+      expect(entry.order).toEqual(["prt_keep", "prt_missing"]);
+    });
   });
 
   describe("TASK-M2-09 delta merge benchmark", () => {
