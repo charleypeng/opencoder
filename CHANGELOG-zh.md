@@ -9,6 +9,7 @@
 
 ### 新增
 
+- 调试 CI 发布通道（chore(ci)）：新增 `.github/workflows/debug.yml`——推送 `v*` tag 时构建**未签名**的 Windows（nsis）+ macOS（universal app+dmg）安装包，并立即发布到 GitHub Release（无草稿步骤、无需任何签名密钥：不做 Apple 证书导入；`TAURI_SIGNING_PRIVATE_KEY` 缺失时按 desktop.yml 同一兜底逻辑生成一次性 CI 更新签名密钥）。release 由 version-check job 按 tag 幂等创建，复用 release.yml 的版本同步校验与 CHANGELOG notes 脚本。这些产物仅供直接下载——其 `.sig` 来自一次性密钥，不得喂给应用内 updater。(ci)
 - Mock 服务器大量对话 fixture（feat(mock)）：新增 `ses_rich_01` 会话（「Heartbeat SSE 与架构讨论（大量消息）」），提供由 `scripts/gen-rich-messages.mjs` 生成的 100+ 条消息 fixture，覆盖全部 part 类型——含代码块与表格的长 markdown 文档、思考折叠、四种状态的工具调用、file/patch/snapshot/subtask/agent/retry/compaction part——外加 40 轮填充问答以压测虚拟化滚动。其他会话保持紧凑 fixture。(mock)
 - 会话子树默认折叠（feat(sessions)）：fork/子代理子树初始收起，侧边栏只显示顶层会话，点击箭头按需展开（用户展开过的父节点保持打开——默认折叠种子不会再次折叠它）。(sessions)
 - 按 AI 编程聊天界面设计规范重做聊天界面（feat(chat)）：消息流现已满足规范 MUST 规则——消息流容器带 `role="log"` + `aria-live="polite"` + `aria-atomic="false"`，流式增量经 1s 防抖的屏幕阅读器播报（IA-01）；助手消息带持久的强调色 AI 标识徽章（IA-05）；语法高亮防抖 250ms，流式帧不再逐 token 重跑 Shiki（IA-09）；工具卡片状态文本为「动作词 + 工具名」（如「正在运行 bash」），running/error 状态带左侧强调色边线、错误输出等宽字体（IA-19/20/28）；patch part 暴露变更意图说明插槽（IA-15）；file part 带 mime 类型徽章与等宽路径（IA-24）。输入区在生成期间显示分阶段等待文本（<3s spinner、3–10s「正在生成回复…」、>10s「仍在生成 — 按 Esc 停止」）并置于 aria-live 区域（IA-18）；会话错误横幅遵循三段式失败格式（什么失败 + 为什么 + 重试/关闭）；待办面板新增计数摘要头（IA-21）；会话列表与聊天头部按桌面密度收紧；状态栏带 `role="status"` 与 aria-label；移动端聊天页新增玻璃拟态输入条（安全区内边距）、TabBar 与页头返回按钮触控目标 ≥44px、底部导航玻璃化（ui-design §4/§5）。双主题新增设计令牌 `--ai-label-bg`/`--ai-label-text`。设计规格见 docs/chat-redesign-spec.md。(chat-ui)

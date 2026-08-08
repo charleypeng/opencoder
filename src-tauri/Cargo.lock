@@ -2595,7 +2595,7 @@ dependencies = [
 
 [[package]]
 name = "opencoder"
-version = "1.0.0"
+version = "1.0.0-debug"
 dependencies = [
  "base64 0.22.1",
  "flume",
