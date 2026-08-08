@@ -2601,6 +2601,7 @@ dependencies = [
  "futures-util",
  "mdns-sd",
  "reqwest 0.12.28",
+ "rustls",
  "serde",
  "serde_json",
  "tauri",

@@ -28,14 +28,27 @@ fn greet(name: &str) -> String {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Install the rustls crypto provider BEFORE any reqwest Client is
+    // built. reqwest 0.13 (a dependency of tauri 2.11 itself) compiles
+    // with `rustls-no-provider`, so without this every Client::new()
+    // panics — seen on iOS as a startup crash ("No rustls crypto provider
+    // is configured"). ring matches the provider already in the lockfile.
+    #[cfg(any(target_os = "ios", target_os = "android"))]
+    let _ = rustls::crypto::ring::default_provider().install_default();
     let builder = tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_glass::init())
         .plugin(tauri_plugin_haptics::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_process::init())
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .plugin(tauri_plugin_store::Builder::default().build());
+    // The updater (TASK-M10-03): desktop-only. The plugin's reqwest 0.13
+    // dependency panics on iOS when its rustls crypto provider is unset
+    // (aws-lc-rs is not installed by default on mobile), and mobile
+    // distribution goes through the app stores anyway, so the plugin is
+    // not registered on mobile builds.
+    #[cfg(desktop)]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     // The window-state crate is `#![cfg(not(any(target_os = "android", target_os = "ios")))]`
     // (it compiles to an empty crate on mobile), so registration must be
     // desktop-only — same discipline as the barcode-scanner/single-instance
