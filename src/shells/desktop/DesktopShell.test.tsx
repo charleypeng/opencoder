@@ -847,7 +847,12 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     // full-list replacement can no longer overwrite the new session.
     await waitFor(() => expect(sessions["srv-new"]?.order).toEqual(["sess_demo_01"]));
 
+    // The header "+" opens the project-directory picker (TASK-UI-01);
+    // creating with an empty input falls back to the plain new-session
+    // flow, which opens the message list.
     fireEvent.click(screen.getByTestId("new-session-button"));
+    await waitFor(() => expect(screen.getByTestId("filepicker-dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("filepicker-create"));
 
     await waitFor(() =>
       expect(getServerSessionState("srv-new").activeSessionId).toBe("sess_new_01"),

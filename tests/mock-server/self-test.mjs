@@ -349,6 +349,26 @@ try {
       expect(typeof body.version === "string", "created session must carry a version");
     });
 
+    // TASK-UI-01 filepicker: creating a session in a picked project
+    // directory (POST /session?directory=) echoes the directory.
+    await test("session create honors the directory query parameter", async () => {
+      const { status, body } = await request(
+        baseUrl,
+        "/session?directory=/mock/projects/opencode-demo",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "In project" }),
+        },
+      );
+      expect(status === 200, `status ${status}`);
+      expect(
+        body.directory === "/mock/projects/opencode-demo",
+        `directory ${JSON.stringify(body.directory)}`,
+      );
+      expect(body.title === "In project", `title ${JSON.stringify(body.title)}`);
+    });
+
     await test("session update patches the title", async () => {
       const { status, body } = await request(baseUrl, "/session/sess_01", {
         method: "PATCH",

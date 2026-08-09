@@ -252,11 +252,15 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
 
   app.post("/session", (req, res) => {
     const { parentID, title } = (req.body ?? {}) as { parentID?: string; title?: string };
+    // The filepicker dialog creates sessions in a chosen project
+    // directory (TASK-UI-01): the query parameter is echoed on the
+    // created session.
+    const directory = (req.query.directory as string | undefined) ?? base.directory;
     const created: Record<string, unknown> = {
       id: "sess_created",
       slug: slugify(title ?? "untitled"),
       projectID: base.projectID,
-      directory: base.directory,
+      directory,
       title: title ?? "",
       version: base.version,
       time: { created: base.time.updated, updated: base.time.updated },

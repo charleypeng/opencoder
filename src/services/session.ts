@@ -65,8 +65,10 @@ export function createSessionService(client: ApiClient) {
   return {
     /** List all sessions, sorted by most recently updated. */
     list: (dir?: string) => client.get<Session[]>("/session", dirQuery(dir)),
-    /** Create a new session (optionally forked from a parent). */
-    create: (input: SessionCreateInput = {}) => client.post<Session>("/session", { body: input }),
+    /** Create a new session, optionally in a specific project directory
+     *  (POST /session?directory=; the filepicker dialog passes it). */
+    create: (input: SessionCreateInput = {}, dir?: string) =>
+      client.post<Session>("/session", { body: input, ...dirQuery(dir) }),
     /** Retrieve detailed information about a specific session. */
     get: (sessionID: string, dir?: string) =>
       client.get<Session>(sessionPath(sessionID), dirQuery(dir)),

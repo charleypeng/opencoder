@@ -75,12 +75,23 @@ describe("createSession", () => {
 
     const result = await createSession(SERVER, service);
 
-    expect(service.create).toHaveBeenCalledWith({ title: undefined });
+    expect(service.create).toHaveBeenCalledWith({ title: undefined }, undefined);
     expect(result).toBe(CREATED);
     const state = getServerSessionState(SERVER);
     expect(state.sessions["sess_2"]).toEqual(CREATED);
     expect(state.order).toContain("sess_2");
     expect(state.activeSessionId).toBe("sess_2");
+  });
+
+  it("passes the requested directory through to the service", async () => {
+    const service = fakeService({ create: vi.fn().mockResolvedValue(CREATED) });
+
+    await createSession(SERVER, service, "/mock/projects/opencode-demo");
+
+    expect(service.create).toHaveBeenCalledWith(
+      { title: undefined },
+      "/mock/projects/opencode-demo",
+    );
   });
 
   it("throws ApiError and leaves the store untouched when creation fails", async () => {

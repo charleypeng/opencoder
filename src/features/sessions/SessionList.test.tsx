@@ -58,7 +58,9 @@ function session(id: string, updated: number, title = id): Session {
 /** A fake ApiClient for the session service factory inside the component. */
 function mockClient() {
   const client = {
-    get: vi.fn<(path: string, options?: unknown) => Promise<unknown>>(async () => undefined),
+    // The project list (filepicker suggestions) defaults to empty; tests
+    // that exercise the picker override it with project fixtures.
+    get: vi.fn<(path: string, options?: unknown) => Promise<unknown>>(async () => []),
     post: vi.fn<(path: string, options?: { body?: unknown }) => Promise<unknown>>(
       async () => undefined,
     ),
@@ -670,23 +672,50 @@ describe("SessionList session actions (TASK-M2-05)", () => {
     expect(getServerSessionState(SERVER).sessions["a"]).toMatchObject({ title: "Old title" });
   });
 
-  it("creates a new session via the header button and opens it", async () => {
+  it("opens the filepicker from the header button and creates a session with the typed path", async () => {
     const client = mockClient();
     const created = session("sess_new", TODAY, "");
+    client.get.mockResolvedValue([
+      {
+        id: "p1",
+        worktree: "/mock/projects/opencode-demo",
+        vcs: "git",
+        name: "opencode-demo",
+        time: { created: 1, updated: 1 },
+        sandboxes: [],
+      },
+    ]);
     client.post.mockResolvedValue(created);
     renderList();
 
     fireEvent.click(screen.getByTestId("new-session-button"));
+    const dialog = await waitFor(() => screen.getByTestId("filepicker-dialog"));
+    expect(dialog).toBeInTheDocument();
+
+    // The known project appears as a suggestion.
+    await waitFor(() =>
+      expect(screen.getByTestId("filepicker-suggestion-0")).toHaveTextContent(
+        "/mock/projects/opencode-demo",
+      ),
+    );
+
+    // Picking the suggestion fills the input; Create posts with the
+    // directory query parameter.
+    fireEvent.click(screen.getByTestId("filepicker-suggestion-0"));
+    fireEvent.click(screen.getByTestId("filepicker-create"));
 
     await waitFor(() =>
-      expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } }),
+      expect(client.post).toHaveBeenCalledWith("/session", {
+        body: { title: undefined },
+        query: { directory: "/mock/projects/opencode-demo" },
+      }),
     );
     const state = getServerSessionState(SERVER);
     expect(state.sessions["sess_new"]).toEqual(created);
     expect(state.activeSessionId).toBe("sess_new");
   });
 
-  it("creates a new session from the empty state", async () => {
+  it("creates a session from the empty state through the filepicker with an empty input", async () => {
     const client = mockClient();
     const created = session("sess_new", TODAY, "");
     client.post.mockResolvedValue(created);
@@ -694,27 +723,30 @@ describe("SessionList session actions (TASK-M2-05)", () => {
 
     expect(screen.getByTestId("session-empty")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("new-session-empty-button"));
+    await waitFor(() => expect(screen.getByTestId("filepicker-dialog")).toBeInTheDocument());
 
+    // Empty input falls back to the plain new-session flow (no directory).
+    fireEvent.click(screen.getByTestId("filepicker-create"));
     await waitFor(() =>
       expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } }),
     );
     expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_new");
   });
 
-  it("shows an error banner when creating fails", async () => {
+  it("surfaces a create failure inside the filepicker", async () => {
     const client = mockClient();
     client.post.mockRejectedValue(new ApiError(500, "http", "boom", true));
     renderList();
 
     fireEvent.click(screen.getByTestId("new-session-button"));
+    await waitFor(() => expect(screen.getByTestId("filepicker-dialog")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("filepicker-create"));
 
     await waitFor(() =>
-      expect(screen.getByTestId("error-banner")).toHaveTextContent("Server error"),
+      expect(screen.getByTestId("filepicker-create-error")).toHaveTextContent("boom"),
     );
+    expect(screen.getByTestId("filepicker-dialog")).toBeInTheDocument();
     expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
-
-    fireEvent.click(screen.getByTestId("error-banner-dismiss"));
-    expect(screen.queryByTestId("error-banner")).toBeNull();
   });
 });
 

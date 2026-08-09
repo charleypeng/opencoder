@@ -18,9 +18,10 @@ import {
 export async function createSession(
   serverId: string,
   sessionService: SessionService,
+  directory?: string,
 ): Promise<Session> {
   try {
-    const created = await sessionService.create({ title: undefined });
+    const created = await sessionService.create({ title: undefined }, directory);
     upsertSession(serverId, created);
     setActiveSession(serverId, created.id);
     return created;

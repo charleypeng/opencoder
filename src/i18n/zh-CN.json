@@ -101,6 +101,12 @@
   "sessions": {
     "newSession": "新建会话",
     "creating": "创建中…",
+    "filepickerTitle": "在工程目录中新建会话",
+    "filepickerHint": "输入工程目录路径，下方会显示匹配的 OpenCode 工程。选择一项或按回车在该目录创建会话。",
+    "filepickerPlaceholder": "工程路径，如 /path/to/project",
+    "filepickerLoading": "正在加载已知工程…",
+    "filepickerNoMatches": "没有匹配的已知工程。输入路径仍可在该目录创建会话。",
+    "createSession": "创建会话",
     "rename": "重命名",
     "delete": "删除",
     "share": "分享",

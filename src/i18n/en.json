@@ -101,6 +101,12 @@
   "sessions": {
     "newSession": "New session",
     "creating": "Creating…",
+    "filepickerTitle": "New session in a project",
+    "filepickerHint": "Type a project directory — matching OpenCode projects appear below. Pick one or press Enter to create the session there.",
+    "filepickerPlaceholder": "Project path, e.g. /path/to/project",
+    "filepickerLoading": "Loading known projects…",
+    "filepickerNoMatches": "No known projects match. Enter a path to create a session there anyway.",
+    "createSession": "Create session",
     "rename": "Rename",
     "delete": "Delete",
     "share": "Share",
