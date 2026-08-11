@@ -58,8 +58,8 @@ function session(id: string, updated: number, title = id): Session {
 /** A fake ApiClient for the session service factory inside the component. */
 function mockClient() {
   const client = {
-    // The project list (filepicker suggestions) defaults to empty; tests
-    // that exercise the picker override it with project fixtures.
+    // The directory listing (filepicker suggestions) defaults to empty;
+    // tests that exercise the picker override it with FileNode fixtures.
     get: vi.fn<(path: string, options?: unknown) => Promise<unknown>>(async () => []),
     post: vi.fn<(path: string, options?: { body?: unknown }) => Promise<unknown>>(
       async () => undefined,
@@ -672,17 +672,24 @@ describe("SessionList session actions (TASK-M2-05)", () => {
     expect(getServerSessionState(SERVER).sessions["a"]).toMatchObject({ title: "Old title" });
   });
 
-  it("opens the filepicker from the header button and creates a session with the typed path", async () => {
+  it("opens the filepicker from the header button and creates a session in the browsed directory", async () => {
     const client = mockClient();
     const created = session("sess_new", TODAY, "");
+    // The workspace root listing (GET /file?path=) feeds the suggestions.
     client.get.mockResolvedValue([
       {
-        id: "p1",
-        worktree: "/mock/projects/opencode-demo",
-        vcs: "git",
-        name: "opencode-demo",
-        time: { created: 1, updated: 1 },
-        sandboxes: [],
+        name: "src",
+        path: "src/",
+        absolute: "/mock/projects/opencode-demo/src",
+        type: "directory",
+        ignored: false,
+      },
+      {
+        name: "README.md",
+        path: "README.md",
+        absolute: "/mock/projects/opencode-demo/README.md",
+        type: "file",
+        ignored: false,
       },
     ]);
     client.post.mockResolvedValue(created);
@@ -692,22 +699,25 @@ describe("SessionList session actions (TASK-M2-05)", () => {
     const dialog = await waitFor(() => screen.getByTestId("filepicker-dialog"));
     expect(dialog).toBeInTheDocument();
 
-    // The known project appears as a suggestion.
+    // The server directory listing appears as suggestions (folder first).
     await waitFor(() =>
-      expect(screen.getByTestId("filepicker-suggestion-0")).toHaveTextContent(
-        "/mock/projects/opencode-demo",
-      ),
+      expect(screen.getByTestId("filepicker-suggestion-0")).toHaveTextContent("src"),
     );
 
-    // Picking the suggestion fills the input; Create posts with the
-    // directory query parameter.
+    // Browsing into the folder fills the input with its absolute path;
+    // Create posts with the directory query parameter.
     fireEvent.click(screen.getByTestId("filepicker-suggestion-0"));
+    await waitFor(() =>
+      expect(screen.getByTestId("filepicker-input")).toHaveValue(
+        "/mock/projects/opencode-demo/src/",
+      ),
+    );
     fireEvent.click(screen.getByTestId("filepicker-create"));
 
     await waitFor(() =>
       expect(client.post).toHaveBeenCalledWith("/session", {
         body: { title: undefined },
-        query: { directory: "/mock/projects/opencode-demo" },
+        query: { directory: "/mock/projects/opencode-demo/src" },
       }),
     );
     const state = getServerSessionState(SERVER);

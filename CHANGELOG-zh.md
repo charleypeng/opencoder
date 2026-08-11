@@ -27,6 +27,7 @@
 ### 修复
 
 - 文件树文件夹无法展开（fix(files)）：真实 OpenCode 服务器上 `GET /file` 只返回**一级**直接子项，且目录路径带系统分隔符后缀（`src/`，Windows 为 `src\`）——store 的父路径精确匹配（`src/features/` 对 `src/`）永远匹配不上，任何展开都渲染为空列表；mock 因无斜杠 fixture 掩盖了该问题。树路径现在入库时统一规范化（去除尾部分隔符、兼容两种分隔符）；mock fixture 与 `/file` 路由同步对齐真实形态（单层列表、目录尾随分隔符、工作区内绝对路径解析、工作区外路径报错），并有 self-test 覆盖——此类回归会在 L3 门禁暴露而非线上。(files)
+- 新建会话文件选择器只显示历史工程（fix(sessions)）：建议数据源改为服务器**实时目录列表**——`GET /file?path=` 在输入为空时列出工作区根目录子项；输入路径时列出其父目录并按最后一段前缀（不区分大小写）过滤；点击文件夹可逐层进入（尾部斜杠补全）；文件夹可选，文件只展示不可选（会话需要目录）；Enter 仍在高亮文件夹或已输入路径上创建会话。(sessions)
 - 聊天消息行重叠与滚动闪烁（fix(messages)）：消息行此前由**非 keyed** 的 For 渲染，任何测量高度变化（异步 Shiki 代码块高亮在占位符被测量后撑高行）都会重建整行子树——行在占位符高度与高亮高度之间反复伸缩，形成 ResizeObserver 反馈循环，行与行互相叠压（用户气泡盖在助手文本上），消息流底部永远无法稳定（「回到底部」目标每行滞后约 110px）。行现按消息 id 做 keyed 渲染（solid-primitives `Key`），重新测量只移动 `style.top`，气泡 DOM（含已高亮的代码块）得以保留；循环消除，消息流可稳定落底。回归测试模拟 ResizeObserver 高度变化并断言行 DOM 身份不变。(messages)
 - 思考内容有时不完整（fix(messages)）：历史页加载（applyMessageBatch）此前**无条件覆盖**已存在的 part——SSE 流式已累积的长思考文本会被服务器较短的快照截断（打开会话时历史页与流式竞态）。历史页现只插入缺失的 part（`overwrite=false`），已流式的文本永不被快照覆盖；`lastDeltaAt` 也只在真正变化时更新。两个回归测试覆盖「短快照不截断流式文本」与「缺失 part 正常填充」。(messages)
 - 打开文件树报 400 BadRequest "Missing key at [\"path\"]"（fix(files)）：`GET /file` 的 `path` 查询参数在 openapi 中是**必填**（真实 opencode 服务器校验），而 FileTree 根加载调用 `tree()` 时不传该参数——真实服务器拒绝，mock 因静态 fixture 未暴露。根加载现显式传 `path=""`（根目录约定）；mock 的 `/file` 同步改为动态路由，缺少 path 时返回与真实服务器一致的 400，并在 self-test 中断言，防止此类客户端回归再次被宽松 fixture 掩盖。(files)
