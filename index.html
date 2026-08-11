@@ -57,6 +57,23 @@
             var color = PRESETS[accent] || (/^#[0-9a-f]{3,8}$/i.test(accent) ? accent : null);
             if (color) doc.style.setProperty("--accent", color);
           }
+          // UI-scale pre-read: mirrors src/stores/uiScale.ts. Desktop
+          // applies the persisted factor (default 1.1, clamped to
+          // 0.9-1.6) through the --ui-scale variable (html font-size);
+          // mobile stays 1 so the native Liquid Glass tab bar
+          // coordination (safe-area reserves) never scales with the web
+          // content. Set before first paint so the app never size-jumps.
+          var isMobile =
+            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
+            (!!window.webkit &&
+              "ontouchstart" in window &&
+              window.innerWidth > 0 &&
+              window.innerWidth <= 1024) ||
+            ("ontouchstart" in window && window.innerWidth > 0 && window.innerWidth <= 768);
+          var scale = parseFloat(localStorage.getItem("oc-ui-scale") || "");
+          if (!isFinite(scale)) scale = 1.1;
+          scale = Math.min(1.6, Math.max(0.9, Math.round(scale * 100) / 100));
+          doc.style.setProperty("--ui-scale", isMobile ? "1" : String(scale));
         } catch (e) {
           // A failing pre-read must never block startup.
         }

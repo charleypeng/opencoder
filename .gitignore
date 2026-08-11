@@ -19,6 +19,8 @@ npm-debug.log*
 coverage/
 test-results/
 playwright-report/
+# UI screenshot script output (tests/e2e/screenshot-ui.mjs)
+.ui-shots-*/
 
 # Environment
 .env

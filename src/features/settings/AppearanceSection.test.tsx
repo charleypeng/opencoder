@@ -7,6 +7,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { refreshPlatform } from "../../platform/index.js";
+import { DEFAULT_UI_SCALE, setUiScale } from "../../stores/uiScale.js";
 import {
   ACCENT_PRESETS,
   setAccent,
@@ -44,8 +45,10 @@ beforeEach(() => {
   setAccent(ACCENT_PRESETS[0].id);
   setOled(false);
   setThemeServer(undefined);
+  setUiScale(DEFAULT_UI_SCALE);
   document.documentElement.removeAttribute("data-theme");
   document.documentElement.style.removeProperty("--accent");
+  document.documentElement.style.removeProperty("--ui-scale");
 });
 
 afterEach(() => {
@@ -135,6 +138,33 @@ describe("AppearanceSection OLED (mobile-only)", () => {
     fireEvent.click(toggle);
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(localStorage.getItem("oc-oled")).toBe("0");
+  });
+});
+
+describe("AppearanceSection UI scale (desktop-only)", () => {
+  it("shows the slider on desktop with the default value", () => {
+    render(() => <AppearanceSection serverId={SERVER} />);
+
+    const slider = screen.getByTestId("ui-scale-slider") as HTMLInputElement;
+    expect(slider).toBeInTheDocument();
+    expect(slider.value).toBe("1.1");
+    expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("110%");
+  });
+
+  it("adjusts the scale, applies it to the CSS variable and persists it", () => {
+    render(() => <AppearanceSection serverId={SERVER} />);
+
+    const slider = screen.getByTestId("ui-scale-slider") as HTMLInputElement;
+    fireEvent.input(slider, { target: { value: "1.4" } });
+    expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("140%");
+    expect(document.documentElement.style.getPropertyValue("--ui-scale")).toBe("1.4");
+    expect(localStorage.getItem("oc-ui-scale")).toBe("1.4");
+  });
+
+  it("hides the slider on mobile (native glass bar must not scale)", () => {
+    toMobile();
+    render(() => <AppearanceSection serverId={SERVER} />);
+    expect(screen.queryByTestId("ui-scale-slider")).not.toBeInTheDocument();
   });
 });
 

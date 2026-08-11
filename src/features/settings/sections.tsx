@@ -113,7 +113,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     titleKey: "settings:appearance",
     hintKey: "settings:appearanceHint",
     icon: ICONS.appearance,
-    keywords: ["theme", "accent", "color", "dark", "light", "oled"],
+    keywords: ["theme", "accent", "color", "dark", "light", "oled", "scale", "size", "zoom"],
     component: AppearanceSection,
   },
   {

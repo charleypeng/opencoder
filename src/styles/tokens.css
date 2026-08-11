@@ -63,11 +63,12 @@
   --glass-border: rgba(255, 255, 255, 0.09);
   --glass-blur: 24px;
 
-  /* type scale */
-  --text-xs: 11px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 17px;
+  /* type scale — rem so the UI-scale root font-size (index.css) scales
+     the whole app: 0.6875rem = 11px at the 16px base */
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-md: 0.875rem;
+  --text-lg: 1.0625rem;
 
   /* radii */
   --r-sm: 6px;
@@ -87,6 +88,13 @@
 
   /* density (desktop compact 0.92, mobile 1.06) */
   --density: 1;
+
+  /* UI scale (desktop): the whole-interface scale factor applied on the
+     html font-size (src/styles/index.css). The store
+     (src/stores/uiScale.ts) overrides it live; 1.1 ships a
+     bigger-than-baseline desktop UI and the Appearance slider picks
+     0.9–1.6. Mobile stays 1 (native glass bar coordination). */
+  --ui-scale: 1.1;
 
   /* fonts: system stack for UI, mono for code */
   --font-ui:

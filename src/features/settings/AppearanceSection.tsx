@@ -26,6 +26,13 @@ import {
   themeServerOverrides,
 } from "../../stores/theme.js";
 import type { ThemeMode } from "../../stores/theme.js";
+import {
+  UI_SCALE_MAX,
+  UI_SCALE_MIN,
+  UI_SCALE_STEP,
+  setUiScale,
+  uiScale,
+} from "../../stores/uiScale.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -180,6 +187,31 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
             </div>
           </div>
         </div>
+        <Show when={platform.kind === "desktop"}>
+          <div class="border-b border-bg-sunken py-3">
+            <p class="text-xs font-medium">{t("settings:uiScale")}</p>
+            <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:uiScaleHint")}</p>
+            <div class="mt-2 flex items-center gap-3">
+              <input
+                type="range"
+                data-testid="ui-scale-slider"
+                min={UI_SCALE_MIN}
+                max={UI_SCALE_MAX}
+                step={UI_SCALE_STEP}
+                value={uiScale()}
+                aria-label={t("settings:uiScale")}
+                onInput={(event) => setUiScale(Number(event.currentTarget.value))}
+                class="w-48 cursor-pointer accent-accent"
+              />
+              <span
+                data-testid="ui-scale-value"
+                class="shrink-0 font-code text-xs text-fg-secondary"
+              >
+                {Math.round(uiScale() * 100)}%
+              </span>
+            </div>
+          </div>
+        </Show>
         <div class="py-3" data-testid="theme-server-override">
           <p class="text-xs font-medium">{t("settings:serverTheme")}</p>
           <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:serverThemeHint")}</p>
