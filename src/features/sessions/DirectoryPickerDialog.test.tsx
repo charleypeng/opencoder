@@ -2,23 +2,24 @@
 // behind the project switcher's ➕ — starts at the filesystem root,
 // lists each directory's subfolders via GET /file with the `directory`
 // query (workspace-routing), drills down on click, jumps back through the
-// breadcrumb, and "Add directory" sets the picked folder as the current
-// working directory (project store) plus records it as recent.
+// breadcrumb, and "Add directory" switches the working directory, jumps
+// into it (selecting its first session — or creating one when the folder
+// has no sessions yet) and records it as recent (deduped).
 
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import DirectoryPickerDialog from "./DirectoryPickerDialog";
 import { getServerProjectState, resetServer } from "../../stores/project";
+import { getServerSessionState, resetServer as resetSessions } from "../../stores/session";
 import { readRecentProjects } from "./recentProjects";
 import type { FileNode } from "../../services/file";
+import type { Session } from "../../services/session";
 
 const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
 
 vi.mock("../../services/client", () => ({ getApiClient: getApiClientMock }));
 
 const SERVER = "srv-dirpick";
-
-type MockClient = { get: ReturnType<typeof vi.fn> };
 
 /** Per-directory listings keyed by the requested `directory` context. */
 const LISTINGS: Record<string, string[]> = {
@@ -38,12 +39,33 @@ function entry(dir: string, name: string): FileNode {
   };
 }
 
-function mockClient(): MockClient {
-  const client = {
-    get: vi.fn(async (_url: string, opts?: { query?: { path?: string; directory?: string } }) => {
+function session(id: string, title = "Existing session"): Session {
+  return {
+    id,
+    slug: title.toLowerCase().replace(/\s+/g, "-"),
+    projectID: "p1",
+    directory: "/Volumes/data",
+    title,
+    version: "1.18.11",
+    time: { created: 1, updated: 1 },
+  } as Session;
+}
+
+interface MockClient {
+  get: ReturnType<typeof vi.fn>;
+  post: ReturnType<typeof vi.fn>;
+}
+
+/** GET /file serves the directory listings, GET /session the sessions of
+ *  the injected (new) active directory. */
+function mockClient(sessions: Session[] = []): MockClient {
+  const client: MockClient = {
+    get: vi.fn(async (url: string, opts?: { query?: { path?: string; directory?: string } }) => {
+      if (url === "/session") return sessions;
       const dir = opts?.query?.directory ?? "/";
       return (LISTINGS[dir] ?? []).map((name) => entry(dir, name));
     }),
+    post: vi.fn(async () => session("sess_new", "")),
   };
   getApiClientMock.mockReturnValue(client);
   return client;
@@ -55,11 +77,25 @@ function renderPicker(overrides: Partial<Parameters<typeof DirectoryPickerDialog
   return props;
 }
 
+/** Drills into /Volumes/data so Add targets a concrete folder. */
+async function drillToData() {
+  await waitFor(() =>
+    expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
+  );
+  fireEvent.click(screen.getByTestId("directory-picker-item-Volumes"));
+  await waitFor(() => expect(screen.getByTestId("directory-picker-item-data")).toBeInTheDocument());
+  fireEvent.click(screen.getByTestId("directory-picker-item-data"));
+  await waitFor(() =>
+    expect(screen.getByTestId("directory-picker-item-project-a")).toBeInTheDocument(),
+  );
+}
+
 describe("DirectoryPickerDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
     resetServer(SERVER);
+    resetSessions(SERVER);
   });
 
   it("starts at the filesystem root and lists its subfolders", async () => {
@@ -121,31 +157,67 @@ describe("DirectoryPickerDialog", () => {
     expect(screen.queryByTestId("directory-picker-item-data")).toBeNull();
   });
 
-  it("adds the browsed directory as the working directory and closes", async () => {
-    mockClient();
+  it("adds the directory and creates a session when it has none", async () => {
+    // No sessions exist in the picked folder.
+    const client = mockClient([]);
     const props = renderPicker();
-    await waitFor(() =>
-      expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
-    );
-
-    fireEvent.click(screen.getByTestId("directory-picker-item-Volumes"));
-    await waitFor(() =>
-      expect(screen.getByTestId("directory-picker-item-data")).toBeInTheDocument(),
-    );
-    fireEvent.click(screen.getByTestId("directory-picker-item-data"));
-    await waitFor(() =>
-      expect(screen.getByTestId("directory-picker-item-project-a")).toBeInTheDocument(),
-    );
+    await drillToData();
 
     fireEvent.click(screen.getByTestId("directory-picker-add"));
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } }),
+    );
+    // The created session becomes the active one (the jump target).
+    await waitFor(() => {
+      expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_new");
+    });
     expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
-    expect(readRecentProjects(SERVER)).toContain("/Volumes/data");
+    // The folder lands in the recents (deduped: adding twice stays one).
+    expect(readRecentProjects(SERVER)).toEqual(["/Volumes/data"]);
     expect(props.onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("adds the directory and selects its first session when sessions exist", async () => {
+    const client = mockClient([session("sess_a", "First"), session("sess_b", "Second")]);
+    renderPicker();
+    await drillToData();
+
+    fireEvent.click(screen.getByTestId("directory-picker-add"));
+
+    // The existing session list is loaded (no creation) and the first
+    // session is selected — the app jumps into the picked directory.
+    await waitFor(() => expect(client.post).not.toHaveBeenCalled());
+    await waitFor(() => expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_a"));
+    expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
+  });
+
+  it("still switches the directory when the session listing fails", async () => {
+    const client = mockClient();
+    client.get.mockImplementation(
+      async (url: string, opts?: { query?: { directory?: string } }) => {
+        if (url === "/session") throw new Error("list failed");
+        const dir = opts?.query?.directory ?? "/";
+        return (LISTINGS[dir] ?? []).map((name) => entry(dir, name));
+      },
+    );
+    const props = renderPicker();
+    await drillToData();
+
+    fireEvent.click(screen.getByTestId("directory-picker-add"));
+
+    // The switch happens regardless; the SSE re-sync settles sessions.
+    await waitFor(() => expect(props.onClose).toHaveBeenCalled());
+    expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
+    expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
   });
 
   it("surfaces a listing failure and disables Add", async () => {
     const client = mockClient();
-    client.get.mockRejectedValue({ code: "network", message: "connection refused" });
+    client.get.mockImplementation(async (url: string) => {
+      if (url === "/session") return [];
+      throw new Error("connection refused");
+    });
     renderPicker();
 
     await waitFor(() =>

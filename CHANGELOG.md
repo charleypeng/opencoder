@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Add working directory from the project switcher (feat(sessions)): the switcher menu's top-right ➕ opens a folder browser that lists the filesystem ROOT (GET /file with the `directory` query — workspace-routing on the real server) and drills down folder by folder; "Add directory" switches the server's working directory to the picked folder (project store), which rebuilds the per-directory SSE stream and loads that folder's sessions — the app jumps into it by selecting the first session, or creates a session right away when the folder has none — and records the folder in the switcher's recents (deduped). (sessions)
+
 - AI generated title for new sessions (feat(settings)): a new toggle in Settings → Config → Global configuration (default ON, a CLIENT preference — the 1.18.11 Config schema has no such key and rejects unknown keys, so it is never written to opencode.json) names a new session from its first message once the first exchange completes — PATCH /session/{id} with the first user message's text, single-lined and truncated to 50 chars like the opencode TUI; each session is titled at most once, failures stay silent. (settings)
 
 ### Fixed
