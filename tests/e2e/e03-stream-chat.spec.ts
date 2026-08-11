@@ -29,8 +29,12 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   // REST sync populates the fixture sessions before the stream plays.
   await expect(page.getByTestId("session-item-sess_01")).toBeVisible();
 
-  // Create a session through the sidebar and send a prompt.
+  // Create a session through the sidebar and send a prompt. The new-session
+  // flow opens the project-directory picker (feat(sessions) filepicker); an
+  // empty input keeps the plain new-session flow.
   await page.getByTestId("new-session-button").click();
+  await expect(page.getByTestId("filepicker-dialog")).toBeVisible();
+  await page.getByTestId("filepicker-create").click();
   await expect(page.getByTestId("prompt-input")).toBeVisible();
   await page.getByTestId("prompt-input").fill("Explain the codebase");
   const sentPromise = waitForMockRequest(page, "POST", "/session/sess_created/prompt_async");
