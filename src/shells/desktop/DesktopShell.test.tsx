@@ -1058,7 +1058,7 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByTestId("settings-toggle"));
+    fireEvent.click(screen.getByTestId("rail-settings"));
     expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     expect(screen.getByTestId("settings-page")).toBeInTheDocument();
     // The settings dialog floats above the chat view; the chat tab bar
@@ -1086,7 +1086,7 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    fireEvent.click(screen.getByTestId("settings-toggle"));
+    fireEvent.click(screen.getByTestId("rail-settings"));
     expect(screen.getByTestId("settings-dialog")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("settings-dialog-backdrop"));
     expect(screen.queryByTestId("settings-dialog")).not.toBeInTheDocument();
