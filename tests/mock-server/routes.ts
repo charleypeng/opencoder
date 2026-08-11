@@ -584,15 +584,41 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   // REQUIRED query (openapi file.list). The root listing uses the empty
   // string; a missing key answers the same 400 BadRequest as opencode
   // (previously the mock served the fixture unconditionally, hiding client
-  // bugs like the FileTree root load that omitted the key).
+  // bugs like the FileTree root load that omitted the key). The listing is
+  // filtered to the DIRECT children of the requested directory (the real
+  // server lists one level, not the whole tree), workspace-root-relative
+  // paths are accepted for absolute requests inside the workspace, and
+  // requests outside the workspace die like the real server's
+  // "Path escapes the location".
+  const WORKSPACE_ROOT = "/mock/projects/opencode-demo";
   app.get("/file", (req, res) => {
-    if (queryString(req, "path") === undefined) {
+    const raw = queryString(req, "path");
+    if (raw === undefined) {
       res
         .status(400)
         .json({ _tag: "BadRequestError", message: 'Missing key\n at ["path"]', kind: "Query" });
       return;
     }
-    res.json(fixtures["file.tree"]);
+    // Absolute paths inside the workspace resolve to their workspace-
+    // relative form (the real server answers root-relative paths for both
+    // relative and absolute requests); anything outside escapes.
+    const stripped = raw.replace(/[\\/]+$/, "");
+    let relative = stripped;
+    if (stripped.startsWith(WORKSPACE_ROOT)) {
+      relative = stripped.slice(WORKSPACE_ROOT.length).replace(/^[/\\]/, "");
+    } else if (stripped.startsWith("/") || /^[A-Za-z]:[\\/]/.test(stripped)) {
+      res.status(500).json({ _tag: "InternalServerError", message: "Path escapes the location" });
+      return;
+    }
+    const nodes = Array.isArray(fixtures["file.tree"]) ? fixtures["file.tree"] : [];
+    // Direct children: the entry's parent directory equals the requested
+    // path (directory entries carry a trailing separator — strip it).
+    const children = (nodes as { path?: string }[]).filter((entry) => {
+      const entryPath = (entry.path ?? "").replace(/[\\/]+$/, "");
+      const idx = Math.max(entryPath.lastIndexOf("/"), entryPath.lastIndexOf("\\"));
+      return (idx === -1 ? "" : entryPath.slice(0, idx)) === relative;
+    });
+    res.json(children);
   });
 
   // Workspace symbol search (TASK-M4-06): the fixture symbol list is

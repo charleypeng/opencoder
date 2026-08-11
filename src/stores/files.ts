@@ -40,9 +40,19 @@ export function getServerFiles(serverId: string): FileServerState | undefined {
 
 // --- tree building ---------------------------------------------------------
 
-/** Splits a slash path into segments, dropping empty ones (root "/"). */
+/** Splits a path into segments on either separator, dropping empty ones
+ *  (root "/"). */
 function pathSegments(path: string): string[] {
-  return path.split("/").filter((segment) => segment !== "");
+  return path.split(/[\\/]/).filter((segment) => segment !== "");
+}
+
+/** Strips trailing separators. The real server (1.18.11) appends the OS
+ *  separator to directory entries (`src/` on POSIX, `src\` on Windows), so
+ *  paths are normalized before they enter the tree — otherwise parent
+ *  matching (`src/features/` under `src/`) fails and expansion shows nothing.
+ */
+function normalizePath(path: string): string {
+  return path.replace(/[\\/]+$/, "");
 }
 
 /** Directories first, then files; both alphabetical (case-insensitive). */
@@ -58,12 +68,13 @@ function compareNodes(a: TreeNode, b: TreeNode): number {
  * a full-list server response and a one-level response behave identically.
  */
 export function buildTree(nodes: FileNode[], parentPath?: string): TreeNode[] {
-  const parent = parentPath ?? "";
+  const parent = normalizePath(parentPath ?? "");
   const out: TreeNode[] = [];
   for (const node of nodes) {
-    const segments = pathSegments(node.path);
+    const path = normalizePath(node.path);
+    const segments = pathSegments(path);
     segments.pop();
-    if (segments.join("/") === parent) out.push({ ...node });
+    if (segments.join("/") === parent) out.push({ ...node, path });
   }
   out.sort(compareNodes);
   return out;

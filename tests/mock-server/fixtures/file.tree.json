@@ -1,21 +1,21 @@
 [
   {
     "name": "src",
-    "path": "src",
+    "path": "src/",
     "absolute": "/mock/projects/opencode-demo/src",
     "type": "directory",
     "ignored": false
   },
   {
     "name": "features",
-    "path": "src/features",
+    "path": "src/features/",
     "absolute": "/mock/projects/opencode-demo/src/features",
     "type": "directory",
     "ignored": false
   },
   {
     "name": "sessions",
-    "path": "src/features/sessions",
+    "path": "src/features/sessions/",
     "absolute": "/mock/projects/opencode-demo/src/features/sessions",
     "type": "directory",
     "ignored": false
@@ -36,7 +36,7 @@
   },
   {
     "name": "stores",
-    "path": "src/stores",
+    "path": "src/stores/",
     "absolute": "/mock/projects/opencode-demo/src/stores",
     "type": "directory",
     "ignored": false
@@ -50,7 +50,7 @@
   },
   {
     "name": "services",
-    "path": "src/services",
+    "path": "src/services/",
     "absolute": "/mock/projects/opencode-demo/src/services",
     "type": "directory",
     "ignored": false
@@ -71,7 +71,7 @@
   },
   {
     "name": "node_modules",
-    "path": "node_modules",
+    "path": "node_modules/",
     "absolute": "/mock/projects/opencode-demo/node_modules",
     "type": "directory",
     "ignored": true

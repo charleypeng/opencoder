@@ -192,6 +192,40 @@ describe("lazy expansion", () => {
     );
   });
 
+  it("expands a dir whose listing carries trailing separators (real server shape)", async () => {
+    // The real 1.18.11 server returns directory paths with a trailing
+    // separator (`src/`, `src/auth/`); the tree must still graft them.
+    const slash = (path: string, type: FileNode["type"]): FileNode => ({
+      ...node(path, type),
+      path: `${path}${type === "directory" ? "/" : ""}`,
+    });
+    const trailingPayload = (path: string | undefined): unknown => {
+      if (path === "src") {
+        return [slash("src/auth", "directory"), slash("src/App.tsx", "file")];
+      }
+      if (path === "src/auth") {
+        return [slash("src/auth/login.ts", "file"), slash("src/auth/session.ts", "file")];
+      }
+      return [
+        slash("src", "directory"),
+        slash("node_modules", "directory"),
+        node("README.md", "file"),
+      ];
+    };
+    mountTree({}, trailingPayload, []);
+
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    fireEvent.click(row("src"));
+    await waitFor(() => expect(screen.getByTestId("file-row-src/auth")).toBeInTheDocument());
+    expect(screen.getByTestId("file-row-src/App.tsx")).toBeInTheDocument();
+
+    fireEvent.click(row("src/auth"));
+    await waitFor(() =>
+      expect(screen.getByTestId("file-row-src/auth/session.ts")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("file-row-src/auth/login.ts")).toBeInTheDocument();
+  });
+
   it("expands a nested dir through its own fetch without refetching on toggle", async () => {
     mountTree({}, treeForPath, []);
     await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());

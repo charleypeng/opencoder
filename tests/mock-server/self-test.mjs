@@ -583,6 +583,55 @@ try {
       );
     });
 
+    // The real server lists ONE level: direct children of the requested
+    // path, with directory entries carrying the trailing separator. The
+    // mock mirrors both so client-side tree bugs (trailing-slash path
+    // matching) fail here instead of in production.
+    await test("file tree lists only the direct children of the requested path", async () => {
+      const { status, body } = await request(baseUrl, "/file?path=src");
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "src must have children");
+      const direct = body.every((n) => {
+        const p = String(n?.path ?? "").replace(/[\\/]+$/, "");
+        const idx = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
+        return (idx === -1 ? "" : p.slice(0, idx)) === "src";
+      });
+      expect(direct, `all entries must be direct children of src: ${JSON.stringify(body)}`);
+      // Exactly the direct children: features/stores/services — no
+      // root-level or deeper entries.
+      expect(
+        body
+          .map((n) => n?.name)
+          .sort()
+          .join(",") === "features,services,stores",
+        `src children must be exactly features/stores/services: ${JSON.stringify(body)}`,
+      );
+    });
+
+    await test("file tree directory entries carry the trailing separator", async () => {
+      const { body } = await request(baseUrl, "/file?path=");
+      const dirs = Array.isArray(body) ? body.filter((n) => n?.type === "directory") : [];
+      expect(dirs.length > 0, "fixture must include directories");
+      expect(
+        dirs.every((n) => String(n?.path ?? "").endsWith("/")),
+        `directory paths must end with "/": ${JSON.stringify(dirs)}`,
+      );
+    });
+
+    await test("file tree resolves workspace-root absolute paths and escapes outside", async () => {
+      const src = encodeURIComponent("/mock/projects/opencode-demo/src");
+      const { status, body } = await request(baseUrl, `/file?path=${src}`);
+      expect(status === 200, `status ${status}`);
+      expect(Array.isArray(body) && body.length > 0, "absolute src must have children");
+      expect(
+        body.every((n) => String(n?.path ?? "").startsWith("src/")),
+        "absolute listings keep workspace-relative paths",
+      );
+      const outside = encodeURIComponent("/elsewhere/project");
+      const escaped = await request(baseUrl, `/file?path=${outside}`);
+      expect(escaped.status === 500, `escape must be a 500; got ${escaped.status}`);
+    });
+
     await test("file content returns FileContent", async () => {
       const { status, body } = await request(baseUrl, "/file/content?path=README.md");
       expect(status === 200, `status ${status}`);

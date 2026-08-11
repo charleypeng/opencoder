@@ -76,6 +76,34 @@ describe("buildTree", () => {
     const tree = buildTree([node("src", "directory"), node("README.md", "file")]);
     expect(findNode(tree, "src")?.children).toBeUndefined();
   });
+
+  it("normalizes trailing separators on directory entries (real server shape)", () => {
+    // The 1.18.11 server appends the OS separator to directory paths
+    // (`src/`, `src/features/`); matching must work on the stripped form.
+    const trailing = (path: string, type: FileNode["type"]): FileNode => ({
+      ...node(path.replace(/\/$/, ""), type),
+      path,
+    });
+    const tree = buildTree(
+      [
+        trailing("src/", "directory"),
+        trailing("src/features/", "directory"),
+        trailing("src/features/sessions/", "directory"),
+        node("src/App.tsx", "file"),
+        node("README.md", "file"),
+      ],
+      "src",
+    );
+    expect(tree.map((n) => n.path)).toEqual(["src/features", "src/App.tsx"]);
+    expect(findNode(tree, "src/features")?.children).toBeUndefined();
+
+    // A parent requested WITH its trailing separator resolves too.
+    const nested = buildTree(
+      [trailing("src/features/sessions/", "directory"), node("src/features/chat.ts", "file")],
+      "src/features/",
+    );
+    expect(nested.map((n) => n.path)).toEqual(["src/features/sessions", "src/features/chat.ts"]);
+  });
 });
 
 describe("files store actions", () => {
