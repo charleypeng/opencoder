@@ -41,8 +41,7 @@ import {
 import { formatRelativeTime } from "../servers/relativeTime.js";
 import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
 import { buildSessionTree, topLevelRoots, type SessionTreeNode } from "./sessionTree.js";
-import { forkSession } from "./sessionActions.js";
-import FilePickerDialog from "./FilePickerDialog.js";
+import { forkSession, createSession } from "./sessionActions.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
 import ShareSessionDialog from "./ShareSessionDialog.js";
@@ -293,10 +292,12 @@ const SessionList: Component<SessionListProps> = (props) => {
   const state = createMemo(() => getServerSessionState(props.serverId));
   const now = () => props.nowMs ?? Date.now();
   const [query, setQuery] = createSignal("");
-  // Project-directory picker (TASK-UI-01 filepicker): the header "+" opens
-  // the dialog; direct creation (no directory) stays available through the
-  // dialog's empty-input path.
-  const [pickerOpen, setPickerOpen] = createSignal(false);
+  // The header "+" (and the empty-state button) create a session directly
+  // in the server's current working directory (the client injects the
+  // active directory into every request); picking a different folder is the
+  // project switcher's "add directory" flow.
+  const [creating, setCreating] = createSignal(false);
+  const [createError, setCreateError] = createSignal<ApiError | null>(null);
   const [forking, setForking] = createSignal(false);
   const [forkError, setForkError] = createSignal<ApiError | null>(null);
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
@@ -414,6 +415,22 @@ const SessionList: Component<SessionListProps> = (props) => {
     props.onSelect(sessionId);
   }
 
+  /** Creates a session directly in the current working directory (the
+   *  active directory is injected by the client) and opens it. */
+  async function handleCreate() {
+    if (creating()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const session = await createSession(props.serverId, createSessionService(getApiClient()));
+      select(session.id);
+    } catch (err) {
+      setCreateError(ApiError.fromUnknown(err));
+    } finally {
+      setCreating(false);
+    }
+  }
+
   // Fork (TASK-M6-03): session-level fork (no message point); the child
   // enters the store and opens, a failure surfaces in the list banner.
   async function handleFork(session: Session) {
@@ -480,14 +497,15 @@ const SessionList: Component<SessionListProps> = (props) => {
     <div data-testid="session-list" class="flex min-h-0 flex-1 flex-col">
       <div class="px-3 pb-1.5 pt-2">
         <div class="pt-1.5">
+          <ErrorBanner error={createError()} onDismiss={() => setCreateError(null)} />
           <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
         </div>
         <button
           type="button"
           data-testid="new-session-button"
           class="mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={pickerOpen()}
-          onClick={() => setPickerOpen(true)}
+          disabled={creating()}
+          onClick={() => void handleCreate()}
         >
           + {t("sessions:newSession")}
         </button>
@@ -520,8 +538,8 @@ const SessionList: Component<SessionListProps> = (props) => {
                   type="button"
                   data-testid="new-session-empty-button"
                   class="mt-3 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
-                  disabled={pickerOpen()}
-                  onClick={() => setPickerOpen(true)}
+                  disabled={creating()}
+                  onClick={() => void handleCreate()}
                 >
                   + {t("sessions:newSession")}
                 </button>
@@ -614,19 +632,6 @@ const SessionList: Component<SessionListProps> = (props) => {
           y={rowMenu()!.y}
           items={rowMenuItems()}
           onClose={() => setRowMenu(null)}
-        />
-      </Show>
-
-      {/* Project-directory picker (TASK-UI-01 filepicker): the header "+"
-          opens the dialog; creating the session selects it. */}
-      <Show when={pickerOpen()}>
-        <FilePickerDialog
-          serverId={props.serverId}
-          onClose={() => setPickerOpen(false)}
-          onCreated={(session) => {
-            setPickerOpen(false);
-            select(session.id);
-          }}
         />
       </Show>
     </div>

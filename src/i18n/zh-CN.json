@@ -100,12 +100,6 @@
   },
   "sessions": {
     "newSession": "新建会话",
-    "creating": "创建中…",
-    "filepickerTitle": "在工程目录中新建会话",
-    "filepickerHint": "输入工程目录路径，下方会显示该文件夹下的子文件夹和文件。点击文件夹进入浏览，然后在该目录创建会话。",
-    "filepickerPlaceholder": "工程路径，如 /path/to/project",
-    "filepickerLoading": "正在加载目录…",
-    "filepickerNoMatches": "没有匹配的子文件夹。仍可输入路径并创建会话。",
     "createSession": "创建会话",
     "rename": "重命名",
     "delete": "删除",
@@ -164,7 +158,12 @@
     "todoCount_other": "{{count}} 个任务",
     "todoCompleted_one": "{{count}} 已完成",
     "todoCompleted_other": "{{count}} 已完成",
-    "filepickerOutsideWorkspace": "该目录位于服务器工作区之外，无法在此浏览 — 按回车仍可尝试在该目录创建会话。"
+    "directoryPickerTitle": "添加工作目录",
+    "directoryPickerHint": "从文件系统根目录浏览；添加后该目录成为服务器的工作目录并自动加载其会话。",
+    "directoryPickerLoading": "正在加载目录…",
+    "directoryPickerEmpty": "这里没有子文件夹",
+    "directoryPickerAdd": "添加目录",
+    "addDirectory": "添加工作目录"
   },
   "messages": {
     "send": "发送",
@@ -645,7 +644,9 @@
     "diagRulesLoadFailed": "无法加载已保存的权限规则：{{detail}}",
     "diagRuleDelete": "删除",
     "diagRuleConfirm": "确认",
-    "diagRuleDeleteFailed": "无法删除该规则：{{detail}}"
+    "diagRuleDeleteFailed": "无法删除该规则：{{detail}}",
+    "configAutoTitle": "AI 生成标题",
+    "configAutoTitleHint": "首次对话完成后，用第一条消息为新建会话命名（客户端偏好；1.18.11 配置契约无此字段，不会写入 opencode.json）。"
   },
   "pet": {
     "size": "大小",

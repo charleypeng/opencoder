@@ -100,12 +100,6 @@
   },
   "sessions": {
     "newSession": "New session",
-    "creating": "Creating…",
-    "filepickerTitle": "New session in a project",
-    "filepickerHint": "Type a project directory — the folder’s subfolders and files appear below. Click a folder to browse into it, then create the session there.",
-    "filepickerPlaceholder": "Project path, e.g. /path/to/project",
-    "filepickerLoading": "Loading directory…",
-    "filepickerNoMatches": "No matching subfolder here. You can still enter a path and create the session.",
     "createSession": "Create session",
     "rename": "Rename",
     "delete": "Delete",
@@ -164,7 +158,12 @@
     "todoCount_other": "{{count}} tasks",
     "todoCompleted_one": "{{count}} done",
     "todoCompleted_other": "{{count}} done",
-    "filepickerOutsideWorkspace": "This folder is outside the server’s workspace, so it cannot be browsed here — press Enter to create the session there anyway."
+    "directoryPickerTitle": "Add working directory",
+    "directoryPickerHint": "Browse from the filesystem root; adding a folder makes it the server's working directory and loads its sessions.",
+    "directoryPickerLoading": "Loading directory…",
+    "directoryPickerEmpty": "No subfolders here",
+    "directoryPickerAdd": "Add directory",
+    "addDirectory": "Add working directory"
   },
   "messages": {
     "send": "Send",
@@ -645,7 +644,9 @@
     "diagRulesLoadFailed": "Could not load saved permission rules: {{detail}}",
     "diagRuleDelete": "Delete",
     "diagRuleConfirm": "Confirm",
-    "diagRuleDeleteFailed": "Could not delete the rule: {{detail}}"
+    "diagRuleDeleteFailed": "Could not delete the rule: {{detail}}",
+    "configAutoTitle": "AI generated title",
+    "configAutoTitleHint": "Name a new session from its first message once the first exchange completes (client preference; the 1.18.11 config contract has no such key, so it is not written to opencode.json)."
   },
   "pet": {
     "size": "Size",

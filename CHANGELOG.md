@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- The header "+" now creates a session directly in the current working directory (fix(sessions)): the project-directory picker no longer intercepts the new-session flow — choosing a folder happens through the project switcher's new add-directory flow; the filepicker dialog and its i18n keys are gone. (sessions)
+
 ## [1.0.0-debug.2] - 2026-08-11
 
 ### Added
