@@ -163,7 +163,8 @@
     "todoCount_one": "{{count}} 个任务",
     "todoCount_other": "{{count}} 个任务",
     "todoCompleted_one": "{{count}} 已完成",
-    "todoCompleted_other": "{{count}} 已完成"
+    "todoCompleted_other": "{{count}} 已完成",
+    "filepickerOutsideWorkspace": "该目录位于服务器工作区之外，无法在此浏览 — 按回车仍可尝试在该目录创建会话。"
   },
   "messages": {
     "send": "发送",

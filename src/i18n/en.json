@@ -163,7 +163,8 @@
     "todoCount_one": "{{count}} task",
     "todoCount_other": "{{count}} tasks",
     "todoCompleted_one": "{{count}} done",
-    "todoCompleted_other": "{{count}} done"
+    "todoCompleted_other": "{{count}} done",
+    "filepickerOutsideWorkspace": "This folder is outside the server’s workspace, so it cannot be browsed here — press Enter to create the session there anyway."
   },
   "messages": {
     "send": "Send",

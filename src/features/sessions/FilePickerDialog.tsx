@@ -10,13 +10,14 @@
 // the plain new-session flow. The dialog is a Kobalte modal like the other
 // session dialogs.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { useT } from "../../i18n";
 import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import { createFileService, type FileNode } from "../../services/file";
+import { createPathService } from "../../services/path";
 import { createSessionService, type Session } from "../../services/session";
 import { createSession } from "./sessionActions";
 
@@ -42,6 +43,17 @@ function parseQuery(raw: string): { cwd: string; segment: string } {
   const idx = Math.max(stripped.lastIndexOf("/"), stripped.lastIndexOf("\\"));
   if (idx === -1) return { cwd: "", segment: stripped };
   return { cwd: stripped.slice(0, idx), segment: stripped.slice(idx + 1) };
+}
+
+/** True for paths like `/a/b` or `C:\x` (absolute in either convention). */
+function isAbsolutePath(path: string): boolean {
+  return path.startsWith("/") || path.startsWith("\\") || /^[A-Za-z]:[\\/]/.test(path);
+}
+
+/** True when `path` is `root` itself or a descendant of it. */
+function isInsideWorkspace(root: string, path: string): boolean {
+  const base = root.replace(/[\\/]+$/, "");
+  return path === base || path.startsWith(`${base}/`) || path.startsWith(`${base}\\`);
 }
 
 /** A directory icon + a document icon for the suggestion rows. */
@@ -75,16 +87,47 @@ const FilePickerDialog: Component<FilePickerDialogProps> = (props) => {
   const [creating, setCreating] = createSignal(false);
   const [createError, setCreateError] = createSignal<string | null>(null);
   const [selected, setSelected] = createSignal(0);
+  // The server's workspace root (GET /path). Absolute paths OUTSIDE it
+  // cannot be listed — the real server dies with "Path escapes the
+  // location" (500 UnknownError) — so those requests are skipped and a
+  // hint is shown instead. undefined = still loading, null = failed.
+  const [workspaceRoot, setWorkspaceRoot] = createSignal<string | null | undefined>(undefined);
+  const [outsideWorkspace, setOutsideWorkspace] = createSignal(false);
   let inputRef: HTMLInputElement | undefined;
 
   /** The directory whose children are listed ("" = the workspace root). */
   const cwd = createMemo(() => parseQuery(query()).cwd);
+
+  onMount(() => {
+    void createPathService(getApiClient())
+      .get()
+      .then((info) => {
+        // Defensive: a malformed /path answer must not block browsing.
+        setWorkspaceRoot(typeof info?.directory === "string" ? info.directory : null);
+      })
+      .catch(() => setWorkspaceRoot(null));
+  });
 
   // Fetch the current folder's listing whenever it changes (mount = root).
   // Stale responses are dropped via the sequence guard.
   let listSeq = 0;
   createEffect(() => {
     const dir = cwd();
+    const root = workspaceRoot();
+    // Paths outside the server workspace cannot be listed; while the
+    // workspace root is still loading, absolute paths wait for it.
+    if (dir !== "" && isAbsolutePath(dir)) {
+      if (root === undefined) return;
+      if (root !== null && !isInsideWorkspace(root, dir)) {
+        ++listSeq; // drop any in-flight listing
+        setEntries([]);
+        setLoadError(null);
+        setOutsideWorkspace(true);
+        setLoading(false);
+        return;
+      }
+    }
+    setOutsideWorkspace(false);
     const seq = ++listSeq;
     setLoading(true);
     setLoadError(null);
@@ -232,7 +275,19 @@ const FilePickerDialog: Component<FilePickerDialogProps> = (props) => {
               {loadError()}
             </p>
           </Show>
-          <Show when={!loading() && loadError() === null && suggestions().length === 0}>
+          <Show when={outsideWorkspace()}>
+            <p data-testid="filepicker-outside-workspace" class="text-xs text-fg-secondary">
+              {t("sessions:filepickerOutsideWorkspace")}
+            </p>
+          </Show>
+          <Show
+            when={
+              !loading() &&
+              loadError() === null &&
+              !outsideWorkspace() &&
+              suggestions().length === 0
+            }
+          >
             <p data-testid="filepicker-empty" class="text-xs text-fg-secondary">
               {t("sessions:filepickerNoMatches")}
             </p>

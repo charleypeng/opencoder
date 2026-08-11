@@ -51,9 +51,18 @@ function listingsFor(path: string | undefined): FileNode[] {
 
 function mockClient(): MockClient {
   const client = {
-    get: vi.fn(async (_url: string, opts?: { query?: { path?: string } }) =>
-      listingsFor(opts?.query?.path),
-    ),
+    get: vi.fn(async (url: string, opts?: { query?: { path?: string } }) => {
+      if (url === "/path") {
+        return {
+          home: "/Users/mock",
+          state: "/Users/mock/.local/share/opencode",
+          config: "/Users/mock/.config/opencode",
+          worktree: ROOT,
+          directory: ROOT,
+        };
+      }
+      return listingsFor(opts?.query?.path);
+    }),
     post: vi.fn(async () => ({
       id: "sess_1",
       directory: ROOT,
@@ -135,6 +144,46 @@ describe("FilePickerDialog", () => {
       expect(screen.getByTestId("filepicker-suggestion-0")).toHaveTextContent("features"),
     );
     expect(screen.getByTestId("filepicker-suggestion-1")).toHaveTextContent("App.tsx");
+  });
+
+  it("lists absolute paths inside the server workspace", async () => {
+    const client = mockClient();
+    renderPicker();
+    await waitFor(() => expect(screen.getByTestId("filepicker-suggestion-0")).toBeInTheDocument());
+
+    fireEvent.input(screen.getByTestId("filepicker-input"), {
+      target: { value: `${ROOT}/src/` },
+    });
+    await waitFor(() =>
+      expect(client.get).toHaveBeenCalledWith("/file", { query: { path: `${ROOT}/src` } }),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId("filepicker-suggestion-0")).toHaveTextContent("features"),
+    );
+  });
+
+  it("skips listings outside the server workspace and shows a hint instead of an error", async () => {
+    const client = mockClient();
+    renderPicker();
+    await waitFor(() => expect(screen.getByTestId("filepicker-suggestion-0")).toBeInTheDocument());
+
+    // The real server 500s on paths outside its workspace ("Path escapes
+    // the location"); the dialog must not fire that request.
+    fireEvent.input(screen.getByTestId("filepicker-input"), {
+      target: { value: "/Volumes/outside/" },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("filepicker-outside-workspace")).toBeInTheDocument(),
+    );
+    expect(
+      client.get.mock.calls.some(
+        ([url, opts]) =>
+          url === "/file" &&
+          (opts as { query?: { path?: string } })?.query?.path === "/Volumes/outside",
+      ),
+    ).toBe(false);
+    expect(screen.queryByTestId("filepicker-load-error")).toBeNull();
+    expect(screen.queryByTestId("filepicker-empty")).toBeNull();
   });
 
   it("creates in the highlighted folder on Enter", async () => {
