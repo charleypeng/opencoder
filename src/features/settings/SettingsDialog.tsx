@@ -52,7 +52,7 @@ const SettingsDialog: Component<SettingsDialogProps> = (props) => {
         class={
           props.mobile === true
             ? "relative flex h-full w-full flex-col bg-bg-base"
-            : "relative flex max-h-[85vh] w-[min(880px,92vw)] flex-col overflow-hidden rounded-xl border border-bg-sunken bg-bg-base shadow-xl"
+            : "relative flex h-[min(640px,85vh)] w-[min(880px,92vw)] flex-col overflow-hidden rounded-xl border border-bg-sunken bg-bg-base shadow-xl"
         }
       >
         {/* The mobile page variant has no header, so the sheet provides
@@ -64,10 +64,12 @@ const SettingsDialog: Component<SettingsDialogProps> = (props) => {
             <button
               type="button"
               data-testid="settings-dialog-close"
-              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+              aria-label={t("common:close")}
+              title={t("common:close")}
+              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs leading-none text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
               onClick={() => props.onClose()}
             >
-              ✕ {t("common:close")}
+              ✕
             </button>
           </header>
         </Show>

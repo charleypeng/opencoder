@@ -97,10 +97,12 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
           <button
             type="button"
             data-testid="settings-close"
-            class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+            aria-label={t("common:close")}
+            title={t("common:close")}
+            class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs leading-none text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
             onClick={() => props.onClose?.()}
           >
-            ✕ {t("common:close")}
+            ✕
           </button>
           <h2 class="shrink-0 text-sm font-semibold">{t("settings:settings")}</h2>
         </header>

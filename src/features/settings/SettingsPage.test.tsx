@@ -120,6 +120,16 @@ describe("SettingsPage", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps the close button icon-only with an accessible label", () => {
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
+
+    const button = screen.getByTestId("settings-close");
+    expect(button).toHaveTextContent("✕");
+    expect(button.textContent?.replace(/\s/g, "")).toBe("✕");
+    // The visible text is gone, so the accessible name must survive.
+    expect(button.getAttribute("aria-label")?.length ?? 0).toBeGreaterThan(0);
+  });
+
   it("reaches every section from the nav", () => {
     render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
