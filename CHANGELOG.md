@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- AI generated title for new sessions (feat(settings)): a new toggle in Settings → Config → Global configuration (default ON, a CLIENT preference — the 1.18.11 Config schema has no such key and rejects unknown keys, so it is never written to opencode.json) names a new session from its first message once the first exchange completes — PATCH /session/{id} with the first user message's text, single-lined and truncated to 50 chars like the opencode TUI; each session is titled at most once, failures stay silent. (settings)
+
 ### Fixed
 
 - The header "+" now creates a session directly in the current working directory (fix(sessions)): the project-directory picker no longer intercepts the new-session flow — choosing a folder happens through the project switcher's new add-directory flow; the filepicker dialog and its i18n keys are gone. (sessions)

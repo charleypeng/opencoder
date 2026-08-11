@@ -211,6 +211,26 @@ describe("ConfigSection", () => {
     expect(screen.getByTestId("config-scope-global")).toHaveAttribute("aria-pressed", "true");
   });
 
+  it("shows the AI generated title toggle in the global scope only, default ON", async () => {
+    localStorage.clear();
+    render(() => <ConfigSection serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByTestId("config-row-model")).toBeInTheDocument());
+
+    // Project scope: no toggle (it is a client preference, global only).
+    expect(screen.queryByTestId("config-auto-title")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("config-scope-global"));
+    const toggle = await screen.findByTestId("config-auto-title");
+    expect(toggle).toBeChecked();
+
+    // The toggle persists to localStorage (never to opencode.json).
+    fireEvent.click(toggle);
+    expect(toggle).not.toBeChecked();
+    expect(localStorage.getItem("oc-autotitle")).toBe("0");
+    fireEvent.click(toggle);
+    expect(localStorage.getItem("oc-autotitle")).toBe("1");
+  });
+
   it("marks the form dirty on change and PATCHes the merge patch on save", async () => {
     render(() => <ConfigSection serverId={SERVER} />);
     await waitFor(() => expect(screen.getByTestId("config-share")).toBeInTheDocument());

@@ -39,6 +39,7 @@ import {
   setProviders,
   type ModelRef,
 } from "../../../stores/models.js";
+import { readAutoTitleEnabled, setAutoTitleEnabled } from "../../sessions/autoTitle.js";
 
 export type ConfigScope = "project" | "global";
 
@@ -180,6 +181,10 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   /** The scope tab whose switch awaits the discard confirmation (a dirty
    *  form would otherwise be silently lost on the switch). */
   const [pendingScope, setPendingScope] = createSignal<ConfigScope | null>(null);
+  // "AI generated title" (client preference, default ON — the 1.18.11
+  // Config schema has no title-generation key, so it is never written to
+  // opencode.json; see autoTitle.ts).
+  const [autoTitleOn, setAutoTitleOn] = createSignal(readAutoTitleEnabled());
 
   const service = createConfigService(getApiClient());
   const modelState = createMemo(() => getServerModelState(props.serverId));
@@ -661,6 +666,31 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
             </Show>,
             "config-row-permission",
           )}
+
+          {/* "AI generated title" lives in the GLOBAL config scope only
+              (client preference — see autoTitle.ts; it never touches
+              opencode.json because the contract has no such key). */}
+          <Show when={scope() === "global"}>
+            {row(
+              t("settings:configAutoTitle"),
+              t("settings:configAutoTitleHint"),
+              <label class="flex cursor-pointer items-center">
+                <input
+                  type="checkbox"
+                  data-testid="config-auto-title"
+                  aria-label={t("settings:configAutoTitle")}
+                  checked={autoTitleOn()}
+                  onChange={(event) => {
+                    const next = event.currentTarget.checked;
+                    setAutoTitleEnabled(next);
+                    setAutoTitleOn(next);
+                  }}
+                  class="h-4 w-4 accent-accent"
+                />
+              </label>,
+              "config-row-auto-title",
+            )}
+          </Show>
 
           <div class="flex items-center justify-between gap-3 py-3">
             <div class="min-w-0">

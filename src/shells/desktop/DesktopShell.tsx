@@ -128,6 +128,7 @@ import { createLspService } from "../../services/lsp.js";
 import { applyFormatters, applyLsp, getLspState } from "../../stores/lsp.js";
 import { formatCost, formatTokens, usageOf } from "./statusBar.js";
 import { startNotifications } from "../../services/notificationEvents.js";
+import { startAutoTitler } from "../../features/sessions/autoTitle.js";
 import { startPetWatcher } from "../../features/pet/petEvents.js";
 import { focusWindow, subscribeToNotificationClick } from "../../services/notifications.js";
 import {
@@ -748,6 +749,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     const serverId = notificationServerId();
     const disposeNotifications = startNotifications(serverId);
     onCleanup(disposeNotifications);
+  });
+
+  // Automatic session titles (settings > config > global "AI generated
+  // title"): one watcher for the active server, rebuilt on switches like
+  // the notification watcher so a stale context never renames sessions.
+  const autoTitleServerId = createMemo(() => activeServerId());
+  createEffect(() => {
+    const serverId = autoTitleServerId();
+    const disposeAutoTitle = startAutoTitler(serverId);
+    onCleanup(disposeAutoTitle);
   });
 
   // Pet state linkage (TASK-M8-08): one watcher for the active server,
