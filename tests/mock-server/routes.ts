@@ -590,7 +590,17 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   // paths are accepted for absolute requests inside the workspace, and
   // requests outside the workspace die like the real server's
   // "Path escapes the location".
+  //
+  // The `directory` query routes the request to that directory's OWN
+  // context (workspace-routing on the real server). The add-directory
+  // picker browses the filesystem root through it, so absolute directories
+  // outside the workspace are served from the fixed ROOT_BROWSE table.
   const WORKSPACE_ROOT = "/mock/projects/opencode-demo";
+  const ROOT_BROWSE: Record<string, string[]> = {
+    "/": ["Volumes", "Users", "Applications"],
+    "/Volumes": ["data", "Photos"],
+    "/Volumes/data": ["project-a", "project-b"],
+  };
   app.get("/file", (req, res) => {
     const raw = queryString(req, "path");
     if (raw === undefined) {
@@ -603,22 +613,45 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     // relative form (the real server answers root-relative paths for both
     // relative and absolute requests); anything outside escapes.
     const stripped = raw.replace(/[\\/]+$/, "");
-    let relative = stripped;
-    if (stripped.startsWith(WORKSPACE_ROOT)) {
-      relative = stripped.slice(WORKSPACE_ROOT.length).replace(/^[/\\]/, "");
-    } else if (stripped.startsWith("/") || /^[A-Za-z]:[\\/]/.test(stripped)) {
-      res.status(500).json({ _tag: "InternalServerError", message: "Path escapes the location" });
+    const directory = queryString(req, "directory");
+    if (directory === undefined || directory === WORKSPACE_ROOT) {
+      let relative = stripped;
+      if (stripped.startsWith(WORKSPACE_ROOT)) {
+        relative = stripped.slice(WORKSPACE_ROOT.length).replace(/^[/\\]/, "");
+      } else if (stripped.startsWith("/") || /^[A-Za-z]:[\\/]/.test(stripped)) {
+        res.status(500).json({ _tag: "InternalServerError", message: "Path escapes the location" });
+        return;
+      }
+      const nodes = Array.isArray(fixtures["file.tree"]) ? fixtures["file.tree"] : [];
+      // Direct children: the entry's parent directory equals the requested
+      // path (directory entries carry a trailing separator — strip it).
+      const children = (nodes as { path?: string }[]).filter((entry) => {
+        const entryPath = (entry.path ?? "").replace(/[\\/]+$/, "");
+        const idx = Math.max(entryPath.lastIndexOf("/"), entryPath.lastIndexOf("\\"));
+        return (idx === -1 ? "" : entryPath.slice(0, idx)) === relative;
+      });
+      res.json(children);
       return;
     }
-    const nodes = Array.isArray(fixtures["file.tree"]) ? fixtures["file.tree"] : [];
-    // Direct children: the entry's parent directory equals the requested
-    // path (directory entries carry a trailing separator — strip it).
-    const children = (nodes as { path?: string }[]).filter((entry) => {
-      const entryPath = (entry.path ?? "").replace(/[\\/]+$/, "");
-      const idx = Math.max(entryPath.lastIndexOf("/"), entryPath.lastIndexOf("\\"));
-      return (idx === -1 ? "" : entryPath.slice(0, idx)) === relative;
-    });
-    res.json(children);
+    // Root-browse context: known directories list their subfolders; the
+    // `path` resolves inside the directory context like on the real server.
+    // The filesystem root is "/" — it must not be stripped of its slash.
+    const base = directory === "/" ? "/" : directory.replace(/[\\/]+$/, "");
+    const target = stripped === "" ? base : `${base}/${stripped}`;
+    const names = ROOT_BROWSE[target];
+    if (names === undefined) {
+      res.json([]);
+      return;
+    }
+    res.json(
+      names.map((name) => ({
+        name,
+        path: `${name}/`,
+        absolute: `${target}/${name}`.replace(/\/+/g, "/"),
+        type: "directory",
+        ignored: false,
+      })),
+    );
   });
 
   // Workspace symbol search (TASK-M4-06): the fixture symbol list is

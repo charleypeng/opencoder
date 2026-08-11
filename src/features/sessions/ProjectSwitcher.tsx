@@ -12,6 +12,7 @@ import { getApiClient } from "../../services/client";
 import { createProjectService, type Project } from "../../services/project";
 import { applyProjects, getServerProjectState, setCurrent } from "../../stores/project";
 import { pushRecentProject, readRecentProjects } from "./recentProjects";
+import DirectoryPickerDialog from "./DirectoryPickerDialog.js";
 import { useT } from "../../i18n";
 
 export interface ProjectSwitcherProps {
@@ -52,6 +53,10 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
   });
   const [recent, setRecent] = createSignal<string[]>([]);
   const [loaded, setLoaded] = createSignal(false);
+  // The add-directory dialog (sessions ➕ in the menu header) and the
+  // controlled menu state (the ➕ closes the menu before opening the dialog).
+  const [menuOpen, setMenuOpen] = createSignal(false);
+  const [pickerOpen, setPickerOpen] = createSignal(false);
 
   async function load(serverId: string) {
     const service = createProjectService(getApiClient());
@@ -87,7 +92,7 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
 
   return (
     <div data-testid="project-switcher" class="border-b border-bg-sunken px-3 py-2">
-      <DropdownMenu.Root>
+      <DropdownMenu.Root open={menuOpen()} onOpenChange={setMenuOpen}>
         <DropdownMenu.Trigger
           as="button"
           type="button"
@@ -112,6 +117,23 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content class="glass z-50 max-h-80 min-w-56 overflow-y-auto p-1">
+            {/* Menu header: the ➕ opens the add-directory browser (it closes
+                the menu first so the dialog floats above the sidebar). */}
+            <div class="flex items-center justify-end border-b border-bg-sunken px-1 pb-1">
+              <button
+                type="button"
+                data-testid="project-switcher-add"
+                aria-label={t("sessions:addDirectory")}
+                title={t("sessions:addDirectory")}
+                onClick={() => {
+                  setMenuOpen(false);
+                  setPickerOpen(true);
+                }}
+                class="rounded-md px-1.5 py-0.5 text-sm text-fg-secondary outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft focus:text-fg-primary"
+              >
+                ＋
+              </button>
+            </div>
             <Show when={recent().length > 0}>
               <div data-testid="project-switcher-recent" class={sectionClass}>
                 {t("sessions:recentProjects")}
@@ -178,6 +200,11 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
       </DropdownMenu.Root>
+
+      {/* Add-directory browser (sessions ➕ in the menu header). */}
+      <Show when={pickerOpen()}>
+        <DirectoryPickerDialog serverId={props.serverId} onClose={() => setPickerOpen(false)} />
+      </Show>
     </div>
   );
 };

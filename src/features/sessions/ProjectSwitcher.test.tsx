@@ -148,4 +148,20 @@ describe("ProjectSwitcher", () => {
     expect(getServerProjectState("srv-other").projects).toEqual([]);
     expect(getServerProjectState("srv-other").current).toBeNull();
   });
+
+  it("opens the add-directory picker from the menu's ➕ button", async () => {
+    mockProjects(DEMO);
+    render(() => <ProjectSwitcher serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByText("opencode-demo")).toBeInTheDocument());
+
+    openMenu();
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-1")).toBeInTheDocument(),
+    );
+    // The ➕ sits in the menu header's top-right corner.
+    fireEvent.click(screen.getByTestId("project-switcher-add"));
+
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+    expect(screen.queryByTestId("project-switcher-item-project-mock-1")).toBeNull();
+  });
 });

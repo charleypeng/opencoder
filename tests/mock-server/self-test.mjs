@@ -632,6 +632,37 @@ try {
       expect(escaped.status === 500, `escape must be a 500; got ${escaped.status}`);
     });
 
+    // The add-directory picker browses the filesystem root through the
+    // `directory` query (workspace-routing): /file?path=&directory=/ lists
+    // the root, and drilling down re-requests the new directory.
+    await test("file tree browses the filesystem root via the directory query", async () => {
+      const root = await request(baseUrl, "/file?path=&directory=%2F");
+      expect(root.status === 200, `root status ${root.status}`);
+      const rootNames = (root.body ?? []).map((n) => n?.name);
+      expect(
+        rootNames.includes("Volumes"),
+        `root must include Volumes: ${JSON.stringify(rootNames)}`,
+      );
+
+      const volumes = await request(baseUrl, "/file?path=&directory=%2FVolumes");
+      const volumeNames = (volumes.body ?? []).map((n) => n?.name);
+      expect(
+        volumeNames.includes("data"),
+        `Volumes must include data: ${JSON.stringify(volumeNames)}`,
+      );
+
+      const data = await request(baseUrl, "/file?path=&directory=%2FVolumes%2Fdata");
+      const dataNames = (data.body ?? []).map((n) => n?.name);
+      expect(
+        dataNames.includes("project-a"),
+        `Volumes/data must include project-a: ${JSON.stringify(dataNames)}`,
+      );
+      expect(
+        (data.body ?? []).every((n) => n?.type === "directory"),
+        "root browsing lists directories only",
+      );
+    });
+
     await test("file content returns FileContent", async () => {
       const { status, body } = await request(baseUrl, "/file/content?path=README.md");
       expect(status === 200, `status ${status}`);
