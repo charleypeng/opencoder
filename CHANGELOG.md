@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Selecting a workspace with no sessions now creates one automatically (fix(sessions)): picking any entry in the project switcher — including re-selecting the DEFAULT workspace — lists the folder's sessions in its own context and, when it has none, creates a session in it and opens it; workspaces with sessions select the first one instead, and failures stay silent (the per-directory SSE re-sync settles the list). (sessions)
+
 - The header "+" now creates a session directly in the current working directory (fix(sessions)): the project-directory picker no longer intercepts the new-session flow — choosing a folder happens through the project switcher's new add-directory flow; the filepicker dialog and its i18n keys are gone. (sessions)
 
 ## [1.0.0-debug.2] - 2026-08-11

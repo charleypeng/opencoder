@@ -17,9 +17,8 @@ import { ApiError } from "../../services/errors";
 import { createFileService, type FileNode } from "../../services/file";
 import { createSessionService } from "../../services/session";
 import { setCurrent } from "../../stores/project";
-import { setActiveSession } from "../../stores/session";
 import { pushRecentProject } from "./recentProjects";
-import { createSession } from "./sessionActions";
+import { ensureSessionInDirectory } from "./sessionActions";
 
 export interface DirectoryPickerDialogProps {
   /** The server whose working directory is picked. */
@@ -117,21 +116,7 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
     const target = dir();
     setCurrent(props.serverId, target);
     pushRecentProject(props.serverId, target);
-    const service = createSessionService(getApiClient());
-    try {
-      // The client injects the new active directory, so this lists (and
-      // creates in) the picked folder's own context.
-      const list = await service.list();
-      const sessions = Array.isArray(list) ? list : [];
-      if (sessions.length === 0) {
-        await createSession(props.serverId, service);
-      } else {
-        setActiveSession(props.serverId, sessions[0].id);
-      }
-    } catch {
-      // The per-directory SSE re-sync settles the session list; a failure
-      // here must not block the directory switch.
-    }
+    await ensureSessionInDirectory(props.serverId, createSessionService(getApiClient()));
     props.onClose();
   }
 

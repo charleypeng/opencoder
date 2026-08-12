@@ -16,6 +16,7 @@ import {
 import {
   createSession,
   deleteSession,
+  ensureSessionInDirectory,
   forkSession,
   renameSession,
   revertSession,
@@ -350,5 +351,40 @@ describe("revertSession / unrevertSession (TASK-M6-04)", () => {
     });
 
     expect(getServerSessionState(SERVER).sessions["sess_1"].revert?.messageID).toBe("msg_02");
+  });
+});
+
+describe("ensureSessionInDirectory", () => {
+  beforeEach(() => resetServer(SERVER));
+
+  it("creates a session when the active directory has none", async () => {
+    const service = fakeService({ list: vi.fn().mockResolvedValue([]) });
+    service.create = vi.fn().mockResolvedValue(CREATED);
+
+    await ensureSessionInDirectory(SERVER, service);
+
+    expect(service.create).toHaveBeenCalledWith({ title: undefined }, undefined);
+    expect(getServerSessionState(SERVER).sessions["sess_2"]).toEqual(CREATED);
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_2");
+  });
+
+  it("selects the first existing session when the directory has sessions", async () => {
+    applySessionList(SERVER, [ORIGINAL]);
+    const service = fakeService({ list: vi.fn().mockResolvedValue([ORIGINAL, RENAMED]) });
+
+    await ensureSessionInDirectory(SERVER, service);
+
+    expect(service.create).not.toHaveBeenCalled();
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_1");
+  });
+
+  it("stays silent when the listing fails", async () => {
+    const service = fakeService({
+      list: vi.fn().mockRejectedValue(new ApiError(500, "http", "boom", true)),
+    });
+
+    await expect(ensureSessionInDirectory(SERVER, service)).resolves.toBeUndefined();
+    expect(getServerSessionState(SERVER).activeSessionId).toBeNull();
+    expect(service.create).not.toHaveBeenCalled();
   });
 });

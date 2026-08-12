@@ -8,11 +8,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import ProjectSwitcher from "./ProjectSwitcher";
 import { getServerProjectState, resetServer } from "../../stores/project";
+import { getServerSessionState, resetServer as resetSessions } from "../../stores/session";
 import type { Project } from "../../services/project";
+import type { Session } from "../../services/session";
 
-const { getApiClientMock, projectGetMock } = vi.hoisted(() => ({
+const { getApiClientMock, projectGetMock, postMock } = vi.hoisted(() => ({
   getApiClientMock: vi.fn(),
   projectGetMock: vi.fn(),
+  postMock: vi.fn(),
 }));
 
 vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
@@ -32,23 +35,37 @@ function project(id: string, worktree: string, name: string): Project {
 const DEMO = project("project-mock-1", "/mock/projects/opencode-demo", "opencode-demo");
 const LABS = project("project-mock-2", "/mock/projects/opencode-labs", "opencode-labs");
 
+const AUTO_CREATED = {
+  id: "sess_auto",
+  slug: "sess-auto",
+  projectID: "project-mock-1",
+  directory: LABS.worktree,
+  title: "",
+  version: "1.18.11",
+  time: { created: 1, updated: 1 },
+} as Session;
+
 beforeEach(() => {
   localStorage.clear();
   resetServer(SERVER);
+  resetSessions(SERVER);
   projectGetMock.mockReset();
+  postMock.mockReset().mockResolvedValue(AUTO_CREATED);
   getApiClientMock.mockReset();
-  getApiClientMock.mockReturnValue({ get: projectGetMock });
+  getApiClientMock.mockReturnValue({ get: projectGetMock, post: postMock });
 });
 
 afterEach(() => {
   localStorage.clear();
   resetServer(SERVER);
+  resetSessions(SERVER);
 });
 
-function mockProjects(current: Project | null | undefined) {
+function mockProjects(current: Project | null | undefined, sessions: Session[] = []) {
   projectGetMock.mockImplementation((path: string) => {
     if (path === "/project") return Promise.resolve([DEMO, LABS]);
     if (path === "/project/current") return Promise.resolve(current);
+    if (path === "/session") return Promise.resolve(sessions);
     return Promise.resolve(undefined);
   });
 }
@@ -163,5 +180,75 @@ describe("ProjectSwitcher", () => {
 
     await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
     expect(screen.queryByTestId("project-switcher-item-project-mock-1")).toBeNull();
+  });
+
+  it("creates a session when the selected workspace has none", async () => {
+    // The workspace's session list is EMPTY (the default).
+    mockProjects(DEMO, []);
+    render(() => <ProjectSwitcher serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByText("opencode-demo")).toBeInTheDocument());
+
+    openMenu();
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(getServerProjectState(SERVER).current).toBe(LABS.worktree));
+    // No sessions -> a session is created in the folder and opened.
+    await waitFor(() =>
+      expect(postMock).toHaveBeenCalledWith("/session", { body: { title: undefined } }),
+    );
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_auto");
+  });
+
+  it("selects the first session when the workspace already has sessions", async () => {
+    const existing = {
+      id: "sess_existing",
+      slug: "sess-existing",
+      projectID: "project-mock-2",
+      directory: LABS.worktree,
+      title: "Existing",
+      version: "1.18.11",
+      time: { created: 1, updated: 1 },
+    } as Session;
+    mockProjects(DEMO, [existing]);
+    render(() => <ProjectSwitcher serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByText("opencode-demo")).toBeInTheDocument());
+
+    openMenu();
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(getServerProjectState(SERVER).current).toBe(LABS.worktree));
+    await waitFor(() =>
+      expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_existing"),
+    );
+    expect(postMock).not.toHaveBeenCalled();
+  });
+
+  it("re-selecting the active workspace still creates a session when it has none", async () => {
+    // The DEFAULT workspace (already active) has no sessions.
+    mockProjects(DEMO, []);
+    render(() => <ProjectSwitcher serverId={SERVER} />);
+    await waitFor(() => expect(screen.getByText("opencode-demo")).toBeInTheDocument());
+
+    openMenu();
+    await waitFor(() =>
+      expect(screen.getByTestId("project-switcher-item-project-mock-1")).toBeInTheDocument(),
+    );
+    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-1"), {
+      pointerType: "mouse",
+    });
+
+    await waitFor(() => expect(postMock).toHaveBeenCalledTimes(1));
+    expect(getServerProjectState(SERVER).current).toBe(DEMO.worktree);
+    expect(getServerSessionState(SERVER).activeSessionId).toBe("sess_auto");
   });
 });

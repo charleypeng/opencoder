@@ -30,6 +30,28 @@ export async function createSession(
   }
 }
 
+/** Ensures the ACTIVE directory has a session: lists it in its own context
+ *  (the client injects the current directory) and — when it has none —
+ *  creates one; otherwise the first existing session is selected. Either
+ *  way a session ends up selected, so the UI lands inside the directory.
+ *  Failures are silent: the per-directory SSE re-sync settles the list. */
+export async function ensureSessionInDirectory(
+  serverId: string,
+  sessionService: SessionService,
+): Promise<void> {
+  try {
+    const list = await sessionService.list();
+    const sessions = Array.isArray(list) ? list : [];
+    if (sessions.length === 0) {
+      await createSession(serverId, sessionService);
+    } else {
+      setActiveSession(serverId, sessions[0].id);
+    }
+  } catch {
+    // Listing or creation failed: nothing to settle here.
+  }
+}
+
 /** Forks a session (optionally from a message point) and opens the child. */
 export async function forkSession(
   serverId: string,

@@ -10,8 +10,10 @@ import type { Component } from "solid-js";
 import { DropdownMenu } from "@kobalte/core";
 import { getApiClient } from "../../services/client";
 import { createProjectService, type Project } from "../../services/project";
+import { createSessionService } from "../../services/session";
 import { applyProjects, getServerProjectState, setCurrent } from "../../stores/project";
 import { pushRecentProject, readRecentProjects } from "./recentProjects";
+import { ensureSessionInDirectory } from "./sessionActions";
 import DirectoryPickerDialog from "./DirectoryPickerDialog.js";
 import { useT } from "../../i18n";
 
@@ -85,9 +87,14 @@ const ProjectSwitcher: Component<ProjectSwitcherProps> = (props) => {
   });
 
   function select(directory: string, current: string | null) {
-    if (directory === current) return;
-    setCurrent(props.serverId, directory);
-    setRecent(pushRecentProject(props.serverId, directory));
+    if (directory !== current) {
+      setCurrent(props.serverId, directory);
+      setRecent(pushRecentProject(props.serverId, directory));
+    }
+    // Whether freshly switched or re-selected, make sure the (now active)
+    // directory holds a session: list it in its own context and create one
+    // when it has none — otherwise the app would sit on an empty workspace.
+    void ensureSessionInDirectory(props.serverId, createSessionService(getApiClient()));
   }
 
   return (
