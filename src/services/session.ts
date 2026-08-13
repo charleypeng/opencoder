@@ -62,9 +62,25 @@ function sessionPath(sessionID: string, suffix = ""): ApiPath {
 }
 
 export function createSessionService(client: ApiClient) {
+  // Internal shared implementation so `listRoots` does not re-create the
+  // service (list is referenced by both public methods below).
+  const list = (dir?: string, roots?: boolean) =>
+    client.get<Session[]>("/session", {
+      query: {
+        ...(dir === undefined ? {} : { directory: dir }),
+        ...(roots === undefined ? {} : { roots }),
+      },
+    });
   return {
-    /** List all sessions, sorted by most recently updated. */
-    list: (dir?: string) => client.get<Session[]>("/session", dirQuery(dir)),
+    /**
+     * List all sessions, sorted by most recently updated. When `roots` is
+     * true the server returns only top-level sessions (no subagent children,
+     * parentID unset) — the sidebar workspace tree lists roots only, and the
+     * per-session children come from GET /session/{id}/children.
+     */
+    list,
+    /** List only top-level (root) sessions, across every opened directory. */
+    listRoots: (dir?: string) => list(dir, true),
     /** Create a new session, optionally in a specific project directory
      *  (POST /session?directory=; the filepicker dialog passes it). */
     create: (input: SessionCreateInput = {}, dir?: string) =>

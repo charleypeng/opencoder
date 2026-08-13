@@ -91,11 +91,10 @@ import { resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer } from "../../stores/viewer";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
-import ProjectSwitcher from "../../features/sessions/ProjectSwitcher";
 import PromptBox from "../../features/sessions/PromptBox";
 import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
-import SessionList from "../../features/sessions/SessionList";
-import TodoPanel from "../../features/sessions/TodoPanel";
+import WorkspaceTree from "../../features/sessions/WorkspaceTree";
+import SubtaskPanel from "../../features/sessions/SubtaskPanel";
 import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
@@ -1025,7 +1024,6 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               Files
             </button>
           </div>
-          <ProjectSwitcher serverId={activeServerId()} />
           <Show
             when={sidebarView() === "sessions"}
             fallback={
@@ -1039,7 +1037,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               />
             }
           >
-            {/* The session-list focus wrapper drives the registry's "list"
+            {/* The workspace-tree focus wrapper drives the registry's "list"
               scope (TASK-M8-01): keyboard focus on a row scopes list-only
               shortcuts; leaving the list restores the global scope. */}
             <div
@@ -1051,7 +1049,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 }
               }}
             >
-              <SessionList serverId={activeServerId()} onSelect={() => undefined} />
+              <WorkspaceTree serverId={activeServerId()} onSelectSession={() => undefined} />
             </div>
           </Show>
         </aside>
@@ -1427,9 +1425,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         <StatusBarUsage serverId={activeServerId()} />
       </footer>
 
-      {/* Todo drawer (TASK-M3-07): fixed right-side overlay panel with a
-          backdrop; Esc and backdrop clicks close it (mobile bottom sheet
-          lands in M7). */}
+      {/* Subtask drawer (TASK-M3-07 + sidebar nav redesign): fixed right-side
+          overlay panel with the active session's todo list AND its sub-agent
+          children (the subtask panel); Esc and backdrop clicks close it
+          (mobile bottom sheet lands in M7). */}
       <Show when={todosOpen() && activeSessionId()}>
         <div
           data-testid="todo-drawer-backdrop"
@@ -1452,7 +1451,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               ✕
             </button>
           </header>
-          <TodoPanel serverId={activeServerId()} sessionId={activeSessionId() as string} />
+          <SubtaskPanel
+            serverId={activeServerId()}
+            sessionId={activeSessionId() as string}
+            onSelectSession={(sessionId) => {
+              setActiveSession(activeServerId(), sessionId);
+              closeTodos();
+            }}
+          />
         </aside>
       </Show>
 
@@ -1524,7 +1530,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </Show>
 
       {/* Share dialog (TASK-M6-05): opened from the chat header share icon;
-          the row menu opens its own instance inside SessionList. */}
+          the row menu opens its own instance inside WorkspaceTree. */}
       <Show when={shareTarget()} keyed>
         {(target) => (
           <ShareSessionDialog

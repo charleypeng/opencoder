@@ -114,6 +114,34 @@ describe("DirectoryPickerDialog", () => {
     expect(screen.queryByTestId("directory-picker-item-README.md")).toBeNull();
   });
 
+  it("opens already positioned at the initialDirectory (open-folder flow)", async () => {
+    const client = mockClient();
+    renderPicker({ initialDirectory: "/Volumes/data" });
+
+    // The target directory's subfolders load immediately, no drill-down.
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-project-a")).toBeInTheDocument(),
+    );
+    expect(client.get).toHaveBeenCalledWith("/file", {
+      query: { path: "", directory: "/Volumes/data" },
+    });
+    // The breadcrumb reflects the starting directory.
+    const crumb = screen.getByTestId("directory-picker-crumb-/Volumes/data");
+    expect(crumb).toBeInTheDocument();
+    expect(crumb).toHaveAttribute("data-current", "true");
+  });
+
+  it("falls back to the root when initialDirectory is absent", async () => {
+    const client = mockClient();
+    renderPicker();
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
+    );
+    expect(client.get).toHaveBeenCalledWith("/file", {
+      query: { path: "", directory: "/" },
+    });
+  });
+
   it("drills into a folder on click and re-lists its subfolders", async () => {
     const client = mockClient();
     renderPicker();

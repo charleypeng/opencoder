@@ -40,6 +40,34 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("list passes roots=true to request only top-level sessions", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createSessionService(makeClient()).list(undefined, true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", query: { roots: true } },
+    });
+  });
+
+  it("list passes both directory and roots together", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createSessionService(makeClient()).list("/project/alpha", true);
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "GET",
+        path: "/session",
+        query: { directory: "/project/alpha", roots: true },
+      },
+    });
+  });
+
+  it("listRoots defaults roots=true without a directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    await createSessionService(makeClient()).listRoots();
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", query: { roots: true } },
+    });
+  });
+
   it("create POSTs the parentID/title body", async () => {
     invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_created", title: "New" } }));
     const result = await createSessionService(makeClient()).create({
