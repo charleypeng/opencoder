@@ -25,6 +25,12 @@ export interface DirectoryPickerDialogProps {
   serverId: string;
   /** Closes the dialog (cancel / Esc / backdrop). */
   onClose: () => void;
+  /**
+   * The directory the browser starts from (defaults to the filesystem
+   * root). Folder/session "open folder" actions pass the target directory
+   * here so the dialog opens already positioned there.
+   */
+  initialDirectory?: string;
 }
 
 /** The filesystem root the browser starts from. */
@@ -66,8 +72,10 @@ function FolderIcon() {
 
 const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => {
   const t = useT();
-  /** The directory being browsed (its own subfolders are listed). */
-  const [dir, setDir] = createSignal(ROOT);
+  /** The directory being browsed (its own subfolders are listed). Starts
+   *  from the initialDirectory prop when given (open-folder flow), else
+   *  the filesystem root. */
+  const [dir, setDir] = createSignal(props.initialDirectory ?? ROOT);
   const [entries, setEntries] = createSignal<FileNode[]>([]);
   const [loading, setLoading] = createSignal(true);
   const [loadError, setLoadError] = createSignal<string | null>(null);

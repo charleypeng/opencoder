@@ -163,7 +163,18 @@
     "directoryPickerLoading": "Loading directory…",
     "directoryPickerEmpty": "No subfolders here",
     "directoryPickerAdd": "Add directory",
-    "addDirectory": "Add working directory"
+    "addDirectory": "Add working directory",
+    "workspaceEmpty": "No workspaces yet",
+    "workspaceEmptyHint": "Add a working directory to start.",
+    "workspaceLoading": "Loading workspaces…",
+    "openFolder": "Open folder",
+    "removeFolder": "Remove from list",
+    "uncategorized": "Uncategorized",
+    "batchActions": "Batch actions",
+    "comingSoon": "Coming soon",
+    "subtasks": "Subtasks",
+    "noSubtasks": "No subtasks yet",
+    "subtasksHint": "Sub-agent sessions appear here while the assistant delegates work."
   },
   "messages": {
     "send": "Send",

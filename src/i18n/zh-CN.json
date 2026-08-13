@@ -163,7 +163,18 @@
     "directoryPickerLoading": "正在加载目录…",
     "directoryPickerEmpty": "这里没有子文件夹",
     "directoryPickerAdd": "添加目录",
-    "addDirectory": "添加工作目录"
+    "addDirectory": "添加工作目录",
+    "workspaceEmpty": "暂无工作目录",
+    "workspaceEmptyHint": "添加一个工作目录即可开始使用。",
+    "workspaceLoading": "正在加载工作目录…",
+    "openFolder": "打开文件夹",
+    "removeFolder": "从列表中移除",
+    "uncategorized": "未分类",
+    "batchActions": "批量操作",
+    "comingSoon": "即将支持",
+    "subtasks": "子任务",
+    "noSubtasks": "暂无子任务",
+    "subtasksHint": "助手委派子任务时，子代理会话会显示在这里。"
   },
   "messages": {
     "send": "发送",

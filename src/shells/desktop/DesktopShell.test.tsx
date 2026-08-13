@@ -204,7 +204,7 @@ function mockHttpRoutes(servers: ServerEntry[]) {
           request?: {
             method?: string;
             path?: string;
-            query?: Record<string, string>;
+            query?: Record<string, string | boolean>;
             body?: unknown;
           };
         }
@@ -228,6 +228,17 @@ function mockHttpRoutes(servers: ServerEntry[]) {
               version: "1.18.11",
               time: { created: 1, updated: 1 },
             }),
+          );
+        }
+        // The workspace tree's cross-directory roots listing (no directory
+        // context): every directory's top-level sessions. The invoke payload
+        // carries the raw boolean query value.
+        if (request?.query?.roots === true) {
+          return Promise.resolve(
+            httpResponse([
+              session("sess_demo_01", DEMO_DIR),
+              session("sess_labs_01", LABS_DIR, "project-mock-2"),
+            ]),
           );
         }
         return Promise.resolve(
@@ -619,9 +630,9 @@ describe("DesktopShell workspace", () => {
 
     expect(getActiveServerId()).toBe("srv-alpha");
     expect(screen.getByTestId("desktop-shell")).toBeInTheDocument();
-    // The sidebar's session list renders the (empty) store immediately.
-    expect(screen.getByTestId("session-list")).toBeInTheDocument();
-    expect(screen.getByText("No sessions yet")).toBeInTheDocument();
+    // The sidebar's workspace tree renders the (empty) snapshot immediately.
+    expect(screen.getByTestId("workspace-tree")).toBeInTheDocument();
+    expect(screen.getByText("No workspaces yet")).toBeInTheDocument();
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
 
@@ -741,29 +752,35 @@ describe("DesktopShell workspace", () => {
   });
 });
 
-describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
-  it("mounts the project switcher and opens the server's per-directory stream", async () => {
+describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
+  it("mounts the workspace tree and opens the server's per-directory stream", async () => {
     const alpha = server({ id: "srv-sse", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
 
-    await waitFor(() => expect(screen.getByTestId("project-switcher")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("workspace-tree")).toBeInTheDocument());
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     expect(lastSseCall()[0]).toBe("srv-sse");
     expect(lastSseCall()[1]).toBe(DEMO_DIR);
 
-    // The switcher's load seeded the store with both fixture projects.
+    // The tree's load seeded the store with both fixture projects.
     await waitFor(() =>
       expect(getServerProjectState("srv-sse").projects.map((p) => p.id)).toEqual([
         "project-mock-1",
         "project-mock-2",
       ]),
     );
-    expect(screen.getByText("opencode-demo")).toBeInTheDocument();
-    expect(screen.getByText(DEMO_DIR)).toBeInTheDocument();
+    // Both directories render as folders; the demo folder holds its session.
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("workspace-folder-/mock/projects/opencode-demo"),
+      ).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("workspace-folder-/mock/projects/opencode-labs")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-session-sess_demo_01")).toBeInTheDocument();
   });
 
-  it("switching projects rebuilds the stream, unsubscribes the old one and re-syncs isolated sessions", async () => {
+  it("switching to a session in another directory rebuilds the stream, unsubscribes the old one and re-syncs isolated sessions", async () => {
     const alpha = server({ id: "srv-switch", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -783,15 +800,8 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     const callsBefore = sseSubscribeMock.mock.calls.length;
     const previousUnsubscribe = unsubscribes[unsubscribes.length - 1];
 
-    fireEvent.pointerDown(screen.getByTestId("project-switcher-trigger"), {
-      pointerType: "mouse",
-    });
-    await waitFor(() =>
-      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
-    );
-    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
-      pointerType: "mouse",
-    });
+    // Selecting the labs session (a different directory) switches context.
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_labs_01"));
 
     // Context switched in the project store.
     await waitFor(() => expect(getServerProjectState("srv-switch").current).toBe(LABS_DIR));
@@ -834,7 +844,7 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     // the store afterwards — like a live SSE session.updated event.
     applySessionList("srv-sel", [session("sess_sel_01", DEMO_DIR)]);
 
-    fireEvent.click(await screen.findByTestId("session-item-sess_sel_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_sel_01"));
     expect(getServerSessionState("srv-sel").activeSessionId).toBe("sess_sel_01");
     expect(screen.getByTestId("message-list")).toBeInTheDocument();
   });
@@ -849,7 +859,7 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
 
     // The header "+" creates the session directly in the current working
     // directory, which opens the message list.
-    fireEvent.click(screen.getByTestId("new-session-button"));
+    fireEvent.click(screen.getByTestId("workspace-new-session"));
 
     await waitFor(() =>
       expect(getServerSessionState("srv-new").activeSessionId).toBe("sess_new_01"),
@@ -865,7 +875,7 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-prompt", [session("sess_prompt_01", DEMO_DIR)]);
 
-    fireEvent.click(await screen.findByTestId("session-item-sess_prompt_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_prompt_01"));
 
     expect(screen.getByTestId("message-list")).toBeInTheDocument();
     expect(screen.getByTestId("prompt-box")).toBeInTheDocument();
@@ -890,19 +900,19 @@ describe("DesktopShell project switcher and SSE wiring (TASK-M2-03)", () => {
 
     // Sessions is the default view.
     expect(screen.getByTestId("sidebar-view-sessions")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-tree")).toBeInTheDocument();
     expect(screen.queryByTestId("file-tree")).not.toBeInTheDocument();
 
     // The Files view mounts the tree (empty workspace renders the empty state).
     fireEvent.click(screen.getByTestId("sidebar-view-files"));
     expect(screen.getByTestId("sidebar-view-files")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("file-tree")).toBeInTheDocument();
-    expect(screen.queryByTestId("session-list")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("workspace-tree")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("file-tree-empty")).toBeInTheDocument());
 
     // Back to sessions.
     fireEvent.click(screen.getByTestId("sidebar-view-sessions"));
-    expect(screen.getByTestId("session-list")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-tree")).toBeInTheDocument();
     expect(screen.queryByTestId("file-tree")).not.toBeInTheDocument();
   });
 });
@@ -914,7 +924,7 @@ describe("DesktopShell todo drawer (TASK-M3-07)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-todos", [session("sess_todo_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_todo_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_todo_01"));
 
     // The chat header carries the session title + the todo toggle.
     expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
@@ -947,7 +957,7 @@ describe("DesktopShell todo drawer (TASK-M3-07)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-todos-live", [session("sess_todo_02", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_todo_02"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_todo_02"));
 
     // Seed the store like a todo.updated SSE event.
     applyTodos("srv-todos-live", "sess_todo_02", [
@@ -995,7 +1005,7 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
   });
 
-  it("switching projects clears the viewer tabs and active path (TASK-M4-03)", async () => {
+  it("switching to a session in another directory clears the viewer tabs and active path (TASK-M4-03)", async () => {
     const alpha = server({ id: "srv-m4view", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1007,15 +1017,8 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
     expect(viewer["srv-m4view"]?.activePath).toBe("README.md");
 
-    fireEvent.pointerDown(screen.getByTestId("project-switcher-trigger"), {
-      pointerType: "mouse",
-    });
-    await waitFor(() =>
-      expect(screen.getByTestId("project-switcher-item-project-mock-2")).toBeInTheDocument(),
-    );
-    fireEvent.pointerUp(screen.getByTestId("project-switcher-item-project-mock-2"), {
-      pointerType: "mouse",
-    });
+    // Selecting the labs session (a different directory) rebuilds the context.
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_labs_01"));
 
     // The context rebuild cleared the previous directory's tabs.
     await waitFor(() => expect(getServerProjectState("srv-m4view").current).toBe(LABS_DIR));
@@ -1109,7 +1112,7 @@ describe("DesktopShell prominent settings entry (TASK-S1-03)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-s1rail", [session("sess_s1_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_s1_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_s1_01"));
 
     // Terminal view: the main-area tab bar is gone but the rail gear stays.
     fireEvent.click(screen.getByTestId("terminal-toggle"));
@@ -1173,7 +1176,7 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m6term", [session("sess_term_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_term_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_term_01"));
 
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "j", metaKey: true });
     expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
@@ -1248,7 +1251,7 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m4quick", [session("sess_qp_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_qp_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_qp_01"));
 
     // A shortcut fired while the composer input is focused must not open
     // the dialog (browsers reserve ⌘P for print there).
@@ -1333,7 +1336,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m4search", [session("sess_sf_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_sf_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_sf_01"));
 
     fireEvent.keyDown(screen.getByTestId("prompt-input"), {
       key: "F",
@@ -1355,7 +1358,7 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
 
     // ⌘D opens the diff view with its own header (no Chat|Files tab bar).
     fireEvent.keyDown(window, { key: "d", metaKey: true });
@@ -1381,7 +1384,7 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
 
     // Guarded while typing in the prompt input.
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "d", metaKey: true });
@@ -1401,7 +1404,7 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
     await waitFor(() => expect(screen.getByTestId("message-msg_02")).toBeInTheDocument());
 
     // Message menu → View diff jumps Main to the diff view filtered to the
@@ -1442,7 +1445,7 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     // sess_diff_01 has a message route in mockHttpRoutes (msg_02 renders).
     applySessionList("srv-m6fork", [session("sess_diff_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_diff_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
     await waitFor(() => expect(screen.getByTestId("message-msg_02")).toBeInTheDocument());
 
     // Message menu → Fork from here: POST /session/{id}/fork with the
@@ -1463,11 +1466,12 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     expect(forkCalls).toHaveLength(1);
     expect(forkCalls[0][1].request.body).toEqual({ messageID: "msg_02" });
     expect(getServerSessionState("srv-m6fork").activeSessionId).toBe("sess_forked_01");
-    const childRow = await screen.findByTestId("session-item-sess_forked_01");
-    expect(within(childRow).getByTestId("session-fork-badge")).toBeInTheDocument();
+    // The forked child opens in chat; it does NOT render as a sidebar row
+    // (subagent children live in the per-session subtask panel).
     await waitFor(() =>
       expect(screen.getByTestId("chat-session-title")).toHaveTextContent("forked"),
     );
+    expect(screen.queryByTestId("workspace-session-sess_forked_01")).toBeNull();
   });
 });
 
@@ -1476,7 +1480,7 @@ describe("DesktopShell message revert (TASK-M6-04)", () => {
 
   async function openRevertChat(serverId: string) {
     applySessionList(serverId, [session(SESSION_REVERT, DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_REVERT}`));
+    fireEvent.click(await screen.findByTestId(`workspace-session-${SESSION_REVERT}`));
     await waitFor(() => expect(screen.getByTestId("message-msg_r3")).toBeInTheDocument());
   }
 
@@ -1608,7 +1612,7 @@ describe("DesktopShell subtask navigation (TASK-M6-07)", () => {
       session("sess_sub_parent", DEMO_DIR),
       { ...session("sess_sub_child", DEMO_DIR), parentID: "sess_sub_parent", title: "sub child" },
     ]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_sub_parent"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_sub_parent"));
     await waitFor(() => expect(screen.getByTestId("subtask-part")).toBeInTheDocument());
     // Re-seed: the mount-time session re-sync (server.connected) replaced
     // the seeded list; assert against the current entries, not stale ones.
@@ -1635,7 +1639,7 @@ describe("DesktopShell subtask navigation (TASK-M6-07)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     applySessionList("srv-m6tree2", [session("sess_sub_parent", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_sub_parent"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_sub_parent"));
     await waitFor(() => expect(screen.getByTestId("subtask-part")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("subtask-toggle"));
@@ -1765,7 +1769,7 @@ describe("DesktopShell session share (TASK-M6-05)", () => {
 
   async function openShareChat(serverId: string) {
     applySessionList(serverId, [session(SESSION_SHARE, DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_SHARE}`));
+    fireEvent.click(await screen.findByTestId(`workspace-session-${SESSION_SHARE}`));
     await waitFor(() => expect(screen.getByTestId("chat-session-title")).toBeInTheDocument());
   }
 
@@ -1811,8 +1815,8 @@ describe("DesktopShell session share (TASK-M6-05)", () => {
       expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "true"),
     );
     expect(
-      within(screen.getByTestId(`session-item-${SESSION_SHARE}`)).getByTestId(
-        "session-shared-badge",
+      within(screen.getByTestId(`workspace-session-${SESSION_SHARE}`)).getByTestId(
+        "workspace-session-shared-badge",
       ),
     ).toBeInTheDocument();
 
@@ -1824,11 +1828,13 @@ describe("DesktopShell session share (TASK-M6-05)", () => {
     fireEvent.click(screen.getByTestId("share-unshare"));
     await waitFor(() => expect(screen.queryByTestId("share-url")).not.toBeInTheDocument());
     expect(getServerSessionState("srv-m6share2").sessions[SESSION_SHARE].share).toBeUndefined();
-    expect(
-      within(screen.getByTestId(`session-item-${SESSION_SHARE}`)).queryByTestId(
-        "session-shared-badge",
-      ),
-    ).toBeNull();
+    await waitFor(() =>
+      expect(
+        within(screen.getByTestId(`workspace-session-${SESSION_SHARE}`)).queryByTestId(
+          "workspace-session-shared-badge",
+        ),
+      ).toBeNull(),
+    );
     await waitFor(() =>
       expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "false"),
     );
@@ -1845,7 +1851,7 @@ describe("DesktopShell session share (TASK-M6-05)", () => {
         share: { url: "https://share.opencode.dev/s/sess_share_01" },
       },
     ]);
-    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_SHARE}`));
+    fireEvent.click(await screen.findByTestId(`workspace-session-${SESSION_SHARE}`));
     await waitFor(() => expect(screen.getByTestId("chat-session-title")).toBeInTheDocument());
 
     expect(screen.getByTestId("session-share-toggle")).toHaveAttribute("data-shared", "true");
@@ -1893,7 +1899,32 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
 
   it("⌘[ and ⌘] step through the session order with wrap-around", async () => {
     const alpha = server({ id: "srv-m8step", name: "Alpha" });
-    invokeMock.mockResolvedValueOnce([alpha]);
+    // Mock the REST routes so the workspace tree can load: the roots list
+    // and every per-directory sync return the same three sessions, keeping
+    // the store order stable for the stepping assertions.
+    invokeMock.mockImplementation((cmd: string, payload: unknown) => {
+      if (cmd === "list_servers") return Promise.resolve([alpha]);
+      if (cmd === "http_request") {
+        const req = (payload as { request?: { path?: string } }).request;
+        if (req?.path === "/project") {
+          return Promise.resolve({ status: 200, headers: {}, body: [], bodyText: undefined });
+        }
+        if (req?.path === "/session") {
+          return Promise.resolve({
+            status: 200,
+            headers: {},
+            body: [
+              session("sess_m8_a", DEMO_DIR),
+              session("sess_m8_b", DEMO_DIR),
+              session("sess_m8_c", DEMO_DIR),
+            ],
+            bodyText: undefined,
+          });
+        }
+        return Promise.resolve({ status: 200, headers: {}, body: [], bodyText: undefined });
+      }
+      return Promise.resolve(undefined);
+    });
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m8step", [
@@ -1901,7 +1932,7 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
       session("sess_m8_b", DEMO_DIR),
       session("sess_m8_c", DEMO_DIR),
     ]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_m8_a"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_m8_a"));
     expect(getServerSessionState("srv-m8step").activeSessionId).toBe("sess_m8_a");
 
     fireEvent.keyDown(window, { key: "]", metaKey: true });
@@ -1951,14 +1982,14 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m8scope", [session("sess_m8_scope", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_m8_scope"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_m8_scope"));
 
     expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "global");
     fireEvent.focusIn(screen.getByTestId("prompt-input"));
     expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "chat");
     fireEvent.focusOut(screen.getByTestId("prompt-input"));
     expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "global");
-    fireEvent.focusIn(screen.getByTestId("session-item-sess_m8_scope"));
+    fireEvent.focusIn(screen.getByTestId("workspace-session-sess_m8_scope"));
     expect(screen.getByTestId("desktop-shell")).toHaveAttribute("data-active-scope", "list");
   });
 
@@ -2010,7 +2041,7 @@ describe("DesktopShell selected-text context menu (TASK-M8-03)", () => {
 
   async function openTextChat(serverId: string) {
     applySessionList(serverId, [session(SESSION_TEXT, DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId(`session-item-${SESSION_TEXT}`));
+    fireEvent.click(await screen.findByTestId(`workspace-session-${SESSION_TEXT}`));
     await waitFor(() => expect(screen.getByTestId("message-msg_r1")).toBeInTheDocument());
   }
 
@@ -2112,7 +2143,7 @@ describe("DesktopShell file reference in chat (TASK-M8-03)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-m8ref", [session("sess_ref_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("session-item-sess_ref_01"));
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_ref_01"));
     await waitFor(() => expect(screen.getByTestId("prompt-input")).toBeInTheDocument());
 
     // Switch the sidebar to the Files tree and right-click a file row.
