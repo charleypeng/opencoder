@@ -9,7 +9,7 @@ import { scenarios } from "../../tests/mock-server/scenarios/index.js";
 import { applyEvent, subscribeToServerEvents, syncAll } from "./events.js";
 import { sessions, resetServer as resetSessions } from "./session.js";
 import { messages, resetServer as resetMessages } from "./messages.js";
-import { projects, resetServer as resetProjects } from "./project.js";
+import { projects, resetServer as resetProjects, setCurrent } from "./project.js";
 import { todos, resetServer as resetTodos } from "./todos.js";
 import { files, resetServer as resetFiles, setTree } from "./files.js";
 import { diffs, resetServer as resetDiffs } from "./diff.js";
@@ -641,6 +641,19 @@ describe("syncAll", () => {
     expect(sessions[SERVER].statuses).toEqual({ ses_synced: { type: "busy" } });
     expect(projects[SERVER].projects).toEqual([project("p1", "/sync/proj")]);
     expect(projects[SERVER].current).toBe("/sync/proj");
+  });
+
+  it("seeds the current directory only when unset, never overwrites it", async () => {
+    // The client's active directory is its OWN UI state. A real opencode
+    // server's per-directory /project/current can report a PARENT worktree
+    // (browsing /Volumes/Doc/dev/thoughts returns /Volumes/Doc/dev), and
+    // overwriting with it churns the SSE context and routes session/file
+    // requests to the wrong workspace (real-server Bug: file tree 500).
+    const services = mockServices();
+    setCurrent(SERVER, "/client/chosen");
+    await syncAll(SERVER, "/client/chosen", services);
+    expect(projects[SERVER].current).toBe("/client/chosen");
+    expect(services.project.current).toHaveBeenCalledWith("/client/chosen");
   });
 });
 

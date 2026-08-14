@@ -27,11 +27,11 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   await enterWorkspace(page);
 
   // REST sync populates the fixture sessions before the stream plays.
-  await expect(page.getByTestId("session-item-sess_01")).toBeVisible();
+  await expect(page.getByTestId("workspace-session-sess_01")).toBeVisible();
 
   // Create a session through the sidebar: the header "+" creates it
   // directly in the current working directory (no picker dialog).
-  await page.getByTestId("new-session-button").click();
+  await page.getByTestId("workspace-new-session").click();
   await expect(page.getByTestId("prompt-input")).toBeVisible();
   await page.getByTestId("prompt-input").fill("Explain the codebase");
   const sentPromise = waitForMockRequest(page, "POST", "/session/sess_created/prompt_async");
@@ -44,8 +44,8 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   // Release the stream: happy-chat creates ses_abc123 and streams
   // text deltas + a bash tool call + todos, ending in idle.
   held.release();
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("message-list")).toContainText("Hello! I can help with that.", {
     timeout: 15_000,
   });
@@ -58,8 +58,8 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   // the Send button.
   await expect(
     page
-      .getByTestId("session-item-ses_abc123")
-      .locator('[data-testid="session-status"][data-status="idle"]'),
+      .getByTestId("workspace-session-ses_abc123")
+      .locator('[data-testid="workspace-session-status"][data-status="idle"]'),
   ).toBeVisible();
   await expect(page.getByTestId("prompt-send")).toBeVisible();
 });

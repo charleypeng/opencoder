@@ -27,8 +27,8 @@ test("E04 interrupt generation returns state to idle", async ({ page }) => {
   // Release the stream and open the scenario's session while it is still
   // generating (busy window: 150ms..2600ms after the stream opens).
   held.release();
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("prompt-stop")).toBeVisible({ timeout: 10_000 });
 
   const abortPromise = waitForMockRequest(page, "POST", "/session/ses_abc123/abort");
@@ -41,7 +41,7 @@ test("E04 interrupt generation returns state to idle", async ({ page }) => {
   await expect(page.getByTestId("streaming-progress")).toHaveCount(0);
   await expect(
     page
-      .getByTestId("session-item-ses_abc123")
-      .locator('[data-testid="session-status"][data-status="idle"]'),
+      .getByTestId("workspace-session-ses_abc123")
+      .locator('[data-testid="workspace-session-status"][data-status="idle"]'),
   ).toBeVisible();
 });

@@ -38,6 +38,18 @@ export const EMPTY_SERVER_SESSION_STATE: ServerSessionState = {
 
 const [sessions, setSessions] = createStore<SessionMap>({});
 
+/**
+ * Active-session restore candidates (per server): the session id the user
+ * last selected, captured so a context rebuild or an SSE reconnect (both of
+ * which call `resetServer` and clear `activeSessionId`) can put the chat
+ * pane back on the session the user was viewing. Armed by `setActiveSession`,
+ * disarmed by removing that session (`removeSession`), consumed one-shot by
+ * `takeRestoreCandidate`. Without it a `server.connected` arriving after a
+ * rebuild's own re-sync left the chat on the "Select a session" placeholder
+ * (real-server Bug: reconnect storm during context switches).
+ */
+const restoreCandidates: Record<string, string | null> = {};
+
 /** Reactive per-server session state. */
 export { sessions };
 
@@ -97,6 +109,10 @@ export function removeSession(serverId: string, sessionId: string): void {
     delete state.statuses[sessionId];
     if (state.activeSessionId === sessionId) state.activeSessionId = null;
   });
+  // Deleting the session the user was viewing also disarms the restore
+  // candidate — a removed session must never be resurrected by the
+  // post-reset restore (DesktopShell).
+  if (restoreCandidates[serverId] === sessionId) restoreCandidates[serverId] = null;
 }
 
 /** Applies a session status; accepts the schema object, bare strings, or
@@ -131,14 +147,30 @@ export function dismissSessionError(serverId: string, sessionId: string): void {
   });
 }
 
-/** Sets the currently viewed session (null clears it). */
+/** Sets the currently viewed session (null clears it). The selection is
+ *  recorded as the restore candidate so a later store reset (context rebuild
+ *  / SSE reconnect) can bring the chat pane back to it. */
 export function setActiveSession(serverId: string, sessionId: string | null): void {
+  restoreCandidates[serverId] = sessionId;
   updateServer(serverId, (state) => {
     state.activeSessionId = sessionId;
   });
 }
 
-/** Clears all sessions/statuses for a server (drop before full re-sync). */
+/** One-shot read of the restore candidate: returns the session id the user
+ *  had active before a reset (or null) and clears it. The consuming effect
+ *  re-selects the session when the store is empty; `setActiveSession` re-arms
+ *  the candidate, so every later reset can restore again. */
+export function takeRestoreCandidate(serverId: string): string | null {
+  const candidate = restoreCandidates[serverId] ?? null;
+  restoreCandidates[serverId] = null;
+  return candidate;
+}
+
+/** Clears all sessions/statuses for a server (drop before full re-sync). The
+ *  restore candidate is deliberately PRESERVED: a rebuild / reconnect clears
+ *  the bucket but the user's selection intent survives, and the consuming
+ *  effect re-selects it once the fresh snapshot lands. */
 export function resetServer(serverId: string): void {
   setSessions(
     produce((draft) => {

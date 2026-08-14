@@ -211,6 +211,37 @@ describe("WorkspaceTree", () => {
     void client;
   });
 
+  it("a snapshot refresh drops sessions the server no longer lists (deleted sessions leave the tree)", async () => {
+    // Solid's setStore MERGES plain objects, so replacing the snapshot with
+    // a plain object kept deleted sessions in the tree forever (the delete
+    // flow's refresh never removed the row). applyLocalList must replace
+    // wholesale.
+    let list = [
+      session("s1", "/dev/opencoder", 300),
+      session("s2", "/dev/opencoder", 200),
+      session("s3", "/dev/hermes", 400),
+    ];
+    const client = mockClient();
+    client.get.mockImplementation(async (path: string) => {
+      if (path === "/session") return list;
+      if (path === "/project") return PROJECTS;
+      return [];
+    });
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s2")).toBeInTheDocument());
+
+    // The server-side session is deleted; the next refresh's response omits it.
+    list = [session("s1", "/dev/opencoder", 300), session("s3", "/dev/hermes", 400)];
+    // Collapse then re-expand the folder to trigger a refresh (toggleFolder
+    // re-syncs on expand).
+    fireEvent.click(screen.getByTestId("workspace-folder-/dev/opencoder"));
+    fireEvent.click(screen.getByTestId("workspace-folder-/dev/opencoder"));
+    await waitFor(() => expect(screen.queryByTestId("workspace-session-s2")).toBeNull());
+    // The remaining sessions still render.
+    expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-session-s3")).toBeInTheDocument();
+  });
+
   it("removes a workspace via the ⋯ menu and persists the removal", async () => {
     const { unmount } = renderTree();
     await waitFor(() =>
@@ -330,6 +361,32 @@ describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
       screen.getByTestId("workspace-folder-section-/dev/opencoder"),
     );
     expect(defaultNext & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("expands the default workspace to its sessions (Bug: counted, never shown)", async () => {
+    localStorage.setItem("oc-default-workspace:" + SERVER, JSON.stringify("/dev/hermes"));
+    localStorage.setItem("oc-workspaces:" + SERVER, JSON.stringify(["/dev/opencoder"]));
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument(),
+    );
+
+    // The default row's count badge and its session list must agree: s3 is
+    // the /dev/hermes root session, and it renders under the default row
+    // while the folder is expanded (previously the default folder rendered
+    // only its header — the count showed N sessions that could never be
+    // expanded into view).
+    const defaultRow = screen.getByTestId("workspace-folder-/dev/hermes");
+    await waitFor(() =>
+      expect(within(defaultRow).getByTestId("workspace-folder-count")).toHaveTextContent("1"),
+    );
+    const sessionRow = screen.getByTestId("workspace-session-s3");
+    expect(sessionRow.textContent).toContain("Title s3");
+
+    // Collapsing hides the sessions; the header (and its count) stays.
+    fireEvent.click(within(defaultRow).getByTestId("workspace-folder-toggle"));
+    expect(screen.queryByTestId("workspace-session-s3")).toBeNull();
+    expect(within(defaultRow).getByTestId("workspace-folder-count")).toHaveTextContent("1");
   });
 
   it("renders the default workspace even with no sessions or project", async () => {

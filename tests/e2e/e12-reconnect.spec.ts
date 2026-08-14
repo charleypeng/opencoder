@@ -27,8 +27,8 @@ test("E12 network drop reconnects and realigns session state", async ({ page }) 
   await enterWorkspace(page);
 
   // The sse-drop scenario streams one text part before dropping.
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("message-list")).toContainText("Working on it", {
     timeout: 10_000,
   });
@@ -57,9 +57,9 @@ test("E12 network drop reconnects and realigns session state", async ({ page }) 
   // re-syncs the stores and the session state realigns (fixture sessions +
   // the scenario's streamed content all present again).
   await enterWorkspace(page);
-  await expect(page.getByTestId("session-item-sess_01")).toBeVisible();
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-sess_01")).toBeVisible();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("message-list")).toContainText("Working on it", {
     timeout: 15_000,
   });
