@@ -176,11 +176,19 @@ afterEach(() => {
 describe("a11y sweep (TASK-M9-08)", () => {
   it("DesktopShell: rail, sidebar, chat transcript and prompt box", async () => {
     mockClient([], [session("ses_a11y_1", "First session"), session("ses_a11y_2")]);
+    // Skip the first-run default-workspace onboarding: its Kobalte dialog
+    // hides the app behind it (ariaHideOutside), which would make the axe
+    // sweep vacuous (a modal is covered by its own UX, not this sweep).
+    localStorage.setItem("oc-default-workspace-prompted:" + SERVER, "1");
     const { container } = render(() => <DesktopShell server={SERVER_ENTRY} onExit={() => {}} />);
-    await waitFor(() => expect(screen.getByTestId("session-item-ses_a11y_1")).toBeInTheDocument());
+    // The sidebar renders the workspace tree; its session rows use the
+    // workspace-session testid (the legacy SessionList is mobile-only now).
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-session-ses_a11y_1")).toBeInTheDocument(),
+    );
     // Select the first session so the chat pane (message list + prompt box)
     // mounts in the same sweep.
-    fireEvent.click(screen.getByTestId("session-item-ses_a11y_1"));
+    fireEvent.click(screen.getByTestId("workspace-session-ses_a11y_1"));
     await waitFor(() => expect(screen.getByTestId("prompt-box")).toBeInTheDocument());
     expectNoSerious(await violationsAt(container), "DesktopShell");
   });

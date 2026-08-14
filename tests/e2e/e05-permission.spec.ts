@@ -27,8 +27,8 @@ test("E05 permission request: allow always (remember), flow continues", async ({
 
   // Open the scenario's session (created at stream start) so the composer
   // reflects its busy/idle state.
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("message-list")).toBeVisible();
 
   // permission.asked lands ~650ms after the stream opens (250ms syncDelay
@@ -49,7 +49,7 @@ test("E05 permission request: allow always (remember), flow continues", async ({
   // No further prompt: the session proceeds to idle on its own.
   await expect(
     page
-      .getByTestId("session-item-ses_abc123")
-      .locator('[data-testid="session-status"][data-status="idle"]'),
+      .getByTestId("workspace-session-ses_abc123")
+      .locator('[data-testid="workspace-session-status"][data-status="idle"]'),
   ).toBeVisible({ timeout: 10_000 });
 });

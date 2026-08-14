@@ -51,7 +51,6 @@ import {
   onMount,
   Show,
   Suspense,
-  untrack,
 } from "solid-js";
 import type { Component } from "solid-js";
 import ContextMenu from "../../components/ContextMenu.js";
@@ -92,6 +91,7 @@ import {
   getServerSessionState,
   resetServer as resetSessions,
   setActiveSession,
+  takeRestoreCandidate,
 } from "../../stores/session";
 import { resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetTodos } from "../../stores/todos";
@@ -705,20 +705,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     sse = undefined;
     if (previous) await previous.unsubscribe();
     if (serverId === null || version !== rebuildVersion) return;
-    // Capture the session the user had open before the context rebuild
-    // drops the bucket. resetSessions clears activeSessionId; after the
-    // re-sync lands we restore it when it survived in the fresh list, so a
-    // cross-directory session pick (or new-session flow) does not leave the
-    // chat pane empty (Bug 2 / Bug 4: the race between selectSession's
-    // setActiveSession and rebuild's resetSessions lost the selection).
-    // untrack: this rebuild runs inside the SSE-rebuild effect, so a raw
-    // store read here would add `activeSessionId` to the effect's deps —
-    // resetSessions then flips it and re-triggers the effect in a loop
-    // (Maximum call stack). untrack reads without subscribing.
-    const prevActive = untrack(() => getServerSessionState(serverId).activeSessionId);
     // Drop the previous context's sessions, messages and todos so the new
     // directory's data can never mix with the old one; the re-sync
-    // re-applies fresh snapshots right after the stream is up.
+    // re-applies fresh snapshots right after the stream is up. The active
+    // session survives through the session store's restore candidate (armed
+    // by setActiveSession, preserved by resetServer) and is re-selected by
+    // the restore effect below once the fresh snapshot lands — so neither a
+    // rebuild NOR a later server.connected reconnect can leave the chat pane
+    // on the "Select a session" placeholder (Bug 2 / Bug 4).
     resetSessions(serverId);
     resetMessages(serverId);
     resetTodos(serverId);
@@ -749,32 +743,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     }
     sse = subscription;
     // Re-sync without blocking the rebuild (the original timing stays intact
-    // so the SSE/server.connected wiring does not re-enter the effect). Once
-    // the fresh snapshot lands, restore the session the user had open before
-    // the rebuild wiped the bucket — but only when nothing else has been
-    // selected in the meantime (activeSessionId still null). This keeps a
-    // cross-directory pick/new-session from leaving the chat pane empty
-    // (Bug 2 / Bug 4) while a concurrent selection still wins. We do NOT
-    // require prevActive to be in the fresh session list: a brand-new
-    // session may not appear in the first GET /session snapshot after its
-    // creation (server-side list timing), yet it is perfectly openable —
-    // the chat loads it by id on demand. Requiring list membership made the
-    // restore a no-op for new sessions, so the chat stayed on the "Select a
-    // session" placeholder.
-    subscription
-      .sync()
-      .catch(() => {
-        // A failed re-sync must not break the stream; the next context
-        // change (or a server.connected event) heals the stores.
-      })
-      .finally(() => {
-        if (version !== rebuildVersion) return;
-        if (prevActive === null) return;
-        const settled = untrack(() => getServerSessionState(serverId));
-        if (settled.activeSessionId === null) {
-          setActiveSession(serverId, prevActive);
-        }
-      });
+    // so the SSE/server.connected wiring does not re-enter the effect). A
+    // failed re-sync must not break the stream; the next context change (or
+    // a server.connected event) heals the stores.
+    subscription.sync().catch(() => undefined);
   }
 
   createEffect(() => {
@@ -783,6 +755,24 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       serverId === null ? undefined : (getServerProjectState(serverId).current ?? undefined);
     const version = ++rebuildVersion;
     void rebuild(serverId, directory, version);
+  });
+
+  // Active-session restore (Bug 2 / Bug 4): every context rebuild AND every
+  // SSE reconnect (server.connected) calls resetServer, which clears
+  // activeSessionId. The session store keeps the last user selection as a
+  // restore candidate (armed by setActiveSession, disarmed by deleting that
+  // session); whenever the store ends up with no active session, re-select
+  // the candidate — but never resurrect a session the user deleted. This
+  // covers rebuilds AND reconnects arriving at any time (the previous
+  // one-shot restore only ran after the rebuild's own re-sync, so a
+  // server.connected landing later left the chat on "Select a session").
+  // setActiveSession re-arms the candidate, so a reconnect storm keeps
+  // restoring the same session instead of the first restore winning.
+  createEffect(() => {
+    const serverId = activeServerId();
+    if (getServerSessionState(serverId).activeSessionId !== null) return;
+    const candidate = takeRestoreCandidate(serverId);
+    if (candidate !== null) setActiveSession(serverId, candidate);
   });
 
   // System notifications (TASK-M8-06): one watcher for the active server,

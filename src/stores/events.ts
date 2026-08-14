@@ -330,7 +330,20 @@ export async function syncAll(
   deps.session.applySessionList(serverId, sessionList);
   deps.session.setStatusMap(serverId, statuses);
   deps.project.applyProjects(serverId, projectList);
-  deps.project.setCurrent(serverId, currentProject?.worktree ?? null);
+  // Seed the client's active directory ONLY when it is unset — never
+  // overwrite it with the server's per-directory /project/current. For an
+  // instance that is not itself a project root that response reports a
+  // PARENT worktree (browsing /Volumes/Doc/dev/thoughts returns
+  // /Volumes/Doc/dev), and overwriting churns the whole context: the
+  // rebuild effect re-fires, the SSE stream moves to the parent, and
+  // session/file requests route to the wrong workspace (real-server Bug:
+  // file tree 500 "Unexpected server error" on subtree expansion, sessions
+  // disappearing from the tree). DesktopShell's rebuild seeds `current`
+  // when unset; the user's own picks (session click, View folder, add
+  // workspace) own it afterwards.
+  if (deps.project.getServerProjectState(serverId).current === null) {
+    deps.project.setCurrent(serverId, currentProject?.worktree ?? null);
+  }
   return {
     sessions: sessionList,
     statuses,

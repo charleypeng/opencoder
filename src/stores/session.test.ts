@@ -15,6 +15,7 @@ import {
   setActiveSession,
   setSessionStatus,
   setStatusMap,
+  takeRestoreCandidate,
   upsertSession,
 } from "./session.js";
 
@@ -123,5 +124,43 @@ describe("session store", () => {
     resetServer("srv-ses");
     expect(sessions["srv-ses"]).toBeUndefined();
     expect(sessions["srv-ses-b"].order).toEqual(["ses_2"]);
+  });
+
+  it("resetServer preserves the restore candidate for the next selection", () => {
+    // The user's active session survives a store reset (context rebuild or
+    // SSE reconnect) as a one-shot restore candidate.
+    setActiveSession("srv-ses", "ses_1");
+    resetServer("srv-ses");
+    expect(sessions["srv-ses"]).toBeUndefined();
+    expect(takeRestoreCandidate("srv-ses")).toBe("ses_1");
+    // The candidate is consumed: a second read finds nothing.
+    expect(takeRestoreCandidate("srv-ses")).toBeNull();
+  });
+
+  it("a newer selection replaces the restore candidate", () => {
+    setActiveSession("srv-ses", "ses_1");
+    setActiveSession("srv-ses", "ses_2");
+    resetServer("srv-ses");
+    expect(takeRestoreCandidate("srv-ses")).toBe("ses_2");
+  });
+
+  it("removing the active session disarms the restore candidate", () => {
+    // Deleting the session the user was viewing must never resurrect it
+    // through the post-reset restore.
+    applySessionList("srv-ses", [S1, S2]);
+    setActiveSession("srv-ses", "ses_1");
+    removeSession("srv-ses", "ses_1");
+    resetServer("srv-ses");
+    expect(takeRestoreCandidate("srv-ses")).toBeNull();
+  });
+
+  it("restoring via setActiveSession re-arms the candidate (reconnect storm)", () => {
+    // A restore followed by ANOTHER reset must restore again — the first
+    // restore cannot be a one-shot for the whole session.
+    setActiveSession("srv-ses", "ses_1");
+    resetServer("srv-ses");
+    setActiveSession("srv-ses", takeRestoreCandidate("srv-ses")!);
+    resetServer("srv-ses");
+    expect(takeRestoreCandidate("srv-ses")).toBe("ses_1");
   });
 });

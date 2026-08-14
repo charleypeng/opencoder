@@ -23,8 +23,8 @@ test("E06 question card answer, flow continues", async ({ page }) => {
 
   // Open the scenario's session (created at stream start) so the composer
   // reflects its busy/idle state.
-  await expect(page.getByTestId("session-item-ses_abc123")).toBeVisible();
-  await page.getByTestId("session-item-ses_abc123").click();
+  await expect(page.getByTestId("workspace-session-ses_abc123")).toBeVisible();
+  await page.getByTestId("workspace-session-ses_abc123").click();
   await expect(page.getByTestId("message-list")).toBeVisible();
 
   // question.asked lands ~650ms after the stream opens (250ms syncDelay
@@ -47,7 +47,7 @@ test("E06 question card answer, flow continues", async ({ page }) => {
   await expect(page.getByTestId("prompt-send")).toBeVisible({ timeout: 10_000 });
   await expect(
     page
-      .getByTestId("session-item-ses_abc123")
-      .locator('[data-testid="session-status"][data-status="idle"]'),
+      .getByTestId("workspace-session-ses_abc123")
+      .locator('[data-testid="workspace-session-status"][data-status="idle"]'),
   ).toBeVisible();
 });
