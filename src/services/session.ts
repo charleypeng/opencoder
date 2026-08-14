@@ -70,6 +70,11 @@ export function createSessionService(client: ApiClient) {
         ...(dir === undefined ? {} : { directory: dir }),
         ...(roots === undefined ? {} : { roots }),
       },
+      // A roots listing must span EVERY opened directory (the workspace
+      // tree), so the global active-directory injection is skipped — with
+      // it the server would narrow the listing to the current folder and
+      // the other workspaces' sessions would vanish from the tree (Bug 2).
+      ...(roots === true ? { skipDirectory: true } : {}),
     });
   return {
     /**

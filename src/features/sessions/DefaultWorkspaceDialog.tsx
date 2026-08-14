@@ -8,6 +8,7 @@
 import type { Component } from "solid-js";
 import { useT } from "../../i18n/index.js";
 import { setDefaultWorkspace } from "../servers/defaultWorkspace.js";
+import { addWorkspace } from "./workspaces.js";
 import DirectoryPickerDialog from "./DirectoryPickerDialog.js";
 
 export interface DefaultWorkspaceDialogProps {
@@ -26,7 +27,11 @@ const DefaultWorkspaceDialog: Component<DefaultWorkspaceDialogProps> = (props) =
       hint={t("sessions:defaultWorkspaceHint")}
       showSkip
       onAdded={(directory) => {
+        // The picked folder is both the server's default workspace AND its
+        // first entry in the explicit workspace list, so it shows up in the
+        // tree right away (and survives restarts).
         setDefaultWorkspace(props.serverId, directory);
+        addWorkspace(props.serverId, directory);
         props.onClose();
       }}
       onClose={() => props.onClose()}

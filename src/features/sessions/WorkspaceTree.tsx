@@ -10,7 +10,16 @@
 // (client-side hide, persisted) — and session rows keep the existing
 // ⋯ context menu plus an "Open folder" item.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  onMount,
+  Show,
+  untrack,
+} from "solid-js";
 import type { Component } from "solid-js";
 import { createStore, produce } from "solid-js/store";
 import ContextMenu from "../../components/ContextMenu.js";
@@ -33,7 +42,12 @@ import { readDefaultWorkspace } from "../servers/defaultWorkspace.js";
 import { pushRecentProject } from "./recentProjects.js";
 import { createSession, ensureSessionInDirectory, forkSession } from "./sessionActions.js";
 import { basename, buildWorkspaceTree, type WorkspaceFolder } from "./workspaceTreeUtils.js";
-import { addWorkspace, readWorkspaces, removeWorkspace as dropWorkspace } from "./workspaces.js";
+import {
+  addWorkspace,
+  readWorkspaces,
+  removeWorkspace as dropWorkspace,
+  WORKSPACE_STORAGE_EVENT,
+} from "./workspaces.js";
 import DirectoryPickerDialog from "./DirectoryPickerDialog.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
@@ -347,10 +361,33 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   // Explicitly added workspaces (persisted): directories that would not
   // survive a restart otherwise (no sessions, no project record).
   const [explicitWorkspaces, setExplicitWorkspaces] = createSignal<string[]>([]);
-  createEffect(() => {
-    // Re-read on mount and whenever the server changes (props read inside
-    // the tracked scope keeps the effect reactive).
+  // The server's default workspace (persisted; null when unset). Kept as a
+  // signal (not a memo) so runtime writes via DefaultWorkspaceDialog /
+  // Settings — which go straight to localStorage — can refresh it through
+  // the WORKSPACE_STORAGE_EVENT notification. A memo would cache the value
+  // from the first read and never see the post-mount change, so a default
+  // workspace picked in onboarding would not render until a remount (Bug 1).
+  const [defaultWorkspace, setDefaultWorkspace] = createSignal<string | null>(null);
+
+  function refreshWorkspaceStorage(): void {
     setExplicitWorkspaces(readWorkspaces(props.serverId));
+    setDefaultWorkspace(readDefaultWorkspace(props.serverId));
+  }
+
+  // Re-read on mount and whenever the server changes (props.serverId read
+  // inside the tracked scope keeps the effect reactive).
+  createEffect(() => {
+    refreshWorkspaceStorage();
+  });
+
+  // Re-read when another component writes the workspace/default storage:
+  // DefaultWorkspaceDialog lives in DesktopShell and Settings in its own
+  // dialog — neither can reach this component's state directly, so they
+  // dispatch WORKSPACE_STORAGE_EVENT on write and we refresh here.
+  onMount(() => {
+    const handler = (): void => refreshWorkspaceStorage();
+    window.addEventListener(WORKSPACE_STORAGE_EVENT, handler);
+    onCleanup(() => window.removeEventListener(WORKSPACE_STORAGE_EVENT, handler));
   });
   // Row ⋯ menu target (session + position), and the dialog targets.
   const [rowMenu, setRowMenu] = createSignal<{ session: Session; x: number; y: number } | null>(
@@ -362,8 +399,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     x: number;
     y: number;
   } | null>(null);
-  // The server's default workspace (persisted; null when unset).
-  const defaultWorkspace = createMemo(() => readDefaultWorkspace(props.serverId));
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
   const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
@@ -396,21 +431,36 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     );
   }
 
-  /** Full refresh of the cross-directory roots + project names. Cheap (a
-   *  single roots list + project list); called on mount, on server switch,
-   *  on folder expand and after session mutations (keeps deletions/
-   *  creations accurate). A sequence guard drops stale responses so a slow
-   *  older refresh can never overwrite a newer snapshot. */
+  /** Full refresh of the cross-directory roots + project names. Called on
+   *  mount, on server switch, on folder expand and after session mutations
+   *  (keeps deletions/creations accurate). A sequence guard drops stale
+   *  responses so a slow older refresh can never overwrite a newer snapshot.
+   *
+   *  Root sessions are pulled PER KNOWN WORKSPACE: opencode's GET /session
+   *  without a directory only returns the GLOBAL (root) sessions — sessions
+   *  created in a per-directory workspace (e.g. the user's added folders)
+   *  require an explicit ?directory= query. Fetching only the global
+   *  listing and replacing the snapshot made every workspace's sessions
+   *  vanish from the tree as soon as the snapshot refreshed (Bug 2). */
   let refreshSeq = 0;
   function refresh(): void {
     const serverId = props.serverId;
     const seq = ++refreshSeq;
     const sessionService = createSessionService(getApiClient());
-    void sessionService
-      .listRoots()
-      .then((list) => {
+    const dirs = new Set<string>();
+    for (const dir of explicitWorkspaces()) dirs.add(dir);
+    const def = defaultWorkspace();
+    if (def !== null) dirs.add(def);
+    const requests: Promise<Session[]>[] = [];
+    if (dirs.size === 0) {
+      requests.push(sessionService.listRoots());
+    } else {
+      for (const dir of dirs) requests.push(sessionService.listRoots(dir));
+    }
+    Promise.all(requests)
+      .then((lists) => {
         if (seq !== refreshSeq) return;
-        applyLocalList(Array.isArray(list) ? list : []);
+        applyLocalList(Array.isArray(lists) ? lists.flat() : []);
       })
       .catch(() => undefined);
     void createProjectService(getApiClient())
@@ -439,19 +489,36 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   });
 
   const storeSessions = createMemo(() => Object.values(localSessions));
+  // The rendered workspaces = the persisted explicit list + the default
+  // workspace. With NO persisted workspaces yet the tree falls back to every
+  // derived directory (existing servers / pre-onboarding); once the user
+  // adds any workspace (or onboarding picks the default), the tree becomes
+  // strictly that list — a fresh server shows only its default workspace
+  // until more are added (Bug 3: workspaces are never auto-filled from the
+  // server's history, only the user's explicit list + default render).
+  const workspaceDirectories = createMemo(() => {
+    const set = new Set(explicitWorkspaces());
+    const def = defaultWorkspace();
+    if (def !== null) set.add(def);
+    return set.size === 0 ? undefined : set;
+  });
   const tree = createMemo(() => {
     const projects: Project[] = projectState().projects;
-    const built = buildWorkspaceTree(storeSessions(), projects);
-    // Explicitly added workspaces render even with no sessions/projects.
-    for (const directory of explicitWorkspaces()) {
-      if (built.folders.some((folder) => folder.directory === directory)) continue;
-      built.folders.push({
-        directory,
-        name: basename(directory),
-        project: undefined,
-        sessions: [],
-        recentMs: 0,
-      });
+    const only = workspaceDirectories();
+    const built = buildWorkspaceTree(storeSessions(), projects, only);
+    // Default + explicit workspaces always render, even with no
+    // sessions/projects yet (the persisted workspace list).
+    if (only !== undefined) {
+      for (const directory of only) {
+        if (built.folders.some((folder) => folder.directory === directory)) continue;
+        built.folders.push({
+          directory,
+          name: basename(directory),
+          project: undefined,
+          sessions: [],
+          recentMs: 0,
+        });
+      }
     }
     return built;
   });
@@ -510,10 +577,16 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   // Un-hide a folder the user actively re-entered (e.g. via the directory
   // picker's "Add"): the current directory leaving the hidden set restores
   // its row, so a hidden folder is never unrecoverable.
+  // untrack(hiddenFolders): the effect must react ONLY to the current
+  // directory changing — NOT to the hidden set changing. Removing a
+  // workspace writes the hidden set; if the removed folder happens to be
+  // the auto-entered current directory, an effect that re-runs on hidden
+  // writes would immediately un-hide it and undo the removal (Bug: "Remove
+  // workspace" did not stick for the active folder).
   createEffect(() => {
     const current = projectState().current;
     if (current === null) return;
-    const next = new Set(hiddenFolders());
+    const next = new Set(untrack(() => hiddenFolders()));
     if (next.delete(current)) {
       setHiddenFolders(next);
       writeStringSet(HIDDEN_KEY, next);
@@ -541,6 +614,13 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     next.add(directory);
     setHiddenFolders(next);
     writeStringSet(HIDDEN_KEY, next);
+    // If the removed folder was the active context, leave it: the auto-enter
+    // effect picks the next visible workspace, and the un-hide effect would
+    // otherwise restore the removed folder (its directory is still current),
+    // so "Remove workspace" would not stick for the folder you are in.
+    if (projectState().current === directory) {
+      setCurrent(props.serverId, null);
+    }
     // Dropping a workspace also forgets it in the persisted explicit list,
     // so a removed workspace stays gone after a restart.
     dropWorkspace(props.serverId, directory);

@@ -6,6 +6,19 @@
 
 const KEY_PREFIX = "oc-default-workspace:";
 
+// Re-use the workspace-list storage event so WorkspaceTree refreshes BOTH
+// the explicit list and the default workspace from a single notification.
+// Defined in workspaces.ts to keep one canonical event name.
+import { WORKSPACE_STORAGE_EVENT } from "../sessions/workspaces.js";
+
+function notifyWorkspaceStorageChange(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_STORAGE_EVENT));
+  } catch {
+    // window may be unavailable (SSR/test without DOM): safe to skip.
+  }
+}
+
 /** Reads a server's default workspace directory (null when unset). */
 export function readDefaultWorkspace(serverId: string): string | null {
   try {
@@ -24,6 +37,7 @@ export function setDefaultWorkspace(serverId: string, directory: string | null):
   try {
     if (directory === null || directory === "") localStorage.removeItem(KEY_PREFIX + serverId);
     else localStorage.setItem(KEY_PREFIX + serverId, JSON.stringify(directory));
+    notifyWorkspaceStorageChange();
   } catch {
     // Storage unavailable (private mode): the choice just doesn't persist.
   }
@@ -62,5 +76,17 @@ export function markDefaultWorkspacePrompted(serverId: string): void {
     localStorage.setItem(PROMPTED_KEY_PREFIX + serverId, "1");
   } catch {
     // Storage unavailable: the prompt may show again next entry.
+  }
+}
+
+/** Clears the default workspace choice AND the onboarding-prompted flag for
+ *  a server (called on server removal so re-adding starts fresh). */
+export function clearDefaultWorkspace(serverId: string): void {
+  try {
+    localStorage.removeItem(KEY_PREFIX + serverId);
+    localStorage.removeItem(PROMPTED_KEY_PREFIX + serverId);
+    notifyWorkspaceStorageChange();
+  } catch {
+    // Storage unavailable: nothing to clear anyway.
   }
 }

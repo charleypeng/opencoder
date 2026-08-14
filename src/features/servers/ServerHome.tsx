@@ -26,6 +26,9 @@ import {
 } from "../../services/servers";
 import type { AuthCredentials, ServerEntry } from "../../services/servers";
 import { applyServerHealth, connections, subscribeToServerHealth } from "../../stores/connection";
+import { clearDefaultWorkspace } from "./defaultWorkspace";
+import { clearRecentProjects } from "../sessions/recentProjects";
+import { clearWorkspaces } from "../sessions/workspaces";
 import { platform } from "../../platform/index.js";
 
 export interface ServerHomeProps {
@@ -298,6 +301,11 @@ function ServerHome(props: ServerHomeProps) {
     if (!server) return;
     try {
       await removeServer(server.id);
+      // Bug 3: drop the server's local workspace memory so re-adding the
+      // same server starts fresh (no stale default/explicit/recent list).
+      clearWorkspaces(server.id);
+      clearDefaultWorkspace(server.id);
+      clearRecentProjects(server.id);
       setDeleting(null);
       setDeleteError(null);
     } catch (err) {

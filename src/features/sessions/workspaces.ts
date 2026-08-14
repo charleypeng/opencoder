@@ -7,6 +7,22 @@
 
 const KEY_PREFIX = "oc-workspaces:";
 
+/**
+ * Dispatched on every workspace-list write so reactive consumers
+ * (WorkspaceTree) can re-read localStorage without polling. Same-window
+ * dispatch is synchronous and does NOT fire for cross-tab changes (the
+ * storage event does that, but it never fires in the writing window).
+ */
+export const WORKSPACE_STORAGE_EVENT = "oc-workspace-storage";
+
+function notifyWorkspaceStorageChange(): void {
+  try {
+    window.dispatchEvent(new CustomEvent(WORKSPACE_STORAGE_EVENT));
+  } catch {
+    // window may be unavailable (SSR/test without DOM): safe to skip.
+  }
+}
+
 /** Reads a server's explicit workspace directories (oldest first). */
 export function readWorkspaces(serverId: string): string[] {
   try {
@@ -28,6 +44,7 @@ export function addWorkspace(serverId: string, directory: string): void {
     const next = readWorkspaces(serverId).filter((dir) => dir !== directory);
     next.push(directory);
     localStorage.setItem(KEY_PREFIX + serverId, JSON.stringify(next));
+    notifyWorkspaceStorageChange();
   } catch {
     // Storage unavailable (private mode): the workspace just isn't persisted.
   }
@@ -40,7 +57,18 @@ export function removeWorkspace(serverId: string, directory: string): void {
       KEY_PREFIX + serverId,
       JSON.stringify(readWorkspaces(serverId).filter((dir) => dir !== directory)),
     );
+    notifyWorkspaceStorageChange();
   } catch {
     // Storage unavailable: nothing to persist anyway.
+  }
+}
+
+/** Clears ALL persisted workspaces for a server (called on server removal). */
+export function clearWorkspaces(serverId: string): void {
+  try {
+    localStorage.removeItem(KEY_PREFIX + serverId);
+    notifyWorkspaceStorageChange();
+  } catch {
+    // Storage unavailable: nothing to clear anyway.
   }
 }

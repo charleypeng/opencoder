@@ -32,6 +32,12 @@ export interface RequestOptions {
   auth?: AuthCredentials;
   timeoutMs?: number;
   requestID?: string;
+  /** Opts out of the global active-directory injection. The workspace
+   *  tree's cross-directory roots listing (GET /session?roots=true) must
+   *  span EVERY directory, so the injected active directory would narrow it
+   *  to the current folder and the other workspaces' sessions would
+   *  silently disappear from the tree (Bug 2). */
+  skipDirectory?: boolean;
 }
 
 export interface TransportRequest {
@@ -188,8 +194,10 @@ export class ApiClient {
     const query = { ...options.query };
     // An explicit per-call directory wins over the global context; the
     // global value only fills in for callers without one (TASK-M2-03).
+    // skipDirectory callers (cross-directory roots listing) opt out of the
+    // injection entirely.
     const directory = this.options.getDirectory?.();
-    if (directory !== undefined && query.directory === undefined) {
+    if (directory !== undefined && query.directory === undefined && !options.skipDirectory) {
       query.directory = directory;
     }
     const request: TransportRequest = { method, path };

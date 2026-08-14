@@ -43,7 +43,18 @@ function folderRecency(folder: WorkspaceFolder): number {
   return folder.project?.time?.updated ?? 0;
 }
 
-export function buildWorkspaceTree(sessions: Session[], projects: Project[]): WorkspaceTree {
+/**
+ * Builds the workspace tree. `onlyDirectories` (the persisted workspace
+ * list + the default workspace) LIMITS which directories render: a fresh
+ * server shows just its default workspace until the user adds more — data
+ * from other directories (roots sessions / projects) is ignored, it is the
+ * add-flow's candidate pool, not the tree.
+ */
+export function buildWorkspaceTree(
+  sessions: Session[],
+  projects: Project[],
+  onlyDirectories?: ReadonlySet<string>,
+): WorkspaceTree {
   // Only root sessions enter the tree (subagents are panel-only); the API
   // already filters with roots=true, this is the client-side guarantee.
   const roots = sessions.filter((s) => s.parentID === undefined);
@@ -52,9 +63,10 @@ export function buildWorkspaceTree(sessions: Session[], projects: Project[]): Wo
   const uncategorized: Session[] = [];
   for (const session of roots) {
     if (session.directory === undefined || session.directory === "") {
-      uncategorized.push(session);
+      if (onlyDirectories === undefined) uncategorized.push(session);
       continue;
     }
+    if (onlyDirectories !== undefined && !onlyDirectories.has(session.directory)) continue;
     const list = byDirectory.get(session.directory);
     if (list === undefined) byDirectory.set(session.directory, [session]);
     else list.push(session);
@@ -95,6 +107,7 @@ export function buildWorkspaceTree(sessions: Session[], projects: Project[]): Wo
   // Empty directories: projects whose worktree has no sessions yet.
   for (const project of projects) {
     if (project.worktree === undefined) continue;
+    if (onlyDirectories !== undefined && !onlyDirectories.has(project.worktree)) continue;
     if (byDirectory.has(project.worktree)) continue;
     if (folders.some((f) => f.directory === project.worktree)) continue;
     folders.push({

@@ -68,6 +68,30 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("listRoots skips the global directory injection (cross-directory listing)", async () => {
+    // The workspace tree's roots listing must span every directory; the
+    // injected active directory would narrow it to the current folder and
+    // the other workspaces' sessions would disappear (Bug 2).
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    const client = new ApiClient(invokeTransport, { getDirectory: () => "/current/dir" });
+    await createSessionService(client).listRoots();
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", query: { roots: true } },
+    });
+  });
+
+  it("plain list still injects the global directory", async () => {
+    // Only the roots listing opts out; ordinary (single-directory) listings
+    // keep the injection so callers without an explicit directory stay
+    // scoped to the active workspace.
+    invokeMock.mockResolvedValue(httpResponse({ body: [] }));
+    const client = new ApiClient(invokeTransport, { getDirectory: () => "/current/dir" });
+    await createSessionService(client).list();
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: { method: "GET", path: "/session", query: { directory: "/current/dir" } },
+    });
+  });
+
   it("create POSTs the parentID/title body", async () => {
     invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_created", title: "New" } }));
     const result = await createSessionService(makeClient()).create({
