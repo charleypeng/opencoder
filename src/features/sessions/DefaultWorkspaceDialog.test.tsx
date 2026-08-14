@@ -82,6 +82,10 @@ describe("DefaultWorkspaceDialog", () => {
 
     await waitFor(() => expect(onClose).toHaveBeenCalled());
     expect(readDefaultWorkspace(SERVER)).toBe("/Volumes/data");
+    // The picked folder also lands in the explicit workspace list.
+    expect(JSON.parse(localStorage.getItem("oc-workspaces:" + SERVER) ?? "[]")).toEqual([
+      "/Volumes/data",
+    ]);
     expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
   });
 

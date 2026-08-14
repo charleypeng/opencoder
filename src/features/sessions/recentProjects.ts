@@ -33,3 +33,12 @@ export function pushRecentProject(serverId: string, directory: string): string[]
   }
   return next;
 }
+
+/** Clears the recent project list for a server (called on server removal). */
+export function clearRecentProjects(serverId: string): void {
+  try {
+    localStorage.removeItem(KEY_PREFIX + serverId);
+  } catch {
+    // Storage unavailable: nothing to clear anyway.
+  }
+}

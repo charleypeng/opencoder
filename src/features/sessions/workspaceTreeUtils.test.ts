@@ -80,6 +80,24 @@ describe("buildWorkspaceTree", () => {
     expect(tree.uncategorized.map((s) => s.id)).toEqual(["o1"]);
   });
 
+  it("limits the tree to onlyDirectories (workspace layout redesign)", () => {
+    const only = new Set(["/dev/opencoder", "/empty-dir"]);
+    const tree = buildWorkspaceTree(
+      [
+        session("s1", { directory: "/dev/opencoder" }),
+        session("s-other", { directory: "/dev/other" }),
+        session("o1", { directory: undefined as unknown as string }),
+      ],
+      [project("prj-empty", "/empty-dir", { name: "empty" }), project("prj-x", "/dev/x")],
+      only,
+    );
+    // Only the listed directories render; other sessions and projects are
+    // ignored and uncategorized sessions do not leak in either.
+    expect(tree.folders.map((f) => f.directory)).toEqual(["/dev/opencoder", "/empty-dir"]);
+    expect(tree.folders[0].sessions.map((s) => s.id)).toEqual(["s1"]);
+    expect(tree.uncategorized).toEqual([]);
+  });
+
   it("disambiguates duplicate basenames with the full path", () => {
     const tree = buildWorkspaceTree(
       [session("a1", { directory: "/proj-a/blog" }), session("b1", { directory: "/proj-b/blog" })],

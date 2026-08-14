@@ -140,6 +140,15 @@ function handlerFor(event: string): (payload: unknown) => void {
 const DEMO_DIR = "/mock/projects/opencode-demo";
 const LABS_DIR = "/mock/projects/opencode-labs";
 
+/** Seeds a server's recent-projects memory so the first-entry onboarding
+ *  dialog is skipped (hasWorkspaceHistory = true). Without this, a server
+ *  with no default/explicit workspace triggers onboarding, and once prompted
+ *  the tree shows ONLY the explicit+default list (Bug 3) — empty here — so
+ *  tests that rely on the derived fallback would see a blank tree. */
+function seedServerWorkspace(serverId: string): void {
+  localStorage.setItem("oc-recent-projects:" + serverId, JSON.stringify([DEMO_DIR]));
+}
+
 /** /session/{id}/diff payload with one patched file and one stats-only file. */
 const DIFF_FIXTURE = [
   {
@@ -796,6 +805,7 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
   it("mounts the workspace tree and opens the server's per-directory stream", async () => {
     const alpha = server({ id: "srv-sse", name: "Alpha" });
     mockHttpRoutes([alpha]);
+    seedServerWorkspace(alpha.id);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
 
     await waitFor(() => expect(screen.getByTestId("workspace-tree")).toBeInTheDocument());
@@ -817,12 +827,16 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
       ).toBeInTheDocument(),
     );
     expect(screen.getByTestId("workspace-folder-/mock/projects/opencode-labs")).toBeInTheDocument();
-    expect(screen.getByTestId("workspace-session-sess_demo_01")).toBeInTheDocument();
+    // The session list arrives asynchronously (roots fetch), so wait for it.
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-session-sess_demo_01")).toBeInTheDocument(),
+    );
   });
 
   it("switching to a session in another directory rebuilds the stream, unsubscribes the old one and re-syncs isolated sessions", async () => {
     const alpha = server({ id: "srv-switch", name: "Alpha" });
     mockHttpRoutes([alpha]);
+    seedServerWorkspace(alpha.id);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
 
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
@@ -878,6 +892,7 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
   it("selecting a session row opens the message list in the main pane (TASK-M2-04)", async () => {
     const alpha = server({ id: "srv-sel", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
+    seedServerWorkspace(alpha.id);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     // The shell resets session state while (re)building the stream, so seed
@@ -911,6 +926,7 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
   it("mounts the prompt box below the message list for the active session (TASK-M2-08)", async () => {
     const alpha = server({ id: "srv-prompt", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
+    seedServerWorkspace(alpha.id);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
     applySessionList("srv-prompt", [session("sess_prompt_01", DEMO_DIR)]);
@@ -1048,6 +1064,7 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
   it("switching to a session in another directory clears the viewer tabs and active path (TASK-M4-03)", async () => {
     const alpha = server({ id: "srv-m4view", name: "Alpha" });
     mockHttpRoutes([alpha]);
+    seedServerWorkspace(alpha.id);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
@@ -1092,6 +1109,12 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
 
   it("the workspace ⋯ menu's view folder jumps to the Files view in that directory", async () => {
     const alpha = server({ id: "srv-viewfolder", name: "Alpha" });
+    // Seed the workspace list so both folders render without onboarding
+    // (Bug 3: a prompted server shows ONLY the explicit + default list,
+    // so the labs folder must be added explicitly to appear).
+    localStorage.setItem("oc-default-workspace:srv-viewfolder", JSON.stringify(DEMO_DIR));
+    localStorage.setItem("oc-workspaces:srv-viewfolder", JSON.stringify([DEMO_DIR, LABS_DIR]));
+    localStorage.setItem("oc-default-workspace-prompted:srv-viewfolder", "1");
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() =>
@@ -1107,11 +1130,114 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     );
     fireEvent.click(await screen.findByTestId("workspace-folder-menu-view-folder"));
 
-    // The context switched to the picked workspace and Main shows Files.
+    // Viewing a folder switches the session context to the picked workspace
+    // (every file request is routed by the active directory, so browsing a
+    // folder must set it — otherwise subtree/content/status requests answer
+    // for the wrong workspace), points the sidebar file tree at it and
+    // shows the Files view.
     await waitFor(() =>
       expect(getServerProjectState("srv-viewfolder").current).toBe("/mock/projects/opencode-labs"),
     );
     expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    await waitFor(() =>
+      expect(screen.getByTestId("sidebar-view-files")).toHaveAttribute("aria-selected", "true"),
+    );
+    // The sidebar file tree browses the picked directory (GET /file?directory=).
+    await waitFor(() =>
+      expect(
+        invokeMock.mock.calls.some(
+          (call) =>
+            (call[0] as string) === "http_request" &&
+            (call[1] as { request?: { path?: string; query?: Record<string, string> } }).request
+              ?.path === "/file" &&
+            (call[1] as { request?: { query?: Record<string, string> } }).request?.query
+              ?.directory === "/mock/projects/opencode-labs",
+        ),
+      ).toBe(true),
+    );
+  });
+});
+
+describe("DesktopShell workspace session creation (bug fixes)", () => {
+  it("header new-session opens the new chat in the chat pane", async () => {
+    const alpha = server({ id: "srv-bug2", name: "Alpha" });
+    // Default workspace + explicit list both point at the demo directory.
+    localStorage.setItem("oc-default-workspace:srv-bug2", JSON.stringify(DEMO_DIR));
+    localStorage.setItem("oc-workspaces:srv-bug2", JSON.stringify([DEMO_DIR]));
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("workspace-new-session")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("workspace-new-session"));
+
+    // The created session becomes active and the chat pane shows it.
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bug2").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+  });
+
+  it("header new-session returns to the chat pane even from the Files view", async () => {
+    const alpha = server({ id: "srv-bug2b", name: "Alpha" });
+    localStorage.setItem("oc-default-workspace:srv-bug2b", JSON.stringify(DEMO_DIR));
+    localStorage.setItem("oc-workspaces:srv-bug2b", JSON.stringify([DEMO_DIR]));
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("workspace-new-session")).toBeInTheDocument());
+
+    // Switch to the Files view first, then create a session.
+    fireEvent.click(screen.getByTestId("main-tab-files"));
+    fireEvent.click(screen.getByTestId("workspace-new-session"));
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bug2b").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+  });
+
+  it("a workspace [+] button opens the new session chat", async () => {
+    const alpha = server({ id: "srv-bug2c", name: "Alpha" });
+    localStorage.setItem("oc-workspaces:srv-bug2c", JSON.stringify([DEMO_DIR]));
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("workspace-folder-/mock/projects/opencode-demo"),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/mock/projects/opencode-demo")).getByTestId(
+        "workspace-folder-add",
+      ),
+    );
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bug2c").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+  });
+
+  it("clicking a session in an added workspace opens its chat", async () => {
+    const alpha = server({ id: "srv-bug4", name: "Alpha" });
+    // The labs workspace is added explicitly; its session comes from roots.
+    localStorage.setItem("oc-workspaces:srv-bug4", JSON.stringify([DEMO_DIR, LABS_DIR]));
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-session-sess_labs_01")).toBeInTheDocument(),
+    );
+
+    fireEvent.click(screen.getByTestId("workspace-session-sess_labs_01"));
+
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bug4").activeSessionId).toBe("sess_labs_01"),
+    );
+    // The chat pane renders the selected session's header.
+    await waitFor(() =>
+      expect(screen.getByTestId("chat-session-title")).toHaveTextContent(/sess_labs_01|Labs/i),
+    );
   });
 });
 

@@ -7,6 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import { ApiClient, type Transport } from "../../services/client";
 import type { FileNode } from "../../services/file";
 import { applyWatcher, resetServer } from "../../stores/files";
@@ -89,6 +90,87 @@ function mountTree(
   getApiClientMock.mockReturnValue(new ApiClient(transport));
   render(() => <FileTree serverId={SERVER} {...props} />);
 }
+
+describe("FileTree directory prop", () => {
+  it("passes the requested directory to GET /file (workspace view folder)", async () => {
+    const seen: string[] = [];
+    requestMock = vi
+      .fn()
+      .mockImplementation((input: { path: string; query?: Record<string, string> }) => {
+        if (input.path === "/file") seen.push(input.query?.directory ?? "<none>");
+        return Promise.resolve(httpResponse([]));
+      });
+    getApiClientMock.mockReturnValue(
+      new ApiClient({ request: requestMock as unknown as Transport["request"] }),
+    );
+    render(() => <FileTree serverId={SERVER} directory="/dev/opencode" />);
+    await waitFor(() => expect(seen).toContain("/dev/opencode"));
+  });
+
+  it("re-loads the tree when the requested directory changes", async () => {
+    let calls = 0;
+    requestMock = vi
+      .fn()
+      .mockImplementation((input: { path: string; query?: Record<string, string> }) => {
+        if (input.path === "/file") calls += 1;
+        return Promise.resolve(httpResponse([]));
+      });
+    getApiClientMock.mockReturnValue(
+      new ApiClient({ request: requestMock as unknown as Transport["request"] }),
+    );
+    const [dir, setDir] = createSignal<string | undefined>(undefined);
+    render(() => <FileTree serverId={SERVER} directory={dir()} />);
+    await waitFor(() => expect(calls).toBeGreaterThanOrEqual(1));
+    const before = calls;
+    setDir("/dev/opencode");
+    await waitFor(() => expect(calls).toBeGreaterThan(before));
+  });
+
+  it("subtree expansion requests carry the browsed directory (Bug: children did not load)", async () => {
+    // Expanding a subdirectory must send GET /file?path=...&directory=<the
+    // browsed directory>. Without it the client injects the global active
+    // directory, which may differ from the browsed workspace — the server
+    // then cannot resolve the subtree and the folder expands to nothing.
+    const calls: { path: string; query?: Record<string, string> }[] = [];
+    requestMock = vi
+      .fn()
+      .mockImplementation((input: { path: string; query?: Record<string, string> }) => {
+        calls.push({ path: input.path, query: input.query });
+        if (
+          input.path === "/file" &&
+          (input.query?.path === undefined || input.query?.path === "")
+        ) {
+          // Root listing (empty relative path): one directory entry to expand.
+          return Promise.resolve(
+            httpResponse([
+              {
+                name: "src",
+                path: "src",
+                type: "directory",
+                absolute: "/dev/opencode/src",
+                ignored: false,
+              },
+            ]),
+          );
+        }
+        return Promise.resolve(httpResponse([]));
+      });
+    getApiClientMock.mockReturnValue(
+      new ApiClient({ request: requestMock as unknown as Transport["request"] }),
+    );
+    render(() => <FileTree serverId={SERVER} directory="/dev/opencode" />);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("file-row-src"));
+    await waitFor(() =>
+      expect(
+        calls.some(
+          (c) =>
+            c.path === "/file" && c.query?.path === "src" && c.query?.directory === "/dev/opencode",
+        ),
+      ).toBe(true),
+    );
+  });
+});
 
 beforeEach(() => {
   resetServer(SERVER);

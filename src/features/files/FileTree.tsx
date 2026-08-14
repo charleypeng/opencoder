@@ -27,6 +27,10 @@ import { useT } from "../../i18n/index.js";
 export interface FileTreeProps {
   /** The server whose workspace is shown. */
   serverId: string;
+  /** Explicit working directory to browse (GET /file?directory=). When
+   *  omitted the server's default workspace is shown. The sidebar's
+   *  workspace ⋯ menu "View folder" passes the picked directory here. */
+  directory?: string;
   /** Mobile file-browser variant (TASK-M7-09): single-level navigation
    *  with a breadcrumb back bar and full-row touch targets; the desktop
    *  context menu is not attached (long-press menus are deferred to the
@@ -187,8 +191,14 @@ const FileTree: Component<FileTreeProps> = (props) => {
         // GET /file requires `path` (openapi: required query). The root
         // listing is the empty relative path — omitting it makes real
         // opencode servers answer 400 BadRequest "Missing key at [\"path\"]".
-        createFileService(getApiClient()).tree(""),
-        createFileService(getApiClient()).status(),
+        createFileService(getApiClient()).tree("", props.directory),
+        // The status request must target the SAME directory being browsed
+        // (workspace ⋯ "View folder" passes an explicit directory). Without
+        // it the client injects the global active directory, which may be a
+        // different workspace — the server then answers for that other
+        // directory and the sidebar shows its status (or errors) instead of
+        // the folder the user is actually looking at.
+        createFileService(getApiClient()).status(props.directory),
       ]);
       if (seq !== fetchSeq) return;
       setTree(props.serverId, undefined, treeNodes);
@@ -204,12 +214,16 @@ const FileTree: Component<FileTreeProps> = (props) => {
     }
   }
 
-  // Refetch on mount and on every store version bump (watcher events).
+  // Refetch on mount, on every store version bump (watcher events) and
+  // whenever the requested directory changes (workspace ⋯ "View folder").
   let lastSeenVersion = -1;
+  let lastDirectory: string | undefined;
   createEffect(() => {
     const version = state()?.version ?? 0;
-    if (version === lastSeenVersion) return;
+    const directory = props.directory;
+    if (version === lastSeenVersion && directory === lastDirectory) return;
     lastSeenVersion = version;
+    lastDirectory = directory;
     void loadRoot();
   });
 
@@ -315,7 +329,14 @@ const FileTree: Component<FileTreeProps> = (props) => {
     const seq = (expansionSeq.get(path) ?? 0) + 1;
     expansionSeq.set(path, seq);
     try {
-      const nodes = await createFileService(getApiClient()).tree(path);
+      // The subtree request must target the SAME directory the tree is
+      // browsing (props.directory, e.g. a workspace picked via "View
+      // folder"). Without it the client injects the global active
+      // directory, which may differ from the browsed workspace — the
+      // server then can't resolve the relative subtree path and answers
+      // with an error, leaving the folder with no children (Bug: subtree
+      // would not expand).
+      const nodes = await createFileService(getApiClient()).tree(path, props.directory);
       if (expansionSeq.get(path) !== seq) return true;
       setTree(props.serverId, path, nodes);
       refillExpanded();
