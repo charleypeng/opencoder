@@ -86,7 +86,7 @@ import {
   markDefaultWorkspacePrompted,
   wasDefaultWorkspacePrompted,
 } from "../../features/servers/defaultWorkspace.js";
-import { getServerProjectState } from "../../stores/project";
+import { getServerProjectState, setCurrent } from "../../stores/project";
 import {
   getServerSessionState,
   resetServer as resetSessions,
@@ -101,6 +101,7 @@ import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
 import WorkspaceTree from "../../features/sessions/WorkspaceTree";
 import SubtaskPanel from "../../features/sessions/SubtaskPanel";
 import DefaultWorkspaceDialog from "../../features/sessions/DefaultWorkspaceDialog";
+import { pushRecentProject } from "../../features/sessions/recentProjects.js";
 import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
@@ -1066,7 +1067,17 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 }
               }}
             >
-              <WorkspaceTree serverId={activeServerId()} onSelectSession={() => undefined} />
+              <WorkspaceTree
+                serverId={activeServerId()}
+                onSelectSession={() => undefined}
+                onViewFolder={(directory) => {
+                  // View folder: switch the context to that workspace and
+                  // show its files in the main pane.
+                  setCurrent(activeServerId(), directory);
+                  pushRecentProject(activeServerId(), directory);
+                  setMainView("files");
+                }}
+              />
             </div>
           </Show>
         </aside>

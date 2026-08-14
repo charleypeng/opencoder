@@ -29,9 +29,11 @@ import {
   type SessionStatusEntry,
 } from "../../stores/session.js";
 import { formatRelativeTime } from "../servers/relativeTime.js";
+import { readDefaultWorkspace } from "../servers/defaultWorkspace.js";
 import { pushRecentProject } from "./recentProjects.js";
 import { createSession, ensureSessionInDirectory, forkSession } from "./sessionActions.js";
-import { buildWorkspaceTree, type WorkspaceFolder } from "./workspaceTreeUtils.js";
+import { basename, buildWorkspaceTree, type WorkspaceFolder } from "./workspaceTreeUtils.js";
+import { addWorkspace, readWorkspaces, removeWorkspace as dropWorkspace } from "./workspaces.js";
 import DirectoryPickerDialog from "./DirectoryPickerDialog.js";
 import DeleteSessionDialog from "./DeleteSessionDialog.js";
 import RenameSessionDialog from "./RenameSessionDialog.js";
@@ -44,6 +46,9 @@ export interface WorkspaceTreeProps {
   serverId: string;
   /** Called when a session row is selected. */
   onSelectSession: (sessionId: string) => void;
+  /** Called by the folder ⋯ menu's "View folder": switch the main pane to
+   *  that directory's files (DesktopShell sets the context + Files view). */
+  onViewFolder: (directory: string) => void;
 }
 
 /** localStorage keys for the folder expand/hide persistence. */
@@ -102,23 +107,26 @@ function statusDotClass(kind: StatusKind): string {
 }
 
 /** A folder row: chevron + folder icon + name + count + status dot, with
- *  hover actions (open folder / remove from list). Clicking the row (or
- *  chevron) only toggles expand/collapse — entering a directory is the
- *  session click or the explicit "Open folder" action. */
+ *  hover actions (new session here / ⋯ menu) and a "Default" badge when it
+ *  is the server's default workspace. Clicking the row (or chevron) only
+ *  toggles expand/collapse — entering a directory is the session click or
+ *  the ⋯ menu's "View folder". */
 function FolderRow(props: {
   folder: WorkspaceFolder;
   expanded: boolean;
   isCurrent: boolean;
+  isDefault: boolean;
   statusKind: StatusKind;
   onToggle: () => void;
-  onOpen: () => void;
-  onRemove: () => void;
+  onAddSession: () => void;
+  onMore: (position: { x: number; y: number }) => void;
 }) {
   const t = useT();
   return (
     <div
       data-testid={`workspace-folder-${props.folder.directory}`}
       data-active={props.isCurrent ? "true" : "false"}
+      data-default={props.isDefault ? "true" : "false"}
       class="group relative flex cursor-pointer select-none items-center gap-1.5 py-1.5 pl-3 pr-2 text-sm transition-colors hover:bg-bg-sunken/50"
       onClick={() => props.onToggle()}
     >
@@ -154,6 +162,14 @@ function FolderRow(props: {
       <span class="min-w-0 flex-1 truncate" title={props.folder.directory}>
         {props.folder.name}
       </span>
+      <Show when={props.isDefault}>
+        <span
+          data-testid="workspace-folder-default-badge"
+          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+        >
+          {t("sessions:defaultBadge")}
+        </span>
+      </Show>
       <Show when={props.folder.sessions.length > 0}>
         <span data-testid="workspace-folder-count" class="shrink-0 text-[10px] text-fg-faint">
           {props.folder.sessions.length}
@@ -166,16 +182,17 @@ function FolderRow(props: {
           class={`shrink-0 ${statusDotClass(props.statusKind)}`}
         />
       </Show>
-      {/* Hover actions (WorkBuddy-style): open folder / remove from list. */}
+      {/* Hover actions (workspace layout redesign): new session here + ⋯
+          menu (view folder / remove workspace). */}
       <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
         <button
           type="button"
-          data-testid="workspace-folder-open"
-          aria-label={t("sessions:openFolder")}
-          title={t("sessions:openFolder")}
+          data-testid="workspace-folder-add"
+          aria-label={t("sessions:addSessionHere")}
+          title={t("sessions:addSessionHere")}
           onClick={(event) => {
             event.stopPropagation();
-            props.onOpen();
+            props.onAddSession();
           }}
           class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary focus:bg-bg-sunken focus:text-fg-primary"
         >
@@ -184,37 +201,26 @@ function FolderRow(props: {
             viewBox="0 0 24 24"
             fill="none"
             stroke="currentColor"
-            stroke-width="1.6"
+            stroke-width="1.8"
             stroke-linecap="round"
-            stroke-linejoin="round"
             class="h-3.5 w-3.5"
           >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+            <path d="M12 5v14M5 12h14" />
           </svg>
         </button>
         <button
           type="button"
-          data-testid="workspace-folder-remove"
-          aria-label={t("sessions:removeFolder")}
-          title={t("sessions:removeFolder")}
+          data-testid="workspace-folder-more"
+          aria-label={t("sessions:moreActions")}
+          title={t("sessions:moreActions")}
           onClick={(event) => {
             event.stopPropagation();
-            props.onRemove();
+            const rect = event.currentTarget.getBoundingClientRect();
+            props.onMore({ x: rect.left, y: rect.bottom });
           }}
-          class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-danger focus:bg-bg-sunken focus:text-danger"
+          class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary focus:bg-bg-sunken focus:text-fg-primary"
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-3.5 w-3.5"
-          >
-            <path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m3 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-          </svg>
+          ⋯
         </button>
       </div>
     </div>
@@ -338,10 +344,26 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   const [hiddenFolders, setHiddenFolders] = createSignal<ReadonlySet<string>>(
     readStringSet(HIDDEN_KEY),
   );
+  // Explicitly added workspaces (persisted): directories that would not
+  // survive a restart otherwise (no sessions, no project record).
+  const [explicitWorkspaces, setExplicitWorkspaces] = createSignal<string[]>([]);
+  createEffect(() => {
+    // Re-read on mount and whenever the server changes (props read inside
+    // the tracked scope keeps the effect reactive).
+    setExplicitWorkspaces(readWorkspaces(props.serverId));
+  });
   // Row ⋯ menu target (session + position), and the dialog targets.
   const [rowMenu, setRowMenu] = createSignal<{ session: Session; x: number; y: number } | null>(
     null,
   );
+  // Folder ⋯ menu target (workspace + position): view folder / remove.
+  const [folderMenu, setFolderMenu] = createSignal<{
+    directory: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  // The server's default workspace (persisted; null when unset).
+  const defaultWorkspace = createMemo(() => readDefaultWorkspace(props.serverId));
   const [renameTarget, setRenameTarget] = createSignal<Session | null>(null);
   const [deleteTarget, setDeleteTarget] = createSignal<Session | null>(null);
   const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
@@ -419,7 +441,19 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   const storeSessions = createMemo(() => Object.values(localSessions));
   const tree = createMemo(() => {
     const projects: Project[] = projectState().projects;
-    return buildWorkspaceTree(storeSessions(), projects);
+    const built = buildWorkspaceTree(storeSessions(), projects);
+    // Explicitly added workspaces render even with no sessions/projects.
+    for (const directory of explicitWorkspaces()) {
+      if (built.folders.some((folder) => folder.directory === directory)) continue;
+      built.folders.push({
+        directory,
+        name: basename(directory),
+        project: undefined,
+        sessions: [],
+        recentMs: 0,
+      });
+    }
+    return built;
   });
 
   // Search filter: a folder stays visible when any of its sessions (or the
@@ -448,6 +482,17 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
 
   const visibleFolders = createMemo(() =>
     filteredTree().folders.filter((folder) => !hiddenFolders().has(folder.directory)),
+  );
+
+  // Workspace-layout grouping: the default workspace is pinned to the top
+  // and visually separated (default badge + divider) from the rest.
+  const defaultFolder = createMemo<WorkspaceFolder | undefined>(() => {
+    const target = defaultWorkspace();
+    if (target === null) return undefined;
+    return visibleFolders().find((folder) => folder.directory === target);
+  });
+  const otherFolders = createMemo(() =>
+    visibleFolders().filter((folder) => folder.directory !== defaultFolder()?.directory),
   );
 
   // Enter the most recent directory when no context is seeded yet (first
@@ -496,6 +541,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     next.add(directory);
     setHiddenFolders(next);
     writeStringSet(HIDDEN_KEY, next);
+    // Dropping a workspace also forgets it in the persisted explicit list,
+    // so a removed workspace stays gone after a restart.
+    dropWorkspace(props.serverId, directory);
+    setExplicitWorkspaces(readWorkspaces(props.serverId));
   }
 
   /** Selects a session; when it belongs to a different directory than the
@@ -521,9 +570,37 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     setCreating(true);
     setCreateError(null);
     try {
-      const session = await createSession(props.serverId, createSessionService(getApiClient()));
+      // The header "+" creates inside the DEFAULT workspace when one is set
+      // (workspace layout redesign); otherwise the plain (current-directory)
+      // flow applies.
+      const target = defaultWorkspace();
+      const session = await createSession(
+        props.serverId,
+        createSessionService(getApiClient()),
+        target ?? undefined,
+      );
       // The created session may belong to the injected (current) directory;
       // make it visible in the tree right away.
+      upsertLocal(session);
+      selectSession(session);
+    } catch (err) {
+      setCreateError(ApiError.fromUnknown(err));
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  /** Creates a session directly in the given workspace (folder [+] button). */
+  async function handleCreateIn(directory: string): Promise<void> {
+    if (creating()) return;
+    setCreating(true);
+    setCreateError(null);
+    try {
+      const session = await createSession(
+        props.serverId,
+        createSessionService(getApiClient()),
+        directory,
+      );
       upsertLocal(session);
       selectSession(session);
     } catch (err) {
@@ -614,6 +691,40 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     ];
   });
 
+  /** Folder ⋯ menu: view the workspace's files / remove the workspace. */
+  const folderMenuItems = createMemo<MenuItem[]>(() => {
+    const target = folderMenu();
+    if (target === null) return [];
+    return [
+      {
+        id: "view-folder",
+        label: t("sessions:viewFolder"),
+        icon: (
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+          >
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+          </svg>
+        ),
+        onSelect: () => props.onViewFolder(target.directory),
+      },
+      { separator: true },
+      {
+        id: "remove-workspace",
+        label: t("sessions:removeWorkspace"),
+        danger: true,
+        onSelect: () => removeFolder(target.directory),
+      },
+    ];
+  });
+
   return (
     <div data-testid="workspace-tree" class="flex min-h-0 flex-1 flex-col">
       <div class="px-3 pb-1.5 pt-2">
@@ -628,6 +739,17 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           onClick={() => void handleCreate()}
         >
           + {t("sessions:newSession")}
+        </button>
+        <button
+          type="button"
+          data-testid="workspace-add-workspace"
+          class="mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+          onClick={() => {
+            setPickerDir(undefined);
+            setPickerOpen(true);
+          }}
+        >
+          + {t("sessions:addWorkspace")}
         </button>
         <input
           type="search"
@@ -669,7 +791,32 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
             </Show>
           }
         >
-          <For each={visibleFolders()}>
+          <Show when={defaultFolder() !== undefined}>
+            <FolderRow
+              folder={defaultFolder()!}
+              expanded={isExpanded(defaultFolder()!.directory, filteredTree().matched)}
+              isCurrent={projectState().current === defaultFolder()!.directory}
+              isDefault
+              statusKind={folderStatusKind(
+                defaultFolder()!,
+                projectState().current === defaultFolder()!.directory,
+                sessionState().statuses,
+              )}
+              onToggle={() => toggleFolder(defaultFolder()!.directory)}
+              onAddSession={() => void handleCreateIn(defaultFolder()!.directory)}
+              onMore={(position) =>
+                setFolderMenu({ directory: defaultFolder()!.directory, ...position })
+              }
+            />
+          </Show>
+          <Show when={defaultFolder() !== undefined && otherFolders().length > 0}>
+            <div
+              data-testid="workspace-divider"
+              class="mx-3 my-1 border-t border-bg-sunken"
+              role="separator"
+            />
+          </Show>
+          <For each={otherFolders()}>
             {(folder) => {
               const expanded = () => isExpanded(folder.directory, filteredTree().matched);
               const isCurrent = () => projectState().current === folder.directory;
@@ -681,13 +828,13 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     folder={folder}
                     expanded={expanded()}
                     isCurrent={isCurrent()}
+                    isDefault={false}
                     statusKind={statusKind()}
                     onToggle={() => toggleFolder(folder.directory)}
-                    onOpen={() => {
-                      setPickerDir(folder.directory);
-                      setPickerOpen(true);
-                    }}
-                    onRemove={() => removeFolder(folder.directory)}
+                    onAddSession={() => void handleCreateIn(folder.directory)}
+                    onMore={(position) =>
+                      setFolderMenu({ directory: folder.directory, ...position })
+                    }
                   />
                   <Show when={expanded()}>
                     <For each={folder.sessions}>
@@ -722,13 +869,11 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                 }}
                 expanded={!collapsed().has("__uncategorized__")}
                 isCurrent={false}
+                isDefault={false}
                 statusKind="none"
                 onToggle={() => toggleFolder("__uncategorized__")}
-                onOpen={() => {
-                  setPickerDir(undefined);
-                  setPickerOpen(true);
-                }}
-                onRemove={() => undefined}
+                onAddSession={() => undefined}
+                onMore={() => undefined}
               />
               <Show when={!collapsed().has("__uncategorized__")}>
                 <For each={filteredTree().uncategorized}>
@@ -752,11 +897,16 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       </div>
 
       {/* Open-folder picker: positioned at the target directory (defaults
-          to the filesystem root when no directory is given). */}
+          to the filesystem root when no directory is given). Adding a
+          directory also records it in the persisted workspace list. */}
       <Show when={pickerOpen()}>
         <DirectoryPickerDialog
           serverId={props.serverId}
           initialDirectory={pickerDir()}
+          onAdded={(directory) => {
+            addWorkspace(props.serverId, directory);
+            setExplicitWorkspaces(readWorkspaces(props.serverId));
+          }}
           onClose={() => setPickerOpen(false)}
         />
       </Show>
@@ -819,6 +969,19 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           y={rowMenu()!.y}
           items={rowMenuItems()}
           onClose={() => setRowMenu(null)}
+        />
+      </Show>
+
+      {/* Folder ⋯ menu (workspace layout redesign): view the workspace's
+          files in the main pane, or remove it from the list (persisted). */}
+      <Show when={folderMenu() !== null}>
+        <ContextMenu
+          testId="workspace-folder-menu"
+          label={t("sessions:moreActions")}
+          x={folderMenu()!.x}
+          y={folderMenu()!.y}
+          items={folderMenuItems()}
+          onClose={() => setFolderMenu(null)}
         />
       </Show>
     </div>
