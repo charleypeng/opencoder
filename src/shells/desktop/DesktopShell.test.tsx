@@ -1097,9 +1097,7 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     // and highlighted through the stubbed highlighter.
     expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
-    );
+    await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
 
     // A second click re-activates the existing tab without a duplicate.
@@ -1447,9 +1445,7 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Demo project"),
-    );
+    await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4quick"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
     expect(readRecentFiles("srv-m4quick")).toEqual(["README.md"]);
   });

@@ -162,9 +162,7 @@ describe("mobile Files flow (TASK-M7-09)", () => {
     // file) and the mobile fullscreen affordances (zoom chip).
     const view = within(filesTab).getByTestId("mobile-page-file-view");
     expect(within(view).getByTestId("mobile-page-title")).toHaveTextContent("README.md");
-    await waitFor(() =>
-      expect(within(view).getByTestId("viewer-code")).toHaveTextContent("content of README.md"),
-    );
+    await waitFor(() => expect(within(view).getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(within(view).getByTestId("viewer-zoom-toggle")).toBeInTheDocument();
     expect(within(view).getByTestId("viewer-zoom-wrap")).toHaveAttribute("data-zoom", "100");
   });

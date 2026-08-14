@@ -22,6 +22,7 @@ import { ApiError } from "../../services/errors.js";
 import { createFileService, type FileContent } from "../../services/file.js";
 import { closeTab, setActive, setActiveLine, viewer } from "../../stores/viewer.js";
 import { getActiveDirectory } from "../../stores/project.js";
+import { renderMarkdown } from "../messages/markdown/markdown.js";
 import { highlightCode } from "../messages/markdown/highlighter.js";
 import { escapeHtml } from "../messages/markdown/markdown.js";
 import { rowKindOf, type DiffLineKind } from "../vcs/diffLines.js";
@@ -202,7 +203,43 @@ function DiffView(props: { rows: DiffRow[] }) {
   );
 }
 
+// --- markdown rendering ----------------------------------------------------
+
+/** Module-level set of paths the user switched to source mode (so the
+ *  toggle survives Main-view unmounts like the content cache). Markdown
+ *  files render as formatted HTML by default; the tab right-click menu
+ *  flips a path into this set to show raw source. */
+const sourceModePaths = new Set<string>();
+
+function isMarkdownPath(path: string): boolean {
+  const ext = path.split(".").pop()?.toLowerCase() ?? "";
+  return ext === "md" || ext === "markdown";
+}
+
+function isSourceMode(path: string): boolean {
+  return sourceModePaths.has(path);
+}
+
+function toggleSourceMode(path: string): void {
+  if (sourceModePaths.has(path)) sourceModePaths.delete(path);
+  else sourceModePaths.add(path);
+}
+
 // --- content branches ------------------------------------------------------
+
+/** Renders markdown source as formatted HTML (sanitized + code-fence
+ *  hydration happens inside renderMarkdown, same pipeline as chat). */
+function MarkdownPreview(props: { source: string }) {
+  let ref: HTMLDivElement | undefined;
+  createEffect(() => {
+    if (ref === undefined) return;
+    const html = renderMarkdown(props.source);
+    ref.innerHTML = html;
+  });
+  return (
+    <div ref={ref} data-testid="viewer-markdown" class="markdown-body min-h-full p-4 text-sm" />
+  );
+}
 
 function isImageContent(content: FileContent): boolean {
   const mime = content.mimeType ?? "";
@@ -231,27 +268,42 @@ function ContentView(props: {
           when={isDiffContent(content())}
           fallback={
             <Show
-              when={content().type !== "binary"}
+              when={
+                isMarkdownPath(props.path) &&
+                !isSourceMode(props.path) &&
+                (content().content ?? "") !== "" &&
+                content().type !== "binary"
+              }
               fallback={
-                <p data-testid="viewer-binary" class="px-4 py-4 text-sm text-fg-secondary">
-                  {t("files:binaryFileHint")}
-                </p>
+                <Show
+                  when={content().type !== "binary"}
+                  fallback={
+                    <p data-testid="viewer-binary" class="px-4 py-4 text-sm text-fg-secondary">
+                      {t("files:binaryFileHint")}
+                    </p>
+                  }
+                >
+                  <Show
+                    when={(content().content ?? "") !== ""}
+                    fallback={
+                      <p
+                        data-testid="viewer-empty-file"
+                        class="px-4 py-4 text-sm text-fg-secondary"
+                      >
+                        Empty file
+                      </p>
+                    }
+                  >
+                    <ViewerCode
+                      code={content().content ?? ""}
+                      lang={langFromPath(props.path)}
+                      onRendered={props.onRendered}
+                    />
+                  </Show>
+                </Show>
               }
             >
-              <Show
-                when={(content().content ?? "") !== ""}
-                fallback={
-                  <p data-testid="viewer-empty-file" class="px-4 py-4 text-sm text-fg-secondary">
-                    Empty file
-                  </p>
-                }
-              >
-                <ViewerCode
-                  code={content().content ?? ""}
-                  lang={langFromPath(props.path)}
-                  onRendered={props.onRendered}
-                />
-              </Show>
+              <MarkdownPreview source={content().content ?? ""} />
             </Show>
           }
         >
@@ -286,6 +338,9 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   // spec's pinch-zoom — a double tap (or the chip) toggles 100% / 150%.
   // Real two-pointer pinch is L5-pending (see docs/tasks/M7.md appendix).
   const [zoomed, setZoomed] = createSignal(false);
+  // Bumps when a tab's source/render mode is toggled, so ContentView
+  // re-evaluates isSourceMode (which reads the module-level Set).
+  const [sourceVersion, setSourceVersion] = createSignal(0);
   // The active tab's rendered code element (set by ViewerCode after the
   // highlighted HTML is injected, so hit-line targeting runs only when the
   // line elements actually exist).
@@ -344,6 +399,8 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   // a resolved fetch clears loading (a real change) and the freshly cached
   // content is picked up here. Switching tabs re-runs it via activePath.
   const viewState = createMemo(() => {
+    // Source mode toggle bumps this signal, re-evaluating the branch.
+    sourceVersion();
     const path = activePath();
     if (path === null) return null;
     const cachedContent = contentCache.get(cacheKey(props.serverId, getActiveDirectory(), path));
@@ -440,8 +497,39 @@ const FileViewer: Component<FileViewerProps> = (props) => {
                       data-testid={`viewer-tab-${tab.path}`}
                       aria-selected={active() ? "true" : "false"}
                       title={tab.path}
-                      class="max-w-48 truncate px-2.5 py-1 text-xs outline-none"
+                      class={`max-w-48 truncate px-2.5 py-1 text-xs outline-none ${
+                        isMarkdownPath(tab.path) ? "font-medium" : ""
+                      }`}
                       onClick={() => setActive(props.serverId, tab.path)}
+                      onContextMenu={(event) => {
+                        if (!isMarkdownPath(tab.path)) return;
+                        event.preventDefault();
+                        const label = isSourceMode(tab.path)
+                          ? t("files:viewRendered")
+                          : t("files:viewSource");
+                        const menu = document.createElement("div");
+                        menu.className =
+                          "fixed z-50 rounded-lg border border-bg-sunken glass p-1 text-xs shadow-lg";
+                        menu.style.left = `${event.clientX}px`;
+                        menu.style.top = `${event.clientY}px`;
+                        const item = document.createElement("button");
+                        item.type = "button";
+                        item.className =
+                          "block w-full rounded-md px-3 py-1.5 text-left outline-none hover:bg-bg-sunken";
+                        item.textContent = label;
+                        item.onclick = () => {
+                          toggleSourceMode(tab.path);
+                          setSourceVersion((v) => v + 1);
+                          document.body.removeChild(menu);
+                        };
+                        menu.appendChild(item);
+                        document.body.appendChild(menu);
+                        const close = () => {
+                          document.body.removeChild(menu);
+                          document.removeEventListener("click", close);
+                        };
+                        setTimeout(() => document.addEventListener("click", close), 0);
+                      }}
                     >
                       {tab.name}
                     </button>

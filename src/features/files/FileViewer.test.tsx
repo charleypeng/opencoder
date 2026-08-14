@@ -428,11 +428,11 @@ describe("FileViewer fetch states", () => {
     setCurrent(serverId, "/proj/alpha");
     let dir = "/proj/alpha";
     const requestMock = mountViewer(serverId, () => textContent(`content of ${dir}`));
-    openTab(serverId, "README.md");
+    openTab(serverId, "src/a.ts");
     await waitFor(() =>
       expect(screen.getByTestId("viewer-code")).toHaveTextContent("content of /proj/alpha"),
     );
-    expect(contentCalls(requestMock, "README.md")).toBe(1);
+    expect(contentCalls(requestMock, "src/a.ts")).toBe(1);
 
     // Project switch: the shell resets the viewer store and the active
     // directory changes; re-opening the same path must refetch instead of
@@ -440,11 +440,11 @@ describe("FileViewer fetch states", () => {
     resetServer(serverId);
     setCurrent(serverId, "/proj/beta");
     dir = "/proj/beta";
-    openTab(serverId, "README.md");
+    openTab(serverId, "src/a.ts");
     await waitFor(() =>
       expect(screen.getByTestId("viewer-code")).toHaveTextContent("content of /proj/beta"),
     );
-    expect(contentCalls(requestMock, "README.md")).toBe(2);
+    expect(contentCalls(requestMock, "src/a.ts")).toBe(2);
   });
 });
 

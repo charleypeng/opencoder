@@ -313,7 +313,9 @@
     "binaryFileHint": "Binary file — preview not available.",
     "searchFailed": "Search failed",
     "invalidRegex": "Invalid regular expression",
-    "searchIdleHint": "Search the workspace for text across files."
+    "searchIdleHint": "Search the workspace for text across files.",
+    "viewSource": "View source",
+    "viewRendered": "View rendered"
   },
   "vcs": {
     "changes": "Changes",
@@ -343,7 +345,8 @@
     "loadingState": "Loading version control state…",
     "statusAdded": "Added",
     "statusDeleted": "Deleted",
-    "statusModified": "Modified"
+    "statusModified": "Modified",
+    "noDiffForFile": "No diff available for this file."
   },
   "permissions": {
     "permissionRequest": "Permission request",

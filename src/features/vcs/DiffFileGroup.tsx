@@ -129,8 +129,12 @@ function DiffFileGroup(props: DiffFileGroupProps) {
         <span class="min-w-0 flex-1 truncate font-code text-xs" title={props.entry.file ?? ""}>
           {props.entry.file ?? t("vcs:unknownFile")}
         </span>
-        <span data-testid="diff-file-stats" class="shrink-0 font-code text-xs text-fg-secondary">
-          +{props.entry.additions} -{props.entry.deletions}
+        <span
+          data-testid="diff-file-stats"
+          class="flex shrink-0 items-center gap-1 font-code text-xs tabular-nums"
+        >
+          <span class="text-success">+{props.entry.additions}</span>
+          <span class="text-danger">-{props.entry.deletions}</span>
         </span>
         <Show when={props.entry.status !== undefined}>
           <span

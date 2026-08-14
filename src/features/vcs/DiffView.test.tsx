@@ -135,13 +135,13 @@ describe("DiffView rendering", () => {
     const headers = screen.getAllByTestId("diff-file-header");
     expect(headers).toHaveLength(2);
     expect(headers[0]).toHaveTextContent("src/auth/login.ts");
-    expect(headers[0]).toHaveTextContent("+1 -1");
+    expect(headers[0]).toHaveTextContent("+1-1");
     expect(headers[0].querySelector('[data-testid="diff-file-status"]')).toHaveAttribute(
       "data-status",
       "modified",
     );
     expect(headers[1]).toHaveTextContent("src/auth/token.ts");
-    expect(headers[1]).toHaveTextContent("+8 -0");
+    expect(headers[1]).toHaveTextContent("+8-0");
   });
 
   it("renders unified rows with line numbers and add/del coloring", async () => {

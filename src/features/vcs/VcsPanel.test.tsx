@@ -129,10 +129,10 @@ describe("VcsPanel branch and change list", () => {
     expect(rows[0]).toHaveAttribute("data-status", "modified");
     expect(rows[0].querySelector('[data-testid="vcs-change-chip"]')).toHaveTextContent("M");
     expect(rows[0]).toHaveTextContent("src/features/a.ts");
-    expect(rows[0].querySelector('[data-testid="vcs-change-stats"]')).toHaveTextContent("+12 -4");
+    expect(rows[0].querySelector('[data-testid="vcs-change-stats"]')).toHaveTextContent("+12-4");
     expect(rows[1].querySelector('[data-testid="vcs-change-chip"]')).toHaveTextContent("A");
     expect(rows[2].querySelector('[data-testid="vcs-change-chip"]')).toHaveTextContent("D");
-    expect(rows[2].querySelector('[data-testid="vcs-change-stats"]')).toHaveTextContent("+0 -30");
+    expect(rows[2].querySelector('[data-testid="vcs-change-stats"]')).toHaveTextContent("+0-30");
   });
 
   it("shows the clean-tree empty state when status reports no changes", async () => {

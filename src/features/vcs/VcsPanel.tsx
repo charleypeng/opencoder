@@ -20,6 +20,7 @@ import { useT } from "../../i18n/index.js";
 import { createVcsService, type VcsFileStatus, type VcsInfo } from "../../services/vcs.js";
 import { applyStatus, applyVcs, refresh, vcs } from "../../stores/vcs.js";
 import WorkspaceDiff from "./WorkspaceDiff.js";
+import DiffFileGroup, { type DiffFileEntry } from "./DiffFileGroup.js";
 
 export interface VcsPanelProps {
   /** The server whose workspace is shown. */
@@ -44,13 +45,14 @@ const statusTitleKey: Record<string, string> = {
   modified: "vcs:statusModified",
 };
 
-function ChangeRow(props: { change: VcsFileStatus }) {
+function ChangeRow(props: { change: VcsFileStatus; onOpen?: (file: string) => void }) {
   const t = useT();
   return (
     <div
       data-testid="vcs-change"
       data-status={props.change.status}
-      class="flex items-center gap-2 px-3 py-1.5"
+      class="flex cursor-pointer items-center gap-2 px-3 py-1.5 hover:bg-bg-sunken/40"
+      onClick={() => props.onOpen?.(props.change.file)}
     >
       <span
         data-testid="vcs-change-chip"
@@ -70,9 +72,10 @@ function ChangeRow(props: { change: VcsFileStatus }) {
       </span>
       <span
         data-testid="vcs-change-stats"
-        class="shrink-0 font-code text-xs tabular-nums text-fg-secondary"
+        class="flex shrink-0 items-center gap-1 font-code text-xs tabular-nums"
       >
-        +{props.change.additions} -{props.change.deletions}
+        <span class="text-success">+{props.change.additions}</span>
+        <span class="text-danger">-{props.change.deletions}</span>
       </span>
     </div>
   );
@@ -81,7 +84,13 @@ function ChangeRow(props: { change: VcsFileStatus }) {
 const VcsPanel: Component<VcsPanelProps> = (props) => {
   const t = useT();
   const state = createMemo(() => vcs[props.serverId]);
-  const [subView, setSubView] = createSignal<"changes" | "diff">("changes");
+  // "changes" = file list; "diff" = full workspace diff; "file-diff" = one
+  // file's patch (opened by clicking a change row).
+  const [subView, setSubView] = createSignal<"changes" | "diff" | "file-diff">("changes");
+  const [selectedFile, setSelectedFile] = createSignal<string | null>(null);
+  const [fileDiff, setFileDiff] = createSignal<DiffFileEntry | null>(null);
+  const [fileDiffLoading, setFileDiffLoading] = createSignal(false);
+  const [fileDiffError, setFileDiffError] = createSignal<ApiError | null>(null);
   const [error, setError] = createSignal<ApiError | null>(null);
   const [applying, setApplying] = createSignal(false);
   const [applyError, setApplyError] = createSignal<ApiError | null>(null);
@@ -132,6 +141,29 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
     refresh(props.serverId);
   }
 
+  /** Fetches the full workspace diff and extracts one file's entry to
+   *  show in the per-file diff sub-view (the API has no per-file filter). */
+  async function openFileDiff(file: string) {
+    setSelectedFile(file);
+    setSubView("file-diff");
+    setFileDiff(null);
+    setFileDiffError(null);
+    setFileDiffLoading(true);
+    try {
+      const diffs = await createVcsService(getApiClient()).diff();
+      const entry = diffs.find((d) => d.file === file);
+      if (entry !== undefined) {
+        setFileDiff(entry as DiffFileEntry);
+      } else {
+        setFileDiffError(new ApiError(undefined, "not_found", t("vcs:noDiffForFile"), false));
+      }
+    } catch (err) {
+      setFileDiffError(ApiError.fromUnknown(err));
+    } finally {
+      setFileDiffLoading(false);
+    }
+  }
+
   function closeConfirm(): void {
     setConfirmOpen(false);
   }
@@ -168,7 +200,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
   return (
     <div data-testid="vcs-panel" class="flex h-full min-h-0 flex-col">
       <Show
-        when={subView() === "diff"}
+        when={subView() === "diff" || subView() === "file-diff"}
         fallback={
           <>
             <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-3 py-2">
@@ -244,7 +276,9 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                 >
                   <div class="flex flex-col divide-y divide-bg-sunken/60">
                     <For each={state()?.changes ?? []}>
-                      {(change) => <ChangeRow change={change} />}
+                      {(change) => (
+                        <ChangeRow change={change} onOpen={(file) => void openFileDiff(file)} />
+                      )}
                     </For>
                   </div>
                 </Show>
@@ -310,9 +344,35 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
           >
             ← {t("vcs:changes")}
           </button>
-          <h3 class="shrink-0 text-sm font-semibold">{t("vcs:workspaceDiff")}</h3>
+          <h3 class="shrink-0 text-sm font-semibold">
+            {subView() === "file-diff" ? (selectedFile() ?? "") : t("vcs:workspaceDiff")}
+          </h3>
         </div>
-        <WorkspaceDiff serverId={props.serverId} />
+        <Show
+          when={subView() === "file-diff"}
+          fallback={<WorkspaceDiff serverId={props.serverId} />}
+        >
+          <div class="min-h-0 flex-1 overflow-y-auto">
+            <Show when={fileDiffLoading()}>
+              <p data-testid="diff-loading" class="px-4 py-4 text-sm text-fg-secondary">
+                {t("vcs:loadingState")}
+              </p>
+            </Show>
+            <Show when={fileDiffError() !== null}>
+              <div class="space-y-2 p-4">
+                <ErrorBanner error={fileDiffError()} onDismiss={() => setFileDiffError(null)} />
+              </div>
+            </Show>
+            <Show when={fileDiff() !== null}>
+              <DiffFileGroup
+                entry={fileDiff() as DiffFileEntry}
+                mode="unified"
+                expanded={() => new Set()}
+                toggleFold={() => {}}
+              />
+            </Show>
+          </div>
+        </Show>
       </Show>
 
       {/* Apply confirmation (TASK-M4-08): applying modifies the working tree. */}

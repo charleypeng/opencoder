@@ -313,7 +313,9 @@
     "binaryFileHint": "二进制文件 — 无法预览。",
     "searchFailed": "搜索失败",
     "invalidRegex": "正则表达式无效",
-    "searchIdleHint": "在工作区中跨文件搜索文本。"
+    "searchIdleHint": "在工作区中跨文件搜索文本。",
+    "viewSource": "查看源文件",
+    "viewRendered": "查看渲染预览"
   },
   "vcs": {
     "changes": "变更",
@@ -343,7 +345,8 @@
     "loadingState": "正在加载版本控制状态…",
     "statusAdded": "新增",
     "statusDeleted": "删除",
-    "statusModified": "修改"
+    "statusModified": "修改",
+    "noDiffForFile": "该文件无可用的差异内容。"
   },
   "permissions": {
     "permissionRequest": "权限请求",

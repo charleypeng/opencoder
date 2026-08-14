@@ -111,7 +111,7 @@ describe("PatchPart", () => {
     await waitFor(() =>
       expect(screen.getByTestId("diff-file-header")).toHaveTextContent("src/auth/login.ts"),
     );
-    expect(screen.getByTestId("diff-file-stats")).toHaveTextContent("+3 -0");
+    expect(screen.getByTestId("diff-file-stats")).toHaveTextContent("+3-0");
     const rows = screen.getAllByTestId("diff-row");
     expect(rows.some((row) => row.textContent?.includes("export function login"))).toBe(true);
 

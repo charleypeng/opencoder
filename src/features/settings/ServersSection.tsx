@@ -71,8 +71,8 @@ function ToggleSwitch(props: {
       }`}
     >
       <span
-        class={`absolute top-0.5 h-5 w-5 rounded-full bg-fg-primary transition-transform ${
-          props.checked ? "translate-x-5" : "translate-x-0.5"
+        class={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-fg-primary transition-transform ${
+          props.checked ? "translate-x-5" : "translate-x-0"
         }`}
       />
     </button>
