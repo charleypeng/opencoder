@@ -51,6 +51,7 @@ import {
   onMount,
   Show,
   Suspense,
+  untrack,
 } from "solid-js";
 import type { Component } from "solid-js";
 import ContextMenu from "../../components/ContextMenu.js";
@@ -394,6 +395,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const closeTodos = () => setTodosOpen(false);
   // Sidebar view switch (TASK-M4-02): Sessions list or the Files tree.
   const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
+  // The directory the sidebar file tree browses (undefined = the server's
+  // default); set by the workspace ⋯ menu's "View folder".
+  const [filesDirectory, setFilesDirectory] = createSignal<string | undefined>(undefined);
   // Main pane view switch (TASK-M4-03): Chat transcript or the Files
   // viewer; opening a file from the sidebar tree jumps Main to Files.
   // TASK-M4-07 adds the session/message diff view (⌘/Ctrl+D or the
@@ -701,6 +705,17 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     sse = undefined;
     if (previous) await previous.unsubscribe();
     if (serverId === null || version !== rebuildVersion) return;
+    // Capture the session the user had open before the context rebuild
+    // drops the bucket. resetSessions clears activeSessionId; after the
+    // re-sync lands we restore it when it survived in the fresh list, so a
+    // cross-directory session pick (or new-session flow) does not leave the
+    // chat pane empty (Bug 2 / Bug 4: the race between selectSession's
+    // setActiveSession and rebuild's resetSessions lost the selection).
+    // untrack: this rebuild runs inside the SSE-rebuild effect, so a raw
+    // store read here would add `activeSessionId` to the effect's deps —
+    // resetSessions then flips it and re-triggers the effect in a loop
+    // (Maximum call stack). untrack reads without subscribing.
+    const prevActive = untrack(() => getServerSessionState(serverId).activeSessionId);
     // Drop the previous context's sessions, messages and todos so the new
     // directory's data can never mix with the old one; the re-sync
     // re-applies fresh snapshots right after the stream is up.
@@ -733,10 +748,33 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       return;
     }
     sse = subscription;
-    void subscription.sync().catch(() => {
-      // A failed re-sync must not break the stream; the next context
-      // change (or a server.connected event) heals the stores.
-    });
+    // Re-sync without blocking the rebuild (the original timing stays intact
+    // so the SSE/server.connected wiring does not re-enter the effect). Once
+    // the fresh snapshot lands, restore the session the user had open before
+    // the rebuild wiped the bucket — but only when nothing else has been
+    // selected in the meantime (activeSessionId still null). This keeps a
+    // cross-directory pick/new-session from leaving the chat pane empty
+    // (Bug 2 / Bug 4) while a concurrent selection still wins. We do NOT
+    // require prevActive to be in the fresh session list: a brand-new
+    // session may not appear in the first GET /session snapshot after its
+    // creation (server-side list timing), yet it is perfectly openable —
+    // the chat loads it by id on demand. Requiring list membership made the
+    // restore a no-op for new sessions, so the chat stayed on the "Select a
+    // session" placeholder.
+    subscription
+      .sync()
+      .catch(() => {
+        // A failed re-sync must not break the stream; the next context
+        // change (or a server.connected event) heals the stores.
+      })
+      .finally(() => {
+        if (version !== rebuildVersion) return;
+        if (prevActive === null) return;
+        const settled = untrack(() => getServerSessionState(serverId));
+        if (settled.activeSessionId === null) {
+          setActiveSession(serverId, prevActive);
+        }
+      });
   }
 
   createEffect(() => {
@@ -1047,6 +1085,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             fallback={
               <FileTree
                 serverId={activeServerId()}
+                directory={filesDirectory()}
                 onOpenFile={(path) => {
                   openTab(activeServerId(), path);
                   setMainView("files");
@@ -1069,12 +1108,22 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             >
               <WorkspaceTree
                 serverId={activeServerId()}
-                onSelectSession={() => undefined}
+                onSelectSession={() => setMainView("chat")}
                 onViewFolder={(directory) => {
-                  // View folder: switch the context to that workspace and
-                  // show its files in the main pane.
+                  // View folder: switch the session context to the picked
+                  // workspace, point the sidebar file tree at it and show
+                  // the Files view. setCurrent is REQUIRED — every file
+                  // request (subtree expansion, file content, git status)
+                  // is routed by the active directory, so browsing a folder
+                  // whose directory differs from the session context makes
+                  // the server answer for the WRONG workspace (or error).
+                  // The rebuild this triggers drops the old files store,
+                  // but the FileTree's own loadRoot (async) lands after the
+                  // synchronous reset, so the picked directory still loads.
                   setCurrent(activeServerId(), directory);
                   pushRecentProject(activeServerId(), directory);
+                  setFilesDirectory(directory);
+                  setSidebarView("files");
                   setMainView("files");
                 }}
               />

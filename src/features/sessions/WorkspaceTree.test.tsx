@@ -24,6 +24,8 @@ import {
   setSessionStatus,
   upsertSession,
 } from "../../stores/session";
+import { setDefaultWorkspace } from "../servers/defaultWorkspace";
+import { addWorkspace, clearWorkspaces } from "./workspaces";
 
 const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
 
@@ -308,6 +310,9 @@ describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
 
   it("pins the default workspace on top with a badge and a divider", async () => {
     localStorage.setItem("oc-default-workspace:" + SERVER, JSON.stringify("/dev/hermes"));
+    // Once any workspace is persisted the tree is strictly the explicit
+    // list + default, so the other workspace must be added explicitly.
+    localStorage.setItem("oc-workspaces:" + SERVER, JSON.stringify(["/dev/opencoder"]));
     renderTree();
     await waitFor(() =>
       expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument(),
@@ -325,6 +330,19 @@ describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
       screen.getByTestId("workspace-folder-section-/dev/opencoder"),
     );
     expect(defaultNext & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("renders the default workspace even with no sessions or project", async () => {
+    // A default workspace with NO sessions and NO project record still
+    // shows (pinned, with the badge) — the user asked for it explicitly.
+    localStorage.setItem("oc-default-workspace:" + SERVER, JSON.stringify("/custom/empty"));
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/custom/empty")).toBeInTheDocument(),
+    );
+    const row = screen.getByTestId("workspace-folder-/custom/empty");
+    expect(row).toHaveAttribute("data-default", "true");
+    expect(within(row).getByTestId("workspace-folder-default-badge")).toBeInTheDocument();
   });
 
   it("the header add-workspace button opens the directory picker", async () => {
@@ -399,6 +417,51 @@ describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
     fireEvent.click(await screen.findByTestId("workspace-folder-menu-remove-workspace"));
     await waitFor(() => expect(screen.queryByTestId("workspace-folder-/custom/path")).toBeNull());
     expect(JSON.parse(localStorage.getItem("oc-workspaces:" + SERVER) ?? "[]")).toEqual([]);
+  });
+
+  it("renders a default workspace set at runtime without a remount (Bug 1)", async () => {
+    // Bug 1: a default workspace picked in onboarding (or set from Settings)
+    // AFTER the tree mounted must appear immediately. The tree listens to
+    // WORKSPACE_STORAGE_EVENT and refreshes its default + explicit signals.
+    mockClient({ roots: [], projects: [] });
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-empty")).toBeInTheDocument());
+    setDefaultWorkspace(SERVER, "/runtime/default");
+    addWorkspace(SERVER, "/runtime/default");
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/runtime/default")).toBeInTheDocument(),
+    );
+    const row = screen.getByTestId("workspace-folder-/runtime/default");
+    expect(row).toHaveAttribute("data-default", "true");
+    expect(within(row).getByTestId("workspace-folder-default-badge")).toBeInTheDocument();
+  });
+
+  it("once a workspace is added the tree shows ONLY the explicit list (Bug 3)", async () => {
+    // Bug 3: workspaces are never auto-filled from the server's history.
+    // With no explicit/default list the tree falls back to the derived
+    // directories; the moment the user adds one, the tree becomes strictly
+    // that list — historical directories stay hidden until added by hand.
+    mockClient({ roots: ROOTS, projects: PROJECTS });
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument(),
+    );
+    // Adding a workspace restricts the tree to the explicit list only.
+    addWorkspace(SERVER, "/dev/opencoder");
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/opencoder")).toBeInTheDocument(),
+    );
+    // Other historical directories disappear (not auto-filled).
+    expect(screen.queryByTestId("workspace-folder-/dev/hermes")).toBeNull();
+  });
+
+  it("clearWorkspaces empties the persisted list and notifies the tree (Bug 3 cleanup)", async () => {
+    localStorage.setItem("oc-workspaces:" + SERVER, JSON.stringify(["/keep"]));
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-folder-/keep")).toBeInTheDocument());
+    clearWorkspaces(SERVER);
+    await waitFor(() => expect(screen.queryByTestId("workspace-folder-/keep")).toBeNull());
+    expect(localStorage.getItem("oc-workspaces:" + SERVER)).toBeNull();
   });
 });
 
