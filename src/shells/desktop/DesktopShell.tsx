@@ -81,6 +81,11 @@ import RevertMessageDialog from "../../features/messages/RevertMessageDialog";
 import ShareSessionDialog from "../../features/sessions/ShareSessionDialog";
 import { connections, subscribeToServerHealth } from "../../stores/connection";
 import { registry, setActiveServer } from "../../stores/registry";
+import {
+  hasWorkspaceHistory,
+  markDefaultWorkspacePrompted,
+  wasDefaultWorkspacePrompted,
+} from "../../features/servers/defaultWorkspace.js";
 import { getServerProjectState } from "../../stores/project";
 import {
   getServerSessionState,
@@ -95,6 +100,7 @@ import PromptBox from "../../features/sessions/PromptBox";
 import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
 import WorkspaceTree from "../../features/sessions/WorkspaceTree";
 import SubtaskPanel from "../../features/sessions/SubtaskPanel";
+import DefaultWorkspaceDialog from "../../features/sessions/DefaultWorkspaceDialog";
 import MessageList from "../../features/messages/MessageList";
 import FileTree from "../../features/files/FileTree";
 import FileViewer from "../../features/files/FileViewer";
@@ -406,6 +412,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // as a modal instead of replacing it — the gear button, the command
   // palette's settings action and the ⌘, shortcut open this dialog.
   const [settingsOpen, setSettingsOpen] = createSignal(false);
+  // Default-workspace onboarding (feat(default-workspace)): opened on first
+  // entry of a server with no workspace history (see onMount).
+  const [defaultWorkspaceOpen, setDefaultWorkspaceOpen] = createSignal(false);
   // Diff message filter (TASK-M4-07): set when opened from a message's
   // "View diff"; the diff header's chip clears it back to the whole
   // session's diff.
@@ -783,6 +792,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   onMount(() => {
     setActiveServer(props.server.id);
     void refresh();
+    // Default-workspace onboarding (feat(default-workspace)): the first
+    // entry of a server with no workspace history prompts for its default
+    // workspace. Marking it shown here means a skipped prompt is remembered
+    // (no nagging on every entry); Settings → Servers can change the choice.
+    if (!hasWorkspaceHistory(props.server.id) && !wasDefaultWorkspacePrompted(props.server.id)) {
+      markDefaultWorkspacePrompted(props.server.id);
+      setDefaultWorkspaceOpen(true);
+    }
     // Diagnostics capture (TASK-M9-07): the window-level error/warn hooks
     // feed the diagnostics console app-wide (not just while the settings
     // view is open); when the pref is on, captured entries are forwarded
@@ -1563,6 +1580,17 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           is mounted after the other overlays so it sits above them. */}
       <Show when={settingsOpen()}>
         <SettingsDialog serverId={activeServerId()} onClose={() => setSettingsOpen(false)} />
+      </Show>
+
+      {/* Default-workspace onboarding (feat(default-workspace)): the first
+          time a server with no workspace history is entered, prompt for its
+          default workspace before landing on the main page. Skipping defers
+          the choice (Settings → Servers or the sidebar can set it later). */}
+      <Show when={defaultWorkspaceOpen()}>
+        <DefaultWorkspaceDialog
+          serverId={props.server.id}
+          onClose={() => setDefaultWorkspaceOpen(false)}
+        />
       </Show>
     </div>
   );

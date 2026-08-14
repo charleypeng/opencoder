@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Default-workspace onboarding for fresh servers (feat(sessions)): the first time a server with no workspace history is entered, a prompt opens the directory picker with onboarding copy — picking a folder persists it as the server's default workspace (localStorage, per server) and lands on the main page in that directory; skipping defers the choice without nagging on later entries. Settings → Servers shows each server's default workspace and lets you re-pick it anytime (the picker opens positioned at the current default). (sessions)
+
 - Workspace-tree sidebar navigation (feat(sessions)): the desktop sidebar's session list is replaced by a workspace → folder → sessions tree — every known working directory renders as a collapsible folder (GET /session?roots=true for all directories + GET /project for names and empty folders) with its ROOT sessions underneath, active directories show a live status dot, folders persist their collapse state and offer hover actions (open the directory picker positioned there / hide the folder locally), and the session ⋯ menu gains "Open folder" (picker positioned at the session's directory) with "Batch actions" as a disabled placeholder. (sessions)
 
 - Subtask panel next to the chat (feat(sessions)): the session's task drawer now shows, beside the Todo list, the session's sub-agent CHILD sessions (GET /session/{id}/children, merged into the session store so SSE keeps them fresh); clicking a child switches to it. Sub-agent children no longer render in the sidebar tree — this panel is their home. (sessions)

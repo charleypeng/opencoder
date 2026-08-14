@@ -206,6 +206,20 @@ describe("DirectoryPickerDialog", () => {
     expect(props.onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("reports the added directory through onAdded (default-workspace flows)", async () => {
+    mockClient([]);
+    const onAdded = vi.fn();
+    const onClose = vi.fn();
+    render(() => <DirectoryPickerDialog serverId={SERVER} onClose={onClose} onAdded={onAdded} />);
+    await drillToData();
+
+    fireEvent.click(screen.getByTestId("directory-picker-add"));
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onAdded).toHaveBeenCalledWith("/Volumes/data");
+    expect(onAdded).toHaveBeenCalledBefore(onClose);
+  });
+
   it("adds the directory and selects its first session when sessions exist", async () => {
     const client = mockClient([session("sess_a", "First"), session("sess_b", "Second")]);
     renderPicker();
