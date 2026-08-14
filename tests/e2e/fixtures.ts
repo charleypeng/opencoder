@@ -16,6 +16,18 @@ export const test = base.extend<{ page: Page }>({
     await page.addInitScript({
       path: fileURLToPath(new URL("./tauri-shim.js", import.meta.url)),
     });
+    // Skip the first-run default-workspace onboarding in every journey: its
+    // modal (Kobalte dialog) hides the app behind it and would block all
+    // interactions with the workspace. The onboarding itself is covered by
+    // the DefaultWorkspaceDialog L2 tests.
+    await page.addInitScript(() => {
+      try {
+        localStorage.setItem("oc-default-workspace-prompted:srv-1", "1");
+      } catch {
+        // Storage unavailable: the dialog may show; journeys target the
+        // workspace, so a broken storage would surface as a click block.
+      }
+    });
     await use(page);
   },
 });
@@ -49,13 +61,13 @@ export async function addServer(page: Page, name = "Mock Server"): Promise<void>
 export async function enterWorkspace(page: Page): Promise<void> {
   await page.locator('[data-testid^="server-card-"]').first().click();
   await expect(page.getByTestId("desktop-shell")).toBeVisible();
-  // The per-directory SSE stream + re-sync populate the session list.
-  await expect(page.getByTestId("session-list")).toBeVisible();
+  // The per-directory SSE stream + re-sync populate the workspace tree.
+  await expect(page.getByTestId("workspace-tree")).toBeVisible();
 }
 
 /** Opens a session row and waits for the chat transcript. */
 export async function openSession(page: Page, sessionId: string): Promise<void> {
-  await page.getByTestId(`session-item-${sessionId}`).click();
+  await page.getByTestId(`workspace-session-${sessionId}`).click();
   await expect(page.getByTestId("message-list")).toBeVisible();
 }
 

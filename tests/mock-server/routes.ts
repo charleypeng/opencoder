@@ -280,7 +280,14 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
     res.json(updated);
   });
 
-  app.delete("/session/:sessionID", (_req, res) => {
+  // Session delete: mirrors the real server — the session is removed from
+  // the in-memory list, so a client refresh no longer resurrects it (the
+  // workspace tree's snapshot comes from GET /session). The journey deletes
+  // ses_rich_01, which no other scenario references.
+  app.delete("/session/:sessionID", (req, res) => {
+    const list = Array.isArray(fixtures["session.list"]) ? fixtures["session.list"] : [];
+    const index = list.findIndex((s) => s?.id === req.params.sessionID);
+    if (index >= 0) list.splice(index, 1);
     res.json(true);
   });
 

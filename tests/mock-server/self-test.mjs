@@ -380,12 +380,6 @@ try {
       expect(body.title === "Renamed", `title ${JSON.stringify(body.title)}`);
     });
 
-    await test("session delete returns true", async () => {
-      const { status, body } = await request(baseUrl, "/session/sess_02", { method: "DELETE" });
-      expect(status === 200, `status ${status}`);
-      expect(body === true, `body ${JSON.stringify(body)}`);
-    });
-
     await test("prompt_async returns 204", async () => {
       const { status } = await request(baseUrl, "/session/sess_01/prompt_async", {
         method: "POST",
@@ -1553,6 +1547,22 @@ try {
       const { status, body } = await request(baseUrl, "/global/dispose", { method: "POST" });
       expect(status === 200, `status ${status}`);
       expect(body === true, `body ${JSON.stringify(body)}`);
+    });
+
+    // The delete mirrors the real server: the session is removed from the
+    // in-memory list, so a client refresh no longer resurrects it. Kept at
+    // the END of the session group so earlier tests (children, fork, …)
+    // still see the fixture tree intact.
+    await test("session delete removes the session from the list", async () => {
+      const { status, body } = await request(baseUrl, "/session/sess_02", { method: "DELETE" });
+      expect(status === 200, `status ${status}`);
+      expect(body === true, `body ${JSON.stringify(body)}`);
+      const { status: listStatus, body: list } = await request(baseUrl, "/session");
+      expect(listStatus === 200, `list status ${listStatus}`);
+      expect(
+        Array.isArray(list) && !list.some((s) => s?.id === "sess_02"),
+        `deleted session still listed ${JSON.stringify(list?.map((s) => s?.id))}`,
+      );
     });
 
     // TASK-M9-06: MCP family — status list, add, connect/disconnect state

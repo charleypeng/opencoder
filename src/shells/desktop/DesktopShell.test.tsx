@@ -1219,6 +1219,38 @@ describe("DesktopShell workspace session creation (bug fixes)", () => {
     expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
   });
 
+  it("a server.connected reconnect after the rebuild keeps the new chat open (Bug: reconnect cleared it)", async () => {
+    // The real server reconnects idle SSE streams; every reconnect emits
+    // server.connected, which resets the session bucket (activeSessionId ->
+    // null). The previous one-shot restore only ran after the rebuild's own
+    // re-sync, so a reconnect arriving later left the chat on the "Select a
+    // session" placeholder. The restore candidate must survive ANY reset.
+    const alpha = server({ id: "srv-bugreconn", name: "Alpha" });
+    localStorage.setItem("oc-default-workspace:srv-bugreconn", JSON.stringify(DEMO_DIR));
+    localStorage.setItem("oc-workspaces:srv-bugreconn", JSON.stringify([DEMO_DIR]));
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("workspace-new-session")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("workspace-new-session"));
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bugreconn").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+
+    // Deliver server.connected through the ACTIVE SSE subscription — like a
+    // stream reconnect minutes after the rebuild settled.
+    const handler = lastSseCall()[2] as (event: { type: string; properties?: object }) => void;
+    handler({ type: "server.connected", properties: {} });
+
+    // The reset wipes the bucket, but the chat pane returns to the session.
+    await waitFor(() =>
+      expect(getServerSessionState("srv-bugreconn").activeSessionId).toBe("sess_new_01"),
+    );
+    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
+    expect(screen.queryByText("Select a session — M2")).not.toBeInTheDocument();
+  });
+
   it("clicking a session in an added workspace opens its chat", async () => {
     const alpha = server({ id: "srv-bug4", name: "Alpha" });
     // The labs workspace is added explicitly; its session comes from roots.

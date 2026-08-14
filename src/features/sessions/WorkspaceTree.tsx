@@ -90,7 +90,7 @@ function writeStringSet(key: string, set: ReadonlySet<string>): void {
   }
 }
 
-type StatusKind = "busy" | "error" | "none";
+type StatusKind = "busy" | "idle" | "error" | "none";
 
 /** A folder shows a live status dot only for the ACTIVE directory (its
  *  statuses are SSE-driven); other folders' statuses are unknown at rest. */
@@ -113,6 +113,8 @@ function statusDotClass(kind: StatusKind): string {
   switch (kind) {
     case "busy":
       return "h-2.5 w-2.5 animate-spin rounded-full border border-accent border-t-transparent";
+    case "idle":
+      return "h-2 w-2 rounded-full bg-fg-faint";
     case "error":
       return "h-2 w-2 rounded-full bg-danger";
     default:
@@ -244,6 +246,7 @@ function FolderRow(props: {
 function statusKindOf(status: SessionStatusEntry | undefined): StatusKind {
   if (status === undefined) return "none";
   if (status.type === "busy" || status.type === "retry") return "busy";
+  if (status.type === "idle") return "idle";
   if (status.type === "error") return "error";
   return "none";
 }
@@ -267,16 +270,18 @@ function SessionRow(props: {
     props.status !== undefined && "message" in props.status ? props.status.message : undefined;
   const title = () => props.session.title || props.session.slug;
   return (
+    /* TASK-M9-08 (ported from SessionList): the row wrapper is
+       NON-interactive (it only forwards clicks/keys) so the row's focusable
+       <button> and the ⋯ actions button stay siblings — an interactive
+       control nested inside the row button violated axe nested-interactive
+       (the workspace tree's SessionRow missed the M9 port). */
     <div
       data-testid={`workspace-session-${props.session.id}`}
       data-active={props.active ? "true" : "false"}
       data-forked={props.forked ? "true" : "false"}
-      role="button"
-      tabindex="0"
-      aria-label={title()}
-      class={`group relative flex w-full cursor-pointer items-center gap-2 py-1.5 pl-3 pr-3 transition-colors ${
+      class={`group relative flex w-full cursor-pointer items-center gap-2 py-1.5 pr-3 transition-colors ${
         props.active ? "bg-accent-soft" : "hover:bg-bg-sunken/50"
-      } focus:bg-accent-soft focus:outline-none`}
+      } focus-within:bg-accent-soft`}
       style={{ "padding-left": "calc(0.75rem + 28px)" }}
       onClick={() => props.onSelect()}
       onKeyDown={(event) => {
@@ -291,42 +296,49 @@ function SessionRow(props: {
         props.onMenu(props.session, { x: event.clientX, y: event.clientY });
       }}
     >
-      <Show when={kind() !== "none"}>
-        <span
-          data-testid="workspace-session-status"
-          data-status={kind()}
-          title={message()}
-          class={`shrink-0 ${statusDotClass(kind())}`}
-        />
-      </Show>
-      <Show when={props.forked}>
-        <span
-          data-testid="workspace-session-fork-badge"
-          title={
-            props.parentTitle !== undefined
-              ? t("sessions:forkedFrom", { title: props.parentTitle })
-              : t("sessions:forkBadge")
-          }
-          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
-        >
-          {t("sessions:forkBadge")}
+      <button
+        type="button"
+        aria-current={props.active ? "true" : undefined}
+        aria-haspopup="menu"
+        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pr-8 text-left outline-none focus:bg-accent-soft"
+      >
+        <Show when={kind() !== "none"}>
+          <span
+            data-testid="workspace-session-status"
+            data-status={kind()}
+            title={message()}
+            class={`shrink-0 ${statusDotClass(kind())}`}
+          />
+        </Show>
+        <Show when={props.forked}>
+          <span
+            data-testid="workspace-session-fork-badge"
+            title={
+              props.parentTitle !== undefined
+                ? t("sessions:forkedFrom", { title: props.parentTitle })
+                : t("sessions:forkBadge")
+            }
+            class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+          >
+            {t("sessions:forkBadge")}
+          </span>
+        </Show>
+        <Show when={props.session.share !== undefined}>
+          <span
+            data-testid="workspace-session-shared-badge"
+            title={t("sessions:sharedHint")}
+            class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
+          >
+            {t("sessions:sharedBadge")}
+          </span>
+        </Show>
+        <span class="min-w-0 flex-1">
+          <span class="block truncate text-sm">{title()}</span>
+          <span class="block truncate font-code text-xs text-fg-secondary">
+            {formatRelativeTime(props.session.time.updated, props.nowMs)}
+          </span>
         </span>
-      </Show>
-      <Show when={props.session.share !== undefined}>
-        <span
-          data-testid="workspace-session-shared-badge"
-          title={t("sessions:sharedHint")}
-          class="shrink-0 rounded-full border border-accent bg-accent-soft px-1.5 py-px text-[10px] leading-tight text-accent"
-        >
-          {t("sessions:sharedBadge")}
-        </span>
-      </Show>
-      <span class="min-w-0 flex-1">
-        <span class="block truncate text-sm">{title()}</span>
-        <span class="block truncate font-code text-xs text-fg-secondary">
-          {formatRelativeTime(props.session.time.updated, props.nowMs)}
-        </span>
-      </span>
+      </button>
       <button
         type="button"
         data-testid="workspace-session-menu"
@@ -416,9 +428,17 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
 
   // Snapshot mutations.
   function applyLocalList(list: Session[]): void {
-    const next: Record<string, Session> = {};
-    for (const session of list) next[session.id] = session;
-    setLocalSessions(next);
+    // Wholesale replacement via produce, NOT `setLocalSessions(next)`:
+    // Solid's setStore MERGES plain objects into the existing store, so a
+    // refresh after a session deletion would keep the deleted session in
+    // the tree (it never leaves the snapshot). produce assignment replaces
+    // every key, matching upsertLocal's semantics.
+    setLocalSessions(
+      produce((draft) => {
+        for (const key of Object.keys(draft)) delete draft[key];
+        for (const session of list) draft[session.id] = session;
+      }),
+    );
   }
   function upsertLocal(session: Session): void {
     // Full replacement, not a merge: `setStore(path, obj)` merges the object
@@ -567,11 +587,18 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   // need a current directory to attach to. Setting it triggers DesktopShell
   // to rebuild the stream — a one-time cost on entry, like the old project
   // switcher's seed. Selecting a session switches the context afterwards.
+  // When a default workspace is persisted, the server lands THERE (the
+  // default's whole point) rather than in the most recently touched folder.
   // Hidden folders never auto-enter (the user explicitly hid them).
   createEffect(() => {
     const folders = visibleFolders();
     if (projectState().current !== null || folders.length === 0) return;
-    setCurrent(props.serverId, folders[0].directory);
+    const def = defaultWorkspace();
+    const target =
+      def !== null && folders.some((folder) => folder.directory === def)
+        ? def
+        : folders[0].directory;
+    setCurrent(props.serverId, target);
   });
 
   // Un-hide a folder the user actively re-entered (e.g. via the directory
@@ -888,6 +915,27 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                 setFolderMenu({ directory: defaultFolder()!.directory, ...position })
               }
             />
+            {/* The default workspace's sessions render under its row exactly
+                like every other folder — the count badge and the expanded
+                session list must agree, or the default folder looks like it
+                has sessions it can never show (Bug: 39 sessions counted but
+                expanding showed nothing). */}
+            <Show when={isExpanded(defaultFolder()!.directory, filteredTree().matched)}>
+              <For each={defaultFolder()!.sessions}>
+                {(session) => (
+                  <SessionRow
+                    session={session}
+                    status={sessionState().statuses[session.id]}
+                    active={sessionState().activeSessionId === session.id}
+                    nowMs={now()}
+                    forked={session.parentID !== undefined}
+                    parentTitle={parentTitleOf(session)}
+                    onSelect={() => void selectSession(session)}
+                    onMenu={(target, position) => setRowMenu({ session: target, ...position })}
+                  />
+                )}
+              </For>
+            </Show>
           </Show>
           <Show when={defaultFolder() !== undefined && otherFolders().length > 0}>
             <div

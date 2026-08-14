@@ -1,6 +1,8 @@
 // E07 — Session rename/delete/search
-// (testing.md §3 L4: the session search filters the list; the row menu
-// renames and deletes a session through the dialogs.)
+// (testing.md §3 L4: the session search filters the workspace tree; the row
+// menu renames and deletes a session through the dialogs. The tree lists
+// ROOT sessions only — sub-agent children live in the subtask panel — so the
+// journey targets the mock's root session sess_01.)
 
 import { addServer, enterWorkspace, expect, gotoHome, test, waitForMockRequest } from "./fixtures";
 
@@ -8,42 +10,51 @@ test("E07 session search, rename, delete", async ({ page }) => {
   await gotoHome(page);
   await addServer(page);
   await enterWorkspace(page);
-  await expect(page.getByTestId("session-item-sess_01")).toBeVisible();
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toBeVisible();
 
-  // Search filters the list by title/slug ("Add form validation" only —
-  // "login" would also match the login-form subtree).
-  await page.getByTestId("session-search").fill("validation");
-  await expect(page.getByTestId("session-item-sess_04")).toBeVisible();
-  await expect(page.getByTestId("session-item-sess_01")).toHaveCount(0);
-  await expect(page.getByTestId("session-item-sess_02")).toHaveCount(0);
-  await page.getByTestId("session-search").fill("");
+  // Search filters the tree client-side by folder name / session title.
+  // The mock's unused root session is "Heartbeat SSE 与架构讨论（大量消息）":
+  // a matching term keeps its folder, a folder-name match keeps the OTHER
+  // folder (hiding the demo one), and a non-matching term hides everything.
+  await page.getByTestId("workspace-search").fill("Heartbeat");
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toBeVisible();
+  await page.getByTestId("workspace-search").fill("labs");
+  await expect(page.getByTestId("workspace-session-sess_01")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toHaveCount(0);
+  await page.getByTestId("workspace-search").fill("no-such-session");
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toHaveCount(0);
+  await page.getByTestId("workspace-search").fill("");
 
-  // Sub-sessions are collapsed by default: expand sess_01's subtree so the
-  // forked children (sess_02…) are reachable for rename/delete.
-  await page.getByTestId("session-item-sess_01").getByTestId("session-tree-toggle").click();
-  await expect(page.getByTestId("session-item-sess_02")).toBeVisible();
-
-  // Rename via the row menu (the ⋯ button is hover-revealed).
-  await page.getByTestId("session-item-sess_02").hover();
-  await page.getByTestId("session-item-sess_02").getByTestId("session-row-menu").click();
-  await expect(page.getByTestId("session-menu")).toBeVisible();
-  await page.getByTestId("session-menu-rename").click();
+  // Rename via the row menu (the ⋯ button is hover-revealed; the menu is
+  // located by role — its testid collides with the row's ⋯ button).
+  await page.getByTestId("workspace-session-ses_rich_01").hover();
+  await page
+    .getByTestId("workspace-session-ses_rich_01")
+    .getByTestId("workspace-session-menu")
+    .click();
+  const rowMenu = page.getByRole("menu", { name: "Session actions" });
+  await expect(rowMenu).toBeVisible();
+  await page.getByTestId("workspace-session-menu-rename").click();
   await expect(page.getByTestId("rename-session-dialog")).toBeVisible();
-  const renamePromise = waitForMockRequest(page, "PATCH", "/session/sess_02");
+  const renamePromise = waitForMockRequest(page, "PATCH", "/session/ses_rich_01");
   await page.getByTestId("rename-session-input").fill("Renamed session");
   await page.getByTestId("rename-session-save").click();
   await renamePromise;
   await expect(page.getByTestId("rename-session-dialog")).toHaveCount(0);
-  await expect(page.getByTestId("session-item-sess_02")).toContainText("Renamed session");
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toContainText("Renamed session");
 
-  // Delete via the row menu + confirm dialog.
-  await page.getByTestId("session-item-sess_02").hover();
-  await page.getByTestId("session-item-sess_02").getByTestId("session-row-menu").click();
-  await expect(page.getByTestId("session-menu")).toBeVisible();
-  await page.getByTestId("session-menu-delete").click();
+  // Delete via the row menu + confirm dialog. The mock removes the session
+  // from its list, so the tree's refresh drops the row for good.
+  await page.getByTestId("workspace-session-ses_rich_01").hover();
+  await page
+    .getByTestId("workspace-session-ses_rich_01")
+    .getByTestId("workspace-session-menu")
+    .click();
+  await expect(rowMenu).toBeVisible();
+  await page.getByTestId("workspace-session-menu-delete").click();
   await expect(page.getByTestId("delete-session-dialog")).toBeVisible();
-  const deletePromise = waitForMockRequest(page, "DELETE", "/session/sess_02");
+  const deletePromise = waitForMockRequest(page, "DELETE", "/session/ses_rich_01");
   await page.getByTestId("delete-session-confirm").click();
   await deletePromise;
-  await expect(page.getByTestId("session-item-sess_02")).toHaveCount(0);
+  await expect(page.getByTestId("workspace-session-ses_rich_01")).toHaveCount(0);
 });
