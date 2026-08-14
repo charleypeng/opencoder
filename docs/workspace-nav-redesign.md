@@ -380,6 +380,21 @@ SSE（当前目录）
 
 ---
 
+## 10. 追加：默认工作区引导（2026-08-14，feat/default-workspace）
+
+**需求**：初次添加 opencode 服务器并点击进入时，弹出「默认工作区」提示对话框；用户经 directory picker 选好路径后按所选路径进入主页面；设置里可重新设置该服务器的默认工作区。
+
+**实现**：
+- `src/features/servers/defaultWorkspace.ts`：per-server 默认工作区持久化（localStorage `oc-default-workspace:<serverId>`）+ `hasWorkspaceHistory`（默认工作区或最近目录任有即视为有历史）+ `wasDefaultWorkspacePrompted`/`markDefaultWorkspacePrompted`（跳过不打扰）
+- `src/features/sessions/DefaultWorkspaceDialog.tsx`：引导对话框 = DirectoryPickerDialog 的引导变体（自定义 title/hint + 「跳过」按钮），`onAdded` 里 `setDefaultWorkspace` 持久化（进入由 picker 的 add 流程完成：setCurrent + ensureSessionInDirectory）
+- `DirectoryPickerDialog.tsx` 新增 props：`title`/`hint`（覆盖默认文案）、`showSkip`/`onSkip`（引导跳过）、`onAdded(directory)`（add 成功回调）
+- `DesktopShell` onMount：`!hasWorkspaceHistory && !wasPrompted` → 弹引导（markPrompted 防反复打扰）
+- `ServersSection` 每行新增「默认工作区」：显示当前值（未设置灰字）+「修改默认工作区」→ picker（initialDirectory=当前默认）→ onAdded 保存 + 响应式刷新（localStorage 读取非响应式，组件内 `workspaceOf` 缓存 map）
+
+**测试**：defaultWorkspace store 8 用例、DefaultWorkspaceDialog 3、DirectoryPicker onAdded 1、ServersSection 默认工作区 2、DesktopShell 引导 3（首入弹/已有默认不弹/跳过不再弹）。
+
+---
+
 ## 附：参考截图描述（WorkBuddy）
 
 **`截屏2026-08-13 22.16.34.png`（整体布局）**：

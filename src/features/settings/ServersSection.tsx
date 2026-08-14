@@ -26,6 +26,8 @@ import {
   setServerThemeOverride,
 } from "../../stores/theme.js";
 import type { ThemeMode } from "../../stores/theme.js";
+import { readDefaultWorkspace, setDefaultWorkspace } from "../servers/defaultWorkspace.js";
+import DirectoryPickerDialog from "../sessions/DirectoryPickerDialog.js";
 import { useT } from "../../i18n/index.js";
 
 type HealthKind = "ok" | "slow" | "down" | "unknown";
@@ -87,6 +89,14 @@ const ServersSection: Component = () => {
   const [servers, setServers] = createSignal<ServerEntry[]>([]);
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [prefs, setPrefs] = createSignal<NotificationPrefs>(loadNotificationPrefs());
+  // The server whose default-workspace picker is open (null = closed).
+  const [pickerServer, setPickerServer] = createSignal<string | null>(null);
+  // Reactive cache of the per-server default workspaces (localStorage reads
+  // are non-reactive; picking a new one updates this map so the row refreshes).
+  const [defaultWorkspaces, setDefaultWorkspaces] = createSignal<Record<string, string | null>>({});
+  function workspaceOf(serverId: string): string | null {
+    return defaultWorkspaces()[serverId] ?? readDefaultWorkspace(serverId) ?? null;
+  }
 
   onMount(() => {
     void listServers()
@@ -184,11 +194,53 @@ const ServersSection: Component = () => {
                     )}
                   </For>
                 </div>
+                {/* Default workspace (feat(default-workspace)): the folder
+                    the server lands in on entry; re-pickable here anytime. */}
+                <div
+                  data-testid={`servers-default-ws-${server.id}`}
+                  class="mt-2 flex items-center gap-2"
+                >
+                  <span class="shrink-0 text-xs text-fg-secondary">
+                    {t("settings:defaultWorkspaceCurrent")}
+                  </span>
+                  <span
+                    data-testid="servers-default-ws-value"
+                    title={workspaceOf(server.id) ?? undefined}
+                    class={`min-w-0 flex-1 truncate font-code text-xs ${
+                      workspaceOf(server.id) === null ? "text-fg-faint" : "text-fg-secondary"
+                    }`}
+                  >
+                    {workspaceOf(server.id) ?? t("settings:defaultWorkspaceUnset")}
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="servers-default-ws-change"
+                    onClick={() => setPickerServer(server.id)}
+                    class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
+                  >
+                    {t("settings:defaultWorkspaceChange")}
+                  </button>
+                </div>
               </div>
             );
           }}
         </For>
       </div>
+
+      {/* Default-workspace picker (feat(default-workspace)): re-picking the
+          folder a server opens by default; the picker starts at the current
+          default (or the root) and persists the choice on add. */}
+      <Show when={pickerServer() !== null}>
+        <DirectoryPickerDialog
+          serverId={pickerServer()!}
+          initialDirectory={workspaceOf(pickerServer()!) ?? undefined}
+          onAdded={(directory) => {
+            setDefaultWorkspace(pickerServer()!, directory);
+            setDefaultWorkspaces({ ...defaultWorkspaces(), [pickerServer()!]: directory });
+          }}
+          onClose={() => setPickerServer(null)}
+        />
+      </Show>
     </div>
   );
 };

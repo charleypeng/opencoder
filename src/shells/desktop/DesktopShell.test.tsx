@@ -659,7 +659,6 @@ describe("DesktopShell workspace", () => {
     const betaItem = screen.getByTestId("rail-item-srv-b1");
     expect(betaItem).toHaveTextContent("B");
     expect(within(alphaItem).getByTestId("rail-dot")).toHaveAttribute("data-status", "unknown");
-
     const health = handlerFor("server-health");
     health({ serverId: "srv-b1", healthy: false, status: "down", failCount: 3 });
     await waitFor(() =>
@@ -749,6 +748,47 @@ describe("DesktopShell workspace", () => {
 
     fireEvent.click(screen.getByTestId("rail-add"));
     expect(onExit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("DesktopShell default-workspace onboarding (feat(default-workspace))", () => {
+  it("prompts for a default workspace on the first entry of a fresh server", async () => {
+    const alpha = server({ id: "srv-onboard1", name: "Alpha" });
+    localStorage.removeItem("oc-default-workspace:srv-onboard1");
+    localStorage.removeItem("oc-recent-projects:srv-onboard1");
+    localStorage.removeItem("oc-default-workspace-prompted:srv-onboard1");
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    // The onboarding picker opens over the (still mounted) shell.
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+    expect(screen.getByText("Choose a default workspace")).toBeInTheDocument();
+  });
+
+  it("does not prompt when the server already has a default workspace", () => {
+    const alpha = server({ id: "srv-onboard2", name: "Alpha" });
+    localStorage.setItem("oc-default-workspace:srv-onboard2", JSON.stringify("/dev/opencode"));
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+  });
+
+  it("does not re-prompt after a skipped onboarding", async () => {
+    const alpha = server({ id: "srv-onboard3", name: "Alpha" });
+    localStorage.removeItem("oc-default-workspace:srv-onboard3");
+    localStorage.removeItem("oc-recent-projects:srv-onboard3");
+    localStorage.removeItem("oc-default-workspace-prompted:srv-onboard3");
+    invokeMock.mockResolvedValueOnce([alpha]);
+    const { unmount } = render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+    unmount();
+
+    // Re-entering the same server: the prompt was marked shown, no dialog.
+    const client = invokeMock.mockResolvedValueOnce([alpha]);
+    void client;
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
   });
 });
 

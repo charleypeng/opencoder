@@ -101,3 +101,88 @@ describe("ServersSection", () => {
     expect(screen.getByTestId("servers-load-error")).toHaveTextContent("registry down");
   });
 });
+
+describe("ServersSection default workspace (feat(default-workspace))", () => {
+  const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+  vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
+
+  function entry(dir: string, name: string) {
+    return {
+      name,
+      path: `${name}/`,
+      absolute: `${dir === "/" ? "" : dir}/${name}`,
+      type: "directory" as const,
+      ignored: false,
+    };
+  }
+
+  const LISTINGS: Record<string, string[]> = {
+    "/": ["Volumes"],
+    "/Volumes": ["data"],
+    "/Volumes/data": ["project-a"],
+  };
+
+  beforeEach(() => {
+    getApiClientMock.mockReset();
+    const client = {
+      get: vi.fn(async (url: string, opts?: { query?: { directory?: string } }) => {
+        if (url === "/session") return [];
+        const dir = opts?.query?.directory ?? "/";
+        return (LISTINGS[dir] ?? []).map((name) => entry(dir, name));
+      }),
+      post: vi.fn(async () => ({})),
+      patch: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+    getApiClientMock.mockReturnValue(client);
+  });
+
+  it("shows the default workspace value (or Not set) per server", async () => {
+    localStorage.setItem("oc-default-workspace:srv-a", JSON.stringify("/dev/opencode"));
+    render(() => <ServersSection />);
+    await waitFor(() => expect(screen.getByTestId("servers-row-srv-a")).toBeInTheDocument());
+
+    const rowA = screen.getByTestId("servers-default-ws-srv-a");
+    expect(within(rowA).getByTestId("servers-default-ws-value")).toHaveTextContent("/dev/opencode");
+    const rowB = screen.getByTestId("servers-default-ws-srv-b");
+    expect(within(rowB).getByTestId("servers-default-ws-value")).toHaveTextContent("Not set");
+  });
+
+  it("re-picks the default workspace through the picker and persists it", async () => {
+    render(() => <ServersSection />);
+    await waitFor(() => expect(screen.getByTestId("servers-row-srv-a")).toBeInTheDocument());
+
+    fireEvent.click(
+      within(screen.getByTestId("servers-default-ws-srv-a")).getByTestId(
+        "servers-default-ws-change",
+      ),
+    );
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByTestId("directory-picker-item-Volumes"));
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-data")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("directory-picker-item-data"));
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-project-a")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("directory-picker-add"));
+
+    await waitFor(() =>
+      expect(screen.queryByTestId("directory-picker-dialog")).not.toBeInTheDocument(),
+    );
+    expect(readDefaultWorkspaceValue("srv-a")).toBe("/Volumes/data");
+    expect(
+      within(screen.getByTestId("servers-default-ws-srv-a")).getByTestId(
+        "servers-default-ws-value",
+      ),
+    ).toHaveTextContent("/Volumes/data");
+  });
+});
+
+function readDefaultWorkspaceValue(serverId: string): string | null {
+  const raw = localStorage.getItem("oc-default-workspace:" + serverId);
+  if (raw === null) return null;
+  return JSON.parse(raw) as string;
+}

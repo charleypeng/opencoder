@@ -31,6 +31,17 @@ export interface DirectoryPickerDialogProps {
    * here so the dialog opens already positioned there.
    */
   initialDirectory?: string;
+  /** Called with the added directory right before close (add flow) — the
+   *  default-workspace flows use it to persist the choice. */
+  onAdded?: (directory: string) => void;
+  /** Overrides the title (default-workspace onboarding shows its own). */
+  title?: string;
+  /** Overrides the one-line hint below the title. */
+  hint?: string;
+  /** Shows a "Skip" button (first-entry onboarding may defer the choice). */
+  showSkip?: boolean;
+  /** Called when the user skips (defaults to onClose). */
+  onSkip?: () => void;
 }
 
 /** The filesystem root the browser starts from. */
@@ -125,6 +136,7 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
     setCurrent(props.serverId, target);
     pushRecentProject(props.serverId, target);
     await ensureSessionInDirectory(props.serverId, createSessionService(getApiClient()));
+    props.onAdded?.(target);
     props.onClose();
   }
 
@@ -137,10 +149,10 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
           class="glass fixed left-1/2 top-1/2 z-50 flex w-full max-w-lg -translate-x-1/2 -translate-y-1/2 flex-col gap-3 p-5"
         >
           <Dialog.Title class="text-md font-semibold">
-            {t("sessions:directoryPickerTitle")}
+            {props.title ?? t("sessions:directoryPickerTitle")}
           </Dialog.Title>
           <Dialog.Description class="text-sm text-fg-secondary">
-            {t("sessions:directoryPickerHint")}
+            {props.hint ?? t("sessions:directoryPickerHint")}
           </Dialog.Description>
 
           {/* Breadcrumb: root plus every ancestor; clicking one jumps back. */}
@@ -215,6 +227,16 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
           </Show>
 
           <div class="flex items-center justify-end gap-2 pt-1">
+            <Show when={props.showSkip}>
+              <button
+                type="button"
+                data-testid="directory-picker-skip"
+                onClick={() => (props.onSkip ?? props.onClose)()}
+                class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
+              >
+                {t("sessions:skip")}
+              </button>
+            </Show>
             <Dialog.CloseButton
               data-testid="directory-picker-cancel"
               class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
