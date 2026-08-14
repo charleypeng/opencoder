@@ -85,7 +85,9 @@ function mockClient(overrides: { roots?: Session[]; projects?: Project[] } = {})
       if (path.startsWith("/file")) return [];
       return [];
     }),
-    post: vi.fn(async () => session("s-new", "/dev/opencoder")),
+    post: vi.fn<(path: string, opts?: unknown) => Promise<Session>>(async () =>
+      session("s-new", "/dev/opencoder"),
+    ),
     patch: vi.fn(async () => undefined),
     delete: vi.fn(async () => undefined),
   };
@@ -107,9 +109,14 @@ afterEach(() => {
   resetProjects(SERVER);
 });
 
-function renderTree(onSelect: (id: string) => void = vi.fn()) {
-  const result = render(() => <WorkspaceTree serverId={SERVER} onSelectSession={onSelect} />);
-  return { ...result, onSelect };
+function renderTree(
+  onSelect: (id: string) => void = vi.fn(),
+  onViewFolder: (dir: string) => void = vi.fn(),
+) {
+  const result = render(() => (
+    <WorkspaceTree serverId={SERVER} onSelectSession={onSelect} onViewFolder={onViewFolder} />
+  ));
+  return { ...result, onSelect, onViewFolder };
 }
 
 describe("WorkspaceTree", () => {
@@ -202,15 +209,17 @@ describe("WorkspaceTree", () => {
     void client;
   });
 
-  it("hides a folder via the remove action and persists the hide", async () => {
+  it("removes a workspace via the ⋯ menu and persists the removal", async () => {
     const { unmount } = renderTree();
     await waitFor(() =>
       expect(screen.getByTestId("workspace-folder-/dev/opencoder")).toBeInTheDocument(),
     );
-    const removeButton = within(screen.getByTestId("workspace-folder-/dev/opencoder")).getByTestId(
-      "workspace-folder-remove",
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/dev/opencoder")).getByTestId(
+        "workspace-folder-more",
+      ),
     );
-    fireEvent.click(removeButton);
+    fireEvent.click(await screen.findByTestId("workspace-folder-menu-remove-workspace"));
     await waitFor(() => expect(screen.queryByTestId("workspace-folder-/dev/opencoder")).toBeNull());
     expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument();
     unmount();
@@ -222,21 +231,18 @@ describe("WorkspaceTree", () => {
     expect(screen.queryByTestId("workspace-folder-/dev/opencoder")).toBeNull();
   });
 
-  it("opens the directory picker positioned at the folder", async () => {
-    const client = mockClient();
-    renderTree();
+  it("the ⋯ menu's view folder reports the workspace directory", async () => {
+    const { onViewFolder } = renderTree();
     await waitFor(() =>
       expect(screen.getByTestId("workspace-folder-/dev/opencoder")).toBeInTheDocument(),
     );
-    const openButton = within(screen.getByTestId("workspace-folder-/dev/opencoder")).getByTestId(
-      "workspace-folder-open",
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/dev/opencoder")).getByTestId(
+        "workspace-folder-more",
+      ),
     );
-    fireEvent.click(openButton);
-    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
-    // The picker lists the folder's own directory.
-    expect(client.get).toHaveBeenCalledWith("/file", {
-      query: { path: "", directory: "/dev/opencoder" },
-    });
+    fireEvent.click(await screen.findByTestId("workspace-folder-menu-view-folder"));
+    expect(onViewFolder).toHaveBeenCalledWith("/dev/opencoder");
   });
 
   it("shows a busy status dot on folders with running sessions", async () => {
@@ -292,6 +298,107 @@ describe("WorkspaceTree", () => {
     // Unshare: the upsert clears the marker; the tree must drop the badge.
     upsertSession(SERVER, session("s1", "/dev/opencoder"));
     await waitFor(() => expect(screen.queryByTestId("workspace-session-shared-badge")).toBeNull());
+  });
+});
+
+describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
+  beforeEach(() => {
+    localStorage.removeItem("oc-default-workspace:" + SERVER);
+  });
+
+  it("pins the default workspace on top with a badge and a divider", async () => {
+    localStorage.setItem("oc-default-workspace:" + SERVER, JSON.stringify("/dev/hermes"));
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument(),
+    );
+
+    // The default row carries the badge and the default marker.
+    const defaultRow = screen.getByTestId("workspace-folder-/dev/hermes");
+    expect(defaultRow).toHaveAttribute("data-default", "true");
+    expect(within(defaultRow).getByTestId("workspace-folder-default-badge")).toHaveTextContent(
+      "Default",
+    );
+    // A divider separates it from the remaining workspaces.
+    const divider = screen.getByTestId("workspace-divider");
+    const defaultNext = divider.compareDocumentPosition(
+      screen.getByTestId("workspace-folder-section-/dev/opencoder"),
+    );
+    expect(defaultNext & Node.DOCUMENT_POSITION_FOLLOWING).not.toBe(0);
+  });
+
+  it("the header add-workspace button opens the directory picker", async () => {
+    renderTree();
+    fireEvent.click(screen.getByTestId("workspace-add-workspace"));
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+  });
+
+  it("the header new-session button creates in the default workspace", async () => {
+    const client = mockClient();
+    localStorage.setItem("oc-default-workspace:" + SERVER, JSON.stringify("/dev/hermes"));
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/hermes")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("workspace-new-session"));
+    await waitFor(() => expect(client.post).toHaveBeenCalled());
+    // POST /session carries the default directory.
+    const createCall = client.post.mock.calls.find(([path]) => path === "/session");
+    expect(createCall).toBeDefined();
+    expect(createCall![1]).toEqual({
+      body: { title: undefined },
+      query: { directory: "/dev/hermes" },
+    });
+  });
+
+  it("the folder [+] button creates a session in that workspace", async () => {
+    const client = mockClient();
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/dev/opencoder")).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/dev/opencoder")).getByTestId(
+        "workspace-folder-add",
+      ),
+    );
+    await waitFor(() => expect(client.post).toHaveBeenCalled());
+    const createCall = client.post.mock.calls.find(([path]) => path === "/session");
+    expect(createCall![1]).toEqual({
+      body: { title: undefined },
+      query: { directory: "/dev/opencoder" },
+    });
+  });
+
+  it("an explicitly added workspace with no sessions renders and persists", async () => {
+    localStorage.setItem("oc-workspaces:" + SERVER, JSON.stringify(["/custom/path"]));
+    const { unmount } = renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/custom/path")).toBeInTheDocument(),
+    );
+    unmount();
+
+    // After a re-mount (restart) the workspace is still listed.
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/custom/path")).toBeInTheDocument(),
+    );
+  });
+
+  it("removing a workspace drops it from the persisted list too", async () => {
+    localStorage.setItem("oc-workspaces:" + SERVER, JSON.stringify(["/custom/path"]));
+    renderTree();
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-folder-/custom/path")).toBeInTheDocument(),
+    );
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/custom/path")).getByTestId(
+        "workspace-folder-more",
+      ),
+    );
+    fireEvent.click(await screen.findByTestId("workspace-folder-menu-remove-workspace"));
+    await waitFor(() => expect(screen.queryByTestId("workspace-folder-/custom/path")).toBeNull());
+    expect(JSON.parse(localStorage.getItem("oc-workspaces:" + SERVER) ?? "[]")).toEqual([]);
   });
 });
 

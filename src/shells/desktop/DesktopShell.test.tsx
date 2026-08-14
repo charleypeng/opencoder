@@ -1089,6 +1089,30 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
     fireEvent.click(screen.getByTestId("file-row-README.md"));
     expect(viewer["srv-m4view"]?.tabs).toHaveLength(1);
   });
+
+  it("the workspace ⋯ menu's view folder jumps to the Files view in that directory", async () => {
+    const alpha = server({ id: "srv-viewfolder", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() =>
+      expect(
+        screen.getByTestId("workspace-folder-/mock/projects/opencode-labs"),
+      ).toBeInTheDocument(),
+    );
+
+    fireEvent.click(
+      within(screen.getByTestId("workspace-folder-/mock/projects/opencode-labs")).getByTestId(
+        "workspace-folder-more",
+      ),
+    );
+    fireEvent.click(await screen.findByTestId("workspace-folder-menu-view-folder"));
+
+    // The context switched to the picked workspace and Main shows Files.
+    await waitFor(() =>
+      expect(getServerProjectState("srv-viewfolder").current).toBe("/mock/projects/opencode-labs"),
+    );
+    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+  });
 });
 
 describe("DesktopShell settings view (TASK-M5-06)", () => {

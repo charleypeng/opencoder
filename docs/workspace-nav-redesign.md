@@ -395,6 +395,24 @@ SSE（当前目录）
 
 ---
 
+## 11. 追加：工作区布局重构（2026-08-14，feat/workspace-tree-nav）
+
+**需求**：① 默认工作区置顶 + 视觉区分 + 分割线；② new session 在默认工作区创建；③ new session 下方新增「添加工作区」按钮（picker）；④ 工作区悬浮按钮：+（该目录新建 session）、⋯（菜单：查看文件夹 / 移除此工作区）；⑤ 全部用户更改（工作区增删、session 创建、默认工作区标记）本地持久化。
+
+**实现**：
+- `src/features/sessions/workspaces.ts`：**显式工作区列表**（localStorage `oc-workspaces:<serverId>`）——picker 添加的目录即使无会话/无 project 也持续显示（解决「添加的工作区重启后消失」的持久化缺口）；移除同步删除列表项
+- `WorkspaceTree.tsx`：
+  - 默认工作区（readDefaultWorkspace）→ `defaultFolder`/`otherFolders` 分组渲染：默认行 `data-default` + 「默认」徽标 + `workspace-divider` 分割线
+  - `handleCreate`（header new session）→ `createSession(..., defaultWorkspace ?? undefined)` 在默认工作区创建；新增 `handleCreateIn(directory)`（folder [+]）
+  - header 新增「+ 添加工作区」按钮（`workspace-add-workspace`）→ 打开 picker，`onAdded` 写入显式列表
+  - FolderRow hover 按钮重构：`[+]`（workspace-folder-add）+ `[⋯]`（workspace-folder-more）替代原 open/remove；⋯ 菜单（folderMenuItems）= 查看文件夹（`onViewFolder` 回调）/ 移除此工作区（danger，removeFolder + dropWorkspace）
+  - 移除 folder 行原「打开文件夹 picker」入口（该能力保留在会话 ⋯ 菜单）
+- `DesktopShell.tsx`：`onViewFolder` → `setCurrent + pushRecentProject + setMainView("files")`（查看文件夹跳到 Files 视图展示该目录文件）
+
+**测试**：workspaces store 6 用例；WorkspaceTree +10（默认置顶徽标/分割线、添加工作区按钮、默认创建、[+] 创建、⋯ 菜单查看/移除、显式列表持久化渲染、移除清列表）；DesktopShell +1（查看文件夹 → Files 视图 + 目录切换）；改写 2 个旧用例（remove/picker 定位 → ⋯ 菜单）。
+
+---
+
 ## 附：参考截图描述（WorkBuddy）
 
 **`截屏2026-08-13 22.16.34.png`（整体布局）**：
