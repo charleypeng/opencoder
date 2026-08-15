@@ -15,9 +15,15 @@ import { readRecentProjects } from "./recentProjects";
 import type { FileNode } from "../../services/file";
 import type { Session } from "../../services/session";
 
-const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+const { getApiClientMock, openNativeDirectoryMock, listServersMock } = vi.hoisted(() => ({
+  getApiClientMock: vi.fn(),
+  openNativeDirectoryMock: vi.fn(),
+  listServersMock: vi.fn(),
+}));
 
 vi.mock("../../services/client", () => ({ getApiClient: getApiClientMock }));
+vi.mock("../../services/servers", () => ({ listServers: listServersMock }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openNativeDirectoryMock }));
 
 const SERVER = "srv-dirpick";
 
@@ -93,6 +99,14 @@ async function drillToData() {
 describe("DirectoryPickerDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: the registry cannot be resolved (server list unavailable),
+    // so the in-app browser is the fallback. Tests for the native path
+    // override this with a localhost entry.
+    listServersMock.mockRejectedValue(new Error("no registry"));
+    // Default: the native system dialog is unavailable in tests, so the
+    // in-app browser is the fallback. Tests for the native path override
+    // this with mockResolvedValue.
+    openNativeDirectoryMock.mockRejectedValue(new Error("no native dialog"));
     localStorage.clear();
     resetServer(SERVER);
     resetSessions(SERVER);
@@ -271,11 +285,64 @@ describe("DirectoryPickerDialog", () => {
     expect(screen.getByTestId("directory-picker-add")).toBeDisabled();
   });
 
-  it("cancel closes the dialog without touching the working directory", () => {
+  it("cancel closes the dialog without touching the working directory", async () => {
     mockClient();
     const props = renderPicker();
+    // The in-app browser renders once the native path falls back.
+    await waitFor(() => expect(screen.getByTestId("directory-picker-cancel")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("directory-picker-cancel"));
     expect(props.onClose).toHaveBeenCalledTimes(1);
     expect(getServerProjectState(SERVER).current).toBeNull();
+  });
+
+  it("falls back to the in-app browser when the registry cannot be resolved", async () => {
+    mockClient();
+    openNativeDirectoryMock.mockRejectedValue(new Error("dialog plugin missing"));
+    renderPicker();
+    // The in-app directory browser takes over.
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument();
+    expect(openNativeDirectoryMock).not.toHaveBeenCalled();
+  });
+
+  it("adds the directory picked through the native dialog for a localhost server", async () => {
+    const client = mockClient([]);
+    const onAdded = vi.fn();
+    const onClose = vi.fn();
+    listServersMock.mockResolvedValue([
+      { id: SERVER, name: "Local", url: "http://localhost:3000" },
+    ]);
+    openNativeDirectoryMock.mockResolvedValue("/Volumes/data");
+
+    render(() => <DirectoryPickerDialog serverId={SERVER} onClose={onClose} onAdded={onAdded} />);
+
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    // The native dialog was used (local server) and the picked directory
+    // becomes the working directory; the in-app browser never renders.
+    expect(openNativeDirectoryMock).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+    });
+    expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } });
+    expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
+    expect(onAdded).toHaveBeenCalledWith("/Volumes/data");
+    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+  });
+
+  it("keeps the in-app browser for a remote server and never opens the native dialog", async () => {
+    mockClient();
+    listServersMock.mockResolvedValue([
+      { id: SERVER, name: "Remote", url: "https://opencode.example.com" },
+    ]);
+    renderPicker();
+
+    // The remote server cannot share this machine's filesystem, so the
+    // in-app directory browser is used and the OS picker never opens.
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
+    );
+    expect(openNativeDirectoryMock).not.toHaveBeenCalled();
   });
 });

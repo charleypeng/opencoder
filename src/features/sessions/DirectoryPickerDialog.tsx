@@ -1,17 +1,20 @@
-// Working-directory picker (sessions add-directory flow): the dialog behind
-// the project switcher's ➕ button. The server routes every request by its
-// `directory` query (workspace-routing middleware), so the dialog browses
-// the FILESYSTEM from the root "/" — GET /file?path=&directory=<dir> lists
-// a directory's subfolders in that directory's own context — and lets the
-// user drill down until the target folder is reached. "Add" sets that
-// folder as the current working directory (project store `setCurrent`):
-// DesktopShell rebuilds the per-directory SSE stream and re-syncs, so the
-// folder's sessions load automatically. The dialog is a Kobalte modal.
+// Working-directory picker (sessions add-directory flow): for LOCAL servers
+// (localhost / 127.0.0.1) the OS-level folder dialog opens first — the
+// native picker returns a folder on THIS machine, which is exactly what a
+// local server can use. Remote servers and environments without the native
+// dialog fall back to the in-app browser below, which lists directories
+// through the server itself (GET /file) and lets the user drill down until
+// the target folder is reached. "Add" sets that folder as the current
+// working directory (project store `setCurrent`): DesktopShell rebuilds
+// the per-directory SSE stream and re-syncs, so the folder's sessions load
+// automatically. The in-app browser is a Kobalte modal.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
+import { open as openNativeDirectory } from "@tauri-apps/plugin-dialog";
 import { useT } from "../../i18n";
+import { listServers } from "../../services/servers";
 import { getApiClient } from "../../services/client";
 import { ApiError } from "../../services/errors";
 import { createFileService, type FileNode } from "../../services/file";
@@ -81,7 +84,10 @@ function FolderIcon() {
   );
 }
 
-const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => {
+/** The in-app filesystem browser (fallback): a Kobalte modal that lists
+ *  directories via the server's GET /file endpoint and lets the user drill
+ *  down to the target folder. */
+function InAppDirectoryPicker(props: DirectoryPickerDialogProps) {
   const t = useT();
   /** The directory being browsed (its own subfolders are listed). Starts
    *  from the initialDirectory prop when given (open-folder flow), else
@@ -131,8 +137,7 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
    *  folder has NO sessions yet, one is created in it right away — either
    *  way the picked directory becomes the active context with a session
    *  selected. The folder also lands in the switcher's recents (deduped). */
-  async function add(): Promise<void> {
-    const target = dir();
+  async function add(target: string): Promise<void> {
     setCurrent(props.serverId, target);
     pushRecentProject(props.serverId, target);
     await ensureSessionInDirectory(props.serverId, createSessionService(getApiClient()));
@@ -247,7 +252,7 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
               type="button"
               data-testid="directory-picker-add"
               disabled={loading() || loadError() !== null}
-              onClick={() => void add()}
+              onClick={() => void add(dir())}
               class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white outline-none hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {t("sessions:directoryPickerAdd")}
@@ -257,6 +262,70 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
       </Dialog.Portal>
     </Dialog.Root>
   );
+}
+
+/** True when the server URL points at the local machine (localhost /
+ *  127.0.0.1 / [::1] with any port). Only LOCAL servers can share the
+ *  client's filesystem, so the native OS folder picker is meaningful
+ *  exclusively for them; remote servers keep the in-app browser. */
+function isLocalServerUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Working-directory picker entry point (native-first for LOCAL servers):
+ * when the server runs on the same machine (localhost / 127.0.0.1) the OS
+ * folder picker opens immediately (macOS / Linux / Windows native dialog).
+ * Remote servers, unavailable native dialogs (web/mobile/test builds) and
+ * native failures all fall back to the in-app directory browser. The user
+ * cancelling the native dialog closes the flow (it is not re-prompted).
+ */
+const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => {
+  const [showInApp, setShowInApp] = createSignal(false);
+
+  async function add(target: string): Promise<void> {
+    setCurrent(props.serverId, target);
+    pushRecentProject(props.serverId, target);
+    await ensureSessionInDirectory(props.serverId, createSessionService(getApiClient()));
+    props.onAdded?.(target);
+    props.onClose();
+  }
+
+  onMount(() => {
+    // Resolve the server's URL to decide the picker: native dialogs pick
+    // a folder ON THIS MACHINE, so they only make sense for local servers.
+    // The serverId is captured before the async work — the picker decides
+    // once at mount, so reactivity is intentionally not tracked here.
+    const serverId = props.serverId;
+    void (async () => {
+      try {
+        const servers = await listServers();
+        const server = servers.find((entry) => entry.id === serverId);
+        if (server === undefined || !isLocalServerUrl(server.url)) {
+          setShowInApp(true);
+          return;
+        }
+        const picked = await openNativeDirectory({ directory: true, multiple: false });
+        if (picked === null) {
+          // The user cancelled the native dialog: the flow ends here.
+          props.onClose();
+          return;
+        }
+        await add(picked);
+      } catch {
+        // Registry or native dialog unavailable (web/mobile/test
+        // environment): fall back to the in-app directory browser.
+        setShowInApp(true);
+      }
+    })();
+  });
+
+  return <Show when={showInApp()}>{<InAppDirectoryPicker {...props} />}</Show>;
 };
 
 export default DirectoryPickerDialog;
