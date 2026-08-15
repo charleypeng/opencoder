@@ -1,6 +1,6 @@
 # opencoder
 
-**The desktop & mobile client for [OpenCode](https://opencode.ai)** — one codebase, five platforms (macOS / Windows / Linux / iOS / Android), built with [Tauri 2](https://tauri.app) and [SolidJS](https://www.solidjs.com).
+**The desktop & mobile client for [OpenCode](https://opencode.ai)** — one codebase, five platforms (macOS / Windows / Linux / iOS / Android), built with [Tauri 2](https://tauri.app) and [SolidJS](https://www.solidjs.com). **v1.0.0 ships the three desktop platforms**; iOS and Android are in development (see [docs/mobile-signing.md](docs/mobile-signing.md)).
 
 ![Build status](https://img.shields.io/github/actions/workflow/status/charleypeng/opencoder/ci.yml?branch=main&label=CI)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -27,11 +27,7 @@
 | ---------------------------------------------------------- | -------------------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------------ |
 | ![Desktop servers home](docs/screenshots/desktop-home.png) | ![Desktop chat](docs/screenshots/desktop-chat.png) | ![Desktop files](docs/screenshots/desktop-files.png) | ![Desktop chat dark](docs/screenshots/desktop-dark-chat.png) |
 
-| iOS — servers home (iPhone 17, iOS 26)             | iOS — Liquid Glass                                  |
-| -------------------------------------------------- | --------------------------------------------------- |
-| ![iOS servers home](docs/screenshots/ios-home.png) | ![iOS Liquid Glass](docs/screenshots/ios-glass.png) |
-
-Desktop screenshots show the app UI driven by the [Mock OpenCode Server](docs/testing.md) in dev mode; the iOS screenshots were captured on the iPhone 17 simulator (iOS 26.0), with the servers home connected to the Mock OpenCode Server on the host (127.0.0.1).
+Desktop screenshots show the app UI driven by the [Mock OpenCode Server](docs/testing.md) in dev mode.
 
 ## Requirements
 
@@ -55,10 +51,10 @@ opencoder is a pure client: it talks to one or more **OpenCode servers**.
 | macOS    | Universal `.dmg` (arm64 + x86_64) from [GitHub Releases](https://github.com/charleypeng/opencoder/releases); signed + notarized when Apple credentials are configured |
 | Windows  | NSIS `.exe` and MSI `.msi` installers                                                                                                                                 |
 | Linux    | `.deb` and AppImage packages                                                                                                                                          |
-| iOS      | TestFlight / App Store (device builds need an Apple team; unsigned simulator builds are used for development)                                                         |
-| Android  | APK/AAB from CI builds — the build chain is scaffolded and CI-verified, release signing (keystore) is pending                                                         |
+| iOS      | In development — TestFlight / App Store pending (device builds need an Apple team; unsigned simulator builds are used for development)                                |
+| Android  | In development — APK/AAB from CI builds; release signing (keystore) is pending                                                                                        |
 
-Desktop apps ship with built-in auto-update. The first public release is `v1.0.0` (M10-06); signing and mobile release details are in [docs/mobile-signing.md](docs/mobile-signing.md) and [docs/release-signing.md](docs/release-signing.md).
+Desktop apps ship with built-in auto-update. Signing and mobile release details are in [docs/mobile-signing.md](docs/mobile-signing.md) and [docs/release-signing.md](docs/release-signing.md).
 
 ## Quick Start
 

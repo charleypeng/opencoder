@@ -1,6 +1,6 @@
 # opencoder
 
-**[OpenCode](https://opencode.ai) 的跨平台桌面与移动客户端** — 一套代码库，五个平台（macOS / Windows / Linux / iOS / Android），基于 [Tauri 2](https://tauri.app) 与 [SolidJS](https://www.solidjs.com) 构建。
+**[OpenCode](https://opencode.ai) 的跨平台桌面与移动客户端** — 一套代码库，五个平台（macOS / Windows / Linux / iOS / Android），基于 [Tauri 2](https://tauri.app) 与 [SolidJS](https://www.solidjs.com) 构建。**v1.0.0 正式发布桌面三大平台**；iOS 与 Android 仍在开发中（见 [docs/mobile-signing.md](docs/mobile-signing.md)）。
 
 ![Build status](https://img.shields.io/github/actions/workflow/status/charleypeng/opencoder/ci.yml?branch=main&label=CI)
 ![License](https://img.shields.io/badge/license-MIT-blue)
@@ -27,11 +27,7 @@
 | ---------------------------------------------------- | ---------------------------------------------- | ----------------------------------------------- | ------------------------------------------------------- |
 | ![桌面服务器主页](docs/screenshots/desktop-home.png) | ![桌面聊天](docs/screenshots/desktop-chat.png) | ![桌面文件](docs/screenshots/desktop-files.png) | ![桌面深色聊天](docs/screenshots/desktop-dark-chat.png) |
 
-| iOS — 服务器主页（iPhone 17 / iOS 26）           | iOS — Liquid Glass                                  |
-| ------------------------------------------------ | --------------------------------------------------- |
-| ![iOS 服务器主页](docs/screenshots/ios-home.png) | ![iOS Liquid Glass](docs/screenshots/ios-glass.png) |
-
-桌面截图展示应用 UI 以开发模式驱动 [Mock OpenCode Server](docs/testing.md) 的实况；iOS 截图拍摄于 iPhone 17 模拟器（iOS 26.0），其中服务器主页已连接宿主机上的 Mock OpenCode Server（127.0.0.1）。
+桌面截图展示应用 UI 以开发模式驱动 [Mock OpenCode Server](docs/testing.md) 的实况。
 
 ## 服务端要求
 
@@ -55,10 +51,10 @@ opencoder 是纯客户端：它连接一个或多个 **OpenCode 服务器**。
 | macOS   | 从 [GitHub Releases](https://github.com/charleypeng/opencoder/releases) 下载 universal `.dmg`（arm64 + x86_64）；配置 Apple 凭证后自动签名 + 公证 |
 | Windows | NSIS `.exe` 与 MSI `.msi` 安装包                                                                                                                  |
 | Linux   | `.deb` 与 AppImage 包                                                                                                                             |
-| iOS     | TestFlight / App Store（真机构建需 Apple 开发者团队；开发期使用未签名模拟器构建）                                                                 |
-| Android | CI 构建的 APK/AAB — 构建链已脚手架化并通过 CI 验证，release 签名（keystore）待配置                                                                |
+| iOS     | 开发中 — TestFlight / App Store 待上架（真机构建需 Apple 开发者团队；开发期使用未签名模拟器构建）                                                 |
+| Android | 开发中 — CI 构建的 APK/AAB；release 签名（keystore）待配置                                                                                        |
 
-桌面端内置自动更新。首个公开版本为 `v1.0.0`（M10-06）；签名与移动端发布细节见 [docs/mobile-signing.md](docs/mobile-signing.md) 与 [docs/release-signing.md](docs/release-signing.md)。
+桌面端内置自动更新。签名与移动端发布细节见 [docs/mobile-signing.md](docs/mobile-signing.md) 与 [docs/release-signing.md](docs/release-signing.md)。
 
 ## 快速开始
 

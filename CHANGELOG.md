@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-08-15
+
 ### Added
 
 - Native system folder picker for local servers (feat(sessions)): adding a working directory now opens the OS-level folder dialog first (macOS / Linux / Windows) when the server runs on the same machine (localhost / 127.0.0.1 / ::1); remote servers and environments without the native dialog fall back to the in-app directory browser. (sessions)
