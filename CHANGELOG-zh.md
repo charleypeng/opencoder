@@ -17,6 +17,8 @@
 
 - 工作区标签标题修复（fix(sessions)）：桌面侧边栏的 Sessions 标签改为 Workspaces，中文显示为「工作空间」。(sessions)
 
+- 终端连接票据鉴权修复（fix(transport)）：终端数据通道的 connect-ticket 交换现在携带真实服务器必需的 `x-opencode-ticket: 1` 标记头——缺失时 `POST /pty/{id}/connect-token` 返回 403，导致终端一连接就失败。协议控制帧（0x00 + JSON 游标）不再作为终端输出渲染。mock 同步了该头部校验，回归会在 L3 层暴露。(TASK-M6-01)
+
 ## [1.0.0-prerelease] - 2026-08-15
 
 ### 新增

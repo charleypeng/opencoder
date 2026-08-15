@@ -38,6 +38,13 @@ use tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
 type WsStream = WebSocketStream<MaybeTlsStream<TcpStream>>;
 type WsWrite = SplitSink<WsStream, Message>;
 
+/// Marker header the real server demands on `POST /pty/{id}/connect-token`
+/// (packages/opencode/src/server/shared/pty-ticket.ts, v1.18.11): without
+/// `x-opencode-ticket: 1` the handler answers 403 and the PTY channel can
+/// never open. The mock mirrors this check so a regression fails at L3.
+const PTY_CONNECT_TOKEN_HEADER: &str = "x-opencode-ticket";
+const PTY_CONNECT_TOKEN_HEADER_VALUE: &str = "1";
+
 /// Sink abstraction over the tauri IPC channel so the connection machinery
 /// can be unit-tested without a WebView (mirrors `sse::SseSink`).
 pub(crate) trait PtySink: Send + Sync {
@@ -103,7 +110,8 @@ pub(crate) fn build_ws_url(
 }
 
 /// Exchanges a connect ticket via `POST /pty/{ptyID}/connect-token` and
-/// returns the ticket string.
+/// returns the ticket string. The request carries the `x-opencode-ticket`
+/// marker header the real server requires (403 without it).
 async fn fetch_connect_ticket(
     base: &str,
     pty_id: &str,
@@ -113,6 +121,10 @@ async fn fetch_connect_ticket(
         url: Some(base.to_string()),
         method: "POST".to_string(),
         path: format!("/pty/{pty_id}/connect-token"),
+        headers: Some(HashMap::from([(
+            PTY_CONNECT_TOKEN_HEADER.to_string(),
+            PTY_CONNECT_TOKEN_HEADER_VALUE.to_string(),
+        )])),
         auth,
         ..HttpRequest::default()
     };
@@ -237,7 +249,11 @@ pub(crate) async fn spawn_connection(
 }
 
 /// Forwards binary/text frames to the frontend until the connection dies or
-/// the token is cancelled; responds to server pings.
+/// the token is cancelled; responds to server pings. Control frames — a
+/// 0x00 byte followed by UTF-8 JSON carrying the replay cursor
+/// (`PtyProtocol.metaFrame`, packages/core/src/pty/protocol.ts) — are
+/// dropped: they are not terminal output and the client has no replay
+/// resume flow.
 async fn read_loop(
     mut read: SplitStream<WsStream>,
     write: &Arc<AsyncMutex<WsWrite>>,
@@ -251,6 +267,9 @@ async fn read_loop(
             next = read.next() => {
                 match next {
                     Some(Ok(Message::Binary(bytes))) => {
+                        if is_meta_frame(&bytes) {
+                            continue;
+                        }
                         if sink.send(binary_envelope(&bytes)).is_err() {
                             break;
                         }
@@ -274,6 +293,12 @@ async fn read_loop(
             }
         }
     }
+}
+
+/// A binary frame whose first byte is 0x00 is a PTY protocol control frame
+/// (cursor metadata), not terminal output.
+fn is_meta_frame(bytes: &[u8]) -> bool {
+    bytes.first() == Some(&0)
 }
 
 /// Sends one binary frame on the connection's WebSocket.
@@ -375,7 +400,9 @@ mod tests {
                     }
                     let head = &head[..peeked];
                     if head.starts_with(b"POST ") {
-                        // Token exchange: drain the head, answer the ticket.
+                        // Token exchange: mirror the real server, which
+                        // requires the `x-opencode-ticket: 1` marker header
+                        // (403 without it). Drain the head, then answer.
                         let mut buffer = vec![0u8; 8192];
                         while stream.readable().await.is_ok() {
                             let mut chunk = [0u8; 1024];
@@ -389,21 +416,40 @@ mod tests {
                                 }
                             }
                         }
-                        let body = r#"{"ticket":"t-pty-1","expires_in":60}"#;
+                        let marker = b"x-opencode-ticket: 1";
+                        let authorized = head
+                            .to_ascii_lowercase()
+                            .windows(marker.len())
+                            .any(|window| window == marker);
+                        let (status_line, body) = if authorized {
+                            ("200 OK", r#"{"ticket":"t-pty-1","expires_in":60}"#)
+                        } else {
+                            (
+                                "403 Forbidden",
+                                r#"{"error":"Invalid PTY connect token request"}"#,
+                            )
+                        };
                         let response = format!(
-                            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
+                            "HTTP/1.1 {status_line}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
                             body.len(),
                         );
                         let _ = stream.try_write(response.as_bytes());
                     } else if head.starts_with(b"GET ") {
                         // WebSocket upgrade: let accept_async read the
                         // (still buffered) request head and complete the
-                        // handshake, then echo the first frame back and
-                        // close — exercising server-initiated closes.
+                        // handshake, then mirror the real protocol — a
+                        // control frame (0x00 + JSON cursor) precedes the
+                        // echoed output — echo the first frame back and
+                        // close, exercising server-initiated closes.
                         let Ok(ws) = tokio_tungstenite::accept_async(stream).await else {
                             return;
                         };
                         let (mut send, mut read) = ws.split();
+                        let meta = [
+                            0u8, b'{', b'"', b'c', b'u', b'r', b's', b'o', b'r', b'"', b':', b'0',
+                            b'}',
+                        ];
+                        let _ = send.send(Message::Binary(meta.to_vec().into())).await;
                         if let Some(Ok(frame)) = read.next().await {
                             if send.send(frame).await.is_err() {
                                 return;
@@ -491,6 +537,25 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread")]
+    async fn connect_token_requires_the_marker_header() {
+        // The real server answers 403 when `x-opencode-ticket: 1` is missing;
+        // the transport's fetch_connect_ticket sends it, so this path only
+        // fails when someone drops the header.
+        let addr = spawn_pty_test_server().await;
+        let request = HttpRequest {
+            url: Some(format!("http://{addr}")),
+            method: "POST".to_string(),
+            path: "/pty/pty_1/connect-token".to_string(),
+            ..HttpRequest::default()
+        };
+        let err = crate::transport::http::http_request(request)
+            .await
+            .unwrap_err();
+        assert_eq!(err.code, "http");
+        assert_eq!(err.status, Some(403));
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
     async fn spawn_connection_echoes_bytes_and_closes() {
         let addr = spawn_pty_test_server().await;
         let url = build_ws_url(&format!("http://{addr}"), "pty_1", "t", None).unwrap();
@@ -516,6 +581,22 @@ mod tests {
             })
             .await;
         assert!(echoed, "echo never arrived: {:?}", sink.pushes());
+
+        // The server precedes output with a protocol control frame (0x00 +
+        // JSON cursor); the read loop must drop it so it never renders in
+        // the terminal.
+        let no_meta_leak = sink.pushes().iter().all(|push| {
+            push.get("bytes")
+                .and_then(serde_json::Value::as_array)
+                .and_then(|bytes| bytes.first())
+                .and_then(serde_json::Value::as_u64)
+                != Some(0)
+        });
+        assert!(
+            no_meta_leak,
+            "control frame leaked into the terminal: {:?}",
+            sink.pushes()
+        );
 
         // Close is idempotent and terminates the read loop with the closed
         // control frame.

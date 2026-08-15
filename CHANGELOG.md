@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Workspace tab title fix (fix(sessions)): renamed the desktop sidebar's Sessions tab to Workspaces, localized as 「工作空间」 in Chinese. (sessions)
 
+- PTY connect-token auth fix (fix(transport)): the terminal channel's connect-ticket exchange now sends the `x-opencode-ticket: 1` marker header the real server requires — without it `POST /pty/{id}/connect-token` answers 403 and every terminal died on connect. Protocol control frames (0x00 + JSON cursor) are no longer rendered as terminal output. The mock mirrors the header gate so a regression fails at L3. (TASK-M6-01)
+
 ## [1.0.0-prerelease] - 2026-08-15
 
 ### Added

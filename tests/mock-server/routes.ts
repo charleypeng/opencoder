@@ -1057,8 +1057,17 @@ function registerDynamic(app: Express, fixtures: Fixtures): void {
   });
 
   // Connect token (TASK-M6-01): returns the PtyTicketConnectToken the Rust
-  // transport exchanges before opening the WebSocket channel.
+  // transport exchanges before opening the WebSocket channel. Mirrors the
+  // real server's auth gate (packages/opencode/src/server/shared/pty-ticket.ts,
+  // v1.18.11): the `x-opencode-ticket: 1` marker header is REQUIRED and a
+  // request without it answers 403 — the client's Rust transport always
+  // sends it, so a dropped header fails the self-test here instead of
+  // against a real server.
   app.post("/pty/:ptyID/connect-token", (req, res) => {
+    if (req.headers["x-opencode-ticket"] !== "1") {
+      res.status(403).json({ error: "Invalid PTY connect token request" });
+      return;
+    }
     res.json({ ticket: `mock-ticket-${req.params.ptyID}`, expires_in: 60 });
   });
 

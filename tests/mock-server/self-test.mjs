@@ -2245,9 +2245,23 @@ try {
       );
     });
 
-    await test("pty connect-token returns the PtyTicketConnectToken shape", async () => {
+    await test("pty connect-token requires the x-opencode-ticket marker header", async () => {
+      // The real server answers 403 without the marker header; the mock
+      // mirrors it so a dropped header fails at L3 (TASK-M6-01).
+      const forbidden = await request(baseUrl, "/pty/pty_abc123/connect-token", {
+        method: "POST",
+      });
+      expect(forbidden.status === 403, `status ${forbidden.status}`);
+      expect(
+        typeof forbidden.body?.error === "string",
+        `error ${JSON.stringify(forbidden.body?.error)}`,
+      );
+    });
+
+    await test("pty connect-token returns the PtyTicketConnectToken shape with the header", async () => {
       const { status, body } = await request(baseUrl, "/pty/pty_abc123/connect-token", {
         method: "POST",
+        headers: { "x-opencode-ticket": "1" },
       });
       expect(status === 200, `status ${status}`);
       expect(

@@ -43,6 +43,10 @@ pub struct HttpRequest {
     pub timeout_ms: Option<u64>,
     #[serde(rename = "requestID")]
     pub request_id: Option<String>,
+    /// Extra request headers (e.g. the PTY connect-token marker the real
+    /// server requires, TASK-M6-01).
+    #[serde(default)]
+    pub headers: Option<HashMap<String, String>>,
 }
 
 /// Error classification serialized to the frontend. `status` is set for HTTP
@@ -209,6 +213,11 @@ fn assemble_request(
         } else if let Some(password) = &auth.password {
             let username = auth.username.as_deref().unwrap_or("");
             builder = builder.basic_auth(username, Some(password));
+        }
+    }
+    if let Some(headers) = &request.headers {
+        for (key, value) in headers {
+            builder = builder.header(key, value);
         }
     }
     // OAuth form bodies (application/x-www-form-urlencoded) win over JSON.
