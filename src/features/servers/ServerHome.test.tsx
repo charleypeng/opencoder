@@ -89,6 +89,7 @@ describe("ServerHome list rendering", () => {
     expect(within(betaCard).getByTestId("last-connected")).toHaveTextContent(
       "Last connected 2h ago",
     );
+    expect(screen.getByTestId("add-server-card")).toBeInTheDocument();
     expect(screen.queryByTestId("empty-state")).toBeNull();
   });
 
@@ -340,7 +341,7 @@ describe("ServerHome Add Server wizard", () => {
     render(() => <ServerHome onSelect={vi.fn()} />);
     await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByTestId("add-server-btn"));
+    fireEvent.click(screen.getByTestId("add-first-server"));
     await waitFor(() => expect(screen.getByTestId("add-server")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("wizard-back"));
     await waitFor(() => expect(screen.getByTestId("empty-state")).toBeInTheDocument());

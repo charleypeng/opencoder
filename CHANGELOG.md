@@ -25,6 +25,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Expanded pet customization (feat(pet)): the pet now supports blob, cat, dog and robot characters; size and opacity sliders; fixed, free-roam and bottom-walk movement modes; live preference updates from the main Settings → Pet page; and a click-through reset event so the visual indicator never disagrees with the actual pointer state. (pet)
 
+- Server home quick-add layout (feat(servers)): removed the large landing banner and header Add server button. A large plus card now sits beside the server cards and is also used as the empty-state entry point. (servers)
+
 ### Fixed
 
 - Pet click-through state fix (fix(pet)): removed the pet's right-click settings menu and synchronized the reset performed when the pet is shown again, so the visible click-through indicator matches the actual Tauri pointer-event state. (pet)

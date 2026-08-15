@@ -134,23 +134,12 @@ function serverMenuItems(
   );
 }
 
-function EmptyState(props: { onAdd: () => void }) {
+function EmptyState() {
   const t = useT();
   return (
-    <div
-      data-testid="empty-state"
-      class="mx-auto max-w-md rounded-md border border-bg-sunken bg-bg-elevated p-8 text-center"
-    >
-      <h2 class="text-lg font-semibold">{t("servers:noServers")}</h2>
-      <p class="mt-2 text-sm text-fg-secondary">{t("servers:noServersHint")}</p>
-      <button
-        data-testid="add-first-server"
-        type="button"
-        class="mt-5 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-        onClick={() => props.onAdd()}
-      >
-        {t("servers:addFirstServer")}
-      </button>
+    <div data-testid="empty-state" class="mx-auto mt-4 max-w-md text-center">
+      <p class="text-sm font-medium text-fg-secondary">{t("servers:noServers")}</p>
+      <p class="mt-1 text-sm text-fg-faint">{t("servers:noServersHint")}</p>
     </div>
   );
 }
@@ -343,6 +332,17 @@ function ServerHome(props: ServerHomeProps) {
         data-testid="server-grid"
         class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
       >
+        <button
+          data-testid={servers().length === 0 ? "add-first-server" : "add-server-card"}
+          type="button"
+          class="flex min-h-44 flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-bg-sunken bg-bg-elevated p-4 text-fg-secondary transition-colors hover:border-accent hover:text-fg-primary"
+          onClick={startAdd}
+        >
+          <span class="text-5xl font-light leading-none" aria-hidden="true">
+            +
+          </span>
+          <span class="text-sm font-medium">{t("servers:addServer")}</span>
+        </button>
         <For each={servers()}>
           {(server) => {
             const kind = () => healthKind(server);
@@ -430,22 +430,7 @@ function ServerHome(props: ServerHomeProps) {
     // notch in portrait or landscape. TASK-M8-04: min-h-full (instead of
     // min-h-dvh) lets the page fill the App content wrapper below the
     // desktop TitleBar without overflowing it.
-    <div class="min-h-full bg-bg-base text-fg-primary pb-safe" data-testid="server-home">
-      <header class="glass sticky top-0 z-10 flex items-center justify-between pb-4 pl-[max(1.5rem,env(safe-area-inset-left,0px))] pr-[max(1.5rem,env(safe-area-inset-right,0px))] pt-[max(1rem,env(safe-area-inset-top,0px))]">
-        <div>
-          <h1 class="text-lg font-semibold">opencoder</h1>
-          <p class="text-sm text-fg-secondary">{t("servers:servers")}</p>
-        </div>
-        <button
-          data-testid="add-server-btn"
-          type="button"
-          class="rounded-md bg-accent px-4 py-2 text-sm font-medium text-white"
-          onClick={startAdd}
-        >
-          {t("servers:addServer")}
-        </button>
-      </header>
-
+    <div class="min-h-full bg-bg-base pb-safe text-fg-primary" data-testid="server-home">
       <main class="mx-auto max-w-5xl px-6 py-8">
         <Show when={loadError()}>
           <ErrorBanner error={loadError()} onDismiss={() => setLoadError(null)} />
@@ -456,9 +441,12 @@ function ServerHome(props: ServerHomeProps) {
         <Show
           when={adding() || editing()}
           fallback={
-            <Show when={servers().length === 0} fallback={renderGrid()}>
-              <EmptyState onAdd={startAdd} />
-            </Show>
+            <>
+              {renderGrid()}
+              <Show when={servers().length === 0}>
+                <EmptyState />
+              </Show>
+            </>
           }
         >
           <div class="mx-auto max-w-xl">
