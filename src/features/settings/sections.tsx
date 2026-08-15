@@ -11,6 +11,7 @@ import ModelsSection from "./models/ModelsSection.js";
 import McpSection from "./mcp/McpSection.js";
 import ShortcutsSection from "./ShortcutsSection.js";
 import DesktopSection from "./DesktopSection.js";
+import PetSection from "./PetSection.js";
 import NotificationsSection from "./NotificationsSection.js";
 import UpdatesSection from "./UpdatesSection.js";
 import LanguageSection from "./LanguageSection.js";
@@ -31,6 +32,7 @@ export type SectionId =
   | "servers"
   | "shortcuts"
   | "desktop"
+  | "pet"
   | "notifications"
   | "updates"
   | "config"
@@ -85,6 +87,9 @@ const ICONS: Record<SectionId, JSX.Element> = {
     <Icon path="M18 3a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3 3 3 0 0 0 3-3 3 3 0 0 0-3-3H6a3 3 0 0 0-3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3 3 3 0 0 0-3 3 3 3 0 0 0 3 3h12a3 3 0 0 0 3-3 3 3 0 0 0-3-3z" />
   ),
   desktop: <Icon path="M2 3h20v14H2zM8 21h8M12 17v4" />,
+  pet: (
+    <Icon path="M4 11.5C4 7.9 7.6 5 12 5s8 2.9 8 6.5V16a3 3 0 0 1-3 3h-1.5l-1.2-2h-4.6l-1.2 2H7a3 3 0 0 1-3-3zM8 11h.01M16 11h.01M9 14c1.7 1.2 4.3 1.2 6 0" />
+  ),
   notifications: (
     <Icon path="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.5 0" />
   ),
@@ -169,8 +174,16 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     titleKey: "settings:desktop",
     hintKey: "settings:desktopHint",
     icon: ICONS.desktop,
-    keywords: ["tray", "pet", "summon", "global"],
+    keywords: ["tray", "summon", "global"],
     component: DesktopSection,
+  },
+  {
+    id: "pet",
+    titleKey: "settings:pet",
+    hintKey: "settings:petHint",
+    icon: ICONS.pet,
+    keywords: ["pet", "companion", "click-through", "clickthrough", "mascot"],
+    component: PetSection,
   },
   {
     id: "notifications",

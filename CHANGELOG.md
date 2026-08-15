@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - AI generated title for new sessions (feat(settings)): a new toggle in Settings → Config → Global configuration (default ON, a CLIENT preference — the 1.18.11 Config schema has no such key and rejects unknown keys, so it is never written to opencode.json) names a new session from its first message once the first exchange completes — PATCH /session/{id} with the first user message's text, single-lined and truncated to 50 chars like the opencode TUI; each session is titled at most once, failures stay silent. (settings)
 
+- Standalone pet settings (feat(settings)): pet visibility and click-through controls now live in their own Settings → Pet section instead of being mixed into Desktop settings. (settings)
+
 ### Fixed
 
 - Markdown source toggle fix (fix(files)): selecting "View source" from a markdown tab's context menu now actually switches the active content from the rendered preview to the source view. The menu now uses the shared ContextMenu component and safely captures the tab path before unmounting. (files)

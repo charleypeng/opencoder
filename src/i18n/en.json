@@ -672,7 +672,9 @@
     "diagRuleConfirm": "Confirm",
     "diagRuleDeleteFailed": "Could not delete the rule: {{detail}}",
     "configAutoTitle": "AI generated title",
-    "configAutoTitleHint": "Name a new session from its first message once the first exchange completes (client preference; the 1.18.11 config contract has no such key, so it is not written to opencode.json)."
+    "configAutoTitleHint": "Name a new session from its first message once the first exchange completes (client preference; the 1.18.11 config contract has no such key, so it is not written to opencode.json).",
+    "pet": "Pet",
+    "petHint": "Pet companion window controls."
   },
   "pet": {
     "size": "Size",

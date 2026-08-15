@@ -1,11 +1,6 @@
-// L2 tests for the desktop settings section (TASK-M8-05): the close-to-
-// tray switch and the global summon accelerator input load their current
-// values from Rust, apply changes immediately (set_close_to_tray /
-// set_global_shortcut), persist them to localStorage and surface
-// failures inline. TASK-M8-07: the Show pet switch persists the pref
-// only after the window action succeeds, and the Pet click-through
-// switch (the escape hatch for a click-through pet) mirrors the Rust
-// state and toggles it via pet_set_ignore_mouse.
+// L2 tests for the desktop settings section: close-to-tray and the global
+// summon accelerator load their current values from Rust, apply changes
+// immediately, persist successful changes and surface failures inline.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -121,96 +116,6 @@ describe("DesktopSection", () => {
       expect(screen.getByTestId("desktop-error")).toHaveTextContent("invalid accelerator: Space"),
     );
     expect(screen.getByTestId("desktop-shortcut-input")).toHaveValue("Space");
-  });
-
-  it("renders the Show pet switch on by default", async () => {
-    render(() => <DesktopSection />);
-    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
-    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "true");
-  });
-
-  it("hides the pet and persists the pref when the switch is toggled off", async () => {
-    render(() => <DesktopSection />);
-    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("desktop-show-pet"));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("pet_hide"));
-    await waitFor(() =>
-      expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false"),
-    );
-    expect(JSON.parse(localStorage.getItem("oc-desktop") ?? "{}").petEnabled).toBe(false);
-  });
-
-  it("shows the pet again and persists the pref when toggled back on", async () => {
-    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: false }));
-    render(() => <DesktopSection />);
-    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
-    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false");
-    fireEvent.click(screen.getByTestId("desktop-show-pet"));
-    await waitFor(() => expect(invokeMock).toHaveBeenCalledWith("pet_show"));
-    await waitFor(() =>
-      expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "true"),
-    );
-    expect(JSON.parse(localStorage.getItem("oc-desktop") ?? "{}").petEnabled).toBe(true);
-  });
-
-  it("keeps the switch off and shows an error when showing the pet fails", async () => {
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "get_close_to_tray") return Promise.resolve(false);
-      if (cmd === "get_global_shortcut") return Promise.resolve("Alt+Space");
-      if (cmd === "pet_show") return Promise.reject("pet unavailable");
-      return Promise.resolve(undefined);
-    });
-    localStorage.setItem("oc-desktop", JSON.stringify({ petEnabled: false }));
-    render(() => <DesktopSection />);
-    await waitFor(() => expect(screen.getByTestId("desktop-show-pet")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("desktop-show-pet"));
-    await waitFor(() =>
-      expect(screen.getByTestId("desktop-error")).toHaveTextContent("pet unavailable"),
-    );
-    expect(screen.getByTestId("desktop-show-pet")).toHaveAttribute("aria-checked", "false");
-    // The pref is persisted only after the window action succeeds, so a
-    // failed show leaves the stored value (and the next launch) off.
-    expect(JSON.parse(localStorage.getItem("oc-desktop") ?? "{}").petEnabled).toBe(false);
-  });
-
-  it("renders the pet click-through switch from the current state", async () => {
-    invokeMock.mockImplementation((cmd: string) => {
-      if (cmd === "get_close_to_tray") return Promise.resolve(false);
-      if (cmd === "get_global_shortcut") return Promise.resolve("Alt+Space");
-      if (cmd === "pet_get_ignore_mouse") return Promise.resolve(true);
-      return Promise.resolve(undefined);
-    });
-    render(() => <DesktopSection />);
-    await waitFor(() =>
-      expect(screen.getByTestId("desktop-pet-click-through")).toHaveAttribute(
-        "aria-checked",
-        "true",
-      ),
-    );
-  });
-
-  it("toggles pet click-through via pet_set_ignore_mouse (escape hatch)", async () => {
-    render(() => <DesktopSection />);
-    await waitFor(() =>
-      expect(screen.getByTestId("desktop-pet-click-through")).toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("desktop-pet-click-through")).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
-    fireEvent.click(screen.getByTestId("desktop-pet-click-through"));
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("pet_set_ignore_mouse", { ignore: true }),
-    );
-    expect(screen.getByTestId("desktop-pet-click-through")).toHaveAttribute("aria-checked", "true");
-    fireEvent.click(screen.getByTestId("desktop-pet-click-through"));
-    await waitFor(() =>
-      expect(invokeMock).toHaveBeenCalledWith("pet_set_ignore_mouse", { ignore: false }),
-    );
-    expect(screen.getByTestId("desktop-pet-click-through")).toHaveAttribute(
-      "aria-checked",
-      "false",
-    );
   });
 
   it("disables the save button for an empty accelerator", async () => {
