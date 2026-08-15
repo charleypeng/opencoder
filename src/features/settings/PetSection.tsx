@@ -50,7 +50,7 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [petBusy, setPetBusy] = createSignal(false);
   const [petClickThrough, setPetClickThrough] = createSignal(false);
   const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
-  const [petType, setPetType] = createSignal<PetType>(loadPetPrefs().petType ?? "blob");
+  const [petType, setPetType] = createSignal<PetType>(loadPetPrefs().petType ?? "cat");
   const [movement, setMovement] = createSignal<PetMovement>(loadPetPrefs().movement ?? "fixed");
   const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
   const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);

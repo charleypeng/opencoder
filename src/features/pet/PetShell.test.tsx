@@ -104,22 +104,24 @@ afterEach(() => {
 });
 
 describe("PetShell rendering", () => {
-  it("renders the drag region, the blob and the idle state pill", () => {
+  it("renders a transparent, control-free pet canvas", () => {
     render(() => <PetShell />);
     const shell = screen.getByTestId("pet-shell");
     expect(shell).toHaveAttribute("data-tauri-drag-region", "deep");
     expect(shell).toHaveAttribute("data-pet-state", "idle");
     expect(screen.getByTestId("pet-blob")).toBeInTheDocument();
-    expect(screen.getByTestId("pet-state")).toHaveTextContent("Idle");
+    expect(screen.getByTestId("pet-character")).toBeInTheDocument();
+    expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pet-settings-toggle")).not.toBeInTheDocument();
   });
 
-  it("subscribes to the pet-state event and updates the pill", () => {
+  it("subscribes to the pet-state event and updates the animation state", () => {
     render(() => <PetShell />);
     emitState("working");
     expect(screen.getByTestId("pet-shell")).toHaveAttribute("data-pet-state", "working");
-    expect(screen.getByTestId("pet-state")).toHaveTextContent("Working");
+    expect(screen.getByTestId("pet-blob")).toHaveAttribute("data-pet-state", "working");
     emitState("success");
-    expect(screen.getByTestId("pet-state")).toHaveTextContent("Success");
+    expect(screen.getByTestId("pet-blob")).toHaveAttribute("data-pet-state", "success");
   });
 
   it("drives the blob animation state from forwarded states", () => {
@@ -144,67 +146,22 @@ describe("PetShell rendering", () => {
     expect(screen.getByTestId("pet-blob")).not.toHaveStyle("animation-duration: 400ms");
   });
 
-  it("shows the click-through marker only while enabled", () => {
+  it("keeps the pet free of status and settings overlays", () => {
     render(() => <PetShell />);
     expect(screen.queryByTestId("pet-click-through")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    fireEvent.click(screen.getByTestId("pet-click-through-toggle"));
-    expect(screen.getByTestId("pet-click-through")).toBeInTheDocument();
+    expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pet-settings-toggle")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
   });
 });
 
-describe("PetShell settings", () => {
-  it("opens and closes the settings popover from the gear button", () => {
+describe("PetShell interaction surface", () => {
+  it("exposes a native drag region on the transparent shell", () => {
     render(() => <PetShell />);
-    expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    expect(screen.getByTestId("pet-settings")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
-    fireEvent.contextMenu(screen.getByTestId("pet-blob"));
-    expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
-  });
-
-  it("applies and persists the size slider", () => {
-    render(() => <PetShell />);
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    fireEvent.input(screen.getByTestId("pet-size-slider"), { target: { value: "180" } });
-    expect(setPetSizeMock).toHaveBeenCalledWith(180);
-    expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toEqual({ size: 180 });
-  });
-
-  it("applies and persists the opacity slider", () => {
-    render(() => <PetShell />);
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    fireEvent.input(screen.getByTestId("pet-opacity-slider"), { target: { value: "0.7" } });
-    expect(setPetOpacityMock).toHaveBeenCalledWith(0.7);
-    expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toEqual({ opacity: 0.7 });
-  });
-
-  it("applies and persists each toggle", () => {
-    render(() => <PetShell />);
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    fireEvent.click(screen.getByTestId("pet-topmost-toggle"));
-    expect(setPetTopmostMock).toHaveBeenCalledWith(false);
-    fireEvent.click(screen.getByTestId("pet-mute-toggle"));
-    expect(setPetMuteMock).toHaveBeenCalledWith(true);
-    fireEvent.click(screen.getByTestId("pet-dock-toggle"));
-    expect(setPetDockMock).toHaveBeenCalledWith(false);
-    fireEvent.click(screen.getByTestId("pet-click-through-toggle"));
-    expect(setPetIgnoreMouseMock).toHaveBeenCalledWith(true);
-    expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toEqual({
-      topmost: false,
-      mute: true,
-      dock: false,
-      clickThrough: true,
-    });
-  });
-
-  it("hides the pet window from the hide button", () => {
-    render(() => <PetShell />);
-    fireEvent.click(screen.getByTestId("pet-settings-toggle"));
-    fireEvent.click(screen.getByTestId("pet-hide"));
-    expect(hidePetMock).toHaveBeenCalled();
+    const shell = screen.getByTestId("pet-shell");
+    expect(shell).toHaveAttribute("data-tauri-drag-region", "deep");
+    fireEvent.mouseDown(shell, { button: 0 });
+    expect(screen.getByTestId("pet-blob")).toBeInTheDocument();
   });
 });
 
@@ -249,7 +206,9 @@ describe("PetShell interactions (TASK-M8-08)", () => {
     vi.advanceTimersByTime(220);
     expect(blob).toHaveAttribute("data-pet-state", "attention");
     expect(blob).toHaveAttribute("data-headpat", "true");
-    expect(screen.getByTestId("pet-state")).toHaveTextContent("Attention");
+    // The pet has no persistent status UI; animation state remains on the DOM
+    // for accessibility-free rendering and diagnostics.
+    expect(blob).toHaveAttribute("data-pet-state", "attention");
     // The local headpat reverts to the last forwarded state.
     vi.advanceTimersByTime(TRANSIENT_MS.attention);
     expect(blob).toHaveAttribute("data-pet-state", "idle");
@@ -285,7 +244,7 @@ describe("PetShell interactions (TASK-M8-08)", () => {
     expect(setPetSizeMock).toHaveBeenCalledWith(48);
     expect(blob).toHaveAttribute("data-collapsed", "true");
     expect(screen.getByTestId("pet-restore-hint")).toBeInTheDocument();
-    // The pill and the settings gear are hidden while collapsed.
+    // The settings gear and status pill no longer exist in the pet window.
     expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pet-settings-toggle")).not.toBeInTheDocument();
     // Right-click cannot open the settings while collapsed.
@@ -294,7 +253,7 @@ describe("PetShell interactions (TASK-M8-08)", () => {
     fireEvent.dblClick(blob);
     expect(setPetSizeMock).toHaveBeenCalledWith(160);
     expect(blob).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getByTestId("pet-state")).toBeInTheDocument();
+    expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
   });
 
   it("collapsed clicks do not headpat", () => {

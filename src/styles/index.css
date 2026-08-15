@@ -357,18 +357,99 @@
  * prefers-reduced-motion.
  */
 
-.pet-character {
-  font-size: 2.1rem;
-  line-height: 1;
-  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+.pet-window-shell {
+  background: transparent !important;
 }
 
-.pet-blob[data-collapsed="true"] .pet-character {
-  display: none;
-}
-
+/* The pet window is a transparent canvas. The character is deliberately
+ * drawn without a card, gradient, ring or opaque backdrop so the client
+ * behind the always-on-top window remains visible around it. */
 .pet-blob {
-  cursor: default;
+  cursor: grab;
+  background: transparent;
+  box-shadow: none;
+  border: 0;
+  outline: 0;
+}
+
+.pet-blob:active {
+  cursor: grabbing;
+}
+
+.pet-art {
+  position: relative;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  align-items: flex-end;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.pet-character {
+  position: relative;
+  z-index: 2;
+  display: block;
+  font-size: clamp(2.6rem, 38%, 4.5rem);
+  line-height: 1;
+  filter: drop-shadow(0 2px 1px rgba(0, 0, 0, 0.32));
+  transform: translateY(4%);
+}
+
+.pet-character-robot,
+.pet-character-blob {
+  transform: translateY(-8%);
+}
+
+.pet-cardboard-box {
+  position: absolute;
+  z-index: 1;
+  bottom: 2%;
+  width: 68%;
+  height: 34%;
+  border: 2px solid rgba(78, 45, 25, 0.72);
+  border-radius: 2px 2px 4px 4px;
+  background: linear-gradient(180deg, #d9a766 0%, #b8783d 100%);
+  box-shadow:
+    inset 0 5px 0 rgba(255, 224, 167, 0.28),
+    0 2px 2px rgba(0, 0, 0, 0.22);
+}
+
+.pet-cardboard-box::before,
+.pet-cardboard-box::after {
+  position: absolute;
+  top: -17%;
+  width: 48%;
+  height: 24%;
+  border: 2px solid rgba(78, 45, 25, 0.62);
+  background: #c58a4c;
+  content: "";
+}
+
+.pet-cardboard-box::before {
+  left: -3%;
+  transform: skewY(12deg);
+}
+
+.pet-cardboard-box::after {
+  right: -3%;
+  transform: skewY(-12deg);
+}
+
+.pet-box-label {
+  position: absolute;
+  inset: 35% 0 auto;
+  color: rgba(74, 42, 26, 0.6);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: clamp(0.45rem, 12%, 0.8rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.pet-blob[data-collapsed="true"] .pet-character,
+.pet-blob[data-collapsed="true"] .pet-cardboard-box {
+  display: none;
 }
 
 .pet-blob[data-pet-state="idle"] {

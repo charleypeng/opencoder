@@ -1,17 +1,16 @@
 // Pet companion window shell (TASK-M8-07/08): the frontend page of the
 // pet window (label "pet", route /pet — App redirects the whole shell
 // here). A transparent frameless always-on-top window renders the pet —
-// a CSS blob with eyes — animated per state (ui-design §6): idle bobs,
-// working types at a speed driven by the forwarded intensity (0-100),
-// waiting raises a waving paw, success bounces, error droops, attention
-// sparks (forwarded, e.g. a pending question) or shows a heart (local
-// headpat). The window is a Tauri drag region (`data-tauri-drag-
-// region="deep"`), so the blob drags the window and the form controls
-// (the drag script excludes interactive elements) keep working.
+// a transparent, borderless canvas with no status pill or settings control.
+// The character is anchored to the lower-left of the canvas so it naturally
+// blends into the client background. The entire canvas is a native Tauri drag
+// region and also calls startDragging explicitly on primary-button press, so
+// the user can move the pet with the mouse. The main Settings → Pet page
+// remains the only settings entry point.
 //
 // TASK-M8-08 interaction model: a single click is a HEADPAT (bounce +
-// heart) — local to the pet window: the state pill shows "Attention" for
-// TRANSIENT_MS.attention and reverts to the last forwarded state; a
+// heart) — local to the pet window: a single click animates the character
+// for TRANSIENT_MS.attention and then reverts to the last forwarded state; a
 // forwarded state (e.g. the session turning busy) always supersedes it,
 // so no cross-window interaction channel is needed. A double click
 // collapses the window to COLLAPSED_SIZE (a tiny blob with a restore
@@ -24,57 +23,28 @@
 // the CSS pet is silent by construction, and a future sound/Rive renderer
 // would gate on it (documented in petPrefs.ts).
 //
-// The gear button / right-click opens the settings popover: size slider
-// (120-200), opacity slider (0.4-1.0 — applied as CSS opacity, Tauri 2
-// has no runtime window opacity, see docs/tasks/M8.md), topmost / mute /
-// edge-dock / click-through toggles and a Hide button. Every change is
-// applied to Rust immediately and persisted in the pet window's own
-// localStorage (`oc-pet`), re-applied on the next mount via
-// applyPetPrefs. Click-through is a lockout risk by design (the window
-// ignores every pointer event) — the popover copy points at the escape
-// hatches: the main window's Desktop settings "Pet click-through" switch
-// and the auto-revert that re-enables clicks every time the window is
-// shown again (Rust-side in pet_show). Linux without a compositor loses
-// the transparency and shows the opaque rounded blob (documented
-// fallback, docs/tasks/M8.md).
+// Pet display settings (character, movement, size, opacity) live in the
+// main Settings → Pet page. The pet window itself intentionally has no
+// visible controls; click-through remains a main-window escape-hatch
+// setting and Rust re-enables pointer events whenever the pet is shown.
+// Linux without a compositor can still lose transparency and show an opaque
+// window; the browser body is explicitly cleared to transparent on mount.
 
 import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { PhysicalPosition } from "@tauri-apps/api/dpi";
-import { getCurrentWindow, primaryMonitor } from "@tauri-apps/api/window";
+import { currentMonitor, getCurrentWindow } from "@tauri-apps/api/window";
+import { setPetSize } from "../../services/pet.js";
 import {
-  hidePet,
-  setPetDock,
-  setPetIgnoreMouse,
-  setPetMute,
-  setPetOpacity,
-  setPetSize,
-  setPetTopmost,
   subscribeToPetIntensity,
   subscribeToPetPrefs,
-  notifyPetPrefsChanged,
   type PetPrefsPayload,
   subscribeToPetState,
   type PetAnimationState,
 } from "../../services/pet.js";
-import {
-  applyPetPrefs,
-  loadPetPrefs,
-  savePetPrefs,
-  type PetMovement,
-  type PetType,
-} from "./petPrefs.js";
+import { applyPetPrefs, loadPetPrefs, type PetMovement, type PetType } from "./petPrefs.js";
 import { TRANSIENT_MS } from "./petState.js";
 import { useT } from "../../i18n/index.js";
-
-const STATE_LABEL_KEYS: Record<PetAnimationState, string> = {
-  idle: "pet:stateIdle",
-  working: "pet:stateWorking",
-  waiting: "pet:stateWaiting",
-  success: "pet:stateSuccess",
-  error: "pet:stateError",
-  attention: "pet:stateAttention",
-};
 
 /** Collapsed window edge length (double-click toggle, TASK-M8-08). */
 const COLLAPSED_SIZE = 48;
@@ -101,13 +71,8 @@ const PetShell: Component = () => {
   const [headpatActive, setHeadpatActive] = createSignal(false);
   const [size, setSize] = createSignal(stored.size ?? 160);
   const [opacity, setOpacity] = createSignal(stored.opacity ?? 1);
-  const [topmost, setTopmost] = createSignal(stored.topmost ?? true);
-  const [mute, setMute] = createSignal(stored.mute ?? false);
-  const [dock, setDock] = createSignal(stored.dock ?? true);
-  const [clickThrough, setClickThrough] = createSignal(stored.clickThrough ?? false);
-  const [petType, setPetType] = createSignal<PetType>(stored.petType ?? "blob");
+  const [petType, setPetType] = createSignal<PetType>(stored.petType ?? "cat");
   const [movement, setMovement] = createSignal<PetMovement>(stored.movement ?? "fixed");
-  const [settingsOpen, setSettingsOpen] = createSignal(false);
   let movementTimer: ReturnType<typeof setInterval> | undefined;
 
   let clickTimer: ReturnType<typeof setTimeout> | undefined;
@@ -136,7 +101,7 @@ const PetShell: Component = () => {
     ) {
       return;
     }
-    const monitor = await primaryMonitor();
+    const monitor = await currentMonitor();
     if (monitor === null) return;
     const win = getCurrentWindow();
     const size = await win.outerSize();
@@ -164,7 +129,7 @@ const PetShell: Component = () => {
           // Ignore transient monitor/window errors.
         });
       },
-      movement() === "bottom" ? 3200 : 4500,
+      movement() === "bottom" ? 900 : 1800,
     );
   }
 
@@ -176,10 +141,20 @@ const PetShell: Component = () => {
     }
     if (prefs.size !== undefined) setSize(prefs.size);
     if (prefs.opacity !== undefined) setOpacity(prefs.opacity);
-    if (prefs.clickThrough !== undefined) setClickThrough(prefs.clickThrough);
   }
 
   onMount(() => {
+    // The global app stylesheet gives body a solid theme background. A
+    // separate transparent Tauri webview must explicitly clear it or the
+    // pet appears inside a square opaque frame instead of blending with the
+    // client behind it.
+    const html = document.documentElement;
+    const body = document.body;
+    const previousHtmlBackground = html.style.backgroundColor;
+    const previousBodyBackground = body.style.backgroundColor;
+    html.style.backgroundColor = "transparent";
+    body.style.backgroundColor = "transparent";
+
     // Re-apply the persisted settings to Rust (size/opacity/topmost/mute/
     // dock/click-through) so a fresh window matches the stored prefs; a
     // rejected IPC is swallowed — the defaults remain in effect.
@@ -196,6 +171,8 @@ const PetShell: Component = () => {
     const stopPrefs = subscribeToPetPrefs(applyExternalPrefs);
     restartMovement();
     onCleanup(() => {
+      html.style.backgroundColor = previousHtmlBackground;
+      body.style.backgroundColor = previousBodyBackground;
       stopState();
       stopIntensity();
       stopPrefs();
@@ -205,67 +182,15 @@ const PetShell: Component = () => {
     });
   });
 
-  function persist(patch: Partial<ReturnType<typeof loadPetPrefs>>) {
-    savePetPrefs({ ...loadPetPrefs(), ...patch });
-  }
-
-  function changeSize(value: number) {
-    setSize(value);
-    void setPetSize(value);
-    persist({ size: value });
-    void notifyPetPrefsChanged({ size: value });
-  }
-
-  function changeOpacity(value: number) {
-    setOpacity(value);
-    void setPetOpacity(value);
-    persist({ opacity: value });
-    void notifyPetPrefsChanged({ opacity: value });
-  }
-
-  function changeType(value: PetType) {
-    setPetType(value);
-    persist({ petType: value });
-    void notifyPetPrefsChanged({ petType: value });
-  }
-
-  function changeMovement(value: PetMovement) {
-    setMovement(value);
-    persist({ movement: value });
-    void notifyPetPrefsChanged({ movement: value });
-    restartMovement();
-  }
-
-  function toggleTopmost() {
-    const next = !topmost();
-    setTopmost(next);
-    void setPetTopmost(next);
-    persist({ topmost: next });
-  }
-
-  function toggleMute() {
-    // The mute pref gates pet SOUNDS; the CSS pet is silent, so the
-    // toggle is stored and applied (pet_set_mute) as a no-op for now —
-    // a future sound renderer reads the same flag.
-    const next = !mute();
-    setMute(next);
-    void setPetMute(next);
-    persist({ mute: next });
-  }
-
-  function toggleDock() {
-    const next = !dock();
-    setDock(next);
-    void setPetDock(next);
-    persist({ dock: next });
-  }
-
-  function toggleClickThrough() {
-    const next = !clickThrough();
-    setClickThrough(next);
-    void setPetIgnoreMouse(next);
-    persist({ clickThrough: next });
-    void notifyPetPrefsChanged({ clickThrough: next });
+  function startWindowDrag(event: MouseEvent): void {
+    if (event.button !== 0 || collapsed()) return;
+    if (typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined) {
+      void getCurrentWindow()
+        .startDragging()
+        .catch(() => {
+          // The data-tauri-drag-region attribute remains as a native fallback.
+        });
+    }
   }
 
   /** Headpat easter egg: bounce + heart for the attention lifetime. */
@@ -295,9 +220,8 @@ const PetShell: Component = () => {
     clearHeadpat();
     // The cancelled headpat must not stick on attention: revert to the
     // last forwarded state (the headpat timer that would have reverted it
-    // is gone).
+    // is gone.
     setState(lastForwarded());
-    setSettingsOpen(false);
     const next = !collapsed();
     setCollapsed(next);
     void setPetSize(next ? COLLAPSED_SIZE : size());
@@ -311,7 +235,8 @@ const PetShell: Component = () => {
       data-pet-state={state()}
       data-tauri-drag-region="deep"
       style={{ opacity: opacity() }}
-      class="flex h-full w-full select-none items-center justify-center bg-transparent"
+      onMouseDown={startWindowDrag}
+      class="pet-window-shell flex h-full w-full select-none items-end justify-start bg-transparent pb-2 pl-2"
     >
       <div class="relative">
         {/* The pet: a CSS blob with eyes animated per state (the Rive
@@ -323,7 +248,7 @@ const PetShell: Component = () => {
           data-pet-type={petType()}
           data-headpat={headpatActive() ? "true" : "false"}
           data-collapsed={collapsed() ? "true" : "false"}
-          class="pet-blob relative flex items-center justify-center gap-[12%] rounded-full bg-gradient-to-br from-accent-soft to-bg-elevated shadow-lg ring-1 ring-white/10"
+          class="pet-blob relative flex items-end justify-center"
           style={{
             width: `${blobSize()}px`,
             height: `${blobSize()}px`,
@@ -336,37 +261,29 @@ const PetShell: Component = () => {
           onDblClick={handleBlobDoubleClick}
           title={collapsed() ? t("pet:doubleClickToRestore") : t("pet:clickToPet")}
         >
-          <Show
-            when={petType() !== "blob"}
-            fallback={
-              <>
-                <span class="pet-eye h-[14%] w-[14%] rounded-full bg-fg-primary/90" />
-                <span class="pet-eye h-[14%] w-[14%] rounded-full bg-fg-primary/90" />
-              </>
-            }
+          <div
+            class="pet-art"
+            aria-label={t(`pet:type${petType().charAt(0).toUpperCase()}${petType().slice(1)}`)}
           >
             <span
               data-testid="pet-character"
-              aria-label={t(`pet:type${petType().charAt(0).toUpperCase()}${petType().slice(1)}`)}
-              class="pet-character"
+              class={`pet-character pet-character-${petType()}`}
+              aria-hidden="true"
             >
-              {petType() === "cat" ? "🐱" : petType() === "dog" ? "🐶" : "🤖"}
+              {petType() === "cat"
+                ? "🐱"
+                : petType() === "dog"
+                  ? "🐶"
+                  : petType() === "robot"
+                    ? "🤖"
+                    : "●"}
             </span>
-          </Show>
-          {/* Raised, waving paw while waiting for permission. */}
-          <span class="pet-paw" aria-hidden="true" />
-          {/* Attention sparkle (forwarded attention, e.g. a question). */}
-          <span class="pet-sparkle" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3">
-              <path d="M12 2l2.4 7.6L22 12l-7.6 2.4L12 22l-2.4-7.6L2 12l7.6-2.4z" />
-            </svg>
-          </span>
-          {/* Headpat heart (local click easter egg). */}
-          <span class="pet-heart" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5">
-              <path d="M12 21s-7.5-4.7-10-9.2C.6 8.7 2.4 5 5.9 5c2 0 3.4 1.1 4.1 2.4h4C14.7 6.1 16.1 5 18.1 5c3.5 0 5.3 3.7 3.9 6.8C19.5 16.3 12 21 12 21z" />
-            </svg>
-          </span>
+            <Show when={petType() === "cat" || petType() === "dog"}>
+              <span class="pet-cardboard-box" aria-hidden="true">
+                <span class="pet-box-label">TER</span>
+              </span>
+            </Show>
+          </div>
           <Show when={collapsed()}>
             <span
               data-testid="pet-restore-hint"
@@ -389,155 +306,6 @@ const PetShell: Component = () => {
             </span>
           </Show>
         </div>
-        <Show when={clickThrough() && !collapsed()}>
-          <div
-            data-testid="pet-click-through"
-            class="absolute -top-1 right-1 rounded-full border border-bg-sunken bg-bg-elevated px-1.5 text-[9px] text-fg-secondary"
-          >
-            {t("pet:clickThrough")}
-          </div>
-        </Show>
-        <Show when={!collapsed()}>
-          <div
-            data-testid="pet-state"
-            class="absolute left-1/2 top-full mt-1 -translate-x-1/2 whitespace-nowrap rounded-full border border-bg-sunken bg-bg-elevated/90 px-2 py-0.5 text-[10px] text-fg-secondary"
-          >
-            {t(STATE_LABEL_KEYS[state()])}
-          </div>
-          <button
-            type="button"
-            data-testid="pet-settings-toggle"
-            aria-label={t("pet:petSettings")}
-            aria-expanded={settingsOpen() ? "true" : "false"}
-            class="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full border border-bg-sunken bg-bg-elevated text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-            onClick={() => setSettingsOpen((open) => !open)}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.8"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-3 w-3"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="3" />
-              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09a1.65 1.65 0 0 0-1-1.51 1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09a1.65 1.65 0 0 0 1.51-1 1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33h.01a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51h.01a1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82v.01a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
-            </svg>
-          </button>
-        </Show>
-
-        <Show when={settingsOpen() && !collapsed()}>
-          <div
-            data-testid="pet-settings"
-            class="absolute bottom-6 right-0 z-10 w-44 rounded-lg border border-bg-sunken bg-bg-elevated p-3 shadow-xl"
-          >
-            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:type")}</p>
-            <select
-              data-testid="pet-type-select"
-              value={petType()}
-              aria-label={t("pet:type")}
-              onChange={(event) => changeType(event.currentTarget.value as PetType)}
-              class="mb-2 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-[11px]"
-            >
-              <option value="blob">{t("pet:typeBlob")}</option>
-              <option value="cat">{t("pet:typeCat")}</option>
-              <option value="dog">{t("pet:typeDog")}</option>
-              <option value="robot">{t("pet:typeRobot")}</option>
-            </select>
-            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:movement")}</p>
-            <select
-              data-testid="pet-movement-select"
-              value={movement()}
-              aria-label={t("pet:movement")}
-              onChange={(event) => changeMovement(event.currentTarget.value as PetMovement)}
-              class="mb-2 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-[11px]"
-            >
-              <option value="fixed">{t("pet:movementFixed")}</option>
-              <option value="roam">{t("pet:movementRoam")}</option>
-              <option value="bottom">{t("pet:movementBottom")}</option>
-            </select>
-            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:size")}</p>
-            <input
-              data-testid="pet-size-slider"
-              type="range"
-              min={120}
-              max={200}
-              step={10}
-              value={size()}
-              aria-label={t("pet:petSize")}
-              onInput={(event) => changeSize(Number(event.currentTarget.value))}
-              class="w-full"
-            />
-            <p class="text-[10px] font-medium text-fg-secondary">{t("pet:opacity")}</p>
-            <input
-              data-testid="pet-opacity-slider"
-              type="range"
-              min={0.4}
-              max={1}
-              step={0.05}
-              value={opacity()}
-              aria-label={t("pet:petOpacity")}
-              onInput={(event) => changeOpacity(Number(event.currentTarget.value))}
-              class="w-full"
-            />
-            <div class="mt-2 space-y-1.5">
-              <label class="flex items-center justify-between gap-2 text-[11px]">
-                Always on top
-                <input
-                  data-testid="pet-topmost-toggle"
-                  type="checkbox"
-                  checked={topmost()}
-                  aria-label={t("pet:topmost")}
-                  onChange={toggleTopmost}
-                />
-              </label>
-              <label class="flex items-center justify-between gap-2 text-[11px]">
-                Mute sounds
-                <input
-                  data-testid="pet-mute-toggle"
-                  type="checkbox"
-                  checked={mute()}
-                  aria-label={t("pet:muteSounds")}
-                  onChange={toggleMute}
-                />
-              </label>
-              <label class="flex items-center justify-between gap-2 text-[11px]">
-                Edge dock
-                <input
-                  data-testid="pet-dock-toggle"
-                  type="checkbox"
-                  checked={dock()}
-                  aria-label={t("pet:edgeDock")}
-                  onChange={toggleDock}
-                />
-              </label>
-              <label class="flex items-center justify-between gap-2 text-[11px]">
-                Click-through
-                <input
-                  data-testid="pet-click-through-toggle"
-                  type="checkbox"
-                  checked={clickThrough()}
-                  aria-label={t("pet:clickThrough")}
-                  onChange={toggleClickThrough}
-                />
-              </label>
-              <p class="text-[10px] leading-tight text-fg-faint">
-                On: clicks pass through the pet. Re-enable from Desktop settings or by re-showing
-                the pet.
-              </p>
-            </div>
-            <button
-              type="button"
-              data-testid="pet-hide"
-              class="mt-2 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-[11px] text-fg-secondary outline-none hover:text-fg-primary"
-              onClick={() => void hidePet()}
-            >
-              Hide pet
-            </button>
-          </div>
-        </Show>
       </div>
     </div>
   );

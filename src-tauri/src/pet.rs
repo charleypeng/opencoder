@@ -253,6 +253,16 @@ fn create_pet_window<R: tauri::Runtime>(app: &AppHandle<R>, state: &PetState) ->
         .shadow(false)
         .visible(false)
         .build()?;
+    // Start in the reference layout's natural resting place: the lower-left
+    // corner of the primary display, with a small breathing margin. The
+    // user can drag it anywhere afterwards.
+    if let Ok(Some(monitor)) = window.primary_monitor() {
+        let origin = monitor.position();
+        let screen = monitor.size();
+        let x = origin.x + 18;
+        let y = origin.y + (screen.height as i32 - size as i32 - 24).max(0);
+        let _ = window.set_position(PhysicalPosition::new(x, y));
+    }
     // Edge dock (TASK-M8-07): while enabled, a window move ending within
     // DOCK_THRESHOLD of an edge of the window's own monitor snaps flush.
     // The snapped result is compared before setting so an already-flush
