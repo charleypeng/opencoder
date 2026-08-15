@@ -15,8 +15,15 @@ import {
   setPetTopmost,
 } from "../../services/pet.js";
 
+export type PetType = "blob" | "cat" | "dog" | "robot";
+export type PetMovement = "fixed" | "roam" | "bottom";
+
 /** Display settings of the pet window (absent fields = defaults). */
 export interface PetPrefs {
+  /** Selected visual character. */
+  petType?: PetType;
+  /** Screen movement behavior. */
+  movement?: PetMovement;
   /** Window edge length in px (120-200). */
   size?: number;
   /** Window content opacity (0.4-1.0). */
@@ -43,6 +50,17 @@ export function loadPetPrefs(): PetPrefs {
     const parsed = JSON.parse(raw) as Partial<PetPrefs>;
     if (parsed === null || typeof parsed !== "object") return {};
     const prefs: PetPrefs = {};
+    if (
+      parsed.petType === "blob" ||
+      parsed.petType === "cat" ||
+      parsed.petType === "dog" ||
+      parsed.petType === "robot"
+    ) {
+      prefs.petType = parsed.petType;
+    }
+    if (parsed.movement === "fixed" || parsed.movement === "roam" || parsed.movement === "bottom") {
+      prefs.movement = parsed.movement;
+    }
     if (typeof parsed.size === "number" && Number.isInteger(parsed.size)) {
       prefs.size = Math.min(200, Math.max(120, parsed.size));
     }

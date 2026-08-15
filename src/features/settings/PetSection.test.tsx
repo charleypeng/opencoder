@@ -62,6 +62,24 @@ describe("PetSection", () => {
     expect(screen.getByTestId("pet-click-through")).toHaveAttribute("aria-checked", "false");
   });
 
+  it("persists character, movement, size and opacity settings", async () => {
+    render(() => <PetSection serverId="srv-pet" />);
+    await waitFor(() => expect(screen.getByTestId("pet-type-select")).toBeInTheDocument());
+    fireEvent.change(screen.getByTestId("pet-type-select"), { target: { value: "robot" } });
+    fireEvent.change(screen.getByTestId("pet-movement-select"), { target: { value: "bottom" } });
+    fireEvent.input(screen.getByTestId("pet-size-slider"), { target: { value: "190" } });
+    fireEvent.input(screen.getByTestId("pet-opacity-slider"), { target: { value: "0.6" } });
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toMatchObject({
+        petType: "robot",
+        movement: "bottom",
+        size: 190,
+        opacity: 0.6,
+      }),
+    );
+    expect(invokeMock).toHaveBeenCalledWith("pet_set_size", { size: 190 });
+    expect(invokeMock).toHaveBeenCalledWith("pet_set_opacity", { opacity: 0.6 });
+  });
   it("keeps the applied state and shows an error when the pet action fails", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "pet_hide") return Promise.reject("pet unavailable");

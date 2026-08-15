@@ -306,6 +306,11 @@ pub fn pet_show<R: tauri::Runtime>(
         let _ = window.set_always_on_top(state.topmost());
         state.ignore_mouse.store(false, Ordering::Relaxed);
         let _ = window.set_ignore_cursor_events(false);
+        let _ = app.emit_to(
+            PET_LABEL,
+            "pet-prefs",
+            serde_json::json!({ "clickThrough": false }),
+        );
         let _ = window.show();
         if let Some(last) = state.last_state() {
             let _ = app.emit_to(PET_LABEL, "pet-state", last);

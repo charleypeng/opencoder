@@ -23,7 +23,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Standalone pet settings (feat(settings)): pet visibility and click-through controls now live in their own Settings → Pet section instead of being mixed into Desktop settings. (settings)
 
+- Expanded pet customization (feat(pet)): the pet now supports blob, cat, dog and robot characters; size and opacity sliders; fixed, free-roam and bottom-walk movement modes; live preference updates from the main Settings → Pet page; and a click-through reset event so the visual indicator never disagrees with the actual pointer state. (pet)
+
 ### Fixed
+
+- Pet click-through state fix (fix(pet)): removed the pet's right-click settings menu and synchronized the reset performed when the pet is shown again, so the visible click-through indicator matches the actual Tauri pointer-event state. (pet)
 
 - Markdown source toggle fix (fix(files)): selecting "View source" from a markdown tab's context menu now actually switches the active content from the rendered preview to the source view. The menu now uses the shared ContextMenu component and safely captures the tab path before unmounting. (files)
 

@@ -693,7 +693,16 @@
     "stateWaiting": "等待中",
     "stateSuccess": "成功",
     "stateError": "出错",
-    "stateAttention": "提醒"
+    "stateAttention": "提醒",
+    "type": "宠物类型",
+    "typeBlob": "小精灵",
+    "typeCat": "猫咪",
+    "typeDog": "小狗",
+    "typeRobot": "机器人",
+    "movement": "移动方式",
+    "movementFixed": "固定位置",
+    "movementRoam": "到处乱跑",
+    "movementBottom": "只在底部走动"
   },
   "mobile": {
     "sessions": "会话",

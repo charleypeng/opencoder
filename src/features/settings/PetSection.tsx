@@ -5,8 +5,15 @@
 import { createEffect, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { useT } from "../../i18n/index.js";
-import { getPetIgnoreMouse, setPetIgnoreMouse } from "../../services/pet.js";
+import {
+  notifyPetPrefsChanged,
+  getPetIgnoreMouse,
+  setPetIgnoreMouse,
+  setPetOpacity,
+  setPetSize,
+} from "../../services/pet.js";
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
+import { loadPetPrefs, savePetPrefs, type PetMovement, type PetType } from "../pet/petPrefs.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -43,6 +50,10 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [petBusy, setPetBusy] = createSignal(false);
   const [petClickThrough, setPetClickThrough] = createSignal(false);
   const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
+  const [petType, setPetType] = createSignal<PetType>(loadPetPrefs().petType ?? "blob");
+  const [movement, setMovement] = createSignal<PetMovement>(loadPetPrefs().movement ?? "fixed");
+  const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
+  const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);
   const [error, setError] = createSignal<string | null>(null);
   const [loaded, setLoaded] = createSignal(false);
 
@@ -74,12 +85,41 @@ const PetSection: Component<{ serverId: string }> = () => {
     setError(null);
     try {
       await setPetIgnoreMouse(!petClickThrough());
-      setPetClickThrough((through) => !through);
+      const next = !petClickThrough();
+      setPetClickThrough(next);
+      persistPrefs({ clickThrough: next });
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setPetClickThroughBusy(false);
     }
+  }
+
+  function persistPrefs(patch: Parameters<typeof savePetPrefs>[0]): void {
+    savePetPrefs({ ...loadPetPrefs(), ...patch });
+    void notifyPetPrefsChanged(patch);
+  }
+
+  function changeType(value: PetType): void {
+    setPetType(value);
+    persistPrefs({ petType: value });
+  }
+
+  function changeMovement(value: PetMovement): void {
+    setMovement(value);
+    persistPrefs({ movement: value });
+  }
+
+  function changeSize(value: number): void {
+    setSize(value);
+    void setPetSize(value);
+    persistPrefs({ size: value });
+  }
+
+  function changeOpacity(value: number): void {
+    setOpacity(value);
+    void setPetOpacity(value);
+    persistPrefs({ opacity: value });
   }
 
   return (
@@ -89,6 +129,61 @@ const PetSection: Component<{ serverId: string }> = () => {
         <p class="text-xs text-fg-secondary">{t("settings:petHint")}</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
+        <div class="space-y-3 border-b border-bg-sunken pb-4">
+          <label class="block text-xs font-medium">
+            {t("pet:type")}
+            <select
+              data-testid="pet-type-select"
+              value={petType()}
+              onChange={(event) => changeType(event.currentTarget.value as PetType)}
+              class="mt-1 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
+            >
+              <option value="blob">{t("pet:typeBlob")}</option>
+              <option value="cat">{t("pet:typeCat")}</option>
+              <option value="dog">{t("pet:typeDog")}</option>
+              <option value="robot">{t("pet:typeRobot")}</option>
+            </select>
+          </label>
+          <label class="block text-xs font-medium">
+            {t("pet:movement")}
+            <select
+              data-testid="pet-movement-select"
+              value={movement()}
+              onChange={(event) => changeMovement(event.currentTarget.value as PetMovement)}
+              class="mt-1 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
+            >
+              <option value="fixed">{t("pet:movementFixed")}</option>
+              <option value="roam">{t("pet:movementRoam")}</option>
+              <option value="bottom">{t("pet:movementBottom")}</option>
+            </select>
+          </label>
+          <label class="block text-xs font-medium">
+            {t("pet:petSize")}: {size()}px
+            <input
+              data-testid="pet-size-slider"
+              type="range"
+              min="120"
+              max="200"
+              step="10"
+              value={size()}
+              onInput={(event) => changeSize(Number(event.currentTarget.value))}
+              class="mt-1 w-full"
+            />
+          </label>
+          <label class="block text-xs font-medium">
+            {t("pet:petOpacity")}: {Math.round(opacity() * 100)}%
+            <input
+              data-testid="pet-opacity-slider"
+              type="range"
+              min="0.4"
+              max="1"
+              step="0.05"
+              value={opacity()}
+              onInput={(event) => changeOpacity(Number(event.currentTarget.value))}
+              class="mt-1 w-full"
+            />
+          </label>
+        </div>
         <div class="flex items-center justify-between gap-3 border-b border-bg-sunken py-3">
           <div class="min-w-0">
             <p class="text-xs font-medium">{t("settings:showPet")}</p>

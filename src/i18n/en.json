@@ -693,7 +693,16 @@
     "stateWaiting": "Waiting",
     "stateSuccess": "Success",
     "stateError": "Error",
-    "stateAttention": "Attention"
+    "stateAttention": "Attention",
+    "type": "Pet type",
+    "typeBlob": "Blob",
+    "typeCat": "Cat",
+    "typeDog": "Dog",
+    "typeRobot": "Robot",
+    "movement": "Movement",
+    "movementFixed": "Fixed position",
+    "movementRoam": "Roam freely",
+    "movementBottom": "Walk along bottom"
   },
   "mobile": {
     "sessions": "Sessions",

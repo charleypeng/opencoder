@@ -357,6 +357,16 @@
  * prefers-reduced-motion.
  */
 
+.pet-character {
+  font-size: 2.1rem;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.25));
+}
+
+.pet-blob[data-collapsed="true"] .pet-character {
+  display: none;
+}
+
 .pet-blob {
   cursor: default;
 }

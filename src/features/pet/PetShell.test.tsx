@@ -30,6 +30,7 @@ const {
   setPetTopmostMock,
   setPetMuteMock,
   setPetDockMock,
+  notifyPetPrefsChangedMock,
   listenMock,
 } = vi.hoisted(() => {
   const listenMock = vi.fn<Listen>(() => Promise.resolve(() => {}));
@@ -45,6 +46,7 @@ const {
     setPetTopmostMock: vi.fn(async () => {}),
     setPetMuteMock: vi.fn(async () => {}),
     setPetDockMock: vi.fn(async () => {}),
+    notifyPetPrefsChangedMock: vi.fn(async () => {}),
     listenMock,
   };
 });
@@ -61,6 +63,8 @@ vi.mock("../../services/pet.js", () => ({
   setPetTopmost: setPetTopmostMock,
   setPetMute: setPetMuteMock,
   setPetDock: setPetDockMock,
+  notifyPetPrefsChanged: notifyPetPrefsChangedMock,
+  subscribeToPetPrefs: () => () => {},
   subscribeToPetState: (onState: (state: string) => void) => {
     const unlisten = listenMock("pet-state", (event) => onState(event.payload as string));
     return () => {
@@ -150,7 +154,7 @@ describe("PetShell rendering", () => {
 });
 
 describe("PetShell settings", () => {
-  it("opens the popover from the gear button and from right-click", () => {
+  it("opens and closes the settings popover from the gear button", () => {
     render(() => <PetShell />);
     expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("pet-settings-toggle"));
@@ -158,7 +162,7 @@ describe("PetShell settings", () => {
     fireEvent.click(screen.getByTestId("pet-settings-toggle"));
     expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByTestId("pet-blob"));
-    expect(screen.getByTestId("pet-settings")).toBeInTheDocument();
+    expect(screen.queryByTestId("pet-settings")).not.toBeInTheDocument();
   });
 
   it("applies and persists the size slider", () => {

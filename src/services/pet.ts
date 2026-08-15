@@ -12,7 +12,7 @@
 // and the pet window's settings application.
 
 import { invoke } from "@tauri-apps/api/core";
-import { listen } from "@tauri-apps/api/event";
+import { emitTo, listen } from "@tauri-apps/api/event";
 
 /** Animation states the pet frontend renders (ui-design §6); must stay in
  *  sync with PetAnimationState in src-tauri/src/pet.rs (serialized
@@ -25,6 +25,15 @@ export const PET_STATE_EVENT = "pet-state";
 /** The `pet-intensity` event Rust emits to the pet window (TASK-M8-08):
  *  the working animation speed input, 0-100. */
 export const PET_INTENSITY_EVENT = "pet-intensity";
+export const PET_PREFS_EVENT = "pet-prefs";
+
+export interface PetPrefsPayload {
+  petType?: "blob" | "cat" | "dog" | "robot";
+  movement?: "fixed" | "roam" | "bottom";
+  size?: number;
+  opacity?: number;
+  clickThrough?: boolean;
+}
 
 function inTauri(): boolean {
   return typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined;
@@ -117,6 +126,25 @@ export function setPetMute(muted: boolean): Promise<void> {
 export function setPetDock(docked: boolean): Promise<void> {
   if (!inTauri()) return Promise.resolve();
   return invoke("pet_set_dock", { docked });
+}
+
+export function notifyPetPrefsChanged(prefs: PetPrefsPayload): Promise<void> {
+  if (!inTauri()) return Promise.resolve();
+  return emitTo("pet", PET_PREFS_EVENT, prefs).catch(() => {
+    // The pet window may not exist yet; its next mount reads localStorage.
+  });
+}
+
+/** Subscribes to settings changes sent from the main window. */
+export function subscribeToPetPrefs(onPrefs: (prefs: PetPrefsPayload) => void): () => void {
+  if (!inTauri()) return () => {};
+  const unlisten = listen(PET_PREFS_EVENT, (event) => {
+    const payload = event.payload;
+    if (payload !== null && typeof payload === "object") onPrefs(payload as PetPrefsPayload);
+  });
+  return () => {
+    void unlisten.then((stop) => stop());
+  };
 }
 
 /** Subscribes to animation states forwarded by the main window; returns
