@@ -52,15 +52,17 @@ export function saveDesktopPrefs(prefs: DesktopPrefs): void {
 
 /** Re-applies the persisted prefs to the Rust runtime (called by
  *  DesktopShell on mount). The default accelerator is skipped because
- *  Rust already registered it at startup. */
+ *  Rust already registered it at startup. Each pref is applied
+ *  independently: a rejected command (e.g. an OS-occupied accelerator)
+ *  must never block the remaining prefs. */
 export async function applyDesktopPrefs(): Promise<void> {
   const prefs = loadDesktopPrefs();
-  if (prefs.closeToTray !== undefined) {
-    await setCloseToTray(prefs.closeToTray);
-  }
-  if (prefs.globalShortcut !== undefined && prefs.globalShortcut !== DEFAULT_SUMMON_SHORTCUT) {
-    await setGlobalShortcut(prefs.globalShortcut);
-  }
+  await Promise.allSettled([
+    prefs.closeToTray !== undefined ? setCloseToTray(prefs.closeToTray) : Promise.resolve(),
+    prefs.globalShortcut !== undefined && prefs.globalShortcut !== DEFAULT_SUMMON_SHORTCUT
+      ? setGlobalShortcut(prefs.globalShortcut)
+      : Promise.resolve(),
+  ]);
 }
 
 /** Whether the pet companion should be shown at shell mount: on by

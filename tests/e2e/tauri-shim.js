@@ -49,9 +49,26 @@
     ptyFrames: [],
     sseMessages: 0,
     seenEvents: [],
+    // desktop prefs replay state (close-to-tray + summon accelerator).
+    globalShortcut: undefined,
+    closeToTray: undefined,
   });
 
   // ---- helpers ----------------------------------------------------------
+
+  // Records a desktop-prefs command (close-to-tray / summon accelerator)
+  // into sessionStorage so the E2E tests can assert the startup prefs
+  // replay across a page reload (sessionStorage survives reloads; the
+  // __TAURI_SHIM_STATE__ object does not).
+  function recordDesktopInvoke(cmd, args) {
+    try {
+      var log = JSON.parse(sessionStorage.getItem("__desktop_invoke_log__") || "[]");
+      log.push(cmd + ":" + JSON.stringify(args));
+      sessionStorage.setItem("__desktop_invoke_log__", JSON.stringify(log));
+    } catch {
+      // Storage unavailable: the replay test has nothing to assert on.
+    }
+  }
 
   function emit(event, payload) {
     var ids = state.listeners[event] || [];
@@ -439,13 +456,17 @@
 
       // ---- desktop / tray / pet commands (benign) ----
       case "get_close_to_tray":
-        return Promise.resolve(false);
+        return Promise.resolve(!!state.closeToTray);
       case "set_close_to_tray":
+        recordDesktopInvoke("set_close_to_tray", args);
+        state.closeToTray = !!args.enabled;
         return Promise.resolve();
       case "get_global_shortcut":
-        return Promise.resolve("Alt+Space");
+        return Promise.resolve(state.globalShortcut || "Alt+Space");
       case "set_global_shortcut":
-        return Promise.resolve(args.accelerator || "Alt+Space");
+        recordDesktopInvoke("set_global_shortcut", args);
+        state.globalShortcut = args.accelerator || "Alt+Space";
+        return Promise.resolve(state.globalShortcut);
       case "tray_set_badge":
         return Promise.resolve();
 

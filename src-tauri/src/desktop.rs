@@ -2,18 +2,23 @@
 // (TASK-M8-05). Desktop-only module (gated with `#[cfg(desktop)]` in
 // lib.rs): the tray menu (Show/Hide, New session, Quit), the configurable
 // global summon accelerator (default Alt+Space — Option+Space on macOS
-// keyboards) and the pending-permission tray badge. The pure helpers
-// (badge_title / is_valid_shortcut) are unit-tested here; the Tauri-bound
-// wiring (tray build, menu events, shortcut handler, commands) is
-// exercised through the frontend L2 tests.
+// keyboards) and the pending-permission tray badge. The tray exists only
+// while the close-to-tray setting is on (the frontend creates/removes it
+// through `set_close_to_tray`; the startup prefs replay applies the
+// persisted value at mount). The pure helpers (badge_title /
+// is_valid_shortcut) are unit-tested here; the Tauri-bound wiring (tray
+// build, menu events, shortcut handler, commands) is exercised through
+// the frontend L2 tests.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
+use serde_json::json;
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
 use tauri::{App, AppHandle, Emitter, Manager, State};
 use tauri_plugin_global_shortcut::{GlobalShortcutExt, Shortcut, ShortcutState};
+use tauri_plugin_store::StoreExt;
 
 /// Default summon accelerator registered at startup; shown until the user
 /// customizes it ("Option+Space" is the macOS keyboard spelling of the
@@ -25,6 +30,13 @@ pub const DEFAULT_SUMMON_SHORTCUT: &str = "Alt+Space";
 
 /// Tray icon id; the badge command looks the tray up by it.
 const TRAY_ID: &str = "main";
+
+/// Store file and keys for the persisted desktop prefs (close-to-tray and
+/// the summon accelerator). They live in the app store so they survive a
+/// restart independent of the webview's localStorage behaviour.
+const DESKTOP_STORE_PATH: &str = "desktop.json";
+const KEY_CLOSE_TO_TRAY: &str = "close_to_tray";
+const KEY_SUMMON_SHORTCUT: &str = "global_shortcut";
 
 /// Managed desktop state: the close-to-tray flag and the currently
 /// registered summon accelerator (initialized to the default).
@@ -84,7 +96,9 @@ pub fn is_valid_shortcut(accelerator: &str) -> bool {
 /// Builds the tray icon with its menu. The menu items (and the window
 /// ops / events they trigger) live Rust-side; only "New session" talks to
 /// the frontend (emits `tray-new-session`, handled by DesktopShell).
-fn build_tray(app: &App) -> tauri::Result<()> {
+/// Called when the close-to-tray setting is enabled; the tray exists only
+/// while that behaviour is on.
+fn build_tray(app: &AppHandle) -> tauri::Result<()> {
     let show_hide = MenuItem::with_id(app, "show_hide", "Show/Hide", true, None::<&str>)?;
     let new_session = MenuItem::with_id(app, "new_session", "New session", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
@@ -153,23 +167,76 @@ fn register_shortcut(app: &AppHandle, accelerator: &str) -> Result<(), String> {
         .map_err(|err| err.to_string())
 }
 
-/// Tray + default summon shortcut, wired once at startup. Failures are
-/// logged and swallowed so a missing tray host (some Linux DEs) or an
-/// OS-rejected shortcut never blocks app startup.
+/// Persists a desktop pref into the app store (best effort: storage
+/// failures keep the runtime state working for the current session).
+fn persist_desktop_pref(app: &AppHandle, key: &str, value: serde_json::Value) {
+    let Ok(store) = app.store(DESKTOP_STORE_PATH) else {
+        return;
+    };
+    store.set(key, value);
+    let _ = store.save();
+}
+
+/// Wires the summon shortcut and the tray at startup. The persisted
+/// close-to-tray flag and summon accelerator are restored from the app
+/// store so a restart keeps the user's choices without depending on the
+/// webview's localStorage. The tray is built here only when the persisted
+/// flag is on; otherwise it is created/removed through
+/// `set_close_to_tray`. Failures are logged and swallowed so an
+/// OS-rejected shortcut or a missing tray host never blocks startup.
 pub fn setup(app: &App) {
     app.manage(DesktopState::default());
-    if let Err(err) = build_tray(app) {
-        eprintln!("opencoder: tray setup failed: {err}");
+    let handle = app.handle();
+    let state = app.state::<DesktopState>();
+    if let Ok(store) = handle.store(DESKTOP_STORE_PATH) {
+        if let Some(serde_json::Value::Bool(enabled)) = store.get(KEY_CLOSE_TO_TRAY) {
+            state.set_close_to_tray(enabled);
+        }
+        if let Some(serde_json::Value::String(accelerator)) = store.get(KEY_SUMMON_SHORTCUT) {
+            if register_shortcut(handle, &accelerator).is_ok() {
+                state.set_summon_shortcut(accelerator);
+            } else {
+                // A rejected persisted accelerator (now occupied by another
+                // app) falls back to the default so summon still works.
+                eprintln!("opencoder: persisted shortcut {accelerator} rejected, using default");
+                let _ = register_shortcut(handle, DEFAULT_SUMMON_SHORTCUT);
+                state.set_summon_shortcut(DEFAULT_SUMMON_SHORTCUT.to_string());
+            }
+        } else {
+            let _ = register_shortcut(handle, DEFAULT_SUMMON_SHORTCUT);
+        }
+    } else {
+        let _ = register_shortcut(handle, DEFAULT_SUMMON_SHORTCUT);
     }
-    if let Err(err) = register_shortcut(app.handle(), DEFAULT_SUMMON_SHORTCUT) {
-        eprintln!("opencoder: global shortcut setup failed: {err}");
+    if state.close_to_tray() {
+        if let Err(err) = build_tray(handle) {
+            eprintln!("opencoder: tray setup failed: {err}");
+        }
     }
 }
 
+/// Removes the tray icon when it exists (close-to-tray turned off).
+fn remove_tray(app: &AppHandle) {
+    let _ = app.remove_tray_by_id(TRAY_ID);
+}
+
 /// Turns the close-to-tray behaviour on or off (frontend settings toggle).
+/// The tray follows the flag: enabled builds it (so the window has a
+/// Show/Hide home after it is hidden), disabled removes it. The flag is
+/// persisted to the app store so it survives a restart.
 #[tauri::command]
-pub fn set_close_to_tray(enabled: bool, state: State<'_, DesktopState>) {
+pub fn set_close_to_tray(enabled: bool, app: AppHandle, state: State<'_, DesktopState>) {
     state.set_close_to_tray(enabled);
+    persist_desktop_pref(&app, KEY_CLOSE_TO_TRAY, json!(enabled));
+    if enabled {
+        if app.tray_by_id(TRAY_ID).is_none() {
+            if let Err(err) = build_tray(&app) {
+                eprintln!("opencoder: tray setup failed: {err}");
+            }
+        }
+    } else {
+        remove_tray(&app);
+    }
 }
 
 /// Current close-to-tray flag.
@@ -208,6 +275,7 @@ pub fn set_global_shortcut(
         }
     }
     state.set_summon_shortcut(accelerator.clone());
+    persist_desktop_pref(&app, KEY_SUMMON_SHORTCUT, json!(accelerator));
     Ok(accelerator)
 }
 

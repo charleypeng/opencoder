@@ -80,7 +80,12 @@ pub fn run() {
     }));
     // Close-to-tray (TASK-M8-05): while the setting is on, closing the main
     // window hides it to the tray instead of quitting; the tray menu's Quit
-    // and the app's own lifecycle stay the real exit paths.
+    // and the app's own lifecycle stay the real exit paths. While it is off,
+    // closing the main window must fully quit the app — macOS keeps the
+    // process alive after the last window closes by default, so an explicit
+    // exit is required there (harmless on Windows/Linux, where the event
+    // loop ends on its own). Only the "main" window drives this; the pet
+    // window's close never quits the app.
     #[cfg(desktop)]
     let builder = builder.on_window_event(|window, event| {
         if let tauri::WindowEvent::CloseRequested { api, .. } = event {
@@ -88,6 +93,8 @@ pub fn run() {
             if state.close_to_tray() {
                 api.prevent_close();
                 let _ = window.hide();
+            } else if window.label() == "main" {
+                window.app_handle().exit(0);
             }
         }
     });

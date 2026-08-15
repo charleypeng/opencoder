@@ -80,6 +80,13 @@ describe("applyDesktopPrefs", () => {
     expect(setGlobalShortcutMock).toHaveBeenCalledWith("Ctrl+Shift+O");
   });
 
+  it("applies the accelerator even when the close-to-tray push fails", async () => {
+    saveDesktopPrefs({ closeToTray: true, globalShortcut: "Ctrl+Shift+O" });
+    setCloseToTrayMock.mockRejectedValueOnce(new Error("tray unavailable"));
+    await applyDesktopPrefs();
+    expect(setGlobalShortcutMock).toHaveBeenCalledWith("Ctrl+Shift+O");
+  });
+
   it("skips the default accelerator (already registered at startup)", async () => {
     saveDesktopPrefs({ globalShortcut: DEFAULT_SUMMON_SHORTCUT });
     await applyDesktopPrefs();
