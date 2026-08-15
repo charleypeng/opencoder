@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!-- App background: dark radial gradient matching the client's
+         bg-base / bg-sunken design tokens (docs/ui-design.md). -->
+    <radialGradient id="bg" cx="0.5" cy="0.38" r="0.85">
+      <stop offset="0" stop-color="#2b3350"/>
+      <stop offset="0.55" stop-color="#171c2e"/>
+      <stop offset="1" stop-color="#0e1018"/>
+    </radialGradient>
+    <!-- Soft accent halo behind the cloud (accent #7c8cff). -->
+    <radialGradient id="halo" cx="0.5" cy="0.45" r="0.5">
+      <stop offset="0" stop-color="#7c8cff" stop-opacity="0.32"/>
+      <stop offset="1" stop-color="#7c8cff" stop-opacity="0"/>
+    </radialGradient>
+    <!-- Cloud body: accent gradient, brighter on top like the official
+         OpenCode mark. -->
+    <linearGradient id="cloud" x1="0.24" y1="0.05" x2="0.82" y2="0.95">
+      <stop offset="0" stop-color="#9aa8ff"/>
+      <stop offset="0.5" stop-color="#7c8cff"/>
+      <stop offset="1" stop-color="#4a5be8"/>
+    </linearGradient>
+    <!-- Cloud underside shading, mirroring the official mark's two-tone
+         look. -->
+    <linearGradient id="cloudShade" x1="0.3" y1="0.75" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#3d4bc7"/>
+      <stop offset="1" stop-color="#2b3596"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded-square app tile. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="224" fill="url(#bg)"/>
+
+  <!-- Accent halo. -->
+  <circle cx="512" cy="470" r="430" fill="url(#halo)"/>
+
+  <!-- OpenCode-style cloud, re-drawn from the official mark (viewBox
+       166x155.3, MIT). Top lobe + body with the accent gradient. -->
+  <g transform="translate(138 168) scale(4.5)">
+    <path
+      d="M163 35S110-4 69 5l-3 1c-6 2-11 5-14 9l-2 3-15 26 26 5c11 7 25 10 38 7l46 9 18-30z"
+      fill="url(#cloud)"/>
+    <path
+      d="M52 35l-4 1c-17 5-22 21-13 35 10 13 31 20 48 15l62-21S92 26 52 35z"
+      fill="url(#cloudShade)" opacity="0.85"/>
+    <path
+      d="M134 80a45 45 0 00-48-15L24 85 4 120l112 19 20-36c4-7 3-15-2-23z"
+      fill="url(#cloudShade)" opacity="0.9"/>
+    <path
+      d="M114 115a45 45 0 00-48-15L4 120s53 40 94 30l3-1c17-5 23-21 13-34z"
+      fill="url(#cloudShade)"/>
+  </g>
+
+  <!-- Terminal prompt: a bold ">_" centered in the cloud — the desktop
+       client identity (a terminal over the OpenCode cloud). -->
+  <g fill="none" stroke="#f2f4ff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M432 505 L604 594 L432 683"/>
+  </g>
+  <rect x="512" y="712" width="212" height="36" rx="18" fill="#f2f4ff"/>
+</svg>

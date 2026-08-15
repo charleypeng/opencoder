@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Native system folder picker for local servers (feat(sessions)): adding a working directory now opens the OS-level folder dialog first (macOS / Linux / Windows) when the server runs on the same machine (localhost / 127.0.0.1 / ::1); remote servers and environments without the native dialog fall back to the in-app directory browser. (sessions)
 
+- App icon (feat(branding)): new custom icon — the OpenCode cloud in the app's accent gradient over a dark rounded tile with a bold `>_` terminal prompt inside, replacing the stock Tauri/OpenCode marks (source SVG in docs/opencoder-icon.svg, design notes in docs/icon-design.md). (branding)
+
 - Pet visual and interaction polish (feat(pet)): the companion now uses a transparent, borderless canvas with a character-and-cardboard-box presentation closer to the client background, starts in the lower-left corner, supports explicit mouse dragging, and removes the in-window status/settings controls. Pet movement now has the required window-position permissions and uses shorter movement intervals so roam/bottom modes visibly move. (pet)
 
 ### Fixed
