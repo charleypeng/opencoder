@@ -7,6 +7,12 @@
 
 ## [Unreleased]
 
+### 修复
+
+- 默认工作区标签遮挡修复（fix(sessions)）：工作区悬浮操作按钮现在会占用独立布局空间，不再覆盖「默认」标签，确保默认工作区名称始终清晰可见。(sessions)
+
+- 工作区标签标题修复（fix(sessions)）：桌面侧边栏的 Sessions 标签改为 Workspaces，中文显示为「工作空间」。(sessions)
+
 ## [1.0.0-prerelease] - 2026-08-15
 
 ### 新增

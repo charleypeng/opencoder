@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Workspace default badge overlap fix (fix(sessions)): folder hover actions now reserve their own layout space instead of floating over the Default badge, so the default workspace label remains readable. (sessions)
+
+- Workspace tab title fix (fix(sessions)): renamed the desktop sidebar's Sessions tab to Workspaces, localized as 「工作空间」 in Chinese. (sessions)
+
 ## [1.0.0-prerelease] - 2026-08-15
 
 ### Added

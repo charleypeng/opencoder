@@ -200,7 +200,10 @@ function FolderRow(props: {
       </Show>
       {/* Hover actions (workspace layout redesign): new session here + ⋯
           menu (view folder / remove workspace). */}
-      <div class="absolute right-1.5 top-1/2 flex -translate-y-1/2 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+      <div
+        data-testid="workspace-folder-actions"
+        class="ml-auto flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100"
+      >
         <button
           type="button"
           data-testid="workspace-folder-add"

@@ -954,8 +954,9 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    // Sessions is the default view.
     expect(screen.getByTestId("sidebar-view-sessions")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("sidebar-view-sessions")).toHaveTextContent("Workspaces");
+    expect(screen.queryByText("Sessions", { selector: "button" })).not.toBeInTheDocument();
     expect(screen.getByTestId("workspace-tree")).toBeInTheDocument();
     expect(screen.queryByTestId("file-tree")).not.toBeInTheDocument();
 

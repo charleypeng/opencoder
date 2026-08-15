@@ -1053,7 +1053,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               }`}
               onClick={() => setSidebarView("sessions")}
             >
-              Sessions
+              {t("sessions:workspaces")}
             </button>
             <button
               type="button"

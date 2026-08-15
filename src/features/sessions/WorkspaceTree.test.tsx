@@ -355,6 +355,7 @@ describe("WorkspaceTree default workspace (workspace layout redesign)", () => {
     expect(within(defaultRow).getByTestId("workspace-folder-default-badge")).toHaveTextContent(
       "Default",
     );
+    expect(within(defaultRow).getByTestId("workspace-folder-actions")).toBeInTheDocument();
     // A divider separates it from the remaining workspaces.
     const divider = screen.getByTestId("workspace-divider");
     const defaultNext = divider.compareDocumentPosition(
