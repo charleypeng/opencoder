@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-16
+
 ### Fixed
 
 - Desktop prefs survive restarts (fix(desktop)): the close-to-tray flag and the global summon accelerator are now persisted in the app store (Rust side) instead of relying on the webview's localStorage, and restored at startup — custom shortcuts and the tray behaviour no longer reset on relaunch. (desktop)

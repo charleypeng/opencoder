@@ -7,6 +7,8 @@
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-08-16
+
 ### 修复
 
 - 桌面设置重启后保持（fix(desktop)）：「关闭到托盘」开关与全局召唤快捷键改为持久化到应用 store（Rust 侧）而非依赖 webview 的 localStorage，并在启动时自动恢复——自定义快捷键与托盘行为不再因重启而重置。(desktop)
