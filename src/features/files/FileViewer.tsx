@@ -17,6 +17,7 @@
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
+import ContextMenu, { type MenuItem } from "../../components/ContextMenu.js";
 import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createFileService, type FileContent } from "../../services/file.js";
@@ -256,10 +257,23 @@ function imageSrc(content: FileContent): string {
 function ContentView(props: {
   content: FileContent;
   path: string;
+  sourceModeVersion: number;
   onRendered?: (el: HTMLDivElement) => void;
 }) {
   const t = useT();
   const content = () => props.content;
+  const markdownPreview = () => {
+    // Read the reactive prop so a context-menu toggle re-evaluates this
+    // branch even though the cached file content and path are unchanged.
+    const version = props.sourceModeVersion;
+    return (
+      version >= 0 &&
+      isMarkdownPath(props.path) &&
+      !isSourceMode(props.path) &&
+      (content().content ?? "") !== "" &&
+      content().type !== "binary"
+    );
+  };
   return (
     <Show
       when={isImageContent(content())}
@@ -268,12 +282,7 @@ function ContentView(props: {
           when={isDiffContent(content())}
           fallback={
             <Show
-              when={
-                isMarkdownPath(props.path) &&
-                !isSourceMode(props.path) &&
-                (content().content ?? "") !== "" &&
-                content().type !== "binary"
-              }
+              when={markdownPreview()}
               fallback={
                 <Show
                   when={content().type !== "binary"}
@@ -341,6 +350,11 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   // Bumps when a tab's source/render mode is toggled, so ContentView
   // re-evaluates isSourceMode (which reads the module-level Set).
   const [sourceVersion, setSourceVersion] = createSignal(0);
+  const [tabContextMenu, setTabContextMenu] = createSignal<{
+    path: string;
+    x: number;
+    y: number;
+  } | null>(null);
   // The active tab's rendered code element (set by ViewerCode after the
   // highlighted HTML is injected, so hit-line targeting runs only when the
   // line elements actually exist).
@@ -504,31 +518,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
                       onContextMenu={(event) => {
                         if (!isMarkdownPath(tab.path)) return;
                         event.preventDefault();
-                        const label = isSourceMode(tab.path)
-                          ? t("files:viewRendered")
-                          : t("files:viewSource");
-                        const menu = document.createElement("div");
-                        menu.className =
-                          "fixed z-50 rounded-lg border border-bg-sunken glass p-1 text-xs shadow-lg";
-                        menu.style.left = `${event.clientX}px`;
-                        menu.style.top = `${event.clientY}px`;
-                        const item = document.createElement("button");
-                        item.type = "button";
-                        item.className =
-                          "block w-full rounded-md px-3 py-1.5 text-left outline-none hover:bg-bg-sunken";
-                        item.textContent = label;
-                        item.onclick = () => {
-                          toggleSourceMode(tab.path);
-                          setSourceVersion((v) => v + 1);
-                          document.body.removeChild(menu);
-                        };
-                        menu.appendChild(item);
-                        document.body.appendChild(menu);
-                        const close = () => {
-                          document.body.removeChild(menu);
-                          document.removeEventListener("click", close);
-                        };
-                        setTimeout(() => document.addEventListener("click", close), 0);
+                        setTabContextMenu({ path: tab.path, x: event.clientX, y: event.clientY });
                       }}
                     >
                       {tab.name}
@@ -615,11 +605,41 @@ const FileViewer: Component<FileViewerProps> = (props) => {
               <ContentView
                 content={readyContent() as FileContent}
                 path={activePath() as string}
+                sourceModeVersion={sourceVersion()}
                 onRendered={setCodeEl}
               />
             </div>
           </Show>
         </div>
+      </Show>
+      <Show when={tabContextMenu()}>
+        {(menu) => {
+          // Capture the path before ContextMenu can unmount this Show on
+          // selection; reading menu() from a delayed callback would be stale.
+          const context = menu();
+          return (
+            <ContextMenu
+              x={context.x}
+              y={context.y}
+              testId="viewer-tab-context-menu"
+              items={[
+                {
+                  id: "toggle-source",
+                  label: isSourceMode(context.path)
+                    ? t("files:viewRendered")
+                    : t("files:viewSource"),
+                  onSelect: () => {
+                    toggleSourceMode(context.path);
+                    setSourceVersion((version) => version + 1);
+                    setTabContextMenu(null);
+                  },
+                } satisfies MenuItem,
+              ]}
+              onClose={() => setTabContextMenu(null)}
+              label={t("files:openFiles")}
+            />
+          );
+        }}
       </Show>
     </div>
   );

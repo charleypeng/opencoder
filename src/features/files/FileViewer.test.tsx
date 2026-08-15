@@ -153,6 +153,36 @@ describe("FileViewer tab bar", () => {
 });
 
 describe("FileViewer content branches", () => {
+  it("renders markdown by default and switches to source from the tab menu", async () => {
+    const serverId = freshServer();
+    mountViewer(serverId, {
+      "docs/preview.md": textContent("# Preview\n\n**formatted**", "text/markdown"),
+    });
+    openTab(serverId, "docs/preview.md");
+
+    await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
+    expect(screen.getByTestId("viewer-markdown")).toHaveTextContent("Preview");
+
+    fireEvent.contextMenu(screen.getByTestId("viewer-tab-docs/preview.md"), {
+      clientX: 100,
+      clientY: 80,
+    });
+    const menuItem = await screen.findByTestId("viewer-tab-context-menu-toggle-source");
+    expect(menuItem).toHaveTextContent("View source");
+    fireEvent.click(menuItem);
+
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+    expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Preview");
+
+    fireEvent.contextMenu(screen.getByTestId("viewer-tab-docs/preview.md"), {
+      clientX: 100,
+      clientY: 80,
+    });
+    const renderedItem = await screen.findByTestId("viewer-tab-context-menu-toggle-source");
+    expect(renderedItem).toHaveTextContent("View rendered");
+    fireEvent.click(renderedItem);
+    await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
+  });
   it("highlights text content with the language from the extension", async () => {
     const serverId = freshServer();
     mountViewer(serverId, {
