@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0-prerelease] - 2026-08-15
+
 ### Added
 
 - Workspace layout redesign (feat(sessions)): the workspace tree now leads with the user's DEFAULT workspace — pinned to the top with a "Default" badge, separated from the rest by a divider (the server's persisted default). The header "+ New session" creates inside that default workspace; a new "+ Add workspace" button below it opens the directory picker and adds the picked folder to the workspace list. Hovering a workspace row shows [+] (create a session in that workspace's directory) and ⋯ (menu: View folder — switches the context and shows the workspace's files in the main pane; Remove workspace — drops the row). All user state persists across restarts: the default workspace, the explicit workspace list (added folders render even with no sessions/projects yet) and removals. (sessions)
