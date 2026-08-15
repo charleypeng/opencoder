@@ -1,8 +1,9 @@
 # Debug release channel: tag-triggered GitHub Release with an UNSIGNED
-# Windows + macOS (dmg) installer set.
+# Windows + macOS (dmg) + Linux (deb/AppImage) installer set.
 #
 # Deliberately different from release.yml:
-#   - Only two platforms: macOS universal (app+dmg) and Windows x64 (nsis).
+#   - Three platforms: macOS universal (app+dmg), Windows x64 (nsis) and
+#     Linux x64 (deb+AppImage).
 #   - Never signed: no Apple certificate import (Gatekeeper will warn, see
 #     docs/release-signing.md) and no TAURI_SIGNING_PRIVATE_KEY requirement —
 #     a throwaway CI updater signing key is generated when the secret is
@@ -19,10 +20,11 @@
 #                  Cargo.toml all match (scripts/check-version.mjs), extract
 #                  the CHANGELOG section (scripts/release-notes.mjs) and
 #                  create the PUBLISHED release with it
-#   build matrix:  macOS universal (app+dmg), Windows x64 (nsis) — each job
-#                  uploads its artifacts via tauri-apps/tauri-action@v0
-#                  (idempotent per tag: the release created above is found by
-#                  tag, never modified, each job just adds its assets)
+#   build matrix:  macOS universal (app+dmg), Windows x64 (nsis), Linux x64
+#                  (deb+AppImage) — each job uploads its artifacts via
+#                  tauri-apps/tauri-action@v0 (idempotent per tag: the release
+#                  created above is found by tag, never modified, each job
+#                  just adds its assets)
 
 name: debug
 
@@ -101,6 +103,10 @@ jobs:
             target: x86_64-pc-windows-msvc
             rust-targets: x86_64-pc-windows-msvc
             bundles: nsis
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rust-targets: x86_64-unknown-linux-gnu
+            bundles: deb,appimage
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
@@ -128,6 +134,24 @@ jobs:
         uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
+      # System dependencies required by Tauri v2 bundling on Linux
+      # (webkit2gtk-4.1, appindicator, rsvg for icons, patchelf for AppImage).
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
 
       # Unsigned debug builds never fail on the updater key: same throwaway
       # CI key fallback as desktop.yml (these .sig files must not be fed to

@@ -13,6 +13,8 @@
 
 - 应用图标（feat(branding)）：全新自定义图标——OpenCode 云朵以应用 accent 渐变呈现于深色圆角底板上，云内嵌入粗体 `>_` 终端提示符，替换原先的 Tauri/OpenCode 默认图标（源文件 docs/opencoder-icon.svg，设计说明 docs/icon-design.md）。(branding)
 
+- Linux 调试构建（feat(ci)）：debug 发布渠道在 macOS、Windows 之外，新增 Linux x64 安装包（deb + AppImage）的构建与上传。(ci)
+
 - 宠物视觉与交互优化（feat(pet)）：宠物改为透明、无边框画布，采用更接近客户端背景的角色与纸箱组合视觉，默认从屏幕左下角出现，支持鼠标拖拽移动，并移除宠物窗口内的状态和设置控件。移动模式补充窗口位置权限并缩短移动间隔，确保乱跑/底部走动实际可见。(pet)
 
 ### 修复

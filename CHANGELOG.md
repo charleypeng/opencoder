@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - App icon (feat(branding)): new custom icon — the OpenCode cloud in the app's accent gradient over a dark rounded tile with a bold `>_` terminal prompt inside, replacing the stock Tauri/OpenCode marks (source SVG in docs/opencoder-icon.svg, design notes in docs/icon-design.md). (branding)
 
+- Linux debug builds (feat(ci)): the debug release channel now also builds and uploads Linux x64 installers (deb + AppImage) alongside macOS and Windows. (ci)
+
 - Pet visual and interaction polish (feat(pet)): the companion now uses a transparent, borderless canvas with a character-and-cardboard-box presentation closer to the client background, starts in the lower-left corner, supports explicit mouse dragging, and removes the in-window status/settings controls. Pet movement now has the required window-position permissions and uses shorter movement intervals so roam/bottom modes visibly move. (pet)
 
 ### Fixed
