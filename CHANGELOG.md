@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.2] - 2026-08-16
 
 ### Added
 
@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Localized tray menu (feat(desktop)): the system tray menu (Show/Hide, New session, Quit) follows the OS language — Chinese on zh locales, English otherwise. (desktop)
 
 ### Fixed
+
+- Tool cards hide raw input JSON (fix(ui)): the per-tool "Input" disclosure showing the raw JSON of a tool call's arguments (e.g. `{"command": "ls …"}`) is removed from the expanded tool card — the tool-specific renderers (bash terminal, edit diff, read/write blocks) already show what matters. (ui)
+
+- Composer background blends with the chat page (fix(ui)): the send message box's outer strip now uses the main page background (`bg-bg-base`) instead of the elevated surface, so the composer visually sits on the chat page instead of as a distinct bar. (ui)
+
+- CI installs Tauri Linux deps (fix(ci)): the L0-L3 gate job now runs the same apt install step as the desktop/release workflows before `cargo clippy`, so glib/webkit2gtk build scripts can resolve their `.pc` files on ubuntu runners. (ci)
 
 - Composer shortcuts honor customizations (fix(settings)): the chat input's local keys — send message (⌘/Ctrl+Enter by default), agent cycle (Tab) and last-prompt recall (↑) — now read the shortcut registry's effective combos instead of being hardcoded, so remapping them in Settings actually takes effect (e.g. sendMessage set to a bare Enter sends on Enter). (settings)
 

@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.0.2] - 2026-08-16
 
 ### 新增
 
@@ -14,6 +14,12 @@
 - 托盘菜单本地化（feat(desktop)）：系统托盘菜单（显示/隐藏、新建会话、退出）跟随系统语言——中文系统显示中文，其余显示英文。(desktop)
 
 ### 修复
+
+- 工具卡片不再显示原始输入 JSON（fix(ui)）：展开工具卡片时，原先展示工具调用参数原始 JSON（如 `{"command": "ls …"}`）的「输入」折叠区已移除——各工具自己的渲染（bash 终端、edit 差异、read/write 代码块）已经展示了需要的内容。(ui)
+
+- 输入框背景与聊天页融为一体（fix(ui)）：发送消息框最外层底色由浮层色改为与主页面一致的背景色（`bg-bg-base`），发送区域不再像一条独立色带，而是视觉上直接落在聊天页上。(ui)
+
+- CI 安装 Tauri Linux 依赖（fix(ci)）：L0-L3 质量门禁任务在 `cargo clippy` 前执行与 desktop/release 工作流相同的 apt 安装步骤，glib/webkit2gtk 的构建脚本才能在 ubuntu runner 上找到对应的 `.pc` 文件。(ci)
 
 - 输入框快捷键遵循自定义设置（fix(settings)）：聊天输入框的本地按键——发送消息（默认 ⌘/Ctrl+Enter）、循环切换 agent（Tab）、召回上一条提示（↑）——改为读取快捷键注册表的实际组合键而非硬编码，在设置中重新绑定后立即生效（例如把发送消息改为单独的 Enter 后，按 Enter 即可发送）。(settings)
 
