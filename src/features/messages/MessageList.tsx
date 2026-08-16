@@ -503,18 +503,20 @@ const MessageList: Component<MessageListProps> = (props) => {
                         }`}
                         style={{ top: `${row().start}px` }}
                       >
-                        <MessageBubble
-                          serverId={props.serverId}
-                          sessionId={props.sessionId}
-                          messageID={row().messageID}
-                          partIds={row().partIds}
-                          typing={row().typing}
-                          mobile={props.mobile}
-                          onViewDiff={props.onViewDiff}
-                          onFork={props.onFork}
-                          onRevert={props.onRevert}
-                          onOpenChild={props.onOpenChild}
-                        />
+                        <div class="mx-auto w-full max-w-6xl">
+                          <MessageBubble
+                            serverId={props.serverId}
+                            sessionId={props.sessionId}
+                            messageID={row().messageID}
+                            partIds={row().partIds}
+                            typing={row().typing}
+                            mobile={props.mobile}
+                            onViewDiff={props.onViewDiff}
+                            onFork={props.onFork}
+                            onRevert={props.onRevert}
+                            onOpenChild={props.onOpenChild}
+                          />
+                        </div>
                       </div>
                     )}
                   </Key>

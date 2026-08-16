@@ -1823,51 +1823,16 @@ describe("DesktopShell message revert (TASK-M6-04)", () => {
   });
 });
 
-describe("DesktopShell subtask navigation (TASK-M6-07)", () => {
-  it("opens the first child session from a subtask part", async () => {
+describe("DesktopShell task navigation", () => {
+  it("does not render subtask cards in the chat transcript", async () => {
     const alpha = server({ id: "srv-m6tree", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
-
-    applySessionList("srv-m6tree", [
-      session("sess_sub_parent", DEMO_DIR),
-      { ...session("sess_sub_child", DEMO_DIR), parentID: "sess_sub_parent", title: "sub child" },
-    ]);
+    applySessionList("srv-m6tree", [session("sess_sub_parent", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_sub_parent"));
-    await waitFor(() => expect(screen.getByTestId("subtask-part")).toBeInTheDocument());
-    // Re-seed: the mount-time session re-sync (server.connected) replaced
-    // the seeded list; assert against the current entries, not stale ones.
-    applySessionList("srv-m6tree", [
-      session("sess_sub_parent", DEMO_DIR),
-      { ...session("sess_sub_child", DEMO_DIR), parentID: "sess_sub_parent", title: "sub child" },
-    ]);
-
-    fireEvent.click(screen.getByTestId("subtask-toggle"));
-    fireEvent.click(await screen.findByTestId("subtask-open-child"));
-
-    await waitFor(() =>
-      expect(getServerSessionState("srv-m6tree").activeSessionId).toBe("sess_sub_child"),
-    );
-    await waitFor(() =>
-      expect(screen.getByTestId("chat-session-title")).toHaveTextContent("sub child"),
-    );
-  });
-
-  it("keeps the session active when the subtask has no child session", async () => {
-    const alpha = server({ id: "srv-m6tree2", name: "Alpha" });
-    mockHttpRoutes([alpha]);
-    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
-    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
-
-    applySessionList("srv-m6tree2", [session("sess_sub_parent", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("workspace-session-sess_sub_parent"));
-    await waitFor(() => expect(screen.getByTestId("subtask-part")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByTestId("subtask-toggle"));
-    fireEvent.click(await screen.findByTestId("subtask-open-child"));
-
-    expect(getServerSessionState("srv-m6tree2").activeSessionId).toBe("sess_sub_parent");
+    expect(screen.queryByTestId("subtask-part")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("agent-part")).not.toBeInTheDocument();
   });
 });
 

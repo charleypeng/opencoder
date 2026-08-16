@@ -212,10 +212,9 @@ describe("MessageList", () => {
     // Step boundary parts are not rendered (chat refactor).
     expect(screen.queryAllByTestId("step-start-part")).toHaveLength(0);
     expect(screen.queryAllByTestId("step-finish-part")).toHaveLength(0);
-    expect(screen.getByTestId("subtask-part")).toHaveTextContent(
-      "Implement the auth API client and wire it into the login form",
-    );
-    expect(screen.getByTestId("agent-part")).toHaveTextContent("build");
+    // Subtask/agent parts are owned by TaskPanel, not the transcript.
+    expect(screen.queryByTestId("subtask-part")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("agent-part")).not.toBeInTheDocument();
     expect(screen.getByTestId("retry-part")).toHaveTextContent("Retrying (attempt 2)");
     expect(screen.getByTestId("compaction-part")).toHaveTextContent("Context compacted");
   });

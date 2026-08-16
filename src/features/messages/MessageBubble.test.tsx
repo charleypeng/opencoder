@@ -149,7 +149,7 @@ describe("MessageBubble", () => {
     await waitFor(() => expect(bubble.querySelector('[data-testid="typing-cursor"]')).toBeNull());
   });
 
-  it("renders file, patch, snapshot, subtask, agent, retry and compaction parts from the all-parts fixture", async () => {
+  it("hides subtask and agent parts from the chat transcript", async () => {
     for (const partId of [
       "prt_p3",
       "prt_p6",
@@ -209,16 +209,10 @@ describe("MessageBubble", () => {
     expect(bubble.querySelector('[data-testid="step-start-part"]')).toBeNull();
     expect(bubble.querySelector('[data-testid="step-finish-part"]')).toBeNull();
 
-    const subtask = bubble.querySelector('[data-testid="subtask-part"]');
-    expect(subtask).not.toBeNull();
-    expect(subtask).toHaveTextContent(
-      "Implement the auth API client and wire it into the login form",
-    );
-    expect(subtask?.querySelector('[data-testid="agent-chip"]')).toHaveTextContent("build");
-
-    const agent = bubble.querySelector('[data-testid="agent-part"]');
-    expect(agent).not.toBeNull();
-    expect(agent).toHaveTextContent("build");
+    // Subtask and agent parts are intentionally hidden from the transcript;
+    // the TaskPanel is their dedicated UI.
+    expect(bubble.querySelector('[data-testid="subtask-part"]')).toBeNull();
+    expect(bubble.querySelector('[data-testid="agent-part"]')).toBeNull();
 
     const retry = bubble.querySelector('[data-testid="retry-part"]');
     expect(retry).not.toBeNull();

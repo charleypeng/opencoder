@@ -9,7 +9,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import TaskPanel from "./TaskPanel";
 import type { Session } from "../../services/session";
-import { resetServer as resetSessions, upsertSession } from "../../stores/session";
+import {
+  resetServer as resetSessions,
+  setSessionStatus,
+  upsertSession,
+} from "../../stores/session.js";
 
 const { getApiClientMock } = vi.hoisted(() => ({
   getApiClientMock: vi.fn(),
@@ -54,6 +58,8 @@ describe("TaskPanel children group", () => {
     upsertSession(SERVER, sessionFixture(PARENT));
     upsertSession(SERVER, sessionFixture(CHILD_A, PARENT));
     upsertSession(SERVER, sessionFixture(CHILD_B, PARENT));
+    setSessionStatus(SERVER, CHILD_A, { type: "busy" });
+    setSessionStatus(SERVER, CHILD_B, { type: "busy" });
     const onSelect = vi.fn();
 
     render(() => (

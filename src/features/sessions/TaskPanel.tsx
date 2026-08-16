@@ -87,15 +87,21 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
   const completedCount = () => list().filter((todo) => todo.status === "completed").length;
   const hasPending = () =>
     list().some((todo) => todo.status !== "completed" && todo.status !== "cancelled");
+  const activeChildren = createMemo(() =>
+    children().filter((child) => {
+      const status = getServerSessionState(props.serverId).statuses[child.id]?.type;
+      return status === "busy" || status === "retry";
+    }),
+  );
 
   // Panel visibility: nothing to show → render nothing at all. A child
   // session always shows the panel (its back affordance is the only way
   // to return to the parent once inside a sub-agent session).
   const hasContent = () => totalCount() > 0 || children().length > 0 || isChildSession();
-  // Activity = pending todos or child sessions (things still happening).
-  const hasActivity = () => hasPending() || children().length > 0;
-  // Everything done: completed todos and no children left.
-  const allDone = () => totalCount() > 0 && !hasPending() && children().length === 0;
+  // Activity = pending todos or child sessions that are still busy.
+  const hasActivity = () => hasPending() || activeChildren().length > 0;
+  // Everything done: completed todos and no child session is still active.
+  const allDone = () => totalCount() > 0 && !hasPending() && activeChildren().length === 0;
 
   // Collapse state: null = automatic (follow activity), true/false = the
   // user's manual choice. A fresh task resets the manual override so the

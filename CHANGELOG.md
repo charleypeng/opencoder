@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Composer shortcuts honor customizations (fix(settings)): the chat input's local keys — send message (⌘/Ctrl+Enter by default), agent cycle (Tab) and last-prompt recall (↑) — now read the shortcut registry's effective combos instead of being hardcoded, so remapping them in Settings actually takes effect (e.g. sendMessage set to a bare Enter sends on Enter). (settings)
 
+- Task panel activity state fix (fix(sessions)): completed child sessions no longer keep the task panel in an active/spinning state; only child sessions whose session status is busy or retry count as active, while finished children remain available in the collapsed group. (sessions)
+
+- Chat transcript cleanup and centered layout (fix(ui)): subtask and agent parts are no longer duplicated inside the chat transcript because the TaskPanel is their dedicated surface. Message history and the composer now share a centered max-width content column that remains readable in both restored and maximized windows. (ui)
+
 - Dock icon restores the window (fix(desktop)): with close-to-tray enabled, clicking the app's Dock (or taskbar) icon now brings the main window back instead of doing nothing — the run loop handles macOS Reopen and the single-instance path also shows the window. (desktop)
 
 ## [1.0.1] - 2026-08-16

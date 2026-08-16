@@ -1366,19 +1366,21 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         }
                       }}
                     >
-                      <TaskPanel
-                        serverId={activeServerId()}
-                        sessionId={activeSessionId() as string}
-                        onSelectSession={(sessionId) =>
-                          setActiveSession(activeServerId(), sessionId)
-                        }
-                        onBackToParent={backToParentSession}
-                        expandToken={taskExpandToken()}
-                      />
-                      <PromptBox
-                        serverId={activeServerId()}
-                        sessionId={activeSessionId() as string}
-                      />
+                      <div class="mx-auto w-full max-w-6xl">
+                        <TaskPanel
+                          serverId={activeServerId()}
+                          sessionId={activeSessionId() as string}
+                          onSelectSession={(sessionId) =>
+                            setActiveSession(activeServerId(), sessionId)
+                          }
+                          onBackToParent={backToParentSession}
+                          expandToken={taskExpandToken()}
+                        />
+                        <PromptBox
+                          serverId={activeServerId()}
+                          sessionId={activeSessionId() as string}
+                        />
+                      </div>
                     </div>
                   </Show>
                 </Show>

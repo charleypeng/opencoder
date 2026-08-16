@@ -27,48 +27,52 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 0px;"
         >
           <div
-            aria-haspopup="menu"
-            class="group relative flex flex-col gap-1 outline-none items-end"
-            data-role="user"
-            data-testid="message-msg_m1"
-            tabindex="0"
+            class="mx-auto w-full max-w-6xl"
           >
             <div
-              class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+              aria-haspopup="menu"
+              class="group relative flex flex-col gap-1 outline-none items-end"
+              data-role="user"
+              data-testid="message-msg_m1"
+              tabindex="0"
             >
               <div
-                data-testid="text-part"
+                class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
               >
                 <div
-                  class="markdown-body text-sm leading-relaxed"
-                  data-testid="markdown-text"
+                  data-testid="text-part"
                 >
-                  <p>
-                    Add a login flow with password-based auth.
-                  </p>
-                  
+                  <div
+                    class="markdown-body text-sm leading-relaxed"
+                    data-testid="markdown-text"
+                  >
+                    <p>
+                      Add a login flow with password-based auth.
+                    </p>
+                    
 
+                  </div>
+                  
                 </div>
-                
               </div>
+              <span
+                class="px-1 text-xs text-fg-faint"
+                data-testid="message-time"
+              >
+                10:26
+              </span>
+              <button
+                aria-label="Message actions"
+                class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                data-testid="message-actions"
+                type="button"
+              >
+                ⋯
+              </button>
+              
+              
+              
             </div>
-            <span
-              class="px-1 text-xs text-fg-faint"
-              data-testid="message-time"
-            >
-              10:26
-            </span>
-            <button
-              aria-label="Message actions"
-              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-testid="message-actions"
-              type="button"
-            >
-              ⋯
-            </button>
-            
-            
-            
           </div>
         </div>
         <div
@@ -78,208 +82,212 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 96px;"
         >
           <div
-            aria-haspopup="menu"
-            class="group relative flex flex-col gap-1 outline-none items-start"
-            data-role="assistant"
-            data-testid="message-msg_m2"
-            tabindex="0"
+            class="mx-auto w-full max-w-6xl"
           >
-            <span
-              class="ai-label"
-              data-testid="ai-label"
-            >
-              AI
-            </span>
             <div
-              class="w-full max-w-3xl"
+              aria-haspopup="menu"
+              class="group relative flex flex-col gap-1 outline-none items-start"
+              data-role="assistant"
+              data-testid="message-msg_m2"
+              tabindex="0"
             >
-              <div
-                class="my-1 rounded-md bg-bg-sunken/50"
-                data-testid="reasoning-part"
+              <span
+                class="ai-label"
+                data-testid="ai-label"
               >
-                <button
-                  aria-expanded="false"
-                  class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-                  data-testid="reasoning-toggle"
-                  type="button"
-                >
-                  <span
-                    aria-hidden=""
-                    class="inline-block shrink-0 text-fg-faint transition-transform "
-                  >
-                    ▸
-                  </span>
-                  <span
-                    class="shrink-0 font-medium text-fg-secondary"
-                  >
-                    Reasoning
-                  </span>
-                  <span
-                    class="truncate text-fg-faint"
-                  >
-                    The client needs a login form, a session store, and an auth …
-                  </span>
-                </button>
-                
-              </div>
+                AI
+              </span>
               <div
-                data-testid="text-part"
+                class="w-full max-w-3xl"
               >
                 <div
-                  class="markdown-body text-sm leading-relaxed"
-                  data-testid="markdown-text"
+                  class="my-1 rounded-md bg-bg-sunken/50"
+                  data-testid="reasoning-part"
                 >
-                  <p>
-                    Let me check the existing project structure first.
-                  </p>
+                  <button
+                    aria-expanded="false"
+                    class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                    data-testid="reasoning-toggle"
+                    type="button"
+                  >
+                    <span
+                      aria-hidden=""
+                      class="inline-block shrink-0 text-fg-faint transition-transform "
+                    >
+                      ▸
+                    </span>
+                    <span
+                      class="shrink-0 font-medium text-fg-secondary"
+                    >
+                      Reasoning
+                    </span>
+                    <span
+                      class="truncate text-fg-faint"
+                    >
+                      The client needs a login form, a session store, and an auth …
+                    </span>
+                  </button>
                   
-
                 </div>
-                
-              </div>
-              <div
-                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
-                data-status="running"
-                data-testid="tool-part"
-              >
-                <button
-                  aria-expanded="false"
-                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-                  data-testid="tool-toggle"
-                  type="button"
+                <div
+                  data-testid="text-part"
                 >
-                  <span
-                    aria-hidden=""
-                    class="inline-block shrink-0 text-fg-faint transition-transform "
+                  <div
+                    class="markdown-body text-sm leading-relaxed"
+                    data-testid="markdown-text"
                   >
-                    ▸
-                  </span>
-                  <span
-                    aria-hidden=""
-                    class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
-                  />
-                  <svg
-                    aria-hidden=""
-                    class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    viewBox="0 0 16 16"
-                  />
-                  <span
-                    class="truncate font-code font-medium text-fg-primary"
-                  >
-                    bash
-                  </span>
-                  <span
-                    class="shrink-0 font-code text-fg-faint"
-                    data-testid="tool-duration"
-                  >
-                    500ms
-                  </span>
-                  <span
-                    class="ml-auto shrink-0 text-fg-faint"
-                    data-testid="tool-status-label"
-                  >
-                    Running bash
-                  </span>
-                  <span
-                    aria-hidden=""
-                    class="tool-shimmer"
-                    data-testid="tool-shimmer"
-                  />
-                </button>
-                
-              </div>
-              <div
-                class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
-                data-status="completed"
-                data-testid="tool-part"
-              >
-                <button
-                  aria-expanded="false"
-                  class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-                  data-testid="tool-toggle"
-                  type="button"
-                >
-                  <span
-                    aria-hidden=""
-                    class="inline-block shrink-0 text-fg-faint transition-transform "
-                  >
-                    ▸
-                  </span>
-                  <svg
-                    aria-hidden=""
-                    class="h-3.5 w-3.5 shrink-0 text-success"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    viewBox="0 0 16 16"
-                  >
-                    <path
-                      d="M3 8.5l3.5 3.5L13 5"
-                    />
-                  </svg>
-                  <svg
-                    aria-hidden=""
-                    class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="1.5"
-                    viewBox="0 0 16 16"
-                  >
-                    <path
-                      d="M2.5 3.5 6.5 8l-4 4.5"
-                    />
-                    <path
-                      d="M8 12.5h5.5"
-                    />
-                  </svg>
-                  <span
-                    class="truncate font-code font-medium text-fg-primary"
-                  >
-                    bash
-                  </span>
-                  <span
-                    class="shrink-0 font-code text-fg-faint"
-                    data-testid="tool-duration"
-                  >
-                    3s
-                  </span>
-                  <span
-                    class="ml-auto shrink-0 text-fg-faint"
-                    data-testid="tool-status-label"
-                  >
-                    bash completed
-                  </span>
+                    <p>
+                      Let me check the existing project structure first.
+                    </p>
+                    
+
+                  </div>
                   
-                </button>
-                
+                </div>
+                <div
+                  class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
+                  data-status="running"
+                  data-testid="tool-part"
+                >
+                  <button
+                    aria-expanded="false"
+                    class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                    data-testid="tool-toggle"
+                    type="button"
+                  >
+                    <span
+                      aria-hidden=""
+                      class="inline-block shrink-0 text-fg-faint transition-transform "
+                    >
+                      ▸
+                    </span>
+                    <span
+                      aria-hidden=""
+                      class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
+                    />
+                    <svg
+                      aria-hidden=""
+                      class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      viewBox="0 0 16 16"
+                    />
+                    <span
+                      class="truncate font-code font-medium text-fg-primary"
+                    >
+                      bash
+                    </span>
+                    <span
+                      class="shrink-0 font-code text-fg-faint"
+                      data-testid="tool-duration"
+                    >
+                      500ms
+                    </span>
+                    <span
+                      class="ml-auto shrink-0 text-fg-faint"
+                      data-testid="tool-status-label"
+                    >
+                      Running bash
+                    </span>
+                    <span
+                      aria-hidden=""
+                      class="tool-shimmer"
+                      data-testid="tool-shimmer"
+                    />
+                  </button>
+                  
+                </div>
+                <div
+                  class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+                  data-status="completed"
+                  data-testid="tool-part"
+                >
+                  <button
+                    aria-expanded="false"
+                    class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                    data-testid="tool-toggle"
+                    type="button"
+                  >
+                    <span
+                      aria-hidden=""
+                      class="inline-block shrink-0 text-fg-faint transition-transform "
+                    >
+                      ▸
+                    </span>
+                    <svg
+                      aria-hidden=""
+                      class="h-3.5 w-3.5 shrink-0 text-success"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      viewBox="0 0 16 16"
+                    >
+                      <path
+                        d="M3 8.5l3.5 3.5L13 5"
+                      />
+                    </svg>
+                    <svg
+                      aria-hidden=""
+                      class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="1.5"
+                      viewBox="0 0 16 16"
+                    >
+                      <path
+                        d="M2.5 3.5 6.5 8l-4 4.5"
+                      />
+                      <path
+                        d="M8 12.5h5.5"
+                      />
+                    </svg>
+                    <span
+                      class="truncate font-code font-medium text-fg-primary"
+                    >
+                      bash
+                    </span>
+                    <span
+                      class="shrink-0 font-code text-fg-faint"
+                      data-testid="tool-duration"
+                    >
+                      3s
+                    </span>
+                    <span
+                      class="ml-auto shrink-0 text-fg-faint"
+                      data-testid="tool-status-label"
+                    >
+                      bash completed
+                    </span>
+                    
+                  </button>
+                  
+                </div>
               </div>
+              <span
+                class="px-1 text-xs text-fg-faint"
+                data-testid="message-time"
+              >
+                10:26
+              </span>
+              <button
+                aria-label="Message actions"
+                class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                data-testid="message-actions"
+                type="button"
+              >
+                ⋯
+              </button>
+              
+              
+              
             </div>
-            <span
-              class="px-1 text-xs text-fg-faint"
-              data-testid="message-time"
-            >
-              10:26
-            </span>
-            <button
-              aria-label="Message actions"
-              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-testid="message-actions"
-              type="button"
-            >
-              ⋯
-            </button>
-            
-            
-            
           </div>
         </div>
         <div
@@ -289,48 +297,52 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 192px;"
         >
           <div
-            aria-haspopup="menu"
-            class="group relative flex flex-col gap-1 outline-none items-end"
-            data-role="user"
-            data-testid="message-msg_m3"
-            tabindex="0"
+            class="mx-auto w-full max-w-6xl"
           >
             <div
-              class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+              aria-haspopup="menu"
+              class="group relative flex flex-col gap-1 outline-none items-end"
+              data-role="user"
+              data-testid="message-msg_m3"
+              tabindex="0"
             >
               <div
-                data-testid="text-part"
+                class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
               >
                 <div
-                  class="markdown-body text-sm leading-relaxed"
-                  data-testid="markdown-text"
+                  data-testid="text-part"
                 >
-                  <p>
-                    Also add a logout button to the sidebar.
-                  </p>
-                  
+                  <div
+                    class="markdown-body text-sm leading-relaxed"
+                    data-testid="markdown-text"
+                  >
+                    <p>
+                      Also add a logout button to the sidebar.
+                    </p>
+                    
 
+                  </div>
+                  
                 </div>
-                
               </div>
+              <span
+                class="px-1 text-xs text-fg-faint"
+                data-testid="message-time"
+              >
+                10:26
+              </span>
+              <button
+                aria-label="Message actions"
+                class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                data-testid="message-actions"
+                type="button"
+              >
+                ⋯
+              </button>
+              
+              
+              
             </div>
-            <span
-              class="px-1 text-xs text-fg-faint"
-              data-testid="message-time"
-            >
-              10:26
-            </span>
-            <button
-              aria-label="Message actions"
-              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-testid="message-actions"
-              type="button"
-            >
-              ⋯
-            </button>
-            
-            
-            
           </div>
         </div>
         <div
@@ -340,54 +352,58 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 288px;"
         >
           <div
-            aria-haspopup="menu"
-            class="group relative flex flex-col gap-1 outline-none items-start"
-            data-role="assistant"
-            data-testid="message-msg_m4"
-            tabindex="0"
+            class="mx-auto w-full max-w-6xl"
           >
-            <span
-              class="ai-label"
-              data-testid="ai-label"
-            >
-              AI
-            </span>
             <div
-              class="w-full max-w-3xl"
+              aria-haspopup="menu"
+              class="group relative flex flex-col gap-1 outline-none items-start"
+              data-role="assistant"
+              data-testid="message-msg_m4"
+              tabindex="0"
             >
+              <span
+                class="ai-label"
+                data-testid="ai-label"
+              >
+                AI
+              </span>
               <div
-                data-testid="text-part"
+                class="w-full max-w-3xl"
               >
                 <div
-                  class="markdown-body text-sm leading-relaxed"
-                  data-testid="markdown-text"
+                  data-testid="text-part"
                 >
-                  <p>
-                    Done. The sidebar now shows a logout button in the account section.
-                  </p>
-                  
+                  <div
+                    class="markdown-body text-sm leading-relaxed"
+                    data-testid="markdown-text"
+                  >
+                    <p>
+                      Done. The sidebar now shows a logout button in the account section.
+                    </p>
+                    
 
+                  </div>
+                  
                 </div>
-                
               </div>
+              <span
+                class="px-1 text-xs text-fg-faint"
+                data-testid="message-time"
+              >
+                10:26
+              </span>
+              <button
+                aria-label="Message actions"
+                class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                data-testid="message-actions"
+                type="button"
+              >
+                ⋯
+              </button>
+              
+              
+              
             </div>
-            <span
-              class="px-1 text-xs text-fg-faint"
-              data-testid="message-time"
-            >
-              10:26
-            </span>
-            <button
-              aria-label="Message actions"
-              class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-              data-testid="message-actions"
-              type="button"
-            >
-              ⋯
-            </button>
-            
-            
-            
           </div>
         </div>
       </div>

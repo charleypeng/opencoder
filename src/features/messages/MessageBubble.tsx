@@ -17,14 +17,12 @@ import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import { useT } from "../../i18n/index.js";
 import MessageActions from "./MessageActions.js";
-import AgentPart from "./parts/AgentPart.js";
 import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
 import PatchPart from "./parts/PatchPart.js";
 import RetryPart from "./parts/RetryPart.js";
 import ReasoningPart from "./parts/ReasoningPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
-import SubtaskPart from "./parts/SubtaskPart.js";
 import TextPart from "./parts/TextPart.js";
 import ToolPart from "./parts/ToolPart.js";
 
@@ -68,8 +66,6 @@ type RenderablePart = Extract<
   | { type: "file" }
   | { type: "patch" }
   | { type: "snapshot" }
-  | { type: "subtask" }
-  | { type: "agent" }
   | { type: "retry" }
   | { type: "compaction" }
 >;
@@ -83,8 +79,6 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
       part.type === "file" ||
       part.type === "patch" ||
       part.type === "snapshot" ||
-      part.type === "subtask" ||
-      part.type === "agent" ||
       part.type === "retry" ||
       part.type === "compaction")
   );
@@ -128,10 +122,6 @@ function PartView(props: {
         return PatchPart as Component<PartProps>;
       case "snapshot":
         return SnapshotPart as Component<PartProps>;
-      case "subtask":
-        return SubtaskPart as Component<PartProps>;
-      case "agent":
-        return AgentPart as Component<PartProps>;
       case "retry":
         return RetryPart as Component<PartProps>;
       case "compaction":
