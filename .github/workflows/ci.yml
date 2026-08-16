@@ -44,6 +44,25 @@ jobs:
         with:
           workspaces: src-tauri
 
+      # System dependencies required to compile the Tauri Linux stack
+      # (glib/gtk/webkit2gtk-4.1 pulled in by tauri v2 + tray-icon).
+      # Without these, cargo clippy fails on glib-sys/pkg-config.
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libxdo-dev \
+            libssl-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf
+
       # L0 — TypeScript static checks
       - name: L0 eslint
         run: pnpm exec eslint . --max-warnings 0
