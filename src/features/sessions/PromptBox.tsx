@@ -1079,7 +1079,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   return (
     <div
       data-testid="prompt-box"
-      class="shrink-0 border-t border-bg-sunken bg-bg-elevated"
+      class="shrink-0 border-t border-bg-sunken bg-bg-base"
       onDragOver={(event) => event.preventDefault()}
       onDrop={onDrop}
     >
