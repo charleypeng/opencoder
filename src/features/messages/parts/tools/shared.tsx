@@ -4,7 +4,7 @@
 // input disclosure, duration formatting and small input/output extractors
 // used by the tool-specific cards in tools/.
 
-import { createMemo, createSignal, Show } from "solid-js";
+import { createMemo, createSignal } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import type { ToolPartData, ToolStatus } from "../ToolPart.js";
 import { useT } from "../../../../i18n/index.js";
@@ -177,40 +177,6 @@ export function CopyButton(props: { text: string }) {
     >
       {copied() ? t("common:copied") : t("common:copy")}
     </button>
-  );
-}
-
-export function InputDisclosure(props: { input: Record<string, unknown> }) {
-  const t = useT();
-  const [open, setOpen] = createSignal(false);
-  return (
-    <div>
-      <button
-        type="button"
-        data-testid="tool-input-toggle"
-        aria-expanded={open()}
-        class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-        onClick={() => setOpen((value) => !value)}
-      >
-        <span
-          aria-hidden
-          class={`inline-block shrink-0 text-fg-faint transition-transform ${
-            open() ? "rotate-90" : ""
-          }`}
-        >
-          ▸
-        </span>
-        {t("messages:input")}
-      </button>
-      <Show when={open()}>
-        <pre
-          data-testid="tool-input"
-          class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-        >
-          {JSON.stringify(props.input, null, 2)}
-        </pre>
-      </Show>
-    </div>
   );
 }
 

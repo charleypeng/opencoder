@@ -256,7 +256,6 @@
     "patchDiffError": "Couldn't load the diff.",
     "patchDiffEmpty": "No diff content for this file.",
     "output": "Output",
-    "input": "Input",
     "toolTerminal": "Terminal",
     "filesCount_one": "{{count}} file",
     "filesCount_other": "{{count}} files",

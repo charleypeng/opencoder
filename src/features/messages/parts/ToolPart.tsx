@@ -10,7 +10,7 @@ import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-j
 import type { Component, JSX } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { resolveToolCard } from "./tools/registry.js";
-import { durationLabel, InputDisclosure, StatusIcon, ToolIcon } from "./tools/shared.js";
+import { durationLabel, StatusIcon, ToolIcon } from "./tools/shared.js";
 import { useT } from "../../../i18n/index.js";
 import type { ToolCard } from "./tools/shared.js";
 
@@ -113,7 +113,6 @@ const ToolPart: Component<ToolPartProps> = (props) => {
       {/* IA-28: expanded content with monospace font for JSON input/output */}
       <Show when={expanded()}>
         <div class="space-y-2 border-t border-bg-sunken px-2 py-2">
-          <InputDisclosure input={props.part.state.input} />
           <ToolCardView card={card()} part={props.part} />
           <Show when={status() === "error"}>
             <div

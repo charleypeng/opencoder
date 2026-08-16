@@ -1,9 +1,9 @@
 // L2 tests for the full tool card (TASK-M3-01): the four-state machine
 // (pending / running / completed / error) with labels, shimmer and live
 // duration, the per-tool renderers (bash terminal, edit diff, read/write
-// code blocks, glob/grep lists, generic fallback), the collapsible input
-// disclosure, the copy button (clipboard mock), state transitions with
-// interval cleanup, and one snapshot per tool card.
+// code blocks, glob/grep lists, generic fallback), the copy button
+// (clipboard mock), state transitions with interval cleanup, and one
+// snapshot per tool card.
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
@@ -150,15 +150,10 @@ describe("ToolPart", () => {
     expect(screen.getByTestId("tool-terminal")).toBeInTheDocument();
   });
 
-  it("reveals the raw input JSON through the input disclosure", () => {
+  it("does not surface the raw input JSON (hidden by design)", () => {
     renderExpanded(bashCompleted);
-    const toggle = screen.getByTestId("tool-input-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTestId("tool-input")).not.toBeInTheDocument();
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("tool-input")).toHaveTextContent('"command": "ls src"');
+    expect(screen.queryByTestId("tool-input-toggle")).not.toBeInTheDocument();
   });
 
   it("renders the bash terminal with prompt, output and copy button", () => {

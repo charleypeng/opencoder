@@ -72,23 +72,6 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
         data-testid="tool-terminal"
@@ -207,23 +190,6 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="space-y-1"
         data-testid="tool-diff"
@@ -336,23 +302,6 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="space-y-1"
         data-testid="tool-list"
@@ -458,23 +407,6 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="space-y-1"
         data-testid="tool-list"
@@ -581,23 +513,6 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="space-y-1"
         data-testid="tool-code"
@@ -712,23 +627,6 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
     <div
       class="space-y-2 border-t border-bg-sunken px-2 py-2"
     >
-      <div>
-        <button
-          aria-expanded="false"
-          class="flex w-full items-center gap-2 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:text-fg-primary"
-          data-testid="tool-input-toggle"
-          type="button"
-        >
-          <span
-            aria-hidden=""
-            class="inline-block shrink-0 text-fg-faint transition-transform "
-          >
-            ▸
-          </span>
-          Input
-        </button>
-        
-      </div>
       <div
         class="space-y-1"
         data-testid="tool-code"
