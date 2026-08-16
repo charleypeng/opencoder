@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Composer shortcuts honor customizations (fix(settings)): the chat input's local keys — send message (⌘/Ctrl+Enter by default), agent cycle (Tab) and last-prompt recall (↑) — now read the shortcut registry's effective combos instead of being hardcoded, so remapping them in Settings actually takes effect (e.g. sendMessage set to a bare Enter sends on Enter). (settings)
+
 ## [1.0.1] - 2026-08-16
 
 ### Fixed

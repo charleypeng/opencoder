@@ -113,6 +113,8 @@ import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
 import { haptic } from "../../services/haptics.js";
 import { composerPrefill, consumeComposerPrefill } from "../../stores/composer.js";
+import { comboMatchesEvent } from "../settings/shortcuts.js";
+import { effectiveCombo } from "../settings/shortcutStore.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -822,8 +824,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       }
     }
     // Tab cycles the agent (TASK-M5-04) while no input menu owns the keys;
-    // with a menu open Tab keeps its default focus behavior.
-    if (event.key === "Tab") {
+    // with a menu open Tab keeps its default focus behavior. The combo
+    // comes from the registry (tabCycle) so customizations apply.
+    if (comboMatchesEvent(event, effectiveCombo("tabCycle"))) {
       const next = cycleAgentName(getServerAgentState(props.serverId).agents, agentName());
       if (next !== null) {
         event.preventDefault();
@@ -840,12 +843,14 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       }
       return;
     }
-    if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
+    // Send on the registry's sendMessage combo (⌘/Ctrl+Enter by default,
+    // customizable — a bare Enter when the user remaps it).
+    if (event.key === "Enter" && comboMatchesEvent(event, effectiveCombo("sendMessage"))) {
       event.preventDefault();
       void send();
       return;
     }
-    if (event.key === "ArrowUp" && !event.shiftKey) {
+    if (event.key === "ArrowUp" && comboMatchesEvent(event, effectiveCombo("lastPrompt"))) {
       const el = event.currentTarget as HTMLTextAreaElement;
       if (browseIndex() >= 0 || el.selectionStart === 0) {
         event.preventDefault();

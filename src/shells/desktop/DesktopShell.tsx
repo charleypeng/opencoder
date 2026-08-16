@@ -33,8 +33,9 @@
 // quick open, full-text search, session diff, terminal, new session,
 // server digits, session stepping, sidebar toggle, settings); the input
 // locals (⌘Enter send, Tab agent cycle, ↑ last prompt, Esc
-// interrupt/close) stay inside PromptBox and the sheets — the registry
-// lists them but the shell intentionally does not register them. The
+// interrupt/close) stay inside PromptBox and the sheets — the shell does
+// not register them, but the composer reads the registry's effective
+// combos (effectiveCombo) so customizations apply there too. The
 // active-scope signal follows the focused main area (chat / list /
 // global) for the registry's scope gating.
 // This shell owns the per-directory SSE subscription and rebuilds

@@ -45,6 +45,7 @@ import { activeModelFor, resetServer as resetModels } from "../../stores/models"
 import { applyEvent } from "../../stores/events";
 import type { SseEvent } from "../../services/sse";
 import { scenarios } from "../../../tests/mock-server/scenarios/index.js";
+import { resetAllShortcuts, saveShortcutCombo } from "../settings/shortcutStore.js";
 
 const { getApiClientMock, hapticMock } = vi.hoisted(() => ({
   getApiClientMock: vi.fn(),
@@ -110,6 +111,7 @@ afterEach(() => {
   resetModels(SERVER);
   clearPrompts(SERVER);
   window.localStorage.clear();
+  resetAllShortcuts();
   consumeComposerPrefill();
 });
 
@@ -212,6 +214,29 @@ describe("PromptBox", () => {
 
     expect(client.post).not.toHaveBeenCalled();
     expect(input().value).toBe("line one");
+  });
+
+  it("sends on a customized bare-Enter combo (TASK-M8-01 regression)", async () => {
+    // Remapping sendMessage to a bare Enter must re-wire the composer:
+    // the old ⌘/Ctrl+Enter stops sending and the plain key sends instead.
+    saveShortcutCombo("sendMessage", {
+      key: "enter",
+      ctrl: false,
+      meta: false,
+      shift: false,
+      alt: false,
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "plain enter" } });
+    fireEvent.keyDown(input(), { key: "Enter" });
+    await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
+    expect(input().value).toBe("");
+
+    fireEvent.input(input(), { target: { value: "cmd enter" } });
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+    await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
+    expect(input().value).toBe("cmd enter");
   });
 
   it("locks the input while the session is busy or retry", () => {
