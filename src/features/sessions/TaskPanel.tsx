@@ -105,22 +105,28 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
 
   // Collapse state: null = automatic (follow activity), true/false = the
   // user's manual choice. A fresh task resets the manual override so the
-  // panel re-opens; everything completing collapses it automatically.
+  // panel re-opens; the transition to all-done collapses it once, while a
+  // subsequent click is allowed to expand it again.
   const [manualCollapsed, setManualCollapsed] = createSignal<boolean | null>(null);
   const [agentOpen, setAgentOpen] = createSignal(false);
+  let wasDone = false;
 
   // Auto-expand when activity appears (or an external expand request
-  // arrives via expandToken).
+  // arrives via expandToken). Auto-collapse only on the false -> true
+  // completion transition, not on every reactive read, so the user can
+  // reopen a completed panel manually.
   createEffect(() => {
-    if (hasActivity() || (props.expandToken ?? 0) > 0) setManualCollapsed(null);
+    const done = allDone();
+    if (done && !wasDone) setManualCollapsed(true);
+    wasDone = done;
+    if (!done && (hasActivity() || (props.expandToken ?? 0) > 0)) setManualCollapsed(null);
     void props.expandToken;
-    void hasActivity();
   });
 
   const collapsed = createMemo(() => {
-    if (allDone()) return true;
     const manual = manualCollapsed();
     if (manual !== null) return manual;
+    if (allDone()) return true;
     return !hasActivity();
   });
 

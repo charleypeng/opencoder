@@ -71,16 +71,17 @@ type RenderablePart = Extract<
 >;
 
 function isRenderable(part: Part | undefined): part is RenderablePart {
+  if (part === undefined) return false;
+  if (part.type === "tool" && (part.tool === "task" || part.tool === "todowrite")) return false;
   return (
-    part !== undefined &&
-    (part.type === "text" ||
-      part.type === "reasoning" ||
-      part.type === "tool" ||
-      part.type === "file" ||
-      part.type === "patch" ||
-      part.type === "snapshot" ||
-      part.type === "retry" ||
-      part.type === "compaction")
+    part.type === "text" ||
+    part.type === "reasoning" ||
+    part.type === "tool" ||
+    part.type === "file" ||
+    part.type === "patch" ||
+    part.type === "snapshot" ||
+    part.type === "retry" ||
+    part.type === "compaction"
   );
 }
 

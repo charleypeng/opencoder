@@ -1014,6 +1014,10 @@ describe("DesktopShell task panel (composer dock)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("task-panel")).toHaveAttribute("data-collapsed", "true"),
     );
+
+    // A completed panel remains user-expandable.
+    fireEvent.click(screen.getByTestId("task-panel-toggle"));
+    expect(screen.getByTestId("task-panel")).toHaveAttribute("data-collapsed", "false");
   });
 
   it("manual collapse and the header Tasks button force-expands", async () => {
