@@ -93,15 +93,40 @@ pub fn is_valid_shortcut(accelerator: &str) -> bool {
     !shortcut.mods.is_empty()
 }
 
+/// Localized tray menu labels: follow the system locale (zh vs everything
+/// else), so the tray stays readable for Chinese users without depending
+/// on the webview's i18n state. The standard `LANG` environment variable
+/// carries the user locale on macOS/Linux (e.g. `zh_CN.UTF-8`); Windows
+/// falls back to English here.
+fn tray_labels() -> (String, String, String) {
+    let zh = std::env::var("LANG")
+        .map(|locale| locale.starts_with("zh"))
+        .unwrap_or(false);
+    if zh {
+        (
+            "显示/隐藏".to_string(),
+            "新建会话".to_string(),
+            "退出".to_string(),
+        )
+    } else {
+        (
+            "Show/Hide".to_string(),
+            "New session".to_string(),
+            "Quit".to_string(),
+        )
+    }
+}
+
 /// Builds the tray icon with its menu. The menu items (and the window
 /// ops / events they trigger) live Rust-side; only "New session" talks to
 /// the frontend (emits `tray-new-session`, handled by DesktopShell).
 /// Called when the close-to-tray setting is enabled; the tray exists only
 /// while that behaviour is on.
 fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let show_hide = MenuItem::with_id(app, "show_hide", "Show/Hide", true, None::<&str>)?;
-    let new_session = MenuItem::with_id(app, "new_session", "New session", true, None::<&str>)?;
-    let quit = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let (show_hide_text, new_session_text, quit_text) = tray_labels();
+    let show_hide = MenuItem::with_id(app, "show_hide", &show_hide_text, true, None::<&str>)?;
+    let new_session = MenuItem::with_id(app, "new_session", &new_session_text, true, None::<&str>)?;
+    let quit = MenuItem::with_id(app, "quit", &quit_text, true, None::<&str>)?;
     let separator = PredefinedMenuItem::separator(app)?;
     let menu = Menu::with_items(app, &[&show_hide, &new_session, &separator, &quit])?;
     let icon = tauri::image::Image::from_bytes(include_bytes!("../icons/32x32.png"))?;
@@ -122,8 +147,10 @@ fn build_tray(app: &AppHandle) -> tauri::Result<()> {
 }
 
 /// Shows, unminimizes and focuses the main window (tray Show/Hide,
-/// global summon and single-instance reuse the same path).
-fn show_main_window(app: &AppHandle) {
+/// global summon, macOS Dock reopen and single-instance reuse the same
+/// path). `pub(crate)` because the app run loop (lib.rs) reuses it for
+/// RunEvent::Reopen.
+pub(crate) fn show_main_window(app: &AppHandle) {
     if let Some(window) = app.get_webview_window("main") {
         let _ = window.unminimize();
         let _ = window.show();

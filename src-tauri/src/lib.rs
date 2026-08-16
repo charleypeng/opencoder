@@ -75,6 +75,7 @@ pub fn run() {
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.unminimize();
+            let _ = window.show();
             let _ = window.set_focus();
         }
     }));
@@ -198,6 +199,16 @@ pub fn run() {
             #[cfg(desktop)]
             pet::pet_set_dock
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app_handle, event| {
+            // macOS Dock click while the window is hidden (close-to-tray):
+            // the OS emits Reopen and expects the app to bring the window
+            // back — without this, only the tray menu / summon shortcut
+            // could restore it.
+            #[cfg(desktop)]
+            if let tauri::RunEvent::Reopen { .. } = event {
+                desktop::show_main_window(app_handle);
+            }
+        });
 }
