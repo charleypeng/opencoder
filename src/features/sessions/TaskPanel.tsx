@@ -146,7 +146,7 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
               data-testid="task-panel-back"
               aria-label={t("sessions:backToParent")}
               title={t("sessions:backToParent")}
-              class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+              class="flex h-5 w-5 shrink-0 items-center justify-center rounded text-fg-secondary outline-none hover:text-fg-primary"
               onClick={() => props.onBackToParent()}
             >
               <svg
@@ -168,7 +168,7 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
             data-testid="task-panel-toggle"
             aria-expanded={!collapsed() ? "true" : "false"}
             aria-label={t(collapsed() ? "sessions:expand" : "sessions:collapse")}
-            class="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none hover:bg-bg-sunken"
+            class="flex min-w-0 flex-1 items-center gap-1.5 rounded px-1 py-0.5 text-left outline-none"
             onClick={() => setManualCollapsed(collapsed() ? false : true)}
           >
             <svg
@@ -222,7 +222,7 @@ const TaskPanel: Component<TaskPanelProps> = (props) => {
                 type="button"
                 data-testid="task-panel-children-toggle"
                 aria-expanded={agentOpen() ? "true" : "false"}
-                class="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[11px] text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                class="flex w-full items-center gap-1.5 rounded px-1 py-1 text-left text-[11px] text-fg-secondary outline-none hover:text-fg-primary"
                 onClick={() => setAgentOpen((open) => !open)}
               >
                 <svg

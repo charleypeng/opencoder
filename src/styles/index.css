@@ -687,3 +687,65 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* UI fix — composer (message box) tech-feel border:
+ *   - transparent fill (no white block) so it blends with the elevated panel
+ *   - gradient accent ring via mask-composite (crisp at any DPR, no shift)
+ *   - soft accent glow that intensifies on focus-within
+ *   - HUD-style corner ticks
+ * Colors are semantic tokens, so it reads in light / dark / oled themes. */
+.composer-tech {
+  position: relative;
+  background: transparent;
+  border-radius: var(--r-lg);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
+    0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  transition: box-shadow var(--dur-fast) var(--ease-emphasized);
+}
+
+.composer-tech:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 0 26px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+/* Gradient border ring (mask trick keeps the inner radius clean). */
+.composer-tech::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--accent) 70%, transparent),
+    color-mix(in srgb, var(--accent) 16%, transparent) 45%,
+    color-mix(in srgb, var(--accent) 70%, transparent)
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* Corner ticks for the terminal / HUD aesthetic. */
+.composer-tech::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border-radius: calc(var(--r-lg) - 5px);
+  pointer-events: none;
+  background:
+    linear-gradient(var(--accent), var(--accent)) left top / 11px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left top / 1.5px 11px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right top / 11px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right top / 1.5px 11px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 11px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) left bottom / 1.5px 11px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 11px 1.5px no-repeat,
+    linear-gradient(var(--accent), var(--accent)) right bottom / 1.5px 11px no-repeat;
+  opacity: 0.5;
+}

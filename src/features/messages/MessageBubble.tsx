@@ -72,7 +72,10 @@ type RenderablePart = Extract<
 
 function isRenderable(part: Part | undefined): part is RenderablePart {
   if (part === undefined) return false;
-  if (part.type === "tool" && (part.tool === "task" || part.tool === "todowrite")) return false;
+  // Todos/tasks already live in the TaskPanel/TodoPanel — never render them
+  // as chat message parts (that would duplicate the panel). Case-insensitive
+  // so "task", "todowrite", "TodoWrite", etc. all collapse to the panel.
+  if (part.type === "tool" && /^(todo|task)/i.test(part.tool ?? "")) return false;
   return (
     part.type === "text" ||
     part.type === "reasoning" ||

@@ -195,7 +195,7 @@
     "stop": "停止",
     "generating": "生成中…",
     "generatingHint": "生成中 — 按 Esc 停止",
-    "sendHint": "⌘/Ctrl+Enter 发送",
+    "sendHint": "按 {{combo}} 发送",
     "newMessages_one": "{{count}} 条新消息",
     "newMessages_other": "{{count}} 条新消息",
     "copyText": "复制文本",

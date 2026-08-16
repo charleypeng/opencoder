@@ -23,6 +23,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Dock icon restores the window (fix(desktop)): with close-to-tray enabled, clicking the app's Dock (or taskbar) icon now brings the main window back instead of doing nothing — the run loop handles macOS Reopen and the single-instance path also shows the window. (desktop)
 
+- Task panel gray hover removed (fix(sessions)): the task panel's header back/toggle and the child-session group toggle no longer show a gray background on hover. (sessions)
+
+- Send hint tracks the actual shortcut (fix(sessions)): the composer's send hint now renders the effective `sendMessage` combo (Enter, ⌘+Enter, Ctrl+Enter, …) instead of a hardcoded Ctrl+Enter, and updates immediately when the shortcut is remapped in Settings. (sessions)
+
+- Composer tech border (fix(ui)): the message input box no longer paints a solid white fill; it uses a transparent surface with a gradient accent ring, a soft focus glow, and HUD-style corner ticks for a cleaner, tech-forward look. (ui)
+
 ## [1.0.1] - 2026-08-16
 
 ### Fixed

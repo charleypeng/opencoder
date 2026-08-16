@@ -195,7 +195,7 @@
     "stop": "Stop",
     "generating": "Generating…",
     "generatingHint": "Generating — Esc to stop",
-    "sendHint": "⌘/Ctrl+Enter to send",
+    "sendHint": "{{combo}} to send",
     "newMessages_one": "{{count}} new message",
     "newMessages_other": "{{count}} new messages",
     "copyText": "Copy text",

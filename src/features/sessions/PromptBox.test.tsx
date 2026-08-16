@@ -45,7 +45,9 @@ import { activeModelFor, resetServer as resetModels } from "../../stores/models"
 import { applyEvent } from "../../stores/events";
 import type { SseEvent } from "../../services/sse";
 import { scenarios } from "../../../tests/mock-server/scenarios/index.js";
-import { resetAllShortcuts, saveShortcutCombo } from "../settings/shortcutStore.js";
+import { resetAllShortcuts, saveShortcutCombo, effectiveCombo } from "../settings/shortcutStore.js";
+import { formatCombo } from "../settings/shortcuts.js";
+import { isMacPlatform } from "../settings/useShortcuts.js";
 
 const { getApiClientMock, hapticMock } = vi.hoisted(() => ({
   getApiClientMock: vi.fn(),
@@ -132,7 +134,11 @@ describe("PromptBox", () => {
     expect(input()).toBeInTheDocument();
     expect(input().value).toBe("");
     expect(screen.getByTestId("prompt-send")).toBeDisabled();
-    expect(screen.getByText("⌘/Ctrl+Enter to send")).toBeInTheDocument();
+    // The hint reflects the ACTUAL send combo (⌘/Ctrl+Enter by default),
+    // not a hardcoded string.
+    expect(
+      screen.getByText(`${formatCombo(effectiveCombo("sendMessage"), isMacPlatform())} to send`),
+    ).toBeInTheDocument();
   });
 
   it("prefills the input from the composer store exactly once (TASK-M7-10)", async () => {
@@ -227,6 +233,12 @@ describe("PromptBox", () => {
       alt: false,
     });
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    // The hint now tracks the remapped combo instead of staying "Ctrl+Enter"
+    // while the handler takes a bare Enter (the reported bug).
+    expect(
+      screen.getByText(`${formatCombo(effectiveCombo("sendMessage"), isMacPlatform())} to send`),
+    ).toBeInTheDocument();
 
     fireEvent.input(input(), { target: { value: "plain enter" } });
     fireEvent.keyDown(input(), { key: "Enter" });

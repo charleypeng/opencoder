@@ -113,8 +113,9 @@ import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
 import { haptic } from "../../services/haptics.js";
 import { composerPrefill, consumeComposerPrefill } from "../../stores/composer.js";
-import { comboMatchesEvent } from "../settings/shortcuts.js";
+import { comboMatchesEvent, formatCombo } from "../settings/shortcuts.js";
 import { effectiveCombo } from "../settings/shortcutStore.js";
+import { isMacPlatform } from "../settings/useShortcuts.js";
 
 export interface PromptBoxProps {
   /** The server whose session is composed in. */
@@ -1067,6 +1068,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       .map((entry, index) => ({ entry, index }))
       .filter((row): row is { entry: AtFileEntry; index: number } => row.entry.kind === "file"),
   );
+  // The compose hint reflects the ACTUAL send combo (customizable in
+  // settings) so it always agrees with the live key handler at ~line 848,
+  // which dispatches on the same effectiveCombo. Reactive through the
+  // overrides store, so remapping sendMessage updates the hint immediately.
+  const sendHintCombo = createMemo(() =>
+    formatCombo(effectiveCombo("sendMessage"), isMacPlatform()),
+  );
 
   return (
     <div
@@ -1084,7 +1092,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       <div class="flex items-end gap-2 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom,0px))] pt-3">
         <div class="min-w-0 flex-1">
           <ErrorBanner error={inlineError()} onDismiss={() => setInlineError(null)} />
-          <div class="relative flex flex-col gap-1.5 rounded-lg border border-bg-sunken bg-bg-sunken px-2 py-1.5 focus-within:border-fg-faint">
+          <div class="composer-tech relative flex flex-col gap-1.5 rounded-lg px-2 py-1.5">
             {/* Agent selector (TASK-M5-04): the toolbar row above the input
               holds the agent chip; the menu lists the visible agents and
               records the per-session choice in the store. The model chip
@@ -1451,7 +1459,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 {waitText()}
               </span>
             ) : (
-              t("messages:sendHint")
+              t("messages:sendHint", { combo: sendHintCombo() })
             )}
           </p>
         </div>
