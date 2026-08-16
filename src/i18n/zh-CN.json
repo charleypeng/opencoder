@@ -184,7 +184,11 @@
     "defaultWorkspaceHint": "这是你第一次使用此服务器。请选择它默认打开的工作目录——之后可在「设置 → 服务器」中随时修改。",
     "subtasks": "子任务",
     "noSubtasks": "暂无子任务",
-    "subtasksHint": "助手委派子任务时，子代理会话会显示在这里。"
+    "subtasksHint": "助手委派子任务时，子代理会话会显示在这里。",
+    "taskPanelTitle": "任务",
+    "subtaskGroup_one": "{{count}} 个子代理",
+    "subtaskGroup_other": "{{count}} 个子代理",
+    "backToParent": "返回主任务"
   },
   "messages": {
     "send": "发送",

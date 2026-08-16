@@ -101,7 +101,7 @@ import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../
 import PromptBox from "../../features/sessions/PromptBox";
 import SessionErrorBanner from "../../features/sessions/SessionErrorBanner";
 import WorkspaceTree from "../../features/sessions/WorkspaceTree";
-import SubtaskPanel from "../../features/sessions/SubtaskPanel";
+import TaskPanel from "../../features/sessions/TaskPanel";
 import DefaultWorkspaceDialog from "../../features/sessions/DefaultWorkspaceDialog";
 import { pushRecentProject } from "../../features/sessions/recentProjects.js";
 import MessageList from "../../features/messages/MessageList";
@@ -391,9 +391,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // show a session from another server's context.
   const activeServerId = () => registry.activeServerId ?? props.server.id;
   const activeSessionId = createMemo(() => getServerSessionState(activeServerId()).activeSessionId);
-  // Todo drawer (TASK-M3-07): local open state; closes on Esc or backdrop.
-  const [todosOpen, setTodosOpen] = createSignal(false);
-  const closeTodos = () => setTodosOpen(false);
+  // Task panel (composer dock): the header "Tasks" button force-expands
+  // the panel above the composer (the panel itself auto-expands/collapses).
+  const [taskExpandToken, setTaskExpandToken] = createSignal(0);
   // Sidebar view switch (TASK-M4-02): Sessions list or the Files tree.
   const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
   // The directory the sidebar file tree browses (undefined = the server's
@@ -560,14 +560,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     }
   }
 
-  createEffect(() => {
-    if (!todosOpen()) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeTodos();
-    };
-    window.addEventListener("keydown", onKeyDown);
-    onCleanup(() => window.removeEventListener("keydown", onKeyDown));
-  });
+  /** Returns to a child session's parent (the task panel's back button):
+   *  no-op when the active session is not a child. */
+  function backToParentSession() {
+    const st = getServerSessionState(activeServerId());
+    const id = activeSessionId();
+    if (id === null) return;
+    const parent = st.sessions[id]?.parentID;
+    if (parent !== undefined) setActiveSession(activeServerId(), parent);
+  }
 
   /** Copies via the async Clipboard API with a legacy execCommand fallback
    *  (mirrors the per-file helpers in MessageActions / FileTree). */
@@ -1321,14 +1322,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         <button
                           type="button"
                           data-testid="todo-toggle"
-                          aria-pressed={todosOpen() ? "true" : "false"}
                           aria-label={t("desktop:toggleTodo")}
-                          class={`shrink-0 rounded-md border px-2.5 py-1 text-xs transition-colors ${
-                            todosOpen()
-                              ? "border-accent text-accent"
-                              : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-                          }`}
-                          onClick={() => setTodosOpen((open) => !open)}
+                          title={t("desktop:toggleTodo")}
+                          class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                          onClick={() => setTaskExpandToken((token) => token + 1)}
                         >
                           {t("desktop:todos")}
                         </button>
@@ -1369,6 +1366,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         }
                       }}
                     >
+                      <TaskPanel
+                        serverId={activeServerId()}
+                        sessionId={activeSessionId() as string}
+                        onSelectSession={(sessionId) =>
+                          setActiveSession(activeServerId(), sessionId)
+                        }
+                        onBackToParent={backToParentSession}
+                        expandToken={taskExpandToken()}
+                      />
                       <PromptBox
                         serverId={activeServerId()}
                         sessionId={activeSessionId() as string}
@@ -1492,43 +1498,6 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         <StatusBarFormatter serverId={activeServerId()} />
         <StatusBarUsage serverId={activeServerId()} />
       </footer>
-
-      {/* Subtask drawer (TASK-M3-07 + sidebar nav redesign): fixed right-side
-          overlay panel with the active session's todo list AND its sub-agent
-          children (the subtask panel); Esc and backdrop clicks close it
-          (mobile bottom sheet lands in M7). */}
-      <Show when={todosOpen() && activeSessionId()}>
-        <div
-          data-testid="todo-drawer-backdrop"
-          class="fixed inset-0 z-40 bg-black/40"
-          onClick={closeTodos}
-        />
-        <aside
-          data-testid="todo-drawer"
-          class="fixed right-0 top-0 z-50 flex h-full w-[280px] flex-col border-l border-bg-sunken bg-bg-elevated shadow-lg"
-        >
-          <header class="flex shrink-0 items-center justify-between border-b border-bg-sunken px-4 py-3">
-            <h2 class="text-sm font-semibold">{t("desktop:todos")}</h2>
-            <button
-              type="button"
-              data-testid="todo-drawer-close"
-              aria-label={t("desktop:closeTodo")}
-              class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary hover:bg-bg-sunken hover:text-fg-primary"
-              onClick={closeTodos}
-            >
-              ✕
-            </button>
-          </header>
-          <SubtaskPanel
-            serverId={activeServerId()}
-            sessionId={activeSessionId() as string}
-            onSelectSession={(sessionId) => {
-              setActiveSession(activeServerId(), sessionId);
-              closeTodos();
-            }}
-          />
-        </aside>
-      </Show>
 
       {/* Quick open (TASK-M4-04): ⌘/Ctrl+P opens the file search dialog; a
           picked file jumps Main to Files like a sidebar tree click. */}

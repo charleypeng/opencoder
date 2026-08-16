@@ -184,7 +184,11 @@
     "defaultWorkspaceHint": "This is your first time using this server. Pick the folder it should open by default — you can change it anytime in Settings → Servers.",
     "subtasks": "Subtasks",
     "noSubtasks": "No subtasks yet",
-    "subtasksHint": "Sub-agent sessions appear here while the assistant delegates work."
+    "subtasksHint": "Sub-agent sessions appear here while the assistant delegates work.",
+    "taskPanelTitle": "Tasks",
+    "subtaskGroup_one": "{{count}} agent",
+    "subtaskGroup_other": "{{count}} agents",
+    "backToParent": "Back to parent task"
   },
   "messages": {
     "send": "Send",

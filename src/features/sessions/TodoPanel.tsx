@@ -24,8 +24,10 @@ export interface TodoPanelProps {
   serverId: string;
   /** The session to render todos for. */
   sessionId: string;
-  /** Container variant: desktop right panel or (M7) mobile bottom sheet. */
-  variant?: "panel" | "sheet";
+  /** Container variant: desktop right panel, (M7) mobile bottom sheet, or
+   *  the compact list used inside the composer task panel (no count
+   *  header, no empty-state copy — the host owns those). */
+  variant?: "panel" | "sheet" | "compact";
 }
 
 /** Priority color dot: high red, medium amber, low gray. */
@@ -144,6 +146,9 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
   // IA-21: count summary for the supervision anchor header.
   const totalCount = () => list().length;
   const completedCount = () => list().filter((todo) => todo.status === "completed").length;
+  // Compact variant hides the header and the empty-state copy: the host
+  // panel renders its own title/progress and controls visibility.
+  const compact = () => props.variant === "compact";
 
   return (
     <section
@@ -152,7 +157,7 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
       class="flex h-full min-h-0 flex-col"
     >
       {/* IA-21: Count summary header — supervision anchor with clear progress. */}
-      <Show when={!error() && totalCount() > 0}>
+      <Show when={!compact() && !error() && totalCount() > 0}>
         <div class="flex shrink-0 items-center justify-between border-b border-bg-sunken px-4 py-2">
           <span class="text-xs font-medium text-fg-secondary">
             {t("sessions:todoCount", { count: totalCount() })}
@@ -184,7 +189,7 @@ const TodoPanel: Component<TodoPanelProps> = (props) => {
           </button>
         </div>
       </Show>
-      <Show when={!error() && totalCount() === 0}>
+      <Show when={!compact() && !error() && totalCount() === 0}>
         <p data-testid="todo-empty" class="px-4 py-6 text-center text-sm text-fg-secondary">
           {t("sessions:noTodos")}
         </p>

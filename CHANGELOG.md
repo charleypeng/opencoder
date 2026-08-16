@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Composer task panel (feat(sessions)): the todo list and sub-agent child sessions now live in a collapsible panel above the chat composer — it auto-expands when tasks or subtasks appear, auto-collapses when everything completes, supports manual collapse/expand (header chevron or the chat header's Tasks button), groups children under an expandable "N agents" section, and shows a back affordance to return to the parent task while inside a child session. Replaces the right-side todo drawer. (sessions)
+
 ### Fixed
 
 - Composer shortcuts honor customizations (fix(settings)): the chat input's local keys — send message (⌘/Ctrl+Enter by default), agent cycle (Tab) and last-prompt recall (↑) — now read the shortcut registry's effective combos instead of being hardcoded, so remapping them in Settings actually takes effect (e.g. sendMessage set to a bare Enter sends on Enter). (settings)

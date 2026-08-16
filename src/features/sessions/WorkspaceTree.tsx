@@ -256,7 +256,7 @@ function statusKindOf(status: SessionStatusEntry | undefined): StatusKind {
 
 /** A flat session row (no chevron / no subtree): status dot + title +
  *  relative time + ⋯ menu. Mirrors the SessionList row visuals without the
- *  parent-child tree plumbing (children are subtask-panel-only now). */
+ *  parent-child tree plumbing (children are task-panel-only now). */
 function SessionRow(props: {
   session: Session;
   status: SessionStatusEntry | undefined;

@@ -974,68 +974,71 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
   });
 });
 
-describe("DesktopShell todo drawer (TASK-M3-07)", () => {
-  it("toggles the drawer from the chat header and closes via Esc / backdrop / close button", async () => {
-    const alpha = server({ id: "srv-todos", name: "Alpha" });
+describe("DesktopShell task panel (composer dock)", () => {
+  it("auto-expands when todos arrive and auto-collapses when everything completes", async () => {
+    const alpha = server({ id: "srv-tasks", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
-    applySessionList("srv-todos", [session("sess_todo_01", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("workspace-session-sess_todo_01"));
+    applySessionList("srv-tasks", [session("sess_task_01", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_task_01"));
 
-    // The chat header carries the session title + the todo toggle.
-    expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
-    expect(screen.getByTestId("todo-toggle")).toHaveAttribute("aria-pressed", "false");
-    expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument();
+    // No todos yet → no panel above the composer.
+    expect(screen.queryByTestId("task-panel")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByTestId("todo-toggle"));
-    expect(screen.getByTestId("todo-drawer")).toBeInTheDocument();
-    expect(screen.getByTestId("todo-panel")).toBeInTheDocument();
-    expect(screen.getByTestId("todo-toggle")).toHaveAttribute("aria-pressed", "true");
-
-    // Esc closes the drawer.
-    fireEvent.keyDown(window, { key: "Escape" });
-    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
-
-    // Backdrop click closes the drawer.
-    fireEvent.click(screen.getByTestId("todo-toggle"));
-    fireEvent.click(screen.getByTestId("todo-drawer-backdrop"));
-    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
-
-    // The close button closes the drawer.
-    fireEvent.click(screen.getByTestId("todo-toggle"));
-    fireEvent.click(screen.getByTestId("todo-drawer-close"));
-    await waitFor(() => expect(screen.queryByTestId("todo-drawer")).not.toBeInTheDocument());
-  });
-
-  it("renders the todo list live from the store inside the drawer", async () => {
-    const alpha = server({ id: "srv-todos-live", name: "Alpha" });
-    invokeMock.mockResolvedValueOnce([alpha]);
-    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
-    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
-    applySessionList("srv-todos-live", [session("sess_todo_02", DEMO_DIR)]);
-    fireEvent.click(await screen.findByTestId("workspace-session-sess_todo_02"));
-
-    // Seed the store like a todo.updated SSE event.
-    applyTodos("srv-todos-live", "sess_todo_02", [
+    // A todo arrives (todo.updated) → the panel appears, expanded, with
+    // the n/m progress.
+    applyTodos("srv-tasks", "sess_task_01", [
       { content: "Explore the repo", status: "in_progress", priority: "high" },
       { content: "Summarize the code", status: "pending", priority: "medium" },
     ]);
-    fireEvent.click(screen.getByTestId("todo-toggle"));
-
-    const items = await screen.findAllByTestId("todo-item");
+    const panel = await screen.findByTestId("task-panel");
+    expect(panel).toHaveAttribute("data-collapsed", "false");
+    expect(screen.getByTestId("task-panel-progress")).toHaveTextContent("0/2");
+    const items = screen.getAllByTestId("todo-item");
     expect(items).toHaveLength(2);
-    expect(items[0]).toHaveAttribute("data-status", "in_progress");
-    expect(screen.getByText("Explore the repo")).toBeInTheDocument();
-    expect(screen.getByText("Summarize the code")).toBeInTheDocument();
 
     // A store mutation (live event) updates the open panel immediately.
-    applyTodos("srv-todos-live", "sess_todo_02", [
+    applyTodos("srv-tasks", "sess_task_01", [
       { content: "Explore the repo", status: "completed", priority: "high" },
       { content: "Summarize the code", status: "in_progress", priority: "medium" },
     ]);
     await waitFor(() => expect(screen.getByText("Explore the repo")).toHaveClass("line-through"));
-    expect(screen.getByText("Explore the repo")).toHaveClass("text-fg-faint");
+    expect(screen.getByTestId("task-panel-progress")).toHaveTextContent("1/2");
+
+    // Everything completes → the panel auto-collapses (still visible).
+    applyTodos("srv-tasks", "sess_task_01", [
+      { content: "Explore the repo", status: "completed", priority: "high" },
+      { content: "Summarize the code", status: "completed", priority: "medium" },
+    ]);
+    await waitFor(() =>
+      expect(screen.getByTestId("task-panel")).toHaveAttribute("data-collapsed", "true"),
+    );
+  });
+
+  it("manual collapse and the header Tasks button force-expands", async () => {
+    const alpha = server({ id: "srv-tasks-manual", name: "Alpha" });
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    applySessionList("srv-tasks-manual", [session("sess_task_02", DEMO_DIR)]);
+    fireEvent.click(await screen.findByTestId("workspace-session-sess_task_02"));
+
+    applyTodos("srv-tasks-manual", "sess_task_02", [
+      { content: "Do the thing", status: "in_progress", priority: "medium" },
+    ]);
+    const panel = await screen.findByTestId("task-panel");
+    expect(panel).toHaveAttribute("data-collapsed", "false");
+
+    // Manual collapse via the header chevron.
+    fireEvent.click(screen.getByTestId("task-panel-toggle"));
+    expect(panel).toHaveAttribute("data-collapsed", "true");
+
+    // The chat header's Tasks button force-expands it again.
+    fireEvent.click(screen.getByTestId("todo-toggle"));
+    await waitFor(() =>
+      expect(screen.getByTestId("task-panel")).toHaveAttribute("data-collapsed", "false"),
+    );
   });
 });
 
