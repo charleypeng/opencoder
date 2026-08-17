@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Removed
+
+- Debug CI release channel (chore(ci)): removed `.github/workflows/debug.yml` — with `TAURI_SIGNING_PRIVATE_KEY` configured, the unsigned debug channel no longer serves a purpose and was polluting the same `v*` GitHub Release with throwaway-signature artifacts; all tagged releases now go through the signed `release.yml` pipeline only. (ci)
+
 ### Fixed
 
 - Gate dock-reopen handling to macOS (fix(desktop)): `RunEvent::Reopen` exists only on macOS, so the previous `#[cfg(desktop)]` broke Linux/Windows builds (`E0599: no variant named Reopen`); restrict the branch to `target_os = "macos"`. (desktop)
