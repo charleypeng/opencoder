@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 修复
+
+- 固定 `ident_case` 为 1.0.1（fix(build)）：Cargo.lock 引用了 crates.io 上不存在的 `ident_case 1.0.2`，导致所有 tag 构建失败（`darling_core` 依赖解析错误）；降回 1.0.1 恢复可解析的依赖图。(build)
+
 ## [1.0.2] - 2026-08-16
 
 ### 新增
