@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Gate dock-reopen handling to macOS (fix(desktop)): `RunEvent::Reopen` exists only on macOS, so the previous `#[cfg(desktop)]` broke Linux/Windows builds (`E0599: no variant named Reopen`); restrict the branch to `target_os = "macos"`. (desktop)
+
 - Pin `ident_case` to 1.0.1 (fix(build)): Cargo.lock referenced `ident_case 1.0.2`, a version that does not exist on crates.io, breaking every tagged build (`darling_core` resolution failure); downgrading to 1.0.1 restores a resolvable dependency graph. (build)
 
 ## [1.0.2] - 2026-08-16

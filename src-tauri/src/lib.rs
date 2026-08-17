@@ -205,10 +205,13 @@ pub fn run() {
             // macOS Dock click while the window is hidden (close-to-tray):
             // the OS emits Reopen and expects the app to bring the window
             // back — without this, only the tray menu / summon shortcut
-            // could restore it.
-            #[cfg(desktop)]
+            // could restore it. RunEvent::Reopen exists only on macOS.
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 desktop::show_main_window(app_handle);
             }
+            // Avoid unused-variable warnings on platforms without Reopen.
+            #[cfg(not(target_os = "macos"))]
+            let _ = (app_handle, event);
         });
 }
