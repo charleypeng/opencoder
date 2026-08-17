@@ -13,6 +13,8 @@
 
 ### 修复
 
+- 更新 tauri-action 的 updater-json 参数（fix(ci)）：将 release.yml 中的 `uploadUpdaterJson` 改名为 `includeUpdaterJson`，匹配当前 `tauri-action@v0` 的输入 schema（旧参数名会被警告为未知输入）。(ci)
+
 - Dock 点击恢复窗口逻辑限定 macOS（fix(desktop)）：`RunEvent::Reopen` 仅存在于 macOS，此前 `#[cfg(desktop)]` 会导致 Linux/Windows 构建失败（`E0599: no variant named Reopen`）；将该分支限定为 `target_os = "macos"`。(desktop)
 
 - 固定 `ident_case` 为 1.0.1（fix(build)）：Cargo.lock 引用了 crates.io 上不存在的 `ident_case 1.0.2`，导致所有 tag 构建失败（`darling_core` 依赖解析错误）；降回 1.0.1 恢复可解析的依赖图。(build)
