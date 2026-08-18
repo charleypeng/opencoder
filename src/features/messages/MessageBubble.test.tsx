@@ -224,6 +224,62 @@ describe("MessageBubble", () => {
     expect(compaction).toHaveTextContent("Context compacted");
   });
 
+  it("renders process parts (reasoning + tool) below the answer in one fold", async () => {
+    upsertMessage(SERVER, SESSION, userMessage("msg_order"));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_text",
+      sessionID: SESSION,
+      messageID: "msg_order",
+      type: "text",
+      text: "the final answer",
+    } as never);
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_r",
+      sessionID: SESSION,
+      messageID: "msg_order",
+      type: "reasoning",
+      text: "intermediate reasoning",
+      time: { start: 1, end: 2 },
+    } as never);
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_tool",
+      sessionID: SESSION,
+      messageID: "msg_order",
+      type: "tool",
+      callID: "call_1",
+      tool: "bash",
+      state: {
+        status: "completed",
+        input: {},
+        output: "ok",
+        title: "bash",
+        metadata: {},
+        time: { start: 1, end: 2 },
+      },
+    } as never);
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_order"
+        partIds={["prt_text", "prt_r", "prt_tool"]}
+      />
+    ));
+
+    const bubble = screen.getByTestId("message-msg_order");
+    const text = bubble.querySelector('[data-testid="text-part"]');
+    const fold = bubble.querySelector('[data-testid="process-fold"]');
+    expect(text).not.toBeNull();
+    expect(fold).not.toBeNull();
+    // The answer renders BEFORE the process fold (never interspersed).
+    expect(text?.compareDocumentPosition(fold as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // Collapsed by default; expanding reveals the reasoning and tool parts.
+    expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("intermediate reasoning");
+    expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
+  });
+
   it("keeps the caret in place across text deltas", async () => {
     seedMessage("msg_a", ["prt_1"], ["one"]);
     render(() => (
@@ -250,7 +306,7 @@ describe("MessageBubble", () => {
     expect(messages[SERVER][SESSION].parts["prt_1"]).toMatchObject({ text: "one two" });
   });
 
-  it("keeps the reasoning fold expanded across part replacements and deltas", async () => {
+  it("keeps the process fold expanded across part replacements and deltas", async () => {
     upsertMessage(SERVER, SESSION, userMessage("msg_r"));
     applyPartDelta(SERVER, SESSION, {
       id: "prt_r",
@@ -263,7 +319,7 @@ describe("MessageBubble", () => {
     render(() => (
       <MessageBubble serverId={SERVER} sessionId={SESSION} messageID="msg_r" partIds={["prt_r"]} />
     ));
-    const toggle = screen.getByTestId("reasoning-toggle");
+    const toggle = screen.getByTestId("process-fold-toggle");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
@@ -293,7 +349,7 @@ describe("MessageBubble", () => {
     );
   });
 
-  it("auto-expands the reasoning fold while streaming and collapses when it ends", async () => {
+  it("auto-expands the process fold while streaming and collapses when it ends", async () => {
     const [streaming, setStreaming] = createSignal(true);
     upsertMessage(SERVER, SESSION, userMessage("msg_r"));
     applyPartDelta(SERVER, SESSION, {
@@ -316,19 +372,19 @@ describe("MessageBubble", () => {
 
     // While streaming the fold is auto-expanded.
     await waitFor(() =>
-      expect(screen.getByTestId("reasoning-toggle")).toHaveAttribute("aria-expanded", "true"),
+      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "true"),
     );
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking in progress");
 
     // Generation ended: the fold auto-collapses.
     setStreaming(false);
     await waitFor(() =>
-      expect(screen.getByTestId("reasoning-toggle")).toHaveAttribute("aria-expanded", "false"),
+      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false"),
     );
-    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
+    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
 
     // A manual click still re-opens it.
-    fireEvent.click(screen.getByTestId("reasoning-toggle"));
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
 
@@ -354,7 +410,7 @@ describe("MessageBubble", () => {
     ));
 
     // Auto-expanded while streaming; the user manually collapses it.
-    const toggle = screen.getByTestId("reasoning-toggle");
+    const toggle = screen.getByTestId("process-fold-toggle");
     await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "true"));
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");

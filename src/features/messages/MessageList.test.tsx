@@ -166,13 +166,16 @@ describe("MessageList", () => {
     expect(screen.getAllByTestId("message-time")).toHaveLength(4);
   });
 
-  it("keeps the reasoning fold collapsed and expands it on click", async () => {
+  it("keeps the process fold collapsed and expands it on click", async () => {
     await renderHistory();
 
     const assistant = screen.getByTestId("message-msg_m2");
-    const toggle = within(assistant).getByTestId("reasoning-toggle");
+    const toggle = within(assistant).getByTestId("process-fold-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(within(assistant).queryByTestId("reasoning-body")).not.toBeInTheDocument();
+    expect(within(assistant).getByTestId("process-fold-body")).toHaveAttribute(
+      "aria-hidden",
+      "true",
+    );
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
@@ -185,6 +188,9 @@ describe("MessageList", () => {
     await renderHistory();
 
     const assistant = screen.getByTestId("message-msg_m2");
+    // Tool cards live inside the process fold below the answer; expand it
+    // first (chat refactor).
+    fireEvent.click(within(assistant).getByTestId("process-fold-toggle"));
     const running = within(assistant).getAllByTestId("tool-part")[0];
     const completed = within(assistant).getAllByTestId("tool-part")[1];
     expect(running).toHaveAttribute("data-status", "running");
@@ -207,7 +213,10 @@ describe("MessageList", () => {
     expect(
       screen.getByText("Let me check the existing project structure first."),
     ).toBeInTheDocument();
-    expect(screen.getByText("Reasoning")).toBeInTheDocument();
+    // Reasoning + tool calls now live in ONE collapsed process fold below
+    // the answer (chat refactor); the tool cards stay mounted inside it.
+    expect(screen.getByTestId("process-fold")).toBeInTheDocument();
+    expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
     expect(screen.getAllByTestId("tool-part")).toHaveLength(9);
     // Step boundary parts are not rendered (chat refactor).
     expect(screen.queryAllByTestId("step-start-part")).toHaveLength(0);

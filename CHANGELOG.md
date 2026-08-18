@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Process fold for thinking steps (feat(messages)): reasoning and tool-call parts of a message now render in ONE collapsed fold below the answer instead of interspersed between text parts — the header shows a status summary before expanding (tool-call count, succeeded/failed/running, reasoning volume), the fold auto-expands while the session is generating and auto-collapses when it ends, and expand/collapse animates with the standard motion tokens (0ms under reduced motion). (messages)
+
 ### Changed
 
 - Publish releases immediately on tag push (chore(ci)): `release.yml` now creates a PUBLISHED release instead of a draft — no manual publish step, matching the previous debug-channel behavior users relied on for three-platform installers. (ci)

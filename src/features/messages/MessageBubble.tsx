@@ -21,10 +21,9 @@ import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
 import PatchPart from "./parts/PatchPart.js";
 import RetryPart from "./parts/RetryPart.js";
-import ReasoningPart from "./parts/ReasoningPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
 import TextPart from "./parts/TextPart.js";
-import ToolPart from "./parts/ToolPart.js";
+import ProcessFold from "./parts/ProcessFold.js";
 
 export interface MessageBubbleProps {
   /** The server whose session is shown. */
@@ -37,9 +36,10 @@ export interface MessageBubbleProps {
   partIds: string[];
   /** Shows the breathing caret on the message's last text part. */
   typing?: boolean;
-  /** Session-level streaming flag (busy + recent deltas): the reasoning
-   *  fold auto-expands while the agent is generating and auto-collapses
-   *  when generation ends, so the thinking process is visible live. */
+  /** Session-level streaming flag (busy + recent deltas): the process fold
+   *  (reasoning + tool calls) auto-expands while the agent is generating
+   *  and auto-collapses when generation ends, so the thinking process is
+   *  visible live. */
   streaming?: boolean;
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the message menu's "View diff" item stays disabled. */
@@ -88,6 +88,19 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
   );
 }
 
+// Process parts (reasoning + tool calls) are intermediate steps of the
+// agent's thinking. The chat refactor collects them into one fold rendered
+// BELOW the answer (ProcessFold) instead of interspersed between text parts,
+// so the final answer reads first and the process is one optional disclosure.
+// Todo/task tools still go to the TaskPanel and never reach the fold.
+type ProcessPart = Extract<Part, { type: "reasoning" } | { type: "tool" }>;
+
+function isProcessPart(part: Part | undefined): part is ProcessPart {
+  if (part === undefined) return false;
+  if (part.type === "tool" && /^(todo|task)/i.test(part.tool ?? "")) return false;
+  return part.type === "reasoning" || part.type === "tool";
+}
+
 /** Local hh:mm timestamp for a message's created time. */
 function formatMessageTime(timestampMs: number): string {
   return new Date(timestampMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -97,9 +110,6 @@ function PartView(props: {
   part: Part | undefined;
   /** Breathing-caret streaming flag for the last text part. */
   streaming?: boolean;
-  /** Session-level streaming flag: the reasoning fold auto-expands while
-   *  the agent is generating (see ReasoningPart). */
-  sessionStreaming?: boolean;
   onRevert?: (messageID: string) => void;
   onOpenChild?: (sessionId: string) => void;
 }) {
@@ -116,10 +126,6 @@ function PartView(props: {
     switch (props.part?.type) {
       case "text":
         return TextPart as Component<PartProps>;
-      case "reasoning":
-        return ReasoningPart as Component<PartProps>;
-      case "tool":
-        return ToolPart as Component<PartProps>;
       case "file":
         return FilePart as Component<PartProps>;
       case "patch":
@@ -140,10 +146,7 @@ function PartView(props: {
       <Dynamic
         component={PartComponent() as Component<PartProps>}
         part={props.part}
-        // Text parts carry the breathing-caret flag; other parts (reasoning
-        // folds) get the session-level streaming flag. The two share the
-        // `streaming` prop name but never apply to the same part type.
-        streaming={props.part?.type === "text" ? props.streaming : props.sessionStreaming}
+        streaming={props.streaming}
         onRevert={props.onRevert}
         onOpenChild={
           props.onOpenChild === undefined
@@ -169,6 +172,26 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
     props.partIds.some((id) =>
       isRenderable(messages[props.serverId]?.[props.sessionId]?.parts[id]),
     ),
+  );
+
+  // Chat refactor: the message's parts are split into the ANSWER parts
+  // (text/file/patch/snapshot/retry/compaction, rendered in original order)
+  // and the PROCESS parts (reasoning/tool calls, collected into one fold
+  // below the answer). Each memo reads the store per part id, so streamed
+  // deltas keep the fine-grained updates (only the touched part re-renders).
+  const contentPartIds = createMemo(() =>
+    props.partIds.filter((id) => {
+      const part = messages[props.serverId]?.[props.sessionId]?.parts[id];
+      return part !== undefined && isRenderable(part) && !isProcessPart(part);
+    }),
+  );
+  const processPartIds = createMemo(() =>
+    props.partIds.filter((id) =>
+      isProcessPart(messages[props.serverId]?.[props.sessionId]?.parts[id]),
+    ),
+  );
+  const processParts = createMemo(() =>
+    processPartIds().map((id) => messages[props.serverId]?.[props.sessionId]?.parts[id]),
   );
 
   // The streaming part is the LAST text part of the message (the caret only
@@ -213,20 +236,24 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
               : "w-full max-w-3xl"
           }
         >
-          <For each={props.partIds}>
+          <For each={contentPartIds()}>
             {(partId) => {
               const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
               return (
                 <PartView
                   part={part()}
                   streaming={props.typing === true && lastTextPartId() === partId}
-                  sessionStreaming={props.streaming === true}
                   onRevert={props.onRevert}
                   onOpenChild={props.onOpenChild}
                 />
               );
             }}
           </For>
+          {/* Chat refactor: all process parts (reasoning + tool calls) render
+              below the answer in one collapsed fold with a status summary. */}
+          <Show when={processParts().length > 0}>
+            <ProcessFold parts={processParts()} streaming={props.streaming === true} />
+          </Show>
         </div>
         <Show when={created() !== undefined}>
           <span data-testid="message-time" class="px-1 text-xs text-fg-faint">

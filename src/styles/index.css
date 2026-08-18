@@ -334,6 +334,40 @@
 }
 
 /*
+ * Chat refactor: the process fold (reasoning + tool calls grouped below the
+ * answer). Collapse/expand animates the grid ROW height (0fr -> 1fr), so
+ * both directions are smooth without measuring content; the transition uses
+ * the standard duration/easing tokens, and --dur-med collapses to 0ms under
+ * prefers-reduced-motion (tokens.css), making the swap instant there.
+ * While collapsed the body is also visibility:hidden (delayed until the
+ * collapse animation finishes) so the clipped parts are not focusable or
+ * clickable — the aria-hidden attribute covers screen readers.
+ */
+.process-fold-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--dur-med) var(--ease-spring),
+    visibility 0s var(--dur-med);
+}
+
+.process-fold-body[data-expanded="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows var(--dur-med) var(--ease-spring),
+    visibility 0s 0s;
+}
+
+/* The inner wrapper clips the parts while the row is collapsed; min-height
+ * 0 is required for the fr track to animate down to zero. */
+.process-fold-body > div {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/*
  * M4-05 search-hit affordance: the brief background flash on the viewer
  * line a full-text search result jumped to. The transition fades the
  * flash out when the class is removed after LINE_FLASH_MS.

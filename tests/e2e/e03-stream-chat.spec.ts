@@ -52,6 +52,14 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   await expect(page.getByTestId("message-list")).toContainText(
     "Found 3 files. I will summarize them for you.",
   );
+  // Tool calls render inside the process fold below the answer (chat
+  // refactor): expand the streamed message's fold (if it is not already
+  // auto-expanded while streaming) to reveal the tool card.
+  const foldToggle = page.getByTestId("message-msg_asst_001").getByTestId("process-fold-toggle");
+  await expect(foldToggle).toBeVisible();
+  if ((await foldToggle.getAttribute("aria-expanded")) !== "true") {
+    await foldToggle.click();
+  }
   await expect(page.getByTestId("tool-part")).toBeVisible();
 
   // Completion: the row status returns to idle and the composer restores

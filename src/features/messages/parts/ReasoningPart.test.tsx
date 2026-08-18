@@ -1,9 +1,11 @@
-// L2 tests for the reasoning part (TASK-M2-06): collapsed by default with a
-// truncated preview, expanding on click reveals the full text, collapsing
-// again hides it.
+// L2 tests for the reasoning part (chat refactor): it is now a plain
+// content renderer — the fold/expand behavior lives in the ProcessFold
+// container that groups every process part below the answer. These tests
+// pin the contract: the full text renders, deltas stream in place, and the
+// part never renders fold chrome of its own.
 
 import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { render, screen } from "@solidjs/testing-library";
 import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart";
 
 function reasoningPart(text: string): ReasoningPartData {
@@ -20,32 +22,20 @@ function reasoningPart(text: string): ReasoningPartData {
 const LONG_TEXT = "a".repeat(120);
 
 describe("ReasoningPart", () => {
-  it("renders collapsed by default with the Reasoning label and a preview", () => {
+  it("renders the full reasoning text without truncation", () => {
     render(() => <ReasoningPart part={reasoningPart(LONG_TEXT)} />);
-    const toggle = screen.getByTestId("reasoning-toggle");
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByText("Reasoning")).toBeInTheDocument();
-    // Preview truncates long reasoning text.
-    expect(screen.getByText(`${"a".repeat(60)}…`)).toBeInTheDocument();
-    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
-  });
-
-  it("expands to show the full text and collapses again", () => {
-    render(() => <ReasoningPart part={reasoningPart(LONG_TEXT)} />);
-    const toggle = screen.getByTestId("reasoning-toggle");
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
     const body = screen.getByTestId("reasoning-body");
     expect(body).toHaveTextContent(LONG_TEXT);
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
   });
 
-  it("keeps short text un-truncated in the preview", () => {
+  it("renders short text as-is", () => {
     render(() => <ReasoningPart part={reasoningPart("short")} />);
-    expect(screen.getByText("short")).toBeInTheDocument();
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("short");
+  });
+
+  it("carries no fold chrome of its own (the ProcessFold owns expansion)", () => {
+    render(() => <ReasoningPart part={reasoningPart("thinking")} />);
+    expect(screen.queryByTestId("reasoning-toggle")).not.toBeInTheDocument();
+    expect(screen.getByTestId("reasoning-part")).toBeInTheDocument();
   });
 });
