@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Tag pushes trigger only the release pipeline (chore(ci)): `ci.yml`, `desktop.yml`, `e2e.yml` and `mobile.yml` had their automatic triggers commented out (kept as manual `workflow_dispatch`) so a `v*` tag runs exactly one workflow — `release.yml` — instead of racing the release with a parallel desktop/mobile build. (ci)
+- Restore debug release channel (chore(ci)): `debug.yml` is back — it is the workflow that produced the v1.0.1 three-platform installer set (it does not set `APPLE_*` variables, so macOS builds ad-hoc signed and ships a dmg). Keep it alongside `release.yml`; both stay tag-triggered.
+
+- Tag pushes trigger only the release pipelines (chore(ci)): `ci.yml`, `e2e.yml` and `mobile.yml` had their automatic triggers commented out (kept as manual `workflow_dispatch`) so they no longer run on every push; tagged releases are produced by `release.yml` + `debug.yml`. (ci)
 
 ### Removed
 

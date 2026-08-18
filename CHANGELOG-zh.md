@@ -9,7 +9,9 @@
 
 ### 变更
 
-- tag 推送只触发发布流水线（chore(ci)）：`ci.yml`、`desktop.yml`、`e2e.yml`、`mobile.yml` 的自动触发已注释（保留手动 `workflow_dispatch`），`v*` tag 现在只跑一个 workflow —— `release.yml`，不再与并行的 desktop/mobile 构建争抢同一 tag。(ci)
+- 恢复 Debug 发布通道（chore(ci)）：`debug.yml` 已恢复 —— 它是产出 v1.0.1 三平台安装包的 workflow（不设置 `APPLE_*` 变量，macOS 走 ad-hoc 签名、可出 dmg）。与 `release.yml` 并存，两者都保持 tag 触发。
+
+- tag 推送只触发发布流水线（chore(ci)）：`ci.yml`、`e2e.yml`、`mobile.yml` 的自动触发已注释（保留手动 `workflow_dispatch`），不再每次 push 都跑；tag 发布由 `release.yml` + `debug.yml` 产出。(ci)
 
 ### 移除
 
