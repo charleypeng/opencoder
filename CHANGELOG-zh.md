@@ -13,6 +13,8 @@
 
 ### 修复
 
+- 将 Apple 签名密钥限定到导入步骤（fix(ci)）：release.yml 此前在 workflow 顶层设置 `APPLE_CERTIFICATE` 等变量，secret 缺失时会以「存在但为空」的变量传给 tauri-cli，导致 macOS 构建失败（`security import` 钥匙串导入错误）。现在这些变量只存在于 `Import Apple certificate` 步骤内（该步骤仅在 secret 有值时运行），没有证书时 tauri 自动回退到 ad-hoc 签名。(ci)
+
 - 更新 tauri-action 的 updater-json 参数（fix(ci)）：将 release.yml 中的 `uploadUpdaterJson` 改名为 `includeUpdaterJson`，匹配当前 `tauri-action@v0` 的输入 schema（旧参数名会被警告为未知输入）。(ci)
 
 - Dock 点击恢复窗口逻辑限定 macOS（fix(desktop)）：`RunEvent::Reopen` 仅存在于 macOS，此前 `#[cfg(desktop)]` 会导致 Linux/Windows 构建失败（`E0599: no variant named Reopen`）；将该分支限定为 `target_os = "macos"`。(desktop)

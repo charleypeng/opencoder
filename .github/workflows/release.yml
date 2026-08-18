@@ -66,13 +66,13 @@ env:
   # tag builds fail fast, dry-runs generate a throwaway CI key below.
   TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
   TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-  # macOS Developer ID signing + notarization (docs/release-signing.md)
-  APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-  APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-  APPLE_ID: ${{ secrets.APPLE_ID }}
-  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  # Apple signing/notarization secrets are intentionally NOT set at the
+  # workflow level: when a secret is absent GitHub passes an empty string,
+  # and tauri-cli treats a present-but-empty APPLE_CERTIFICATE as "import
+  # this certificate" -> keychain import fails. They are scoped to the
+  # `Import Apple certificate` step instead, which only runs when the
+  # secret actually has a value. Without the certificate tauri falls back
+  # to ad-hoc signing (docs/release-signing.md).
 
 jobs:
   version-check:
@@ -189,10 +189,14 @@ jobs:
 
       # macOS signing needs the Developer ID certificate imported into a
       # throwaway keychain before tauri-cli runs (docs/release-signing.md).
+      # The secrets are referenced here (not at the workflow level) so the
+      # step only runs when APPLE_CERTIFICATE actually has a value.
       - name: Import Apple certificate
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
         env:
           KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           echo "$APPLE_CERTIFICATE" | base64 --decode > /tmp/app.p12
           security create-keychain -p "" "$KEYCHAIN"

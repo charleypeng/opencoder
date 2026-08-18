@@ -13,6 +13,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scope Apple signing secrets to the import step (fix(ci)): release.yml previously set `APPLE_CERTIFICATE` etc. at the workflow level, so a missing secret reached tauri-cli as a present-but-empty variable and broke macOS builds (`security import` keychain failure). The variables now live only inside the `Import Apple certificate` step (which runs only when the secret has a value), so without a certificate tauri falls back to ad-hoc signing. (ci)
+
 - Update tauri-action updater-json input (fix(ci)): renamed `uploadUpdaterJson` to `includeUpdaterJson` in release.yml to match the current `tauri-action@v0` input schema (the old name now warns as an unexpected input). (ci)
 
 - Gate dock-reopen handling to macOS (fix(desktop)): `RunEvent::Reopen` exists only on macOS, so the previous `#[cfg(desktop)]` broke Linux/Windows builds (`E0599: no variant named Reopen`); restrict the branch to `target_os = "macos"`. (desktop)
