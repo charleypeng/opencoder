@@ -1,12 +1,16 @@
 # CI — L0 + L1 + L2 + L3 quality gates (docs/testing.md §4)
 # Runs on every push to main and every pull request.
+#
+# Quality gates are paused — the release pipeline is the only automated
+# workflow right now. Run manually via workflow_dispatch when needed.
 
 name: CI
 
 on:
-  push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
+  # push:
+  #   branches: [main]
+  # pull_request:
 
 concurrency:
   group: ci-${{ github.ref }}

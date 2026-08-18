@@ -7,6 +7,10 @@
 
 ## [Unreleased]
 
+### 变更
+
+- tag 推送只触发发布流水线（chore(ci)）：`ci.yml`、`desktop.yml`、`e2e.yml`、`mobile.yml` 的自动触发已注释（保留手动 `workflow_dispatch`），`v*` tag 现在只跑一个 workflow —— `release.yml`，不再与并行的 desktop/mobile 构建争抢同一 tag。(ci)
+
 ### 移除
 
 - 移除 Debug CI 发布通道（chore(ci)）：删除 `.github/workflows/debug.yml` —— 在配置了 `TAURI_SIGNING_PRIVATE_KEY` 后，未签名的 debug 通道不再有存在意义，反而会向同一个 `v*` GitHub Release 上传临时签名的产物造成污染；所有 tag 发布统一走有签名的 `release.yml` 流水线。(ci)

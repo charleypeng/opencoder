@@ -23,9 +23,11 @@ name: Mobile
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
+  # Mobile verification builds are paused — run manually via workflow_dispatch
+  # when needed (releases only gate on desktop, TASK-M10-03).
+  # push:
+  #   branches:
+  #     - main
 
 concurrency:
   group: mobile-${{ github.ref }}

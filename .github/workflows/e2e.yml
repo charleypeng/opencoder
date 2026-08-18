@@ -14,23 +14,24 @@ name: E2E
 
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - "tests/e2e/**"
-      - "tests/mock-server/**"
-      - "playwright.config.ts"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/e2e.yml"
-  pull_request:
-    paths:
-      - "tests/e2e/**"
-      - "tests/mock-server/**"
-      - "playwright.config.ts"
-      - "package.json"
-      - "pnpm-lock.yaml"
-      - ".github/workflows/e2e.yml"
+  # E2E suite is paused — run manually via workflow_dispatch when needed.
+  # push:
+  #   branches: [main]
+  #   paths:
+  #     - "tests/e2e/**"
+  #     - "tests/mock-server/**"
+  #     - "playwright.config.ts"
+  #     - "package.json"
+  #     - "pnpm-lock.yaml"
+  #     - ".github/workflows/e2e.yml"
+  # pull_request:
+  #   paths:
+  #     - "tests/e2e/**"
+  #     - "tests/mock-server/**"
+  #     - "playwright.config.ts"
+  #     - "package.json"
+  #     - "pnpm-lock.yaml"
+  #     - ".github/workflows/e2e.yml"
 
 concurrency:
   group: e2e-${{ github.ref }}

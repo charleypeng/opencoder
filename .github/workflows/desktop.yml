@@ -23,9 +23,12 @@ name: Desktop
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - "v*"
+  # Tag pushes are handled by release.yml only — this workflow is a manual
+  # verification build and must not race the release pipeline for the same
+  # tag (TASK-M10-04 owns the tagged GitHub Release).
+  # push:
+  #   tags:
+  #     - "v*"
 
 concurrency:
   group: desktop-${{ github.ref }}

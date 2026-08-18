@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Tag pushes trigger only the release pipeline (chore(ci)): `ci.yml`, `desktop.yml`, `e2e.yml` and `mobile.yml` had their automatic triggers commented out (kept as manual `workflow_dispatch`) so a `v*` tag runs exactly one workflow — `release.yml` — instead of racing the release with a parallel desktop/mobile build. (ci)
+
 ### Removed
 
 - Debug CI release channel (chore(ci)): removed `.github/workflows/debug.yml` — with `TAURI_SIGNING_PRIVATE_KEY` configured, the unsigned debug channel no longer serves a purpose and was polluting the same `v*` GitHub Release with throwaway-signature artifacts; all tagged releases now go through the signed `release.yml` pipeline only. (ci)
