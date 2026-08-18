@@ -68,10 +68,11 @@ env:
   # Apple signing/notarization secrets are intentionally NOT set at the
   # workflow level: when a secret is absent GitHub passes an empty string,
   # and tauri-cli treats a present-but-empty APPLE_CERTIFICATE as "import
-  # this certificate" -> keychain import fails. They are scoped to the
-  # `Import Apple certificate` step instead, which only runs when the
-  # secret actually has a value. Without the certificate tauri falls back
-  # to ad-hoc signing (docs/release-signing.md).
+  # this certificate" -> keychain import fails. The certificate is scoped to
+  # the `Import Apple certificate` step instead. `if` conditions cannot
+  # read the `secrets` context, so the presence flag is materialized here
+  # and checked via env.
+  HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
 
 jobs:
   version-check:
@@ -190,7 +191,7 @@ jobs:
       # The secrets are referenced here (not at the workflow level) so the
       # step only runs when APPLE_CERTIFICATE actually has a value.
       - name: Import Apple certificate
-        if: runner.os == 'macOS' && secrets.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.HAS_APPLE_CERTIFICATE == 'true'
         env:
           KEYCHAIN: ${{ runner.temp }}/app-signing.keychain-db
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
