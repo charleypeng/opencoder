@@ -9,13 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- Restore debug release channel (chore(ci)): `debug.yml` is back — it is the workflow that produced the v1.0.1 three-platform installer set (it does not set `APPLE_*` variables, so macOS builds ad-hoc signed and ships a dmg). Keep it alongside `release.yml`; both stay tag-triggered.
+- Publish releases immediately on tag push (chore(ci)): `release.yml` now creates a PUBLISHED release instead of a draft — no manual publish step, matching the previous debug-channel behavior users relied on for three-platform installers. (ci)
 
-- Tag pushes trigger only the release pipelines (chore(ci)): `ci.yml`, `e2e.yml` and `mobile.yml` had their automatic triggers commented out (kept as manual `workflow_dispatch`) so they no longer run on every push; tagged releases are produced by `release.yml` + `debug.yml`. (ci)
+- Tag pushes trigger only the release pipeline (chore(ci)): `ci.yml`, `e2e.yml` and `mobile.yml` had their automatic triggers commented out (kept as manual `workflow_dispatch`) so they no longer run on every push. (ci)
 
 ### Removed
 
-- Debug CI release channel (chore(ci)): removed `.github/workflows/debug.yml` — with `TAURI_SIGNING_PRIVATE_KEY` configured, the unsigned debug channel no longer serves a purpose and was polluting the same `v*` GitHub Release with throwaway-signature artifacts; all tagged releases now go through the signed `release.yml` pipeline only. (ci)
+- Debug CI release channel (chore(ci)): removed `.github/workflows/debug.yml` and folded its immediate-publish, unsigned-macOS behavior into `release.yml` — a single tag-triggered pipeline now produces the three-platform installer set without polluting the release with throwaway-signature artifacts. (ci)
 
 ### Fixed
 

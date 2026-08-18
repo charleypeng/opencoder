@@ -9,13 +9,13 @@
 
 ### 变更
 
-- 恢复 Debug 发布通道（chore(ci)）：`debug.yml` 已恢复 —— 它是产出 v1.0.1 三平台安装包的 workflow（不设置 `APPLE_*` 变量，macOS 走 ad-hoc 签名、可出 dmg）。与 `release.yml` 并存，两者都保持 tag 触发。
+- tag 推送立即发布 release（chore(ci)）：`release.yml` 现在直接创建已发布的 release 而不是 draft —— 无需手动 Publish，行为对齐此前用户依赖的 debug 通道三平台安装包。(ci)
 
-- tag 推送只触发发布流水线（chore(ci)）：`ci.yml`、`e2e.yml`、`mobile.yml` 的自动触发已注释（保留手动 `workflow_dispatch`），不再每次 push 都跑；tag 发布由 `release.yml` + `debug.yml` 产出。(ci)
+- tag 推送只触发发布流水线（chore(ci)）：`ci.yml`、`e2e.yml`、`mobile.yml` 的自动触发已注释（保留手动 `workflow_dispatch`），不再每次 push 都跑。(ci)
 
 ### 移除
 
-- 移除 Debug CI 发布通道（chore(ci)）：删除 `.github/workflows/debug.yml` —— 在配置了 `TAURI_SIGNING_PRIVATE_KEY` 后，未签名的 debug 通道不再有存在意义，反而会向同一个 `v*` GitHub Release 上传临时签名的产物造成污染；所有 tag 发布统一走有签名的 `release.yml` 流水线。(ci)
+- 移除 Debug CI 发布通道（chore(ci)）：删除 `.github/workflows/debug.yml`，将其「立即发布 + 无签名 macOS」行为并入 `release.yml` —— 现在一条 tag 触发的流水线即可产出三平台安装包，且不会向 release 混入临时签名的产物。(ci)
 
 ### 修复
 
