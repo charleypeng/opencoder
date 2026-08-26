@@ -1398,7 +1398,7 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
     expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
   });
 
-  it("ignores ⌘J while typing in a text control", async () => {
+  it("fires ⌘J even while typing in a text control", async () => {
     const alpha = server({ id: "srv-m6term", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1406,11 +1406,9 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
     applySessionList("srv-m6term", [session("sess_term_01", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_term_01"));
 
+    // A ⌘/Ctrl combo types nothing into the control, so the input guard
+    // does not apply (docs/ui-audit-2026-08 V3).
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "j", metaKey: true });
-    expect(screen.queryByTestId("terminal-panel")).not.toBeInTheDocument();
-
-    // The same shortcut on the window (no text target) opens the panel.
-    fireEvent.keyDown(window, { key: "j", metaKey: true });
     // TASK-M9-08: lazy-loaded terminal panel (xterm chunk) — await it.
     await waitFor(() => expect(screen.getByTestId("terminal-panel")).toBeInTheDocument());
   });
@@ -1471,7 +1469,7 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
   });
 
-  it("ignores ⌘P while typing in a text control", async () => {
+  it("fires ⌘P even while typing in a text control", async () => {
     const alpha = server({ id: "srv-m4quick", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1479,13 +1477,10 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     applySessionList("srv-m4quick", [session("sess_qp_01", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_qp_01"));
 
-    // A shortcut fired while the composer input is focused must not open
-    // the dialog (browsers reserve ⌘P for print there).
+    // A ⌘/Ctrl combo types nothing into the control, so the input guard
+    // does not apply (docs/ui-audit-2026-08 V3): ⌘P opens the dialog
+    // while the composer input is focused.
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "p", metaKey: true });
-    expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
-
-    // The same shortcut on the window (no text target) opens the dialog.
-    fireEvent.keyDown(window, { key: "p", metaKey: true });
     expect(screen.getByTestId("quick-open-dialog")).toBeInTheDocument();
   });
 });
@@ -1556,7 +1551,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
   });
 
-  it("ignores ⌘⇧F while typing in a text control", async () => {
+  it("fires ⌘⇧F even while typing in a text control", async () => {
     const alpha = server({ id: "srv-m4search", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1564,15 +1559,13 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     applySessionList("srv-m4search", [session("sess_sf_01", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_sf_01"));
 
+    // A ⌘/Ctrl combo types nothing into the control, so the input guard
+    // does not apply (docs/ui-audit-2026-08 V3).
     fireEvent.keyDown(screen.getByTestId("prompt-input"), {
       key: "F",
       shiftKey: true,
       metaKey: true,
     });
-    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-
-    // The same shortcut on the window (no text target) opens search.
-    fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
   });
 });
@@ -1604,7 +1597,7 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
   });
 
-  it("⌘D toggles back to chat and is ignored while typing in a text control", async () => {
+  it("⌘D opens from the prompt input and toggles back to chat", async () => {
     const alpha = server({ id: "srv-m4diff", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1612,13 +1605,12 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
 
-    // Guarded while typing in the prompt input.
+    // A ⌘/Ctrl combo types nothing into the control, so the input guard
+    // does not apply (docs/ui-audit-2026-08 V3): ⌘D opens while typing.
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "d", metaKey: true });
-    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
-
-    // Open, then a second ⌘D toggles back to chat.
-    fireEvent.keyDown(window, { key: "d", metaKey: true });
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+
+    // A second ⌘D toggles back to chat.
     fireEvent.keyDown(window, { key: "D", ctrlKey: true });
     expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();

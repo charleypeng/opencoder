@@ -1,8 +1,9 @@
 // L1 tests for the shortcut dispatch hook (TASK-M8-01): a harness mounts
 // useShortcuts with mock actions and drives window keydown events. Covers
 // combo dispatch (⌘ or Ctrl primary), scope gating (global/chat/list via
-// the active-scope signal), the input guard (plain keys and guarded
-// modifier shortcuts vs. the ⌘Enter/server-digit opt-outs), the digit
+// the active-scope signal), the input guard (plain keys stay guarded while
+// a text control is focused; ⌘/Ctrl combos bypass the guard, and the
+// ⌘Enter/server-digit opt-outs), the digit
 // range, defaultPrevented passthrough, custom combos from the overrides
 // store, and listener cleanup on unmount.
 
@@ -86,16 +87,31 @@ describe("useShortcuts", () => {
     expect(action).toHaveBeenCalledTimes(1);
   });
 
-  it("keeps a guarded shortcut silent while a text control is focused", () => {
+  it("keeps a plain-key guarded shortcut silent while a text control is focused", () => {
+    const action = vi.fn();
+    render(() => <Harness actions={{ interrupt: action }} />);
+    const input = document.createElement("input");
+    document.body.appendChild(input);
+
+    fireEvent.keyDown(input, { key: "Escape" });
+    expect(action).not.toHaveBeenCalled();
+    press({ key: "Escape" });
+    expect(action).toHaveBeenCalledTimes(1);
+    input.remove();
+  });
+
+  it("fires ⌘-modified global shortcuts while a text control is focused", () => {
     const action = vi.fn();
     render(() => <Harness actions={{ quickOpen: action }} />);
     const input = document.createElement("input");
     document.body.appendChild(input);
 
+    // A ⌘/Ctrl combo types nothing into the control, so the guard does
+    // not apply (docs/ui-audit-2026-08 V3): ⌘P works while typing.
     fireEvent.keyDown(input, { key: "p", metaKey: true });
-    expect(action).not.toHaveBeenCalled();
-    press({ key: "p", metaKey: true });
     expect(action).toHaveBeenCalledTimes(1);
+    fireEvent.keyDown(input, { key: "p", ctrlKey: true });
+    expect(action).toHaveBeenCalledTimes(2);
     input.remove();
   });
 

@@ -12,9 +12,11 @@
 // focused (the active scope signal lives in the shell that mounts the
 // hook). `inputGuard` (default true) keeps a shortcut from firing while a
 // text control is focused — plain-key shortcuts (Tab, ↑, Esc) are input
-// locals owned by the composer, and modified shortcuts like ⌘P must not
-// steal browser keys while typing; sendMessage (⌘Enter) and the server
-// digit keys are the documented exceptions.
+// locals owned by the composer, and a plain key must not steal text input;
+// ⌘/Ctrl combos never type into the control, so they dispatch while typing
+// (⌘K from the composer works). sendMessage (⌘Enter) and the server digit
+// keys are documented exceptions on top (they fire even when the guard
+// would apply to their plain-key shape).
 
 export type Scope = "global" | "chat" | "list";
 
@@ -35,7 +37,8 @@ export interface Shortcut {
   label: string;
   scope: Scope;
   defaultCombo: Combo;
-  /** Never fire while a text control is focused (default true). */
+  /** Never fire while a text control is focused (default true); ⌘/Ctrl
+   *  combos bypass the guard (they type nothing into the control). */
   inputGuard?: boolean;
 }
 

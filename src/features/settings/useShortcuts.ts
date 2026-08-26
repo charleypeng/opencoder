@@ -2,11 +2,13 @@
 // listener dispatching the given id→action map through the registry. The
 // effective combo of every registered shortcut comes from the overrides
 // store (custom combos re-wire reactively); dispatch gates on the shortcut
-// scope vs. the shell's active scope signal, on the input guard (a
+// scope vs. the shell's active scope signal, on the input guard (a plain-key
 // shortcut must not steal a key while a text control is focused unless it
-// opts out, like ⌘Enter and the server digits), and on
-// `event.defaultPrevented` (a focused widget that handled the key, e.g. a
-// dialog, wins). The primary modifier matches either ⌘ or Ctrl.
+// opts out, like ⌘Enter and the server digits — a ⌘/Ctrl combo never types
+// into the control, so modified shortcuts stay dispatchable while typing,
+// e.g. ⌘K from the composer), and on `event.defaultPrevented` (a focused
+// widget that handled the key, e.g. a dialog, wins). The primary modifier
+// matches either ⌘ or Ctrl.
 
 import { createEffect, onCleanup } from "solid-js";
 import type { Accessor } from "solid-js";
@@ -43,7 +45,11 @@ export function useShortcuts(options: UseShortcutsOptions): void {
         if (shortcut === undefined) continue;
         const value = snapshot[id] ?? shortcut.defaultCombo;
         if (!comboMatchesEvent(event, value)) continue;
-        if (shortcut.inputGuard !== false && isTextControlTarget(target)) continue;
+        // A ⌘/Ctrl combo never types characters into the focused control,
+        // so the input guard only blocks plain-key shortcuts (docs/ui-audit
+        // V3: ⌘K/⌘P must work while typing).
+        const modified = event.metaKey || event.ctrlKey;
+        if (shortcut.inputGuard !== false && !modified && isTextControlTarget(target)) continue;
         if (!scopeAllows(shortcut.scope, options.activeScope())) continue;
         event.preventDefault();
         action(event);

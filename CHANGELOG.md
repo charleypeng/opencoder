@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Dispatch ⌘/Ctrl shortcuts while typing (fix(desktop)): the input guard no longer blocks ⌘/Ctrl combos — ⌘K (command palette), ⌘P (quick open), ⌘⇧F (search), ⌘D (diff), ⌘J (terminal) and ⌘, (settings) now work from inside any text field (composer, search boxes), since a modifier combo types nothing into the control. Plain-key shortcuts (Tab, ↑, Esc) keep the guard. (desktop)
+
 - Localize the desktop workspace chrome (fix(desktop)): the "Select a session" empty state (chat and diff views) no longer ships the dev placeholder "Select a session — M2", and the "Back to servers" button, the sidebar Workspaces/Files tabs and the main Chat/Files tabs now render through i18n — all follow the app language instead of hardcoded English. (desktop)
 
 ## [1.0.3] - 2026-08-18
