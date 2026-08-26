@@ -642,7 +642,7 @@ describe("DesktopShell workspace", () => {
     // The sidebar's workspace tree renders the (empty) snapshot immediately.
     expect(screen.getByTestId("workspace-tree")).toBeInTheDocument();
     expect(screen.getByText("No workspaces yet")).toBeInTheDocument();
-    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+    expect(screen.getByText("Select a session")).toBeInTheDocument();
   });
 
   it("renders toasts from the toast store (TASK-M6-06)", () => {
@@ -945,7 +945,7 @@ describe("DesktopShell workspace tree and SSE wiring (TASK-M2-03)", () => {
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
     expect(screen.queryByTestId("prompt-box")).not.toBeInTheDocument();
-    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+    expect(screen.getByText("Select a session")).toBeInTheDocument();
   });
 
   it("switches the sidebar between Sessions and Files (TASK-M4-02)", async () => {
@@ -1055,18 +1055,18 @@ describe("DesktopShell main view tabs (TASK-M4-03)", () => {
 
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("main-tab-files")).not.toHaveAttribute("aria-current");
-    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+    expect(screen.getByText("Select a session")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("main-tab-files"));
     expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("file-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
-    expect(screen.queryByText("Select a session — M2")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select a session")).not.toBeInTheDocument();
 
     // Back to Chat restores the chat pane.
     fireEvent.click(screen.getByTestId("main-tab-chat"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByText("Select a session — M2")).toBeInTheDocument();
+    expect(screen.getByText("Select a session")).toBeInTheDocument();
   });
 
   it("switching to a session in another directory clears the viewer tabs and active path (TASK-M4-03)", async () => {
@@ -1254,7 +1254,7 @@ describe("DesktopShell workspace session creation (bug fixes)", () => {
       expect(getServerSessionState("srv-bugreconn").activeSessionId).toBe("sess_new_01"),
     );
     expect(screen.getByTestId("chat-session-title")).toBeInTheDocument();
-    expect(screen.queryByText("Select a session — M2")).not.toBeInTheDocument();
+    expect(screen.queryByText("Select a session")).not.toBeInTheDocument();
   });
 
   it("clicking a session in an added workspace opens its chat", async () => {

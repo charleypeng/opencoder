@@ -1035,7 +1035,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
               onClick={() => props.onExit()}
             >
-              Back to servers
+              {t("servers:backToServers")}
             </button>
           </header>
           <div
@@ -1069,7 +1069,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               }`}
               onClick={() => setSidebarView("files")}
             >
-              Files
+              {t("desktop:filesTab")}
             </button>
           </div>
           <Show
@@ -1147,7 +1147,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       }`}
                       onClick={() => setMainView("chat")}
                     >
-                      Chat
+                      {t("desktop:chatTab")}
                     </button>
                     <button
                       type="button"
@@ -1160,7 +1160,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       }`}
                       onClick={() => setMainView("files")}
                     >
-                      Files
+                      {t("desktop:filesTab")}
                     </button>
                   </div>
                   <div class="ml-auto flex items-center gap-1">
@@ -1261,7 +1261,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     when={activeSessionId()}
                     fallback={
                       <div class="flex flex-1 items-center justify-center p-4">
-                        <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                        <p class="text-sm text-fg-secondary">{t("desktop:noSession")}</p>
                       </div>
                     }
                   >
@@ -1433,7 +1433,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         when={activeSessionId()}
                         fallback={
                           <div class="flex flex-1 items-center justify-center p-4">
-                            <p class="text-sm text-fg-secondary">Select a session — M2</p>
+                            <p class="text-sm text-fg-secondary">{t("desktop:noSession")}</p>
                           </div>
                         }
                       >

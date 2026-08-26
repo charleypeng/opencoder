@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [未发布]
+
+### 修复
+
+- 桌面工作区界面文案国际化（fix(desktop)）：“选择会话”空态（聊天与差异视图）不再展示开发占位文案 “Select a session — M2”；“返回服务器列表”按钮、侧栏 Workspaces/Files 切换与主区 Chat/Files 切换全部改走 i18n —— 按应用语言渲染，不再硬编码英文。(desktop)
+
 ## [1.0.3] - 2026-08-18
 
 ### 新增

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- Localize the desktop workspace chrome (fix(desktop)): the "Select a session" empty state (chat and diff views) no longer ships the dev placeholder "Select a session — M2", and the "Back to servers" button, the sidebar Workspaces/Files tabs and the main Chat/Files tabs now render through i18n — all follow the app language instead of hardcoded English. (desktop)
+
 ## [1.0.3] - 2026-08-18
 
 ### Added

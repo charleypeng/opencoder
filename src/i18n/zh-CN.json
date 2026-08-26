@@ -774,7 +774,10 @@
     "formatterHint": "已启用的格式化器",
     "usageHint": "当前会话 tokens 与费用",
     "chatHeaderActions": "对话操作",
-    "statusBar": "状态栏"
+    "statusBar": "状态栏",
+    "noSession": "选择一个会话",
+    "chatTab": "聊天",
+    "filesTab": "文件"
   },
   "updates": {
     "checkForUpdates": "检查更新",

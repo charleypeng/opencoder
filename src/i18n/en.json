@@ -774,7 +774,10 @@
     "formatterHint": "Enabled formatter",
     "usageHint": "Active session tokens and cost",
     "chatHeaderActions": "Chat actions",
-    "statusBar": "Status bar"
+    "statusBar": "Status bar",
+    "noSession": "Select a session",
+    "chatTab": "Chat",
+    "filesTab": "Files"
   },
   "updates": {
     "checkForUpdates": "Check for updates",
