@@ -39,12 +39,32 @@ export type SectionId =
   | "diagnostics"
   | "about";
 
+/** Nav group ids (docs/ui-audit-2026-08 §7): the flat 15-entry list is
+ *  hard to scan, so the desktop sidebar renders grouped headers. */
+export type SectionGroupId = "app" | "connections" | "system" | "advanced";
+
+export interface SectionGroupDef {
+  id: SectionGroupId;
+  /** i18n key of the group header label. */
+  titleKey: string;
+}
+
+/** The ordered nav groups; sections without a match are hidden on search. */
+export const SECTION_GROUPS: readonly SectionGroupDef[] = [
+  { id: "app", titleKey: "settings:groupApp" },
+  { id: "connections", titleKey: "settings:groupConnections" },
+  { id: "system", titleKey: "settings:groupSystem" },
+  { id: "advanced", titleKey: "settings:groupAdvanced" },
+];
+
 export interface SettingsSectionDef {
   id: SectionId;
   /** i18n key of the nav label (e.g. settings:general). */
   titleKey: string;
   /** i18n key of the one-line hint, used by the search and the section header. */
   hintKey: string;
+  /** Nav group the section belongs to (desktop sidebar headers). */
+  group: SectionGroupId;
   icon: JSX.Element;
   /** Extra English search terms beyond title/hint. */
   keywords: readonly string[];
@@ -109,6 +129,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "general",
     titleKey: "settings:general",
     hintKey: "settings:generalHint",
+    group: "app",
     icon: ICONS.general,
     keywords: ["app", "identity", "reset", "links", "version"],
     component: GeneralSection,
@@ -117,6 +138,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "appearance",
     titleKey: "settings:appearance",
     hintKey: "settings:appearanceHint",
+    group: "app",
     icon: ICONS.appearance,
     keywords: ["theme", "accent", "color", "dark", "light", "oled", "scale", "size", "zoom"],
     component: AppearanceSection,
@@ -125,6 +147,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "language",
     titleKey: "settings:language",
     hintKey: "settings:languageHint",
+    group: "app",
     icon: ICONS.language,
     keywords: ["locale", "lang", "中文", "english"],
     component: LanguageSection,
@@ -133,6 +156,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "providers",
     titleKey: "settings:providers",
     hintKey: "settings:providersHint",
+    group: "connections",
     icon: ICONS.providers,
     keywords: ["api", "key", "oauth", "model"],
     component: ProviderKeys,
@@ -141,6 +165,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "models",
     titleKey: "settings:models",
     hintKey: "settings:modelsHint",
+    group: "connections",
     icon: ICONS.models,
     keywords: ["model", "default", "provider", "pick"],
     component: ModelsSection,
@@ -149,6 +174,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "mcp",
     titleKey: "settings:mcp",
     hintKey: "settings:mcpHint",
+    group: "connections",
     icon: ICONS.mcp,
     keywords: ["mcp", "model context protocol", "tools", "server", "connect", "oauth"],
     component: McpSection,
@@ -157,6 +183,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "servers",
     titleKey: "servers:servers",
     hintKey: "settings:serversHint",
+    group: "connections",
     icon: ICONS.servers,
     keywords: ["connection", "notification", "theme", "override"],
     component: ServersSection,
@@ -165,6 +192,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "shortcuts",
     titleKey: "settings:shortcuts",
     hintKey: "settings:shortcutHint",
+    group: "system",
     icon: ICONS.shortcuts,
     keywords: ["keyboard", "keys", "combo", "hotkey"],
     component: ShortcutsSection,
@@ -173,6 +201,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "desktop",
     titleKey: "settings:desktop",
     hintKey: "settings:desktopHint",
+    group: "system",
     icon: ICONS.desktop,
     keywords: ["tray", "summon", "global"],
     component: DesktopSection,
@@ -181,6 +210,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "pet",
     titleKey: "settings:pet",
     hintKey: "settings:petHint",
+    group: "system",
     icon: ICONS.pet,
     keywords: ["pet", "companion", "click-through", "clickthrough", "mascot"],
     component: PetSection,
@@ -189,6 +219,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "notifications",
     titleKey: "settings:notifications",
     hintKey: "settings:notificationsHint",
+    group: "system",
     icon: ICONS.notifications,
     keywords: ["alert", "bell", "dnd", "do not disturb"],
     component: NotificationsSection,
@@ -197,6 +228,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "updates",
     titleKey: "settings:updates",
     hintKey: "settings:updatesHint",
+    group: "system",
     icon: ICONS.updates,
     keywords: ["version", "auto-update", "changelog"],
     component: UpdatesSection,
@@ -205,6 +237,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "config",
     titleKey: "settings:config",
     hintKey: "settings:configHint",
+    group: "advanced",
     icon: ICONS.config,
     keywords: ["opencode.json", "json", "global", "dispose", "merge"],
     component: ConfigSection,
@@ -213,6 +246,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "diagnostics",
     titleKey: "settings:diagnostics",
     hintKey: "settings:diagnosticsHint",
+    group: "advanced",
     icon: ICONS.diagnostics,
     keywords: ["log", "console", "lsp", "formatter", "permission", "saved", "server", "upgrade"],
     component: DiagnosticsSection,
@@ -221,6 +255,7 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     id: "about",
     titleKey: "settings:about",
     hintKey: "settings:aboutHint",
+    group: "advanced",
     icon: ICONS.about,
     keywords: ["version", "license", "github", "docs", "documentation"],
     component: AboutSection,

@@ -151,12 +151,18 @@ const ServersSection: Component = () => {
                     </p>
                     <p class="mt-0.5 truncate font-code text-xs text-fg-secondary">{server.url}</p>
                   </div>
-                  <ToggleSwitch
-                    testId={`servers-notify-${server.id}`}
-                    label={t("settings:notificationsFor", { name: server.name })}
-                    checked={serverNotificationsEnabled(server.id, prefs())}
-                    onToggle={(next) => toggleNotify(server.id, next)}
-                  />
+                  <div class="flex shrink-0 items-center gap-2">
+                    {/* Visible label (docs/ui-audit-2026-08 §7): the switch
+                        was aria-labelled only — sighted users had no hint
+                        what the toggle controls. */}
+                    <span class="text-xs text-fg-secondary">{t("settings:notifications")}</span>
+                    <ToggleSwitch
+                      testId={`servers-notify-${server.id}`}
+                      label={t("settings:notificationsFor", { name: server.name })}
+                      checked={serverNotificationsEnabled(server.id, prefs())}
+                      onToggle={(next) => toggleNotify(server.id, next)}
+                    />
+                  </div>
                 </div>
                 <div
                   data-testid={`servers-theme-${server.id}`}

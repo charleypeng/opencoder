@@ -193,6 +193,22 @@ describe("SettingsPage", () => {
     expect(screen.queryByTestId("settings-search-empty")).not.toBeInTheDocument();
   });
 
+  it("renders grouped desktop nav headers and hides groups without matches", () => {
+    render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
+
+    // Four group headers on the desktop sidebar, sections nested inside.
+    for (const group of ["app", "connections", "system", "advanced"]) {
+      expect(screen.getByTestId(`settings-group-${group}`)).toBeInTheDocument();
+    }
+    expect(screen.getByText("Connections")).toBeInTheDocument();
+
+    // Searching narrows to one group: the other headers disappear.
+    fireEvent.input(screen.getByTestId("settings-search"), { target: { value: "accent" } });
+    expect(screen.getByTestId("settings-group-app")).toBeInTheDocument();
+    expect(screen.queryByTestId("settings-group-connections")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("settings-group-system")).not.toBeInTheDocument();
+  });
+
   it("keeps the active section rendered while it is filtered out", () => {
     render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 

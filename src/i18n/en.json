@@ -684,7 +684,11 @@
     "configAutoTitle": "AI generated title",
     "configAutoTitleHint": "Name a new session from its first message once the first exchange completes (client preference; the 1.18.11 config contract has no such key, so it is not written to opencode.json).",
     "pet": "Pet",
-    "petHint": "Pet companion window controls."
+    "petHint": "Pet companion window controls.",
+    "groupApp": "App",
+    "groupConnections": "Connections",
+    "groupSystem": "System",
+    "groupAdvanced": "Advanced"
   },
   "pet": {
     "size": "Size",

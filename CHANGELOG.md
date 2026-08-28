@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Rail sidebar toggle button (feat(desktop)): the server rail gains a sidebar-toggle button above the settings gear — the collapsed sidebar is restorable with a click instead of only ⌘/Ctrl+B, and the button doubles as a discoverable collapse control. (desktop)
 
+### Changed
+
+- Grouped settings navigation (feat(settings)): the desktop settings sidebar renders four group headers — App, Connections, System, Advanced — instead of a flat 15-entry list, and the settings search now collapses to the matching group (headers of empty groups hide). The Servers section's per-server switch gains a visible "Notifications" label (it carried only an aria-label before). (settings)
+
 ### Fixed
 
 - Dispatch ⌘/Ctrl shortcuts while typing (fix(desktop)): the input guard no longer blocks ⌘/Ctrl combos — ⌘K (command palette), ⌘P (quick open), ⌘⇧F (search), ⌘D (diff), ⌘J (terminal) and ⌘, (settings) now work from inside any text field (composer, search boxes), since a modifier combo types nothing into the control. Plain-key shortcuts (Tab, ↑, Esc) keep the guard. (desktop)

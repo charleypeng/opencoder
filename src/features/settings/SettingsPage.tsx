@@ -9,7 +9,7 @@
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
-import { SECTIONS } from "./sections.js";
+import { SECTIONS, SECTION_GROUPS } from "./sections.js";
 import type { SectionId } from "./sections.js";
 import { useT } from "../../i18n/index.js";
 
@@ -40,6 +40,16 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
   });
 
   const active = createMemo(() => SECTIONS.find((def) => def.id === section()) ?? SECTIONS[0]);
+
+  /** Matches grouped for the desktop sidebar: every nav group with at
+   *  least one matching section, in registry order (docs/ui-audit
+   *  §7 — grouped headers keep the flat 15-entry list scannable). */
+  const groupedMatches = createMemo(() =>
+    SECTION_GROUPS.map((group) => ({
+      group,
+      sections: matches().filter((def) => def.group === group.id),
+    })).filter((entry) => entry.sections.length > 0),
+  );
 
   /** Renders the active section component (local-const dynamic component). */
   function renderActive(): JSX.Element {
@@ -73,6 +83,22 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
     );
   }
 
+  /** Grouped sidebar body: a small uppercase header per group followed by
+   *  its section buttons; headers of groups without matches are hidden
+   *  (the search filters straight into one group). */
+  const groupedNav = (): JSX.Element => (
+    <For each={groupedMatches()}>
+      {(entry) => (
+        <div data-testid={`settings-group-${entry.group.id}`}>
+          <p class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-fg-faint">
+            {t(entry.group.titleKey)}
+          </p>
+          <For each={entry.sections}>{(def) => navButton(def, false)}</For>
+        </div>
+      )}
+    </For>
+  );
+
   const navList = (chip: boolean): JSX.Element => (
     <Show
       when={matches().length > 0}
@@ -82,7 +108,9 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         </p>
       }
     >
-      <For each={matches()}>{(def) => navButton(def, chip)}</For>
+      <Show when={chip} fallback={groupedNav()}>
+        <For each={matches()}>{(def) => navButton(def, true)}</For>
+      </Show>
     </Show>
   );
 

@@ -684,7 +684,11 @@
     "configAutoTitle": "AI 生成标题",
     "configAutoTitleHint": "首次对话完成后，用第一条消息为新建会话命名（客户端偏好；1.18.11 配置契约无此字段，不会写入 opencode.json）。",
     "pet": "宠物",
-    "petHint": "宠物伴侣窗口设置。"
+    "petHint": "宠物伴侣窗口设置。",
+    "groupApp": "应用",
+    "groupConnections": "连接",
+    "groupSystem": "系统",
+    "groupAdvanced": "高级"
   },
   "pet": {
     "size": "大小",
