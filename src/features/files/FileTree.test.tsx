@@ -177,6 +177,9 @@ beforeEach(() => {
   getApiClientMock.mockReset();
   getApiClientMock.mockReturnValue(new ApiClient({ request: vi.fn() }));
   writeTextMock = vi.fn().mockResolvedValue(undefined);
+  // The "Show ignored" preference persists to localStorage; every test
+  // starts from the default (ignored entries hidden).
+  localStorage.removeItem("oc-files-show-ignored");
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText: writeTextMock },
@@ -201,6 +204,9 @@ describe("FileTree rendering", () => {
     ]);
 
     await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    // Ignored entries hide until "Show ignored" is ticked (audit §3).
+    expect(screen.queryByTestId("file-row-node_modules")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("file-tree-show-ignored"));
     expect(screen.getByTestId("file-row-node_modules")).toBeInTheDocument();
     expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument();
     // Unloaded dirs render no children yet (lazy expansion).
@@ -238,12 +244,24 @@ describe("FileTree rendering", () => {
 
   it("grayes ignored entries and keeps clean files dotless", async () => {
     mountTree({}, undefined, []);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("file-tree-show-ignored"));
     await waitFor(() => expect(screen.getByTestId("file-row-node_modules")).toBeInTheDocument());
 
     expect(row("node_modules")).toHaveAttribute("data-ignored", "true");
     expect(screen.getByText("node_modules").closest("span")).toHaveClass("italic");
     expect(row("README.md")).toHaveAttribute("data-ignored", "false");
     expect(screen.queryAllByTestId("file-status-dot")).toHaveLength(0);
+  });
+
+  it("persists the Show ignored preference", async () => {
+    mountTree({}, undefined, []);
+    await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
+    expect(localStorage.getItem("oc-files-show-ignored")).toBeNull();
+
+    fireEvent.click(screen.getByTestId("file-tree-show-ignored"));
+    expect(localStorage.getItem("oc-files-show-ignored")).toBe("1");
+    expect(screen.getByTestId("file-row-node_modules")).toBeInTheDocument();
   });
 
   it("calls onOpenFile when a file row is clicked", async () => {
@@ -371,6 +389,8 @@ describe("lazy expansion", () => {
     render(() => <FileTree serverId={SERVER} />);
     await waitFor(() => expect(screen.getByTestId("file-row-src")).toBeInTheDocument());
 
+    // The sibling dir is ignored: reveal it before expanding.
+    fireEvent.click(screen.getByTestId("file-tree-show-ignored"));
     fireEvent.click(row("src"));
     fireEvent.click(row("node_modules"));
     expect(pending.size).toBe(2);

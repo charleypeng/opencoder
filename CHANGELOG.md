@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Sidebar tree tab renamed and ignored entries hidden (feat(files)): the sidebar's second tab is now "Tree" instead of a second "Files" (the main pane's Files viewer kept the name — one label for two scopes was confusing), and the file tree hides ignored entries (`node_modules`, build output) behind a persisted "Show ignored" toggle by default. (files)
+
 - Command palette hints and honest grouping (feat(desktop)): the palette gains a keyboard-hint footer (↑↓ Navigate · ↵ Open · Esc Close) and the section holding "New session / Open settings / Toggle sidebar / Open terminal / Open session diff" is now labeled "Actions" instead of "Settings" — it never contained settings entries. (desktop)
 
 - Composed server-home empty state (fix(servers)): with no servers saved, the home page now centers one block — guide copy plus a primary "Add server" button — instead of a dashed card in the corner with a detached hint line below it. The e2e/L2 entry points (testids) are unchanged. (servers)

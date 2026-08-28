@@ -1095,7 +1095,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
               }`}
               onClick={() => setSidebarView("files")}
             >
-              {t("desktop:filesTab")}
+              {/* "Tree", not "Files": the main pane already has a Files tab
+                  (the viewer) — one label for two scopes read as a bug
+                  (docs/ui-audit-2026-08 §3). */}
+              {t("desktop:treeTab")}
             </button>
           </div>
           <Show

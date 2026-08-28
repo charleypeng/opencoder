@@ -3,6 +3,9 @@
 // expansion (a dir without loaded children fetches GET /file?path= and
 // grafts the subtree in), file-type icons, git status dots (added green /
 // modified amber / deleted red), and `ignored` entries grayed + italic.
+// Ignored entries (node_modules, build output) are hidden behind a
+// "Show ignored" toggle by default (docs/ui-audit-2026-08 §3) — they made
+// the workspace look noisier than it is.
 // `file.watcher.updated` / `file.edited` events bump the store version and
 // the panel refetches tree + statuses on the change (the fetch is the
 // source of truth for the delta). Rows open files through `onOpenFile`
@@ -132,6 +135,21 @@ function StatusDot(props: { status: string | undefined }) {
   );
 }
 
+// --- ignored-entry visibility ----------------------------------------------
+
+// Persisted "Show ignored" preference (localStorage, default off): ignored
+// entries (node_modules, target, dist…) stay out of the tree until asked
+// for (docs/ui-audit-2026-08 §3).
+const SHOW_IGNORED_KEY = "oc-files-show-ignored";
+
+function readShowIgnored(): boolean {
+  try {
+    return localStorage.getItem(SHOW_IGNORED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
 // --- clipboard -------------------------------------------------------------
 
 /** Copies via the async Clipboard API with a legacy execCommand fallback
@@ -174,6 +192,17 @@ const FileTree: Component<FileTreeProps> = (props) => {
   // breadcrumb bar jumps to any ancestor (TASK-M7-09).
   const [currentPath, setCurrentPath] = createSignal("");
   const [dirLoading, setDirLoading] = createSignal(false);
+  // "Show ignored" toggle: off by default, persisted across launches.
+  const [showIgnored, setShowIgnored] = createSignal(readShowIgnored());
+
+  function setIgnoredVisible(next: boolean): void {
+    setShowIgnored(next);
+    try {
+      localStorage.setItem(SHOW_IGNORED_KEY, next ? "1" : "0");
+    } catch {
+      // Storage unavailable (private mode): the session keeps working.
+    }
+  }
 
   // Guards stale async work across refetches and rapid expand toggles. Root
   // loads share one sequence (a newer root refetch supersedes older ones);
@@ -244,8 +273,8 @@ const FileTree: Component<FileTreeProps> = (props) => {
    *  undefined, so the rows stay empty and the loading row shows. */
   const mobileChildren = createMemo(() => {
     const tree = state()?.tree ?? [];
-    if (currentPath() === "") return tree;
-    return findNode(tree, currentPath())?.children ?? [];
+    const level = currentPath() === "" ? tree : (findNode(tree, currentPath())?.children ?? []);
+    return showIgnored() ? level : level.filter((node) => !node.ignored);
   });
 
   /** Descends into a directory: marks it expanded (so a watcher refetch's
@@ -406,13 +435,16 @@ const FileTree: Component<FileTreeProps> = (props) => {
     ];
   });
 
-  // Flat list of visible rows (expanded dirs walk their children).
+  // Flat list of visible rows (expanded dirs walk their children). Ignored
+  // nodes are skipped entirely while the toggle is off — hiding a directory
+  // hides its whole subtree.
   const visibleRows = createMemo(() => {
     const tree = state()?.tree ?? [];
     const expanded = state()?.expanded ?? {};
     const out: { node: TreeNode; depth: number }[] = [];
     const walk = (nodes: TreeNode[], depth: number): void => {
       for (const node of nodes) {
+        if (!showIgnored() && node.ignored) continue;
         out.push({ node, depth });
         if (
           node.type === "directory" &&
@@ -436,7 +468,8 @@ const FileTree: Component<FileTreeProps> = (props) => {
   const isEmpty = createMemo(() => {
     if (loading() || error() !== null) return false;
     if (isMobile()) return rows().length === 0 && !dirLoading();
-    return (state()?.tree.length ?? 0) === 0;
+    // Filtered view (all-ignored tree, toggle off) counts as empty.
+    return rows().length === 0;
   });
 
   const emptyTitle = createMemo(() =>
@@ -505,6 +538,20 @@ const FileTree: Component<FileTreeProps> = (props) => {
           </For>
         </nav>
       </Show>
+      {/* Ignored-entry toggle: ignored dirs (node_modules…) are noise in
+          most sessions, so they hide by default (docs/ui-audit-2026-08 §3). */}
+      <label
+        data-testid="file-tree-show-ignored"
+        class="flex shrink-0 cursor-pointer items-center gap-2 border-b border-bg-sunken px-3 py-1.5 text-xs text-fg-secondary"
+      >
+        <input
+          type="checkbox"
+          class="h-3.5 w-3.5 accent-accent"
+          checked={showIgnored()}
+          onChange={(event) => setIgnoredVisible(event.currentTarget.checked)}
+        />
+        {t("files:showIgnored")}
+      </label>
       <div class="min-h-0 flex-1 overflow-y-auto py-1">
         <Show when={isMobile() && dirLoading()}>
           <p data-testid="file-tree-dir-loading" class="px-3 py-3 text-sm text-fg-secondary">

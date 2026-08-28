@@ -319,6 +319,7 @@
     "workspace": "Workspace",
     "emptyFolderHint": "Nothing in this folder.",
     "workspaceEmptyHint": "The workspace is empty.",
+    "showIgnored": "Show ignored",
     "fileActions": "File actions",
     "binaryFileHint": "Binary file — preview not available.",
     "searchFailed": "Search failed",
@@ -782,6 +783,7 @@
     "noSession": "Select a session",
     "chatTab": "Chat",
     "filesTab": "Files",
+    "treeTab": "Tree",
     "toggleSidebar": "Toggle sidebar"
   },
   "updates": {

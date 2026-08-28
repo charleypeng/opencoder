@@ -319,6 +319,7 @@
     "workspace": "工作区",
     "emptyFolderHint": "此文件夹为空。",
     "workspaceEmptyHint": "工作区为空。",
+    "showIgnored": "显示忽略项",
     "fileActions": "文件操作",
     "binaryFileHint": "二进制文件 — 无法预览。",
     "searchFailed": "搜索失败",
@@ -782,6 +783,7 @@
     "noSession": "选择一个会话",
     "chatTab": "聊天",
     "filesTab": "文件",
+    "treeTab": "文件树",
     "toggleSidebar": "切换侧栏"
   },
   "updates": {
