@@ -104,7 +104,8 @@ describe("AddProviderDialog", () => {
       "false",
     );
     expect((screen.getByTestId("provider-add-submit") as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByTestId("provider-add-id-hint")).toHaveTextContent("Provider ID is required");
+    // Pristine dialog: no premature validation hint (docs/ui-audit-2026-08 V8).
+    expect(screen.queryByTestId("provider-add-id-hint")).not.toBeInTheDocument();
   });
 
   it("rejects a non-slug id with a hint and keeps submit disabled", () => {
@@ -127,6 +128,16 @@ describe("AddProviderDialog", () => {
     });
     expect(screen.queryByTestId("provider-add-id-hint")).not.toBeInTheDocument();
     expect((screen.getByTestId("provider-add-submit") as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("shows the required hint once the id was touched and cleared", () => {
+    renderDialog();
+
+    const input = screen.getByTestId("provider-add-id");
+    fireEvent.input(input, { target: { value: "my-llm" } });
+    fireEvent.input(input, { target: { value: "" } });
+    expect(screen.getByTestId("provider-add-id-hint")).toHaveTextContent("Provider ID is required");
+    expect((screen.getByTestId("provider-add-submit") as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("hints that a key without a base URL targets the built-in endpoint", () => {

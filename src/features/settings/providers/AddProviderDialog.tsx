@@ -42,6 +42,9 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
   const [scope, setScope] = createSignal<AddProviderScope>("global");
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
+  // Validation hints appear only after the field was typed into — showing
+  // "required" on a pristine dialog is premature (docs/ui-audit-2026-08 V8).
+  const [idTouched, setIdTouched] = createSignal(false);
 
   const trimmedId = () => id().trim();
   // Empty id: the required hint; non-empty invalid id: the slug hint.
@@ -100,10 +103,13 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
               placeholder={t("settings:providerId")}
               aria-label={t("settings:providerId")}
               disabled={submitting()}
-              onInput={(event) => setId(event.currentTarget.value)}
+              onInput={(event) => {
+                setIdTouched(true);
+                setId(event.currentTarget.value);
+              }}
               class={inputClass}
             />
-            <Show when={trimmedId() === "" || !idValid()}>
+            <Show when={idTouched() && (trimmedId() === "" || !idValid())}>
               <p data-testid="provider-add-id-hint" class="text-[10px] text-fg-faint">
                 {trimmedId() === ""
                   ? t("settings:providerIdRequired")
