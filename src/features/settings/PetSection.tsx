@@ -129,14 +129,18 @@ const PetSection: Component<{ serverId: string }> = () => {
         <p class="text-xs text-fg-secondary">{t("settings:petHint")}</p>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
-        <div class="space-y-3 border-b border-bg-sunken pb-4">
-          <label class="block text-xs font-medium">
-            {t("pet:type")}
+        {/* Label-left / control-right rows (docs feedback): the stacked
+            full-width selects and sliders read as a loose form; the rows
+            mirror the toggle rows below them. Controls stay inside their
+            <label> so the association survives the layout change. */}
+        <div class="space-y-1 border-b border-bg-sunken pb-2">
+          <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
+            <span class="min-w-0">{t("pet:type")}</span>
             <select
               data-testid="pet-type-select"
               value={petType()}
               onChange={(event) => changeType(event.currentTarget.value as PetType)}
-              class="mt-1 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
+              class="w-44 shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
             >
               <option value="blob">{t("pet:typeBlob")}</option>
               <option value="cat">{t("pet:typeCat")}</option>
@@ -144,21 +148,23 @@ const PetSection: Component<{ serverId: string }> = () => {
               <option value="robot">{t("pet:typeRobot")}</option>
             </select>
           </label>
-          <label class="block text-xs font-medium">
-            {t("pet:movement")}
+          <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
+            <span class="min-w-0">{t("pet:movement")}</span>
             <select
               data-testid="pet-movement-select"
               value={movement()}
               onChange={(event) => changeMovement(event.currentTarget.value as PetMovement)}
-              class="mt-1 w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
+              class="w-44 shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
             >
               <option value="fixed">{t("pet:movementFixed")}</option>
               <option value="roam">{t("pet:movementRoam")}</option>
               <option value="bottom">{t("pet:movementBottom")}</option>
             </select>
           </label>
-          <label class="block text-xs font-medium">
-            {t("pet:petSize")}: {size()}px
+          <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
+            <span class="min-w-0 shrink-0">
+              {t("pet:petSize")} · {size()}px
+            </span>
             <input
               data-testid="pet-size-slider"
               type="range"
@@ -167,11 +173,13 @@ const PetSection: Component<{ serverId: string }> = () => {
               step="10"
               value={size()}
               onInput={(event) => changeSize(Number(event.currentTarget.value))}
-              class="mt-1 w-full"
+              class="w-44 shrink-0 cursor-pointer accent-accent"
             />
           </label>
-          <label class="block text-xs font-medium">
-            {t("pet:petOpacity")}: {Math.round(opacity() * 100)}%
+          <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
+            <span class="min-w-0 shrink-0">
+              {t("pet:petOpacity")} · {Math.round(opacity() * 100)}%
+            </span>
             <input
               data-testid="pet-opacity-slider"
               type="range"
@@ -180,7 +188,7 @@ const PetSection: Component<{ serverId: string }> = () => {
               step="0.05"
               value={opacity()}
               onInput={(event) => changeOpacity(Number(event.currentTarget.value))}
-              class="mt-1 w-full"
+              class="w-44 shrink-0 cursor-pointer accent-accent"
             />
           </label>
         </div>

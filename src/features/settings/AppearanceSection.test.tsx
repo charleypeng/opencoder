@@ -151,14 +151,27 @@ describe("AppearanceSection UI scale (desktop-only)", () => {
     expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("110%");
   });
 
-  it("adjusts the scale, applies it to the CSS variable and persists it", () => {
+  it("previews the scale while dragging and commits it on release", () => {
+    // Earlier tests in this file persist the default; start clean.
+    localStorage.removeItem("oc-ui-scale");
     render(() => <AppearanceSection serverId={SERVER} />);
 
     const slider = screen.getByTestId("ui-scale-slider") as HTMLInputElement;
+    // Drag (input events): the readout previews, but nothing is applied —
+    // a live apply re-layouts the dialog mid-drag and jitters the slider.
     fireEvent.input(slider, { target: { value: "1.4" } });
     expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("140%");
+    // Nothing applied yet: the CSS variable was never written with the
+    // dragged value (the section test has no bootstrap apply, so the
+    // meaningful assertion is "the drag did not apply 1.4").
+    expect(document.documentElement.style.getPropertyValue("--ui-scale")).not.toBe("1.4");
+    expect(localStorage.getItem("oc-ui-scale")).toBeNull();
+
+    // Release (change): the draft commits and persists.
+    fireEvent.change(slider, { target: { value: "1.4" } });
     expect(document.documentElement.style.getPropertyValue("--ui-scale")).toBe("1.4");
     expect(localStorage.getItem("oc-ui-scale")).toBe("1.4");
+    expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("140%");
   });
 
   it("hides the slider on mobile (native glass bar must not scale)", () => {

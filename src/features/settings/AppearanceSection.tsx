@@ -85,6 +85,12 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
    *  accent. Kept separate so intermediate typing (e.g. "#12") never
    *  reverts mid-entry — validation happens on commit (blur) instead. */
   const [hexDraft, setHexDraft] = createSignal<string | undefined>(undefined);
+  /** In-progress UI-scale drag (desktop): input events only update the
+   *  draft, the scale is COMMITTED on change (pointer release). Applying
+   *  live re-scales the root font size, which re-layouts the centered
+   *  dialog mid-drag — the slider moves under the pointer and the value
+   *  recalculates from the new geometry, jittering (docs feedback). */
+  const [scaleDraft, setScaleDraft] = createSignal<number | undefined>(undefined);
 
   return (
     <div data-testid="appearance-section" class="flex min-h-0 flex-1 flex-col">
@@ -198,16 +204,20 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
                 min={UI_SCALE_MIN}
                 max={UI_SCALE_MAX}
                 step={UI_SCALE_STEP}
-                value={uiScale()}
+                value={scaleDraft() ?? uiScale()}
                 aria-label={t("settings:uiScale")}
-                onInput={(event) => setUiScale(Number(event.currentTarget.value))}
+                onInput={(event) => setScaleDraft(Number(event.currentTarget.value))}
+                onChange={(event) => {
+                  setUiScale(Number(event.currentTarget.value));
+                  setScaleDraft(undefined);
+                }}
                 class="w-48 cursor-pointer accent-accent"
               />
               <span
                 data-testid="ui-scale-value"
                 class="shrink-0 font-code text-xs text-fg-secondary"
               >
-                {Math.round(uiScale() * 100)}%
+                {Math.round((scaleDraft() ?? uiScale()) * 100)}%
               </span>
             </div>
           </div>

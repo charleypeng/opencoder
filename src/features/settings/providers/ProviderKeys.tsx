@@ -8,7 +8,7 @@
 // Saving/removing a key or completing an OAuth flow re-lists the providers
 // through the models store so the connected state refreshes.
 
-import { createSignal, For, onMount, Show } from "solid-js";
+import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import {
   createProviderService,
@@ -44,6 +44,20 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   } | null>(null);
   // The "Add provider" dialog is open (TASK-S1-02).
   const [addOpen, setAddOpen] = createSignal(false);
+  // Unconnected providers hide behind a toggle (docs feedback): the common
+  // case is managing the CONNECTED set; known-but-unconnected providers are
+  // one click away. With no connection at all the full list stays visible
+  // (a collapsed empty view would read as "no providers").
+  const [showAllProviders, setShowAllProviders] = createSignal(false);
+  const connectedSet = createMemo(() => new Set(getServerModelState(props.serverId).connected));
+  const visibleProviders = createMemo(() => {
+    const all = getServerModelState(props.serverId).providers;
+    if (showAllProviders() || connectedSet().size === 0) return all;
+    return all.filter((provider) => connectedSet().has(provider.id));
+  });
+  const hiddenCount = createMemo(
+    () => getServerModelState(props.serverId).providers.length - visibleProviders().length,
+  );
   const [error, setError] = createSignal<string | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
 
@@ -159,7 +173,7 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
           }
         >
           <ul class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-            <For each={getServerModelState(props.serverId).providers}>
+            <For each={visibleProviders()}>
               {(provider: Provider) => {
                 const methods = () => authMethods()[provider.id] ?? [];
                 const apiMethod = () => methods().find((m) => m.type === "api");
@@ -294,6 +308,21 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
               }}
             </For>
           </ul>
+          <Show when={connectedSet().size > 0 && (hiddenCount() > 0 || showAllProviders())}>
+            <button
+              type="button"
+              data-testid="provider-keys-toggle"
+              class="shrink-0 self-start text-xs text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+              onClick={() => setShowAllProviders((value) => !value)}
+            >
+              <Show
+                when={showAllProviders()}
+                fallback={t("settings:showMoreProviders", { count: hiddenCount() })}
+              >
+                {t("settings:showFewerProviders")}
+              </Show>
+            </button>
+          </Show>
         </Show>
 
         <Show when={oauthTarget() !== null}>

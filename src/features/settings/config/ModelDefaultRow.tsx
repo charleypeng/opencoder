@@ -85,7 +85,7 @@ const ModelDefaultRow: Component<ModelDefaultRowProps> = (props) => {
             >
               <span
                 data-testid="model-default-value"
-                class="max-w-full truncate rounded-md border border-bg-sunken bg-bg-elevated px-2.5 py-1.5 font-mono text-xs text-fg-default"
+                class="max-w-[12rem] truncate rounded-md border border-bg-sunken bg-bg-elevated px-2.5 py-1.5 font-mono text-xs text-fg-default"
               >
                 {resolvedLabel()}
               </span>

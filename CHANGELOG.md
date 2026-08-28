@@ -15,6 +15,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Providers collapse to the connected set (feat(settings)): the Providers section now lists only connected providers; known-but-unconnected ones hide behind a "Show {{count}} more" toggle (with no connection at all the full list stays visible). (settings)
+
+- The opencode.json model editor is "Config file model" (fix(settings)): the Config section had two adjacent rows both titled "Default model" (the client-side default and the `model` key of opencode.json); the config-file one is renamed with a hint explaining the override order, and the effective-default chip is width-capped so it no longer crowds the dialog edge on narrow windows. (settings)
+
+### Fixed
+
+- UI scale slider commits on release (fix(settings)): dragging the Appearance scale slider applied the scale on every input event, which re-scaled the root font size, re-laid-out the centered dialog and moved the slider under the pointer — a jitter loop that made the slider undraggable. The drag now only previews the readout; the value applies and persists on release. (settings)
+
+- Pet controls sit on one row with their labels (fix(settings)): the pet type/movement selects and size/opacity sliders were stacked full-width blocks under their labels; they now render as label-left / control-right rows matching the toggle rows below. (settings)
+
 - Search / diff / changes refinements (feat(vcs)): the Changes panel's "Apply patch" moved from a permanent bottom box into a dialog opened from the header (the change list gets the full panel height; the confirm step stays), stats-only diff files render a styled empty block with an explanation instead of a bald text row, and the search "No matches" state names the directory that was searched. (vcs)
 
 - Instant default-shell terminal (feat(terminal)): the "+" button now spawns the server's default shell immediately — the shell picker moves to a chevron next to it and the empty state gains a "New terminal" button (docs/ui-audit-2026-08 §3: creating a terminal no longer requires routing through the picker). (terminal)

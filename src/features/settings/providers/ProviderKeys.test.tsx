@@ -109,11 +109,22 @@ function rowOf(providerID: string): HTMLElement {
   return screen.getByTestId(`provider-key-row-${providerID}`);
 }
 
+/** Unconnected providers hide behind the "Show more" toggle (docs
+ *  feedback); the interaction tests expand to the full catalog first. */
+async function expandAll(): Promise<void> {
+  await waitFor(() =>
+    expect(screen.getAllByTestId(/^provider-key-row-./).length).toBeGreaterThan(0),
+  );
+  const toggle = screen.queryByTestId("provider-keys-toggle");
+  if (toggle !== null) fireEvent.click(toggle);
+  await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+}
+
 describe("ProviderKeys", () => {
   it("lists providers with connected badges and per-method forms", async () => {
     renderKeys();
 
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
     expect(client.get).toHaveBeenCalledWith("/provider/auth", undefined);
     expect(client.get).toHaveBeenCalledWith("/provider", undefined);
 
@@ -134,9 +145,33 @@ describe("ProviderKeys", () => {
     expect(within(azure).getByTestId("provider-oauth-authorize")).toHaveTextContent("Authorize");
   });
 
+  it("hides unconnected providers behind a Show-more toggle", async () => {
+    renderKeys();
+
+    // Only the connected provider renders by default; the rest collapse.
+    await waitFor(() => expect(rowOf("openai")).toBeInTheDocument());
+    expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1);
+    expect(screen.getByTestId("provider-keys-toggle")).toHaveTextContent("Show 2 more");
+
+    fireEvent.click(screen.getByTestId("provider-keys-toggle"));
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    expect(screen.getByTestId("provider-keys-toggle")).toHaveTextContent("Show fewer");
+
+    fireEvent.click(screen.getByTestId("provider-keys-toggle"));
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1));
+  });
+
+  it("shows every provider when nothing is connected (no empty collapsed view)", async () => {
+    (client as unknown as { __setConnected: (ids: string[]) => void }).__setConnected([]);
+    renderKeys();
+
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    expect(screen.queryByTestId("provider-keys-toggle")).not.toBeInTheDocument();
+  });
+
   it("opens the OAuth dialog from the authorize button and closes on cancel", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.click(within(rowOf("azure")).getByTestId("provider-oauth-authorize"));
 
@@ -157,7 +192,7 @@ describe("ProviderKeys", () => {
 
   it("marks the key inputs to suppress password autofill", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     for (const input of screen.getAllByTestId("provider-key-input")) {
       expect(input).toHaveAttribute("autocomplete", "new-password");
@@ -181,7 +216,7 @@ describe("ProviderKeys", () => {
       return [];
     });
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
       target: { value: "sk-ant-secret" },
@@ -209,7 +244,7 @@ describe("ProviderKeys", () => {
 
   it("drops a stale refresh response that resolves after a newer load", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     // The post-save refresh resolves late with the OLD catalog; a manual
     // refresh (load) in between returns the NEWER catalog immediately.
@@ -250,7 +285,7 @@ describe("ProviderKeys", () => {
 
   it("saves an API key: PUTs the key and refreshes the connected state", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
       target: { value: "sk-ant-secret" },
@@ -275,7 +310,7 @@ describe("ProviderKeys", () => {
       "anthropic",
     ]);
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
       target: { value: "sk-ant-secret" },
@@ -289,7 +324,7 @@ describe("ProviderKeys", () => {
 
   it("does not save an empty key", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     const save = within(rowOf("anthropic")).getByTestId("provider-key-save") as HTMLButtonElement;
     expect(save.disabled).toBe(true);
@@ -299,7 +334,7 @@ describe("ProviderKeys", () => {
 
   it("removes a key through the inline confirmation and refreshes", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     const openai = rowOf("openai");
     // First click arms the confirmation (no DELETE yet).
@@ -316,7 +351,7 @@ describe("ProviderKeys", () => {
 
   it("cancels a pending remove confirmation", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     const openai = rowOf("openai");
     fireEvent.click(within(openai).getByTestId("provider-key-remove"));
@@ -330,7 +365,7 @@ describe("ProviderKeys", () => {
   it("surfaces a save failure inline", async () => {
     client.put.mockRejectedValueOnce(new Error("boom"));
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.input(within(rowOf("anthropic")).getByTestId("provider-key-input"), {
       target: { value: "sk-ant-secret" },
@@ -356,12 +391,12 @@ describe("ProviderKeys", () => {
     expect(screen.getByText("Failed to load providers.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("provider-keys-retry"));
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
   });
 
   it("opens the add-provider dialog from the header button and cancels", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     fireEvent.click(screen.getByTestId("add-provider"));
     await waitFor(() => expect(screen.getByTestId("provider-add-dialog")).toBeInTheDocument());
@@ -374,7 +409,7 @@ describe("ProviderKeys", () => {
 
   it("shows an added provider as a row after the dialog submit", async () => {
     renderKeys();
-    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(3));
+    await expandAll();
 
     // The mock catalog carries the newly registered provider from the
     // dialog's post-add re-fetch onward.
