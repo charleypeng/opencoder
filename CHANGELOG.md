@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Status-bar chip labels on wide windows (feat(desktop)): the branch / LSP / formatter / usage chips gain a brief text label at window widths ≥1280px (hidden below, where the dense icon+value form and the hover tooltips remain). (desktop)
+
 - CI startup-bundle size guard (chore(ci)): `pnpm build && pnpm check:bundle` now runs in CI — the vite startup chunk fails the build once its gzip size leaves the 330 KB budget (2026-08 audit measured 320.46 KB with +57 KB raw drift since 2026-08-05), turning further bundle drift into a hard signal. (ci)
 
 - Deduplicated settings sections (refactor(settings)): the About section merged into General (server version/status, license and copyright now live there — both sections showed the same identity, version and links), and the Models section folded into Config as a "Default model" row (the nav entry was a single row duplicating Config's editor); the settings search keywords now index the sections' control labels ("accent", "default model"…) so queries land on the right section. Nav shrinks from 15 to 13 entries. (settings)

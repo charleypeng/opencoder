@@ -232,6 +232,9 @@ function StatusBarBranch(props: { serverId: string }) {
           <circle cx="18" cy="8" r="2.4" />
           <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
         </svg>
+        {/* Chip labels hide below 1280px (audit §3): dense icon+value only
+            on narrow windows, brief labels once there is room. */}
+        <span class="hidden min-[1280px]:inline text-fg-faint">{t("desktop:chipBranch")}</span>
         {branch()}
       </span>
     </Show>
@@ -285,6 +288,7 @@ function StatusBarLsp(props: { serverId: string }) {
         >
           <path d="M12 3v3M12 12v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M18.4 5.6l-2.1 2.1M7.7 16.3l-2.1 2.1" />
         </svg>
+        <span class="hidden min-[1280px]:inline text-fg-faint">{t("desktop:chipLsp")}</span>
         {activeCount()}
       </span>
     </Show>
@@ -334,6 +338,7 @@ function StatusBarFormatter(props: { serverId: string }) {
         >
           <path d="m14.5 4.5 5 5M9 15l-1.5 1.5a2.1 2.1 0 1 1-3-3L6 12 13.5 4.5a2.1 2.1 0 1 1 3 3L10 14" />
         </svg>
+        <span class="hidden min-[1280px]:inline text-fg-faint">{t("desktop:chipFormatter")}</span>
         {names().join(", ")}
       </span>
     </Show>
@@ -376,6 +381,7 @@ function StatusBarUsage(props: { serverId: string }) {
           <circle cx="12" cy="12" r="9" />
           <path d="M12 7v10M15.5 10a3.5 3.5 0 0 0-1.3-.8 3 3 0 0 0-2.3 0 3 3 0 0 0-1.4 4 3 3 0 0 0 1.4 1.3 3 3 0 0 0 2.3 0 3.5 3.5 0 0 0 1.3-1" />
         </svg>
+        <span class="hidden min-[1280px]:inline text-fg-faint">{t("desktop:chipUsage")}</span>
         {formatTokens(usage()!.tokens)} · {formatCost(usage()!.cost)}
       </span>
     </Show>
