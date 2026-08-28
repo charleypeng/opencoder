@@ -777,7 +777,8 @@
     "statusBar": "状态栏",
     "noSession": "选择一个会话",
     "chatTab": "聊天",
-    "filesTab": "文件"
+    "filesTab": "文件",
+    "toggleSidebar": "切换侧栏"
   },
   "updates": {
     "checkForUpdates": "检查更新",

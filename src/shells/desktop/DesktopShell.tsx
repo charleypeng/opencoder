@@ -991,6 +991,32 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           >
             +
           </button>
+          {/* Sidebar toggle (docs/ui-audit-2026-08 V4): the rail is the
+              documented toggle affordance, so the button must exist — a
+              collapsed sidebar was restorable only via ⌘/Ctrl+B. */}
+          <button
+            type="button"
+            data-testid="rail-sidebar-toggle"
+            aria-label={t("desktop:toggleSidebar")}
+            title={t("desktop:toggleSidebar")}
+            aria-pressed={sidebarCollapsed() ? "true" : "false"}
+            class="mt-auto flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-5 w-5"
+              aria-hidden="true"
+            >
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M9 4v16" />
+            </svg>
+          </button>
           {/* The rail lives outside the main-area view switch, so this gear
               keeps settings reachable from chat, files, diff, terminal and
               changes alike (the main-area tab bar has no gear of its own). */}
@@ -999,7 +1025,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             data-testid="rail-settings"
             aria-label={t("desktop:openSettings")}
             title={t("settings:settings")}
-            class="mt-auto flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
+            class="mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
             onClick={() => setSettingsOpen(true)}
           >
             <svg

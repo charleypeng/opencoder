@@ -777,7 +777,8 @@
     "statusBar": "Status bar",
     "noSession": "Select a session",
     "chatTab": "Chat",
-    "filesTab": "Files"
+    "filesTab": "Files",
+    "toggleSidebar": "Toggle sidebar"
   },
   "updates": {
     "checkForUpdates": "Check for updates",
