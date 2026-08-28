@@ -19,6 +19,7 @@
     "verify": "node scripts/verify.mjs",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:links": "node scripts/check-links.mjs",
+    "check:bundle": "node scripts/check-bundle.mjs",
     "gen:api": "node scripts/gen-api.mjs",
     "gen:api:check": "node scripts/gen-api.mjs --check",
     "mock:start": "tsx tests/mock-server/index.ts",

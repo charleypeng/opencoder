@@ -106,3 +106,8 @@ jobs:
       # Contract drift detection: schema.d.ts vs docs/openapi_v1.18.11.json
       - name: gen:api drift check
         run: pnpm gen:api:check
+
+      # Startup bundle size guard (docs/ui-audit-2026-08 §5): the vite
+      # startup chunk must stay inside its gzip budget.
+      - name: Bundle size guard
+        run: pnpm build && pnpm check:bundle
