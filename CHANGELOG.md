@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Deduplicated settings sections (refactor(settings)): the About section merged into General (server version/status, license and copyright now live there — both sections showed the same identity, version and links), and the Models section folded into Config as a "Default model" row (the nav entry was a single row duplicating Config's editor); the settings search keywords now index the sections' control labels ("accent", "default model"…) so queries land on the right section. Nav shrinks from 15 to 13 entries. (settings)
+
 - Sidebar tree tab renamed and ignored entries hidden (feat(files)): the sidebar's second tab is now "Tree" instead of a second "Files" (the main pane's Files viewer kept the name — one label for two scopes was confusing), and the file tree hides ignored entries (`node_modules`, build output) behind a persisted "Show ignored" toggle by default. (files)
 
 - Command palette hints and honest grouping (feat(desktop)): the palette gains a keyboard-hint footer (↑↓ Navigate · ↵ Open · Esc Close) and the section holding "New session / Open settings / Toggle sidebar / Open terminal / Open session diff" is now labeled "Actions" instead of "Settings" — it never contained settings entries. (desktop)

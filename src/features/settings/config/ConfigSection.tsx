@@ -40,6 +40,7 @@ import {
   type ModelRef,
 } from "../../../stores/models.js";
 import { readAutoTitleEnabled, setAutoTitleEnabled } from "../../sessions/autoTitle.js";
+import ModelDefaultRow from "./ModelDefaultRow.js";
 
 export type ConfigScope = "project" | "global";
 
@@ -467,6 +468,13 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
             {t("settings:configScopeGlobal")}
           </button>
         </div>
+
+        {/* The client-side default model lives here since the Models nav
+            section folded into Config (docs/ui-audit-2026-08 §7) — one home
+            for "which model do new sessions get". It is a client preference
+            resolved above the config `model` below, so it shows regardless
+            of the scope tab and of whether a config has loaded. */}
+        <ModelDefaultRow serverId={props.serverId} />
 
         <Show when={loading() && config() === null} fallback={null}>
           <p data-testid="config-loading" class="py-3 text-xs text-fg-secondary">

@@ -2,8 +2,9 @@
 // drives the sidebar nav, every section is reachable, the settings search
 // filters the nav by title / hint / keywords (with a no-match state), the
 // mobile variant renders the chip nav without the Back header, and the
-// General / About / Servers sections work through the page (their own
-// suites cover the details).
+// General / Servers sections work through the page (their own suites
+// cover the details). About and Models are folded away
+// (docs/ui-audit-2026-08 §7) — General and Config carry their content.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
@@ -94,7 +95,6 @@ describe("SettingsPage", () => {
       "appearance",
       "language",
       "providers",
-      "models",
       "mcp",
       "servers",
       "shortcuts",
@@ -104,7 +104,6 @@ describe("SettingsPage", () => {
       "updates",
       "config",
       "diagnostics",
-      "about",
     ]) {
       expect(screen.getByTestId(`settings-section-${id}`)).toBeInTheDocument();
     }
@@ -137,7 +136,6 @@ describe("SettingsPage", () => {
     const cases: Array<[string, string]> = [
       ["appearance", "appearance-section"],
       ["language", "language-section"],
-      ["models", "models-section"],
       ["mcp", "mcp-section"],
       ["servers", "servers-section"],
       ["shortcuts", "shortcuts-section"],
@@ -147,7 +145,6 @@ describe("SettingsPage", () => {
       ["updates", "updates-section"],
       ["config", "config-section"],
       ["diagnostics", "diagnostics-section"],
-      ["about", "about-section"],
     ];
     for (const [sectionId, sectionTestId] of cases) {
       const navButton = screen.getByTestId(`settings-section-${sectionId}`);
@@ -228,7 +225,7 @@ describe("SettingsPage", () => {
     expect(localStorage.getItem("oc-foo")).toBeNull();
   });
 
-  it("renders the About section with versions and links", async () => {
+  it("renders the General section with versions and links (About folded in)", async () => {
     getAppVersionMock.mockResolvedValue("1.0.0");
     applyServerHealth({
       serverId: SERVER,
@@ -240,12 +237,11 @@ describe("SettingsPage", () => {
     });
     render(() => <SettingsPage serverId={SERVER} onClose={vi.fn()} />);
 
-    fireEvent.click(screen.getByTestId("settings-section-about"));
-    await waitFor(() => expect(screen.getByTestId("about-version")).toHaveTextContent("1.0.0"));
-    expect(screen.getByTestId("about-server-version")).toHaveTextContent("1.18.11");
-    expect(screen.getByTestId("about-license")).toHaveTextContent("MIT License");
+    await waitFor(() => expect(screen.getByTestId("general-version")).toHaveTextContent("1.0.0"));
+    expect(screen.getByTestId("general-server-version")).toHaveTextContent("1.18.11");
+    expect(screen.getByTestId("general-license")).toHaveTextContent("MIT License");
 
-    fireEvent.click(screen.getByTestId("about-github"));
+    fireEvent.click(screen.getByTestId("general-github"));
     await waitFor(() => expect(openUrlMock).toHaveBeenCalledWith(GITHUB_URL));
   });
 
@@ -280,9 +276,9 @@ describe("SettingsPage", () => {
     expect(screen.queryByTestId("settings-close")).not.toBeInTheDocument();
     expect(screen.getByTestId("settings-sections")).toHaveAttribute("data-kind", "chips");
 
-    fireEvent.click(screen.getByTestId("settings-section-about"));
-    expect(screen.getByTestId("settings-section-about")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("about-section")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("settings-section-config"));
+    expect(screen.getByTestId("settings-section-config")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("config-section")).toBeInTheDocument();
   });
 
   it("switches the app language from the Language section", () => {

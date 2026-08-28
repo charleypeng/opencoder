@@ -1,13 +1,16 @@
 // Settings section registry (TASK-M9-04): the ordered list of settings
 // sections drives the SettingsPage navigation (sidebar on desktop, chip
 // row on mobile), the settings search (matched against the translated
-// title, the hint and English keywords) and the active-section rendering.
-// Components receive the active server id; sections that do not need it
-// simply ignore the prop.
+// title, the hint and English keywords — keywords include the section's
+// CONTROL labels, so e.g. "accent" or "default model" find their section)
+// and the active-section rendering. Components receive the active server
+// id; sections that do not need it simply ignore the prop. The About and
+// Models sections are folded away (docs/ui-audit-2026-08 §7): About's
+// content merged into General, Models' default-model row moved into
+// Config.
 
 import type { Component, JSX } from "solid-js";
 import ProviderKeys from "./providers/ProviderKeys.js";
-import ModelsSection from "./models/ModelsSection.js";
 import McpSection from "./mcp/McpSection.js";
 import ShortcutsSection from "./ShortcutsSection.js";
 import DesktopSection from "./DesktopSection.js";
@@ -17,7 +20,6 @@ import UpdatesSection from "./UpdatesSection.js";
 import LanguageSection from "./LanguageSection.js";
 import AppearanceSection from "./AppearanceSection.js";
 import GeneralSection from "./GeneralSection.js";
-import AboutSection from "./AboutSection.js";
 import ServersSection from "./ServersSection.js";
 import ConfigSection from "./config/ConfigSection.js";
 import DiagnosticsSection from "./diagnostics/DiagnosticsSection.js";
@@ -27,7 +29,6 @@ export type SectionId =
   | "appearance"
   | "language"
   | "providers"
-  | "models"
   | "mcp"
   | "servers"
   | "shortcuts"
@@ -36,8 +37,7 @@ export type SectionId =
   | "notifications"
   | "updates"
   | "config"
-  | "diagnostics"
-  | "about";
+  | "diagnostics";
 
 /** Nav group ids (docs/ui-audit-2026-08 §7): the flat 15-entry list is
  *  hard to scan, so the desktop sidebar renders grouped headers. */
@@ -98,9 +98,6 @@ const ICONS: Record<SectionId, JSX.Element> = {
   providers: (
     <Icon path="m21 2-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4" />
   ),
-  models: (
-    <Icon path="M9 3v18M15 3v18M3 9h18M3 15h18M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z" />
-  ),
   mcp: <Icon path="M10 2v6L4 16v4h6v2l6-6V10l4-4V2h-6v4l-4 4V2z" />,
   servers: <Icon path="M2 2h20v8H2zM2 14h20v8H2zM6 6h.01M6 18h.01" />,
   shortcuts: (
@@ -117,7 +114,6 @@ const ICONS: Record<SectionId, JSX.Element> = {
   config: (
     <Icon path="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1M16 3h1a2 2 0 0 1 2 2v5a2 2 0 0 0 2 2 2 2 0 0 0-2 2v5c0 1.1-.9 2-2 2h-1" />
   ),
-  about: <Icon path="M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20zM12 16v-4M12 8h.01" />,
   diagnostics: (
     <Icon path="M12 3a7 7 0 0 0-7 7c0 2 .9 3.5 1.5 4.5L5 21h14l-1.5-6.5C18.1 13.5 19 12 19 10a7 7 0 0 0-7-7zM8.5 10h7" />
   ),
@@ -131,7 +127,17 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     hintKey: "settings:generalHint",
     group: "app",
     icon: ICONS.general,
-    keywords: ["app", "identity", "reset", "links", "version"],
+    keywords: [
+      "app",
+      "identity",
+      "reset",
+      "links",
+      "version",
+      "about",
+      "license",
+      "copyright",
+      "server version",
+    ],
     component: GeneralSection,
   },
   {
@@ -140,7 +146,18 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     hintKey: "settings:appearanceHint",
     group: "app",
     icon: ICONS.appearance,
-    keywords: ["theme", "accent", "color", "dark", "light", "oled", "scale", "size", "zoom"],
+    keywords: [
+      "theme",
+      "accent",
+      "color",
+      "dark",
+      "light",
+      "oled",
+      "scale",
+      "size",
+      "zoom",
+      "server override",
+    ],
     component: AppearanceSection,
   },
   {
@@ -160,15 +177,6 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     icon: ICONS.providers,
     keywords: ["api", "key", "oauth", "model"],
     component: ProviderKeys,
-  },
-  {
-    id: "models",
-    titleKey: "settings:models",
-    hintKey: "settings:modelsHint",
-    group: "connections",
-    icon: ICONS.models,
-    keywords: ["model", "default", "provider", "pick"],
-    component: ModelsSection,
   },
   {
     id: "mcp",
@@ -239,7 +247,18 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     hintKey: "settings:configHint",
     group: "advanced",
     icon: ICONS.config,
-    keywords: ["opencode.json", "json", "global", "dispose", "merge"],
+    keywords: [
+      "opencode.json",
+      "json",
+      "global",
+      "dispose",
+      "merge",
+      "default model",
+      "default agent",
+      "share",
+      "autoupdate",
+      "auto title",
+    ],
     component: ConfigSection,
   },
   {
@@ -250,14 +269,5 @@ export const SECTIONS: readonly SettingsSectionDef[] = [
     icon: ICONS.diagnostics,
     keywords: ["log", "console", "lsp", "formatter", "permission", "saved", "server", "upgrade"],
     component: DiagnosticsSection,
-  },
-  {
-    id: "about",
-    titleKey: "settings:about",
-    hintKey: "settings:aboutHint",
-    group: "advanced",
-    icon: ICONS.about,
-    keywords: ["version", "license", "github", "docs", "documentation"],
-    component: AboutSection,
   },
 ];
