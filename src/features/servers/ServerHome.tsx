@@ -134,12 +134,26 @@ function serverMenuItems(
   );
 }
 
-function EmptyState() {
+function EmptyState(props: { onStart: () => void }) {
   const t = useT();
   return (
-    <div data-testid="empty-state" class="mx-auto mt-4 max-w-md text-center">
+    // Centered composition (docs/ui-audit-2026-08 V7): the guide copy and
+    // the primary action read as one block instead of a detached line
+    // under the grid's dashed card.
+    <div
+      data-testid="empty-state"
+      class="mx-auto flex max-w-md flex-col items-center py-20 text-center"
+    >
       <p class="text-sm font-medium text-fg-secondary">{t("servers:noServers")}</p>
       <p class="mt-1 text-sm text-fg-faint">{t("servers:noServersHint")}</p>
+      <button
+        type="button"
+        data-testid="add-first-server"
+        class="mt-6 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white outline-none transition-opacity hover:opacity-90"
+        onClick={() => props.onStart()}
+      >
+        {t("servers:addServer")}
+      </button>
     </div>
   );
 }
@@ -333,7 +347,7 @@ function ServerHome(props: ServerHomeProps) {
         class="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-4"
       >
         <button
-          data-testid={servers().length === 0 ? "add-first-server" : "add-server-card"}
+          data-testid="add-server-card"
           type="button"
           class="flex min-h-44 flex-col items-center justify-center gap-2 rounded-md border-2 border-dashed border-bg-sunken bg-bg-elevated p-4 text-fg-secondary transition-colors hover:border-accent hover:text-fg-primary"
           onClick={startAdd}
@@ -441,12 +455,9 @@ function ServerHome(props: ServerHomeProps) {
         <Show
           when={adding() || editing()}
           fallback={
-            <>
+            <Show when={servers().length > 0} fallback={<EmptyState onStart={startAdd} />}>
               {renderGrid()}
-              <Show when={servers().length === 0}>
-                <EmptyState />
-              </Show>
-            </>
+            </Show>
           }
         >
           <div class="mx-auto max-w-xl">

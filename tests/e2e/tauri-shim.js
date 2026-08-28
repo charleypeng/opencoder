@@ -124,6 +124,14 @@
   }
 
   function emitHealth(serverId, url, healthy, version, failCount) {
+    if (healthy) {
+      // Mirror the real backend (src-tauri connections/health.rs): a
+      // successful probe refreshes the registry's lastConnectedAt, so the
+      // server card never shows "Never connected" beside a live latency.
+      for (var i = 0; i < state.servers.length; i++) {
+        if (state.servers[i].id === serverId) state.servers[i].lastConnectedAt = Date.now();
+      }
+    }
     emit("server-health", {
       serverId: serverId,
       healthy: healthy,
@@ -212,7 +220,13 @@
       case "list_servers":
         return Promise.resolve(
           state.servers.map(function (s) {
-            return { id: s.id, name: s.name, url: s.url, createdAt: s.createdAt };
+            return {
+              id: s.id,
+              name: s.name,
+              url: s.url,
+              createdAt: s.createdAt,
+              lastConnectedAt: s.lastConnectedAt,
+            };
           }),
         );
       case "add_server": {

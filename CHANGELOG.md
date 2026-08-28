@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Composed server-home empty state (fix(servers)): with no servers saved, the home page now centers one block — guide copy plus a primary "Add server" button — instead of a dashed card in the corner with a detached hint line below it. The e2e/L2 entry points (testids) are unchanged. (servers)
+
 - Grouped settings navigation (feat(settings)): the desktop settings sidebar renders four group headers — App, Connections, System, Advanced — instead of a flat 15-entry list, and the settings search now collapses to the matching group (headers of empty groups hide). The Servers section's per-server switch gains a visible "Notifications" label (it carried only an aria-label before). (settings)
 
 ### Fixed
