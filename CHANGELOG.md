@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Providers edit on double-click (feat(settings)): double-clicking a provider row opens an edit dialog with the API key field, Save, Remove (when connected) and Authorize (for OAuth providers) — the key and connection become editable without hunting for the inline form. (settings)
+
+- Config section re-laid out around one model editor (feat(settings)): the opencode.json `model` dual-select row is gone — the "Default model" row is the single model editor (its hint now explains it wins over the config-file key, which stays editable through the JSON editor); all config rows now drop their control BELOW the label on narrow windows instead of squeezing it into a fixed-width box where it clipped against the dialog edge. (settings)
+
 - Providers collapse to the connected set (feat(settings)): the Providers section now lists only connected providers; known-but-unconnected ones hide behind a "Show {{count}} more" toggle (with no connection at all the full list stays visible). (settings)
 
 - The opencode.json model editor is "Config file model" (fix(settings)): the Config section had two adjacent rows both titled "Default model" (the client-side default and the `model` key of opencode.json); the config-file one is renamed with a hint explaining the override order, and the effective-default chip is width-capped so it no longer crowds the dialog edge on narrow windows. (settings)

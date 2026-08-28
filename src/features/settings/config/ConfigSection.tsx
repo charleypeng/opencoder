@@ -24,7 +24,7 @@
 // the app falls back to the server list (the connection is not
 // re-established by this section).
 
-import { createEffect, createMemo, createSignal, For, on, Show } from "solid-js";
+import { createEffect, createSignal, For, on, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import { createToast } from "../../../stores/toasts.js";
@@ -32,13 +32,8 @@ import { useT } from "../../../i18n/index.js";
 import { getApiClient } from "../../../services/client.js";
 import { createConfigService, type Config, type ConfigPatch } from "../../../services/config.js";
 import { createAgentService, type Agent } from "../../../services/agent.js";
-import { createProviderService, type Provider } from "../../../services/provider.js";
-import {
-  getServerModelState,
-  setConfigDefault,
-  setProviders,
-  type ModelRef,
-} from "../../../stores/models.js";
+import { createProviderService } from "../../../services/provider.js";
+import { setConfigDefault, setProviders } from "../../../stores/models.js";
 import { readAutoTitleEnabled, setAutoTitleEnabled } from "../../sessions/autoTitle.js";
 import ModelDefaultRow from "./ModelDefaultRow.js";
 
@@ -88,39 +83,7 @@ const KNOWN_CONFIG_KEYS = new Set<string>([
 const SHARE_OPTIONS = ["manual", "auto", "disabled"] as const;
 const AUTOUPDATE_OPTIONS = ["true", "false", "notify"] as const;
 const PERMISSION_OPTIONS = ["ask", "allow", "deny"] as const;
-/** Resolves a config `model` string ("gpt-5" or "openai/gpt-5") to a
- *  catalog reference, or null when the model is not in the provider
- *  catalog (the raw string is then shown read-only). */
-export function modelRefOf(
-  configModel: string | undefined,
-  providers: Provider[],
-): ModelRef | null {
-  if (configModel === undefined || configModel === "") return null;
-  const slash = configModel.indexOf("/");
-  if (slash > 0) {
-    const providerID = configModel.slice(0, slash);
-    const modelID = configModel.slice(slash + 1);
-    const provider = providers.find((entry) => entry.id === providerID);
-    if (provider !== undefined && provider.models[modelID] !== undefined) {
-      return { providerID, modelID };
-    }
-  }
-  for (const provider of providers) {
-    if (provider.models[configModel] !== undefined) {
-      return { providerID: provider.id, modelID: configModel };
-    }
-  }
-  return null;
-}
-
-/** The qualified config model string written back on change; the server
- *  accepts "provider/model" and resolves it to the same model. */
-export function configModelString(ref: ModelRef): string {
-  return `${ref.providerID}/${ref.modelID}`;
-}
-
 interface ConfigForm {
-  model: ModelRef | null;
   defaultAgent: string;
   share: "" | (typeof SHARE_OPTIONS)[number];
   autoupdate: "" | (typeof AUTOUPDATE_OPTIONS)[number];
@@ -129,7 +92,6 @@ interface ConfigForm {
 
 function formOf(config: Config): ConfigForm {
   return {
-    model: null,
     defaultAgent: typeof config.default_agent === "string" ? config.default_agent : "",
     share: typeof config.share === "string" ? config.share : "",
     autoupdate:
@@ -160,7 +122,6 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   const [loading, setLoading] = createSignal(true);
   const [loadError, setLoadError] = createSignal<string | null>(null);
   const [form, setForm] = createSignal<ConfigForm>({
-    model: null,
     defaultAgent: "",
     share: "",
     autoupdate: "",
@@ -188,8 +149,6 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   const [autoTitleOn, setAutoTitleOn] = createSignal(readAutoTitleEnabled());
 
   const service = createConfigService(getApiClient());
-  const modelState = createMemo(() => getServerModelState(props.serverId));
-
   /** Baseline application: resets the form and the JSON editor to a loaded
    *  config (load + both save paths share this). */
   function applyConfig(cfg: Config): void {
@@ -247,20 +206,6 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
     });
   });
 
-  const resolvedModel = createMemo(() => modelRefOf(config()?.model, modelState().providers));
-
-  // The selects are form-driven once a pick exists: the baseline only
-  // seeds them while the form is clean, so a provider change switches the
-  // model list immediately and the model onChange can never pair a model
-  // with a stale provider id.
-  const selectedModel = createMemo(() => form().model ?? resolvedModel());
-
-  const providers = createMemo(() => modelState().providers);
-  const provider = createMemo(
-    () => providers().find((entry) => entry.id === selectedModel()?.providerID) ?? null,
-  );
-  const models = createMemo(() => (provider() === null ? [] : Object.values(provider()!.models)));
-
   // The agent options load asynchronously, so a `value` binding alone would
   // clamp to "" while the list is empty and never re-apply. Re-applying the
   // form value whenever the agent list or the form changes keeps the
@@ -278,23 +223,11 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
     setSaveError(null);
   }
 
-  function changeModel(ref: ModelRef): void {
-    setForm({ ...form(), model: ref });
-    markDirty();
-  }
-
-  function changeProvider(id: string): void {
-    const next = providers().find((entry) => entry.id === id);
-    const first = next === undefined ? undefined : Object.values(next.models)[0];
-    if (first !== undefined) changeModel({ providerID: id, modelID: first.id });
-  }
-
   /** Builds the merge patch from the form: keys the form owns, only when a
    *  value is actually set (empty = leave the server value untouched). */
   function patchOf(): ConfigPatch {
     const patch: ConfigPatch = {};
     const current = form();
-    if (current.model !== null) patch.model = configModelString(current.model);
     if (current.defaultAgent !== "") patch.default_agent = current.defaultAgent;
     if (current.share !== "") patch.share = current.share;
     if (current.autoupdate !== "") {
@@ -422,12 +355,16 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
   function row(label: string, hint: string | undefined, control: JSX.Element, testId: string) {
     return (
       <div data-testid={testId} class="border-b border-bg-sunken py-3">
-        <div class="flex items-center justify-between gap-3">
-          <div class="min-w-0">
+        {/* Wrap-friendly row (docs feedback): the control sits right of the
+            label while there is room and drops BELOW it (left-aligned,
+            full natural width) on narrow windows — never squeezed into a
+            fixed-width box where it clips or overlaps. */}
+        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+          <div class="min-w-0 max-w-full flex-1 basis-64">
             <p class="text-xs font-medium">{label}</p>
             {hint !== undefined ? <p class="mt-0.5 text-xs text-fg-secondary">{hint}</p> : null}
           </div>
-          <div class="max-w-[45%] shrink-0">{control}</div>
+          <div class="max-w-full shrink-0">{control}</div>
         </div>
       </div>
     );
@@ -498,56 +435,11 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
         </Show>
 
         <Show when={config() !== null}>
-          {row(
-            t("settings:configModel"),
-            t("settings:configModelHint"),
-            <Show
-              when={providers().length > 0}
-              fallback={<span class="text-xs text-fg-faint">—</span>}
-            >
-              <Show
-                when={resolvedModel() !== null}
-                fallback={
-                  <span
-                    data-testid="config-model-unresolved"
-                    class="block max-w-[12rem] truncate text-xs text-fg-secondary"
-                  >
-                    {t("settings:configModelUnresolved", { model: config()?.model ?? "" })}
-                  </span>
-                }
-              >
-                <div class="flex items-center gap-2">
-                  <select
-                    data-testid="config-model-provider"
-                    aria-label={t("models:providerLabel")}
-                    class={selectClass}
-                    value={selectedModel()?.providerID ?? ""}
-                    onChange={(event) => changeProvider(event.currentTarget.value)}
-                  >
-                    <For each={providers()}>
-                      {(entry) => <option value={entry.id}>{entry.name}</option>}
-                    </For>
-                  </select>
-                  <select
-                    data-testid="config-model-model"
-                    aria-label={t("models:modelLabel")}
-                    class={selectClass}
-                    value={selectedModel()?.modelID ?? ""}
-                    onChange={(event) => {
-                      const pid = selectedModel()?.providerID;
-                      if (pid !== undefined)
-                        changeModel({ providerID: pid, modelID: event.currentTarget.value });
-                    }}
-                  >
-                    <For each={models()}>
-                      {(entry) => <option value={entry.id}>{entry.name ?? entry.id}</option>}
-                    </For>
-                  </select>
-                </div>
-              </Show>
-            </Show>,
-            "config-row-model",
-          )}
+          {/* NOTE: the config `model` key has NO form row — the "Default
+              model" row above is the single model editor (it overrides the
+              opencode.json value while set); the JSON editor below edits
+              the raw key for advanced use (docs feedback: two adjacent
+              "Default model" rows read as a bug). */}
 
           {row(
             t("settings:configDefaultAgent"),

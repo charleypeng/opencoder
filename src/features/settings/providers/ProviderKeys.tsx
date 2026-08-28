@@ -10,6 +10,7 @@
 
 import { createMemo, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { Dialog } from "@kobalte/core";
 import {
   createProviderService,
   type Provider,
@@ -44,6 +45,9 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   } | null>(null);
   // The "Add provider" dialog is open (TASK-S1-02).
   const [addOpen, setAddOpen] = createSignal(false);
+  // Provider whose edit dialog is open (docs feedback: double-click a row
+  // to edit its key/connection without hunting for the inline form).
+  const [editTarget, setEditTarget] = createSignal<Provider | null>(null);
   // Unconnected providers hide behind a toggle (docs feedback): the common
   // case is managing the CONNECTED set; known-but-unconnected providers are
   // one click away. With no connection at all the full list stays visible
@@ -119,6 +123,13 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
     }
   }
 
+  /** Dialog save: closes on success (saveKey surfaces failures through the
+   *  shared error signal, which it clears on entry). */
+  async function saveFromDialog(providerID: string): Promise<void> {
+    await saveKey(providerID);
+    if (error() === null) setEditTarget(null);
+  }
+
   return (
     <section data-testid="provider-keys" class="flex min-h-0 flex-1 flex-col gap-3 p-4">
       <div class="flex items-baseline justify-between gap-2">
@@ -188,7 +199,9 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
                     data-testid={`provider-key-row-${provider.id}`}
                     data-provider={provider.id}
                     data-connected={connected() ? "true" : "false"}
-                    class="rounded-md border border-bg-sunken bg-bg-elevated p-3"
+                    title={t("settings:providerEditHint")}
+                    class="cursor-pointer rounded-md border border-bg-sunken bg-bg-elevated p-3"
+                    onDblClick={() => setEditTarget(provider)}
                   >
                     <div class="flex items-center justify-between gap-2">
                       <h3 class="text-sm font-medium">{provider.name}</h3>
@@ -332,6 +345,128 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
             onClose={() => setOauthTarget(null)}
             onAuthorized={() => void refreshProviders()}
           />
+        </Show>
+
+        {/* Double-click edit dialog (docs feedback): key + connection
+            actions for one provider, sharing the inline form's draft and
+            busy/confirm state. */}
+        <Show when={editTarget() !== null}>
+          <Dialog.Root
+            open
+            onOpenChange={(open) => {
+              if (!open) setEditTarget(null);
+            }}
+          >
+            <Dialog.Portal>
+              <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
+              <Dialog.Content
+                data-testid="provider-edit-dialog"
+                class="glass fixed left-1/2 top-1/2 z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-3 rounded-lg p-5"
+              >
+                <Dialog.Title class="text-md font-semibold">
+                  {t("settings:editProviderTitle", { name: editTarget()!.name })}
+                </Dialog.Title>
+                <Dialog.Description class="text-xs text-fg-secondary">
+                  {t("settings:providerEditHint")}
+                </Dialog.Description>
+                <form
+                  class="flex items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveFromDialog(editTarget()!.id);
+                  }}
+                >
+                  <input
+                    data-testid="provider-edit-key-input"
+                    type="password"
+                    autocomplete="new-password"
+                    value={drafts()[editTarget()!.id] ?? ""}
+                    placeholder="••••••••"
+                    aria-label={t("settings:apiKeyFor", { name: editTarget()!.name })}
+                    disabled={busy() !== null}
+                    onInput={(event) =>
+                      setDrafts((d) => ({
+                        ...d,
+                        [editTarget()!.id]: event.currentTarget.value,
+                      }))
+                    }
+                    class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint disabled:opacity-50"
+                  />
+                  <button
+                    type="submit"
+                    data-testid="provider-edit-save"
+                    disabled={(drafts()[editTarget()!.id] ?? "").trim() === "" || busy() !== null}
+                    class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {busy() === editTarget()!.id ? t("common:saving") : t("common:save")}
+                  </button>
+                </form>
+                <div class="flex items-center gap-2">
+                  <Show
+                    when={
+                      connectedSet().has(editTarget()!.id) &&
+                      (authMethods()[editTarget()!.id] ?? []).some((m) => m.type === "api")
+                    }
+                  >
+                    <button
+                      type="button"
+                      data-testid="provider-edit-remove"
+                      class={`shrink-0 rounded-md border px-3 py-1.5 text-xs outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+                        confirmRemove() === editTarget()!.id
+                          ? "border-danger text-danger"
+                          : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                      }`}
+                      disabled={busy() !== null}
+                      onClick={() =>
+                        confirmRemove() === editTarget()!.id
+                          ? void removeKey(editTarget()!.id)
+                          : setConfirmRemove(editTarget()!.id)
+                      }
+                    >
+                      {confirmRemove() === editTarget()!.id
+                        ? t("settings:confirmRemove")
+                        : t("common:remove")}
+                    </button>
+                    <Show when={confirmRemove() === editTarget()!.id}>
+                      <button
+                        type="button"
+                        data-testid="provider-edit-remove-cancel"
+                        class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+                        onClick={() => setConfirmRemove(null)}
+                      >
+                        {t("common:cancel")}
+                      </button>
+                    </Show>
+                  </Show>
+                  <Show
+                    when={(authMethods()[editTarget()!.id] ?? []).some((m) => m.type === "oauth")}
+                  >
+                    <button
+                      type="button"
+                      data-testid="provider-edit-authorize"
+                      class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+                      onClick={() => {
+                        setOauthTarget({
+                          provider: editTarget()!,
+                          methodIndex: (authMethods()[editTarget()!.id] ?? []).findIndex(
+                            (m) => m.type === "oauth",
+                          ),
+                        });
+                        setEditTarget(null);
+                      }}
+                    >
+                      {t("settings:authorize")}
+                    </button>
+                  </Show>
+                </div>
+                <Show when={error() !== null}>
+                  <p data-testid="provider-edit-error" class="text-xs text-danger">
+                    {error()}
+                  </p>
+                </Show>
+              </Dialog.Content>
+            </Dialog.Portal>
+          </Dialog.Root>
         </Show>
 
         <Show when={addOpen()}>

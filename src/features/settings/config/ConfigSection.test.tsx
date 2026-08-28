@@ -1,19 +1,20 @@
 // L2 tests for the Config settings section (TASK-M9-05): the project /
 // global scope tabs loading GET /config and GET /global/config, the
-// formified common fields (model / default_agent / share / autoupdate /
-// permission) with dirty tracking and PATCH-on-save, the form-driven
-// provider+model dual select (provider changes re-list the models and the
-// picked pair saves as provider/model), the dirty-form scope-switch
-// discard confirmation, the stale-save guard when the scope flips mid-
-// save, the advanced JSON editor (parse validation, unknown-key hints,
-// merge-patch save, failure rollback) and the instance-dispose danger
-// zone (confirm panel, POST /instance/dispose, failure inline). The HTTP
-// layer runs through the mocked Tauri invoke transport with in-memory
-// config state, mirroring the mock server's merge semantics.
+// formified common fields (default_agent / share / autoupdate /
+// permission) with dirty tracking and PATCH-on-save, the dirty-form
+// scope-switch discard confirmation, the stale-save guard when the scope
+// flips mid-save, the advanced JSON editor (parse validation, unknown-key
+// hints, merge-patch save, failure rollback) and the instance-dispose
+// danger zone (confirm panel, POST /instance/dispose, failure inline).
+// The config `model` key has no form row: the Default model row
+// (ModelDefaultRow) is the single model editor, and the JSON editor owns
+// the raw key. The HTTP layer runs through the mocked Tauri invoke
+// transport with in-memory config state, mirroring the mock server's
+// merge semantics.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import ConfigSection, { configModelString, modelRefOf } from "./ConfigSection.js";
+import ConfigSection from "./ConfigSection.js";
 import type { Provider } from "../../../services/provider.js";
 import type { Model } from "../../../services/provider.js";
 import { clearToasts, toasts } from "../../../stores/toasts.js";
@@ -156,39 +157,15 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
-describe("modelRefOf / configModelString", () => {
-  it("resolves a bare model id from the catalog", () => {
-    expect(modelRefOf("gpt-5", [OPENAI, ANTHROPIC])).toEqual({
-      providerID: "openai",
-      modelID: "gpt-5",
-    });
-  });
-
-  it("resolves a provider-qualified model id", () => {
-    expect(modelRefOf("anthropic/claude-sonnet-4-5", [OPENAI, ANTHROPIC])).toEqual({
-      providerID: "anthropic",
-      modelID: "claude-sonnet-4-5",
-    });
-  });
-
-  it("returns null for empty or unknown models", () => {
-    expect(modelRefOf(undefined, [OPENAI])).toBeNull();
-    expect(modelRefOf("", [OPENAI])).toBeNull();
-    expect(modelRefOf("gpt-99", [OPENAI])).toBeNull();
-    expect(modelRefOf("missing/gpt-5", [OPENAI])).toBeNull();
-  });
-
-  it("writes the provider-qualified string back", () => {
-    expect(configModelString({ providerID: "openai", modelID: "gpt-5" })).toBe("openai/gpt-5");
-  });
-});
-
 describe("ConfigSection", () => {
   it("loads the project config by default and formifies the common fields", async () => {
     render(() => <ConfigSection serverId={SERVER} />);
-    await waitFor(() => expect(screen.getByTestId("config-row-model")).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByTestId("config-model-provider")).toHaveValue("openai"));
-    expect(screen.getByTestId("config-model-model")).toHaveValue("gpt-5");
+    // The single model editor: the effective default from the config file
+    // (ModelDefaultRow shows the provider-qualified label + source chip).
+    await waitFor(() =>
+      expect(screen.getByTestId("model-default-value")).toHaveTextContent("OpenAI · GPT-5"),
+    );
+    expect(screen.getByTestId("model-server-chip")).toHaveTextContent("Default");
     await waitFor(() => expect(screen.getByTestId("config-agent")).toHaveValue("build"));
     expect(screen.getByTestId("config-share")).toHaveValue("manual");
     expect(screen.getByTestId("config-autoupdate")).toHaveValue("true");
@@ -199,14 +176,10 @@ describe("ConfigSection", () => {
 
   it("switches to the global scope and loads the global config", async () => {
     render(() => <ConfigSection serverId={SERVER} />);
-    await waitFor(() => expect(screen.getByTestId("config-row-model")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("config-row-agent")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("config-scope-global"));
-    await waitFor(() =>
-      expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic"),
-    );
-    expect(screen.getByTestId("config-model-model")).toHaveValue("claude-sonnet-4-5");
-    expect(screen.getByTestId("config-share")).toHaveValue("auto");
+    await waitFor(() => expect(screen.getByTestId("config-share")).toHaveValue("auto"));
     expect(screen.getByTestId("config-autoupdate")).toHaveValue("notify");
     expect(screen.getByTestId("config-scope-global")).toHaveAttribute("aria-pressed", "true");
   });
@@ -214,7 +187,7 @@ describe("ConfigSection", () => {
   it("shows the AI generated title toggle in the global scope only, default ON", async () => {
     localStorage.clear();
     render(() => <ConfigSection serverId={SERVER} />);
-    await waitFor(() => expect(screen.getByTestId("config-row-model")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("config-row-agent")).toBeInTheDocument());
 
     // Project scope: no toggle (it is a client preference, global only).
     expect(screen.queryByTestId("config-auto-title")).toBeNull();
@@ -256,44 +229,6 @@ describe("ConfigSection", () => {
     await waitFor(() => expect(toasts.some((toast) => toast.kind === "success")).toBe(true));
   });
 
-  it("saves the model selection as a provider-qualified string", async () => {
-    render(() => <ConfigSection serverId={SERVER} />);
-    await waitFor(() => expect(screen.getByTestId("config-model-model")).toBeInTheDocument());
-
-    fireEvent.change(screen.getByTestId("config-model-model"), { target: { value: "gpt-4.1" } });
-    fireEvent.click(screen.getByTestId("config-save"));
-    await waitFor(() => expect(projectConfig.model).toBe("openai/gpt-4.1"));
-  });
-
-  it("switches the model list with the provider and saves the picked pair", async () => {
-    render(() => <ConfigSection serverId={SERVER} />);
-    await waitFor(() => expect(screen.getByTestId("config-model-provider")).toHaveValue("openai"));
-    expect(screen.getByTestId("config-model-model")).toHaveValue("gpt-5");
-
-    // A provider change must drive the model select immediately — the
-    // selects used to re-render from the baseline, keeping the old
-    // provider's model list and writing the old provider id on save.
-    fireEvent.change(screen.getByTestId("config-model-provider"), {
-      target: { value: "anthropic" },
-    });
-    expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic");
-    await waitFor(() =>
-      expect(screen.getByTestId("config-model-model")).toHaveValue("claude-sonnet-4-5"),
-    );
-    expect(
-      Array.from(
-        screen.getByTestId("config-model-model").querySelectorAll("option"),
-        (option) => option.value,
-      ),
-    ).toEqual(["claude-sonnet-4-5", "claude-opus-4-1"]);
-
-    fireEvent.change(screen.getByTestId("config-model-model"), {
-      target: { value: "claude-opus-4-1" },
-    });
-    fireEvent.click(screen.getByTestId("config-save"));
-    await waitFor(() => expect(projectConfig.model).toBe("anthropic/claude-opus-4-1"));
-  });
-
   it("asks before discarding a dirty form on a scope switch", async () => {
     render(() => <ConfigSection serverId={SERVER} />);
     await waitFor(() => expect(screen.getByTestId("config-share")).toBeInTheDocument());
@@ -313,9 +248,7 @@ describe("ConfigSection", () => {
     // Confirming discards and switches.
     fireEvent.click(screen.getByTestId("config-scope-global"));
     fireEvent.click(screen.getByTestId("config-discard-confirm"));
-    await waitFor(() =>
-      expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic"),
-    );
+    await waitFor(() => expect(screen.getByTestId("config-share")).toHaveValue("auto"));
     expect(screen.queryByTestId("config-discard-dialog")).not.toBeInTheDocument();
     expect(screen.queryByTestId("config-dirty")).not.toBeInTheDocument();
     expect(projectConfig.share).toBe("manual");
@@ -347,16 +280,13 @@ describe("ConfigSection", () => {
     fireEvent.click(screen.getByTestId("config-save"));
     fireEvent.click(screen.getByTestId("config-scope-global"));
     fireEvent.click(screen.getByTestId("config-discard-confirm"));
-    await waitFor(() =>
-      expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic"),
-    );
+    await waitFor(() => expect(screen.getByTestId("config-share")).toHaveValue("auto"));
 
     // Let the stale project PATCH land — it must not overwrite the global
     // baseline nor toast into it.
     resolvePatch(httpResponse(projectConfig));
     await waitFor(() => expect(screen.getByTestId("config-save")).toHaveTextContent("Save"));
-    expect(screen.getByTestId("config-model-provider")).toHaveValue("anthropic");
-    expect(screen.getByTestId("config-model-model")).toHaveValue("claude-sonnet-4-5");
+    expect(screen.getByTestId("config-share")).toHaveValue("auto");
     expect(screen.queryByTestId("config-save-error")).not.toBeInTheDocument();
     expect(toasts.some((toast) => toast.kind === "success")).toBe(false);
   });
@@ -553,6 +483,6 @@ describe("ConfigSection", () => {
         : Promise.resolve(undefined),
     );
     fireEvent.click(screen.getByTestId("config-retry"));
-    await waitFor(() => expect(screen.getByTestId("config-row-model")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByTestId("config-row-agent")).toBeInTheDocument());
   });
 });

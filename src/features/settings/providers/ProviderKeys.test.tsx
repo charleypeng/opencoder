@@ -169,6 +169,42 @@ describe("ProviderKeys", () => {
     expect(screen.queryByTestId("provider-keys-toggle")).not.toBeInTheDocument();
   });
 
+  it("opens the edit dialog on double-click and saves the key from it", async () => {
+    renderKeys();
+    await waitFor(() => expect(rowOf("openai")).toBeInTheDocument());
+
+    fireEvent.doubleClick(rowOf("openai"));
+    expect(screen.getByTestId("provider-edit-dialog")).toBeInTheDocument();
+
+    fireEvent.input(screen.getByTestId("provider-edit-key-input"), {
+      target: { value: "sk-new" },
+    });
+    fireEvent.click(screen.getByTestId("provider-edit-save"));
+    await waitFor(() =>
+      expect(client.put).toHaveBeenCalledWith("/auth/openai", {
+        body: { type: "api", key: "sk-new" },
+      }),
+    );
+    // Success closes the dialog (failures keep it open under the error).
+    await waitFor(() =>
+      expect(screen.queryByTestId("provider-edit-dialog")).not.toBeInTheDocument(),
+    );
+  });
+
+  it("the edit dialog offers Authorize for oauth providers", async () => {
+    renderKeys();
+    await waitFor(() => expect(rowOf("openai")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("provider-keys-toggle"));
+    await waitFor(() => expect(rowOf("azure")).toBeInTheDocument());
+
+    fireEvent.doubleClick(rowOf("azure"));
+    expect(screen.getByTestId("provider-edit-dialog")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("provider-edit-authorize"));
+    await waitFor(() => expect(screen.getByTestId("provider-oauth-dialog")).toBeInTheDocument());
+    expect(screen.queryByTestId("provider-edit-dialog")).not.toBeInTheDocument();
+  });
+
   it("opens the OAuth dialog from the authorize button and closes on cancel", async () => {
     renderKeys();
     await expandAll();
