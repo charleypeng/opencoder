@@ -142,6 +142,14 @@ axe-core on the workspace screen: 1 serious `color-contrast` violation, 1 minor
 `aria-allowed-role`. Small counts (see `docs/a11y-report.md` for the earlier
 full pass) — fix the contrast instance and re-run axe across settings/dialogs.
 
+**Re-checked on current main (2026-08-28, Playwright + axe-core, light theme):
+zero `color-contrast` violations across the workspace, an open chat transcript
+and the settings dialog** — the placeholder-copy replacement (V1/V2 fix) and
+the token adjustments since the audit cleared it. The only serious finding in
+the re-scan is a WCAG 2.2 `target-size` hit on the session-row hover actions
+button (27.4×14.3px), which is out of this audit's scope and tracked for the
+next a11y pass.
+
 ## 7. Settings center — functionality & layout
 
 Structure: 15 sections, desktop sidebar nav + search, rendered in a modal
@@ -196,7 +204,7 @@ Functionality gaps:
 | P2 | Palette footer hints + grouping fix; status-bar labels on wide windows | §3 |
 | P2 | Terminal: instant default spawn + optional bottom-dock mode | §3 |
 | P2 | Premature validation in Add-provider; provider row layout | V8, §7 |
-| P2 | Fix axe color-contrast finding | §6 |
+| P2 | ~~Fix axe color-contrast finding~~ re-checked 2026-08-28: not reproducible on main (see §6) | §6 |
 
 ## 9. Reproduction
 
