@@ -44,7 +44,9 @@ const SECTION_LABEL_KEYS: Record<string, string> = {
   files: "palette:files",
   symbols: "palette:symbols",
   commands: "palette:commands",
-  settings: "palette:settings",
+  // The section holds app actions (new session, toggle sidebar, terminal,
+  // diff) — "Settings" miscategorized them (docs/ui-audit-2026-08 §3).
+  settings: "palette:actions",
   servers: "palette:servers",
 };
 
@@ -554,6 +556,16 @@ const CommandPalette: Component<CommandPaletteProps> = (props) => {
             >
               <EmptyRow testId="command-palette-loading" label={t("files:searching")} />
             </Show>
+          </div>
+          {/* Key hints (docs/ui-audit-2026-08 §3): the palette is keyboard-
+              first but never said so; a footer row makes the keys discoverable. */}
+          <div
+            data-testid="command-palette-footer"
+            class="flex shrink-0 items-center gap-4 border-t border-bg-sunken px-4 py-2 text-[11px] text-fg-faint"
+          >
+            <span>{t("palette:hintNavigate")}</span>
+            <span>{t("palette:hintOpen")}</span>
+            <span>{t("palette:hintClose")}</span>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

@@ -802,7 +802,7 @@
     "files": "文件",
     "symbols": "符号",
     "commands": "命令",
-    "settings": "设置",
+    "actions": "操作",
     "servers": "服务器",
     "actionNewSession": "新建会话",
     "actionNewSessionHint": "开始一个新的对话会话",
@@ -813,7 +813,10 @@
     "actionOpenTerminal": "打开终端",
     "actionOpenTerminalHint": "打开终端视图",
     "actionOpenDiff": "打开会话差异",
-    "actionOpenDiffHint": "查看当前会话的变更"
+    "actionOpenDiffHint": "查看当前会话的变更",
+    "hintNavigate": "↑↓ 选择",
+    "hintOpen": "↵ 打开",
+    "hintClose": "Esc 关闭"
   },
   "errors": {
     "rateLimit": "请求过于频繁 — 请稍后重试",

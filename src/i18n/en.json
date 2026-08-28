@@ -802,7 +802,7 @@
     "files": "Files",
     "symbols": "Symbols",
     "commands": "Commands",
-    "settings": "Settings",
+    "actions": "Actions",
     "servers": "Servers",
     "actionNewSession": "New session",
     "actionNewSessionHint": "Start a new chat session",
@@ -813,7 +813,10 @@
     "actionOpenTerminal": "Open terminal",
     "actionOpenTerminalHint": "Open the terminal view",
     "actionOpenDiff": "Open session diff",
-    "actionOpenDiffHint": "Review the active session's changes"
+    "actionOpenDiffHint": "Review the active session's changes",
+    "hintNavigate": "↑↓ Navigate",
+    "hintOpen": "↵ Open",
+    "hintClose": "Esc Close"
   },
   "errors": {
     "rateLimit": "Rate limited — try again shortly",

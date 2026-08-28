@@ -187,6 +187,9 @@ describe("CommandPalette open/close lifecycle", () => {
     ]);
     expect(screen.queryByTestId("command-palette-section-files")).not.toBeInTheDocument();
     expect(screen.queryByTestId("command-palette-section-symbols")).not.toBeInTheDocument();
+    // Keyboard-first footer: the hint row renders below the list.
+    expect(screen.getByTestId("command-palette-footer")).toBeInTheDocument();
+    expect(screen.getByTestId("command-palette-footer")).toHaveTextContent("↑↓ Navigate");
   });
 
   it("reopening resets the query and cancels a pending debounce", async () => {
