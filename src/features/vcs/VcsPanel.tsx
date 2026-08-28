@@ -4,12 +4,13 @@
 // writing both snapshots back to the store so the status-bar branch chip
 // shares the same source. The changes view lists per-file rows (status
 // letter chip + path + +N/-M badges); the workspace diff sub-view renders
-// GET /vcs/diff through WorkspaceDiff. The apply section takes a pasted
-// unified patch, asks for confirmation in a dialog (applying modifies the
-// working tree), POSTs it to /vcs/apply and reports the outcome — a
-// success clears the textarea and bumps the store version so status and
-// diff refetch. Non-git workspaces (no branch) render a graceful empty
-// state without the diff or apply sections.
+// GET /vcs/diff through WorkspaceDiff. The apply flow opens a dialog with
+// a pasted unified patch (docs/ui-audit-2026-08 §3 — the permanent bottom
+// box wasted panel height), asks for confirmation in a second dialog
+// (applying modifies the working tree), POSTs it to /vcs/apply and reports
+// the outcome — a success clears the textarea and bumps the store version
+// so status and diff refetch. Non-git workspaces (no branch) render a
+// graceful empty state without the diff or apply actions.
 
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -95,6 +96,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
   const [applying, setApplying] = createSignal(false);
   const [applyError, setApplyError] = createSignal<ApiError | null>(null);
   const [applyDone, setApplyDone] = createSignal(false);
+  const [applyOpen, setApplyOpen] = createSignal(false);
   const [confirmOpen, setConfirmOpen] = createSignal(false);
   const [patchText, setPatchText] = createSignal("");
 
@@ -168,6 +170,11 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
     setConfirmOpen(false);
   }
 
+  function closeApply(): void {
+    setApplyOpen(false);
+    setApplyDone(false);
+  }
+
   /** Applies the pasted patch; success refreshes status and diff. */
   async function runApply(): Promise<void> {
     // Defense-in-depth: the confirm dialog already guards the destructive
@@ -220,6 +227,14 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               </Show>
               <div class="min-w-0 flex-1" />
               <Show when={isGit()}>
+                <button
+                  type="button"
+                  data-testid="vcs-apply-open"
+                  class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                  onClick={() => setApplyOpen(true)}
+                >
+                  {t("vcs:applyPatch")}
+                </button>
                 <button
                   type="button"
                   data-testid="vcs-diff-button"
@@ -285,26 +300,49 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               </Show>
             </div>
 
-            {/* Patch apply (git workspaces only; pasting + confirm flow). */}
-            <Show when={isGit() && error() === null}>
-              <section
-                data-testid="vcs-apply"
-                class="shrink-0 space-y-2 border-t border-bg-sunken p-3"
+            {/* Apply patch moved into a dialog (docs/ui-audit-2026-08 §3):
+                the always-visible paste box pinned a dead zone under the
+                change list; the editor now opens on demand and the list
+                gets the full panel height. The destructive action keeps
+                its confirm step. */}
+            <Show when={isGit() && applyOpen()}>
+              <div
+                data-testid="vcs-apply-dialog-backdrop"
+                class="fixed inset-0 z-40 bg-black/40"
+                onClick={closeApply}
+              />
+              <div
+                data-testid="vcs-apply-dialog"
+                role="dialog"
+                aria-modal="true"
+                aria-label={t("vcs:applyPatch")}
+                class="glass fixed left-1/2 top-1/2 z-50 w-full max-w-lg -translate-x-1/2 -translate-y-1/2 rounded-lg p-4"
               >
-                <h3 class="text-xs font-semibold text-fg-secondary">{t("vcs:applyPatch")}</h3>
+                <div class="flex items-center justify-between gap-2">
+                  <h3 class="text-sm font-semibold">{t("vcs:applyPatch")}</h3>
+                  <button
+                    type="button"
+                    data-testid="vcs-apply-dialog-close"
+                    aria-label={t("common:cancel")}
+                    class="flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                    onClick={closeApply}
+                  >
+                    ✕
+                  </button>
+                </div>
                 <textarea
                   data-testid="vcs-apply-input"
-                  rows={4}
+                  rows={6}
                   spellcheck={false}
                   placeholder={t("vcs:applyPatchHint")}
-                  class="w-full resize-y rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-xs text-fg-primary outline-none placeholder:text-fg-faint focus:border-accent"
+                  class="mt-2 w-full resize-y rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 font-code text-xs text-fg-primary outline-none placeholder:text-fg-faint focus:border-accent"
                   value={patchText()}
                   onInput={(event) => {
                     setPatchText(event.currentTarget.value);
                     setApplyDone(false);
                   }}
                 />
-                <div class="flex items-center gap-2">
+                <div class="mt-2 flex items-center gap-2">
                   <button
                     type="button"
                     data-testid="vcs-apply-button"
@@ -329,7 +367,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
                     </span>
                   </Show>
                 </div>
-              </section>
+              </div>
             </Show>
           </>
         }

@@ -182,7 +182,7 @@ describe("DiffView rendering", () => {
 
     await waitFor(() => expect(screen.getByTestId("diff-file-no-content")).toBeInTheDocument());
     expect(screen.getByTestId("diff-file-no-content")).toHaveTextContent(
-      "Content not available for this diff.",
+      "No diff content for this file",
     );
     const sections = screen.getAllByTestId("diff-file");
     // The stats-only section has no diff rows.

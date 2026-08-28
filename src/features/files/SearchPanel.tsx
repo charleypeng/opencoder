@@ -18,6 +18,7 @@ import { getApiClient } from "../../services/client.js";
 import { ApiError } from "../../services/errors.js";
 import { createFindService, type FindMatch } from "../../services/find.js";
 import { openTab, setActiveLine } from "../../stores/viewer.js";
+import { getActiveDirectory } from "../../stores/project.js";
 import { groupByFile, highlightSpans, type Span } from "./searchResults.js";
 import { useT } from "../../i18n/index.js";
 
@@ -306,7 +307,14 @@ const SearchPanel: Component<SearchPanelProps> = (props) => {
                         }
                       >
                         <p data-testid="search-empty" class="px-4 py-3 text-xs text-fg-faint">
-                          {t("common:noMatches")}
+                          {/* Scope line (docs/ui-audit-2026-08 §3): say WHICH
+                              directory was searched — /find has no directory
+                              parameter, the scope is the active workspace. */}
+                          {getActiveDirectory() !== undefined
+                            ? t("files:noMatchesScope", {
+                                directory: getActiveDirectory() as string,
+                              })
+                            : t("common:noMatches")}
                         </p>
                       </Show>
                     }

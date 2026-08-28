@@ -155,9 +155,16 @@ function DiffFileGroup(props: DiffFileGroupProps) {
       <Show
         when={rows() !== null}
         fallback={
-          <p data-testid="diff-file-no-content" class="px-3 py-3 text-xs text-fg-secondary">
-            Content not available for this diff.
-          </p>
+          /* Stats-only entry (no `patch`): added/deleted/binary files carry
+             no line rows — a styled empty block instead of the previous
+             bald text row (docs/ui-audit-2026-08 §3). */
+          <div
+            data-testid="diff-file-no-content"
+            class="flex flex-col items-center gap-1 border-b border-bg-sunken bg-bg-sunken/30 px-3 py-6 text-center"
+          >
+            <p class="text-xs font-medium text-fg-secondary">{t("vcs:diffNoContent")}</p>
+            <p class="text-xs text-fg-faint">{t("vcs:diffNoContentHint")}</p>
+          </div>
         }
       >
         <Show

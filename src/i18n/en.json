@@ -323,6 +323,7 @@
     "fileActions": "File actions",
     "binaryFileHint": "Binary file — preview not available.",
     "searchFailed": "Search failed",
+    "noMatchesScope": "No matches in {{directory}}",
     "invalidRegex": "Invalid regular expression",
     "searchIdleHint": "Search the workspace for text across files.",
     "viewSource": "View source",
@@ -357,7 +358,9 @@
     "statusAdded": "Added",
     "statusDeleted": "Deleted",
     "statusModified": "Modified",
-    "noDiffForFile": "No diff available for this file."
+    "noDiffForFile": "No diff available for this file.",
+    "diffNoContent": "No diff content for this file",
+    "diffNoContentHint": "The server reported stats only — no line-by-line patch (typical for added, deleted or binary files)."
   },
   "permissions": {
     "permissionRequest": "Permission request",

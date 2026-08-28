@@ -11,6 +11,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { resetServer as resetViewer, viewer } from "../../stores/viewer";
+import { resetServer as resetProjects, setCurrent } from "../../stores/project";
+import { setActiveServer } from "../../stores/registry";
 import type { FindMatch } from "../../services/find";
 import SearchPanel from "./SearchPanel";
 
@@ -67,6 +69,7 @@ beforeEach(() => {
 afterEach(() => {
   vi.useRealTimers();
   resetViewer(SERVER);
+  resetProjects(SERVER);
 });
 
 describe("SearchPanel search flow", () => {
@@ -204,8 +207,29 @@ describe("SearchPanel states", () => {
     fireEvent.input(input(), { target: { value: "zzz" } });
     await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
 
+    // Without an active directory the plain no-matches copy renders.
     expect(screen.getByTestId("search-empty")).toBeInTheDocument();
     expect(screen.getByTestId("search-empty")).toHaveTextContent("No matches");
+  });
+
+  it("names the searched directory in the no-matches state (audit §3)", async () => {
+    const client = mockClient();
+    client.get.mockResolvedValue([]);
+    setActiveServer(SERVER);
+    setCurrent(SERVER, "/mock/projects/demo");
+    try {
+      render(() => <SearchPanel serverId={SERVER} />);
+
+      fireEvent.input(input(), { target: { value: "zzz" } });
+      await vi.advanceTimersByTimeAsync(DEBOUNCE_MS + 10);
+
+      expect(screen.getByTestId("search-empty")).toHaveTextContent(
+        "No matches in /mock/projects/demo",
+      );
+    } finally {
+      setCurrent(SERVER, null);
+      setActiveServer(null);
+    }
   });
 
   it("shows an inline error when the search fails", async () => {

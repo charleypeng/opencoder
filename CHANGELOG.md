@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Search / diff / changes refinements (feat(vcs)): the Changes panel's "Apply patch" moved from a permanent bottom box into a dialog opened from the header (the change list gets the full panel height; the confirm step stays), stats-only diff files render a styled empty block with an explanation instead of a bald text row, and the search "No matches" state names the directory that was searched. (vcs)
+
 - Instant default-shell terminal (feat(terminal)): the "+" button now spawns the server's default shell immediately — the shell picker moves to a chevron next to it and the empty state gains a "New terminal" button (docs/ui-audit-2026-08 §3: creating a terminal no longer requires routing through the picker). (terminal)
 
 - Status-bar chip labels on wide windows (feat(desktop)): the branch / LSP / formatter / usage chips gain a brief text label at window widths ≥1280px (hidden below, where the dense icon+value form and the hover tooltips remain). (desktop)

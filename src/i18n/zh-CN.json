@@ -323,6 +323,7 @@
     "fileActions": "文件操作",
     "binaryFileHint": "二进制文件 — 无法预览。",
     "searchFailed": "搜索失败",
+    "noMatchesScope": "在 {{directory}} 中无匹配结果",
     "invalidRegex": "正则表达式无效",
     "searchIdleHint": "在工作区中跨文件搜索文本。",
     "viewSource": "查看源文件",
@@ -357,7 +358,9 @@
     "statusAdded": "新增",
     "statusDeleted": "删除",
     "statusModified": "修改",
-    "noDiffForFile": "该文件无可用的差异内容。"
+    "noDiffForFile": "该文件无可用的差异内容。",
+    "diffNoContent": "此文件没有差异内容",
+    "diffNoContentHint": "服务端仅返回了统计信息，没有逐行补丁（新增、删除或二进制文件通常如此）。"
   },
   "permissions": {
     "permissionRequest": "权限请求",

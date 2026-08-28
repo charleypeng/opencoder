@@ -197,6 +197,10 @@ describe("VcsPanel apply flow", () => {
     const serverId = freshServer();
     const stats = mountPanel(serverId);
 
+    // The paste editor lives in a dialog opened from the header button.
+    await waitFor(() => expect(screen.getByTestId("vcs-apply-open")).toBeInTheDocument());
+    expect(screen.queryByTestId("vcs-apply-input")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("vcs-apply-open"));
     await waitFor(() => expect(screen.getByTestId("vcs-apply-input")).toBeInTheDocument());
     fireEvent.input(screen.getByTestId("vcs-apply-input"), { target: { value: PATCH_TEXT } });
     expect(screen.getByTestId("vcs-apply-button")).not.toBeDisabled();
@@ -221,6 +225,8 @@ describe("VcsPanel apply flow", () => {
     const serverId = freshServer();
     const stats = mountPanel(serverId);
 
+    await waitFor(() => expect(screen.getByTestId("vcs-apply-open")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("vcs-apply-open"));
     await waitFor(() => expect(screen.getByTestId("vcs-apply-input")).toBeInTheDocument());
     fireEvent.input(screen.getByTestId("vcs-apply-input"), { target: { value: PATCH_TEXT } });
     fireEvent.click(screen.getByTestId("vcs-apply-button"));
@@ -236,6 +242,8 @@ describe("VcsPanel apply flow", () => {
     const serverId = freshServer();
     mountPanel(serverId);
 
+    await waitFor(() => expect(screen.getByTestId("vcs-apply-open")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("vcs-apply-open"));
     await waitFor(() => expect(screen.getByTestId("vcs-apply-button")).toBeDisabled());
   });
 
@@ -243,6 +251,8 @@ describe("VcsPanel apply flow", () => {
     const serverId = freshServer();
     mountPanel(serverId, { failApply: true });
 
+    await waitFor(() => expect(screen.getByTestId("vcs-apply-open")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("vcs-apply-open"));
     await waitFor(() => expect(screen.getByTestId("vcs-apply-input")).toBeInTheDocument());
     fireEvent.input(screen.getByTestId("vcs-apply-input"), { target: { value: PATCH_TEXT } });
     fireEvent.click(screen.getByTestId("vcs-apply-button"));
@@ -264,7 +274,7 @@ describe("VcsPanel non-git workspace", () => {
     expect(screen.queryByTestId("vcs-branch")).not.toBeInTheDocument();
     expect(screen.queryByTestId("vcs-diff-button")).not.toBeInTheDocument();
     expect(screen.queryByTestId("vcs-refresh")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("vcs-apply")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("vcs-apply-open")).not.toBeInTheDocument();
     expect(screen.queryByTestId("vcs-change")).not.toBeInTheDocument();
   });
 });
