@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Desktop UI audit report (docs): `docs/ui-audit-2026-08.md` — a Playwright-driven pass over every desktop screen (21 evidence screenshots in `docs/screenshots/audit-2026-08/`) covering layout/design, desktop-operation convenience, performance (prod bundle re-measured) and the settings center, with a prioritized findings table. (docs)
+
 - Rail sidebar toggle button (feat(desktop)): the server rail gains a sidebar-toggle button above the settings gear — the collapsed sidebar is restorable with a click instead of only ⌘/Ctrl+B, and the button doubles as a discoverable collapse control. (desktop)
 
 ### Changed
