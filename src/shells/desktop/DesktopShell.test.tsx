@@ -1300,6 +1300,10 @@ describe("DesktopShell settings view (TASK-M5-06)", () => {
     fireEvent.click(screen.getByTestId("settings-section-providers"));
     await waitFor(() => expect(screen.getByTestId("provider-key-row-openai")).toBeInTheDocument());
     expect(screen.getByTestId("provider-key-row-openai")).toHaveAttribute("data-connected", "true");
+    // Unconnected providers (azure, the OAuth one) collapse behind the
+    // Show-more toggle; expanding it reveals the Authorize button.
+    expect(screen.queryByTestId("provider-oauth-authorize")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("provider-keys-toggle"));
     expect(screen.getByTestId("provider-oauth-authorize")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("settings-close"));
