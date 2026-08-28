@@ -148,15 +148,28 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
             );
           }}
         </For>
+        {/* Split "+" control (docs/ui-audit-2026-08 §3): the main button
+            spawns the server's default shell instantly; the chevron opens
+            the shell picker for a specific shell. */}
         <button
           type="button"
           data-testid="terminal-new"
           aria-label={t("terminal:newTerminal")}
           title={t("terminal:newTerminal")}
           class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
-          onClick={togglePicker}
+          onClick={() => void createTerminal()}
         >
           +
+        </button>
+        <button
+          type="button"
+          data-testid="terminal-new-picker"
+          aria-label={t("terminal:chooseShell")}
+          title={t("terminal:chooseShell")}
+          class="-ml-1 flex h-6 w-4 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+          onClick={togglePicker}
+        >
+          ▾
         </button>
       </div>
 
@@ -169,6 +182,14 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
           >
             <p class="text-sm text-fg-secondary">{t("terminal:noTerminal")}</p>
             <p class="text-xs text-fg-faint">{t("terminal:noTerminalHint")}</p>
+            <button
+              type="button"
+              data-testid="terminal-empty-new"
+              class="mt-2 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+              onClick={() => void createTerminal()}
+            >
+              {t("terminal:newTerminal")}
+            </button>
           </div>
         }
       >

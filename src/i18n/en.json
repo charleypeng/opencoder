@@ -412,6 +412,7 @@
   "terminal": {
     "terminal": "Terminal",
     "newTerminal": "New terminal",
+    "chooseShell": "Choose shell",
     "close": "Close terminal",
     "shell": "Shell",
     "processExited": "Process exited (code {{code}})",

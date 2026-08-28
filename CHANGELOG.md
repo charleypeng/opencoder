@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Instant default-shell terminal (feat(terminal)): the "+" button now spawns the server's default shell immediately — the shell picker moves to a chevron next to it and the empty state gains a "New terminal" button (docs/ui-audit-2026-08 §3: creating a terminal no longer requires routing through the picker). (terminal)
+
 - Status-bar chip labels on wide windows (feat(desktop)): the branch / LSP / formatter / usage chips gain a brief text label at window widths ≥1280px (hidden below, where the dense icon+value form and the hover tooltips remain). (desktop)
 
 - CI startup-bundle size guard (chore(ci)): `pnpm build && pnpm check:bundle` now runs in CI — the vite startup chunk fails the build once its gzip size leaves the 330 KB budget (2026-08 audit measured 320.46 KB with +57 KB raw drift since 2026-08-05), turning further bundle drift into a hard signal. (ci)

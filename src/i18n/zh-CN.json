@@ -412,6 +412,7 @@
   "terminal": {
     "terminal": "终端",
     "newTerminal": "新建终端",
+    "chooseShell": "选择 Shell",
     "close": "关闭终端",
     "shell": "Shell",
     "processExited": "进程已退出（代码 {{code}}）",

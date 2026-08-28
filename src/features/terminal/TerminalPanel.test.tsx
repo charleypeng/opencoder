@@ -160,12 +160,12 @@ describe("TerminalPanel tabs", () => {
     );
   });
 
-  it("the + button opens the shell picker; picking a shell creates and activates a tab", async () => {
+  it("the ▸ picker button opens the shell picker; picking a shell creates and activates a tab", async () => {
     const client = mockClient();
     connectFixture();
     render(() => <TerminalPanel serverId={SERVER} />);
 
-    fireEvent.click(screen.getByTestId("terminal-new"));
+    fireEvent.click(screen.getByTestId("terminal-new-picker"));
     const picker = await waitFor(() => screen.getByTestId("terminal-shell-picker"));
     await waitFor(() => expect(client.get).toHaveBeenCalledWith("/pty/shells", undefined));
     expect(within(picker).getByTestId("terminal-shell-default")).toBeInTheDocument();
@@ -194,13 +194,32 @@ describe("TerminalPanel tabs", () => {
     );
   });
 
+  it("the + button spawns the server's default shell instantly (no picker)", async () => {
+    const client = mockClient();
+    connectFixture();
+    render(() => <TerminalPanel serverId={SERVER} />);
+
+    fireEvent.click(screen.getByTestId("terminal-new"));
+    await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
+    expect(client.post).toHaveBeenCalledWith("/pty", { body: {} });
+    // The picker never opened and the created tab is active.
+    expect(screen.queryByTestId("terminal-shell-picker")).not.toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId("terminal-tab-pty_created_1")).toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("terminal-tab-pty_created_1")).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+  });
+
   it("the default shell row creates without a command and retries a failed shell list", async () => {
     const client = mockClient();
     client.get.mockRejectedValueOnce(new Error("down"));
     connectFixture();
     render(() => <TerminalPanel serverId={SERVER} />);
 
-    fireEvent.click(screen.getByTestId("terminal-new"));
+    fireEvent.click(screen.getByTestId("terminal-new-picker"));
     await waitFor(() => expect(screen.getByTestId("terminal-shells-error")).toBeInTheDocument());
 
     fireEvent.click(screen.getByTestId("terminal-shells-retry"));
@@ -277,7 +296,7 @@ describe("TerminalPanel tabs", () => {
     connectFixture();
     render(() => <TerminalPanel serverId={SERVER} />);
 
-    fireEvent.click(screen.getByTestId("terminal-new"));
+    fireEvent.click(screen.getByTestId("terminal-new-picker"));
     await waitFor(() => screen.getByTestId("terminal-shell-zsh"));
     fireEvent.click(screen.getByTestId("terminal-shell-zsh"));
 

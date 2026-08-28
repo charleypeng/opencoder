@@ -15,6 +15,8 @@
 
 ### 变更
 
+- 终端默认 shell 秒开（feat(terminal)）：“+”按钮现在立即创建服务端默认 shell 的终端 —— shell 选择器移至旁边的下拉箭头，空态也新增“新建终端”按钮（docs/ui-audit-2026-08 §3：创建终端不再必须经过选择器）。(terminal)
+
 - 状态栏芯片宽窗口标签（feat(desktop)）：分支 / LSP / 格式化 / 用量四个芯片在窗口宽度 ≥1280px 时显示简短文字标签（更窄时维持紧凑的图标+数值形态与悬停提示）。(desktop)
 
 - CI 启动包体守卫（chore(ci)）：CI 现在会执行 `pnpm build && pnpm check:bundle` —— vite 启动 chunk 的 gzip 体积一旦超出 330 KB 预算即构建失败（2026-08 审计实测 320.46 KB，自 2026-08-05 以来原始体积漂移 +57 KB），让后续包体漂移成为硬性信号。(ci)
