@@ -111,12 +111,10 @@ export interface ConfigSectionProps {
   serverId: string;
 }
 
-// Fixed-width selects: a select's intrinsic width grows with its longest
-// OPTION text (zh "未设置——采用服务端默认" ≈ 250px), which overflowed
-// right-aligned rows past the dialog edge (docs feedback). w-56 keeps the
-// closed select constant; long values ellipsize inside it.
+// Selects fill the stacked control column (max-w-md); long option values
+// ellipsize inside instead of growing the control past the dialog edge.
 const selectClass =
-  "w-56 max-w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1.5 " +
+  "w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1.5 " +
   "text-sm text-fg-primary outline-none focus:border-fg-faint";
 
 const ConfigSection: Component<ConfigSectionProps> = (props) => {
@@ -356,20 +354,17 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
     setScope(next);
   }
 
+  // Stacked row (docs feedback — full redesign): label + hint on top, the
+  // control below in a bounded column. A single vertical lane cannot clip
+  // or overlap horizontally at any window width, language or UI scale —
+  // the previous side-by-side grid kept pushing controls past the dialog
+  // edge (select intrinsic widths, long zh labels).
   function row(label: string, hint: string | undefined, control: JSX.Element, testId: string) {
     return (
       <div data-testid={testId} class="border-b border-bg-sunken py-3">
-        {/* Wrap-friendly row (docs feedback): the control sits right of the
-            label while there is room and drops BELOW it (left-aligned,
-            full natural width) on narrow windows — never squeezed into a
-            fixed-width box where it clips or overlaps. */}
-        <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-          <div class="min-w-0 max-w-full flex-1 basis-64">
-            <p class="text-xs font-medium">{label}</p>
-            {hint !== undefined ? <p class="mt-0.5 text-xs text-fg-secondary">{hint}</p> : null}
-          </div>
-          <div class="min-w-0 max-w-full">{control}</div>
-        </div>
+        <p class="text-xs font-medium">{label}</p>
+        {hint !== undefined ? <p class="mt-0.5 text-xs text-fg-secondary">{hint}</p> : null}
+        <div class="mt-2 w-full max-w-md">{control}</div>
       </div>
     );
   }

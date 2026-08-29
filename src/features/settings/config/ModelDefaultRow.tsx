@@ -72,15 +72,13 @@ const ModelDefaultRow: Component<ModelDefaultRowProps> = (props) => {
 
   return (
     <div data-testid="model-default-row" class="border-b border-bg-sunken py-3">
-      {/* Wrap-friendly row (ConfigSection.row parity): the value + Change
-          group drops BELOW the label on narrow windows instead of being
-          pinned into a fixed-width box where it clips. */}
-      <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
-        <div class="min-w-0 max-w-full flex-1 basis-64">
-          <p class="text-xs font-medium">{t("settings:modelsDefault")}</p>
-          <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:modelsDefaultHint")}</p>
-        </div>
-        <div class="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+      {/* Stacked row (ConfigSection.row parity): label + hint on top, the
+          value + action group below — one vertical lane that cannot clip
+          horizontally at any width. */}
+      <div>
+        <p class="text-xs font-medium">{t("settings:modelsDefault")}</p>
+        <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:modelsDefaultHint")}</p>
+        <div class="mt-2 flex w-full max-w-md flex-wrap items-center gap-2">
           <Show
             when={resolved() !== null}
             fallback={<span class="text-xs text-fg-faint">{t("settings:configNotSet")}</span>}
