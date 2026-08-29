@@ -80,7 +80,7 @@ const ModelDefaultRow: Component<ModelDefaultRowProps> = (props) => {
           <p class="text-xs font-medium">{t("settings:modelsDefault")}</p>
           <p class="mt-0.5 text-xs text-fg-secondary">{t("settings:modelsDefaultHint")}</p>
         </div>
-        <div class="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-2">
+        <div class="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
           <Show
             when={resolved() !== null}
             fallback={<span class="text-xs text-fg-faint">{t("settings:configNotSet")}</span>}

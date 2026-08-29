@@ -111,8 +111,12 @@ export interface ConfigSectionProps {
   serverId: string;
 }
 
+// Fixed-width selects: a select's intrinsic width grows with its longest
+// OPTION text (zh "未设置——采用服务端默认" ≈ 250px), which overflowed
+// right-aligned rows past the dialog edge (docs feedback). w-56 keeps the
+// closed select constant; long values ellipsize inside it.
 const selectClass =
-  "min-w-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1.5 " +
+  "w-56 max-w-full rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1.5 " +
   "text-sm text-fg-primary outline-none focus:border-fg-faint";
 
 const ConfigSection: Component<ConfigSectionProps> = (props) => {
@@ -364,7 +368,7 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
             <p class="text-xs font-medium">{label}</p>
             {hint !== undefined ? <p class="mt-0.5 text-xs text-fg-secondary">{hint}</p> : null}
           </div>
-          <div class="max-w-full shrink-0">{control}</div>
+          <div class="min-w-0 max-w-full">{control}</div>
         </div>
       </div>
     );
@@ -376,7 +380,7 @@ const ConfigSection: Component<ConfigSectionProps> = (props) => {
         <h2 class="text-sm font-semibold">{t("settings:config")}</h2>
         <p class="text-xs text-fg-secondary">{t("settings:configHint")}</p>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto p-4">
+      <div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4">
         <div class="flex gap-2 border-b border-bg-sunken pb-3">
           <button
             type="button"
