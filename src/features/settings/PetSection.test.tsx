@@ -4,13 +4,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import PetSection from "./PetSection";
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+const { invokeMock, openMock } = vi.hoisted(() => ({ invokeMock: vi.fn(), openMock: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+vi.mock("@tauri-apps/plugin-dialog", () => ({ open: openMock }));
 
 beforeEach(() => {
   Object.defineProperty(window, "__TAURI_INTERNALS__", { value: {}, configurable: true });
   localStorage.clear();
   invokeMock.mockReset();
+  openMock.mockReset();
   invokeMock.mockImplementation((cmd: string) => {
     if (cmd === "pet_get_ignore_mouse") return Promise.resolve(false);
     if (cmd === "pet_pack_list") {
@@ -87,6 +89,43 @@ describe("PetSection", () => {
     );
     expect(invokeMock).toHaveBeenCalledWith("pet_set_size", { size: 190 });
     expect(invokeMock).toHaveBeenCalledWith("pet_set_opacity", { opacity: 0.6 });
+  });
+
+  it("imports a pack through the system picker and selects it after refreshing", async () => {
+    openMock.mockResolvedValueOnce("/tmp/fox.opet");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "pet_get_ignore_mouse") return Promise.resolve(false);
+      if (cmd === "pet_pack_install") {
+        return Promise.resolve({
+          installed: true,
+          pack: { id: "com.example.fox", name: "Fox", source: "installed" },
+        });
+      }
+      if (cmd === "pet_pack_list") {
+        return Promise.resolve([{ id: "com.example.fox", name: "Fox", source: "installed" }]);
+      }
+      return Promise.resolve(undefined);
+    });
+    render(() => <PetSection serverId="srv-pet" />);
+    fireEvent.click(screen.getByTestId("pet-pack-import"));
+    await waitFor(() =>
+      expect(openMock).toHaveBeenCalledWith({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "OpenCoder pet pack", extensions: ["opet"] }],
+      }),
+    );
+    await waitFor(() =>
+      expect(invokeMock).toHaveBeenCalledWith("pet_pack_install", {
+        path: "/tmp/fox.opet",
+        allowDowngrade: false,
+      }),
+    );
+    await waitFor(() =>
+      expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toMatchObject({
+        selectedPackId: "com.example.fox",
+      }),
+    );
   });
   it("keeps the applied state and shows an error when the pet action fails", async () => {
     invokeMock.mockImplementation((cmd: string) => {

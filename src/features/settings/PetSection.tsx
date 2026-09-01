@@ -16,7 +16,7 @@ import {
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
 import { loadPetPrefs, savePetPrefs, type PetMovement } from "../pet/petPrefs.js";
 import { petPacks, refreshPetPacks } from "../pet/packStore.js";
-import { installPetPack } from "../../services/petPacks.js";
+import { installPetPack, PetPackError } from "../../services/petPacks.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -81,7 +81,11 @@ const PetSection: Component<{ serverId: string }> = () => {
       await setPetEnabled(!showPet());
       setShowPet((shown) => !shown);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (err instanceof PetPackError && err.code === "reservedPackId") {
+        setError(t("pet:bundledPackAlreadyInstalled"));
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setPetBusy(false);
     }

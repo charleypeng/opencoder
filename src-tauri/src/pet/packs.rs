@@ -112,7 +112,7 @@ impl PetPackManager {
             .resource_dir()
             .map_err(|error| PackError::new("resourceUnavailable", error.to_string()))?;
         Ok(Self::with_roots(
-            resources.join("pets"),
+            bundled_root_for_resources(&resources),
             app_data.join("pet-packs"),
         ))
     }
@@ -436,6 +436,15 @@ impl PetPackManager {
                 detail: detail.to_string(),
             });
         }
+    }
+}
+
+fn bundled_root_for_resources(resources: &Path) -> PathBuf {
+    let configured = resources.join("resources").join("pets");
+    if configured.is_dir() {
+        configured
+    } else {
+        resources.join("pets")
     }
 }
 
@@ -798,6 +807,15 @@ mod tests {
             "currentPackCannotBeRemoved"
         );
         let _ = fs::remove_file(archive);
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn resolves_tauri_bundle_resources_before_legacy_layout() {
+        let root = temp_root();
+        let nested = root.join("resources/pets");
+        fs::create_dir_all(&nested).unwrap();
+        assert_eq!(bundled_root_for_resources(&root), nested);
         let _ = fs::remove_dir_all(root);
     }
 }

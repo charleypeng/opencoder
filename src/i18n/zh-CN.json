@@ -719,6 +719,7 @@
     "availablePacks": "可选宠物",
     "importPack": "导入 .opet",
     "importingPack": "导入中…",
+    "bundledPackAlreadyInstalled": "这个内置宠物已随应用提供，无需导入。",
     "bundledPack": "内置",
     "localPack": "本地",
     "noPacks": "暂时没有可用的宠物包。",

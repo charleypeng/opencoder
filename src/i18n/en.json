@@ -719,6 +719,7 @@
     "availablePacks": "Available pets",
     "importPack": "Import .opet",
     "importingPack": "Importing…",
+    "bundledPackAlreadyInstalled": "This built-in pet is already included with the app.",
     "bundledPack": "Built-in",
     "localPack": "Local",
     "noPacks": "No pet packs are available yet.",
