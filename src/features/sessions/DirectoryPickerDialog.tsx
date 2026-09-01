@@ -1,7 +1,7 @@
-// Working-directory picker (sessions add-directory flow): for LOCAL servers
-// (localhost / 127.0.0.1) the OS-level folder dialog opens first — the
-// native picker returns a folder on THIS machine, which is exactly what a
-// local server can use. Remote servers and environments without the native
+// Working-directory picker (sessions add-directory flow): for servers
+// explicitly configured in LOCAL mode the OS-level folder dialog opens first
+// — the native picker returns a folder on THIS machine, which is exactly what
+// a local server can use. Remote servers and environments without the native
 // dialog fall back to the in-app browser below, which lists directories
 // through the server itself (GET /file) and lets the user drill down until
 // the target folder is reached. "Add" sets that folder as the current
@@ -264,23 +264,10 @@ function InAppDirectoryPicker(props: DirectoryPickerDialogProps) {
   );
 }
 
-/** True when the server URL points at the local machine (localhost /
- *  127.0.0.1 / [::1] with any port). Only LOCAL servers can share the
- *  client's filesystem, so the native OS folder picker is meaningful
- *  exclusively for them; remote servers keep the in-app browser. */
-function isLocalServerUrl(url: string): boolean {
-  try {
-    const host = new URL(url).hostname;
-    return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
-  } catch {
-    return false;
-  }
-}
-
 /**
  * Working-directory picker entry point (native-first for LOCAL servers):
- * when the server runs on the same machine (localhost / 127.0.0.1) the OS
- * folder picker opens immediately (macOS / Linux / Windows native dialog).
+ * when the server is explicitly configured in local mode the OS folder
+ * picker opens immediately (macOS / Linux / Windows native dialog).
  * Remote servers, unavailable native dialogs (web/mobile/test builds) and
  * native failures all fall back to the in-app directory browser. The user
  * cancelling the native dialog closes the flow (it is not re-prompted).
@@ -306,11 +293,15 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
       try {
         const servers = await listServers();
         const server = servers.find((entry) => entry.id === serverId);
-        if (server === undefined || !isLocalServerUrl(server.url)) {
+        if (server === undefined || server.mode !== "local") {
           setShowInApp(true);
           return;
         }
-        const picked = await openNativeDirectory({ directory: true, multiple: false });
+        const picked = await openNativeDirectory({
+          directory: true,
+          multiple: false,
+          ...(props.initialDirectory ? { defaultPath: props.initialDirectory } : {}),
+        });
         if (picked === null) {
           // The user cancelled the native dialog: the flow ends here.
           props.onClose();

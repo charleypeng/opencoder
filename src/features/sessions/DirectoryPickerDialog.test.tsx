@@ -312,11 +312,18 @@ describe("DirectoryPickerDialog", () => {
     const onAdded = vi.fn();
     const onClose = vi.fn();
     listServersMock.mockResolvedValue([
-      { id: SERVER, name: "Local", url: "http://localhost:3000" },
+      { id: SERVER, name: "Local", url: "http://localhost:3000", mode: "local" },
     ]);
     openNativeDirectoryMock.mockResolvedValue("/Volumes/data");
 
-    render(() => <DirectoryPickerDialog serverId={SERVER} onClose={onClose} onAdded={onAdded} />);
+    render(() => (
+      <DirectoryPickerDialog
+        serverId={SERVER}
+        initialDirectory="/Volumes"
+        onClose={onClose}
+        onAdded={onAdded}
+      />
+    ));
 
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
     // The native dialog was used (local server) and the picked directory
@@ -324,6 +331,7 @@ describe("DirectoryPickerDialog", () => {
     expect(openNativeDirectoryMock).toHaveBeenCalledWith({
       directory: true,
       multiple: false,
+      defaultPath: "/Volumes",
     });
     expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } });
     expect(getServerProjectState(SERVER).current).toBe("/Volumes/data");
@@ -340,6 +348,19 @@ describe("DirectoryPickerDialog", () => {
 
     // The remote server cannot share this machine's filesystem, so the
     // in-app directory browser is used and the OS picker never opens.
+    await waitFor(() =>
+      expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
+    );
+    expect(openNativeDirectoryMock).not.toHaveBeenCalled();
+  });
+
+  it("keeps the in-app browser for a remote loopback URL", async () => {
+    mockClient();
+    listServersMock.mockResolvedValue([
+      { id: SERVER, name: "Remote", url: "http://127.0.0.1:3000", mode: "remote" },
+    ]);
+    renderPicker();
+
     await waitFor(() =>
       expect(screen.getByTestId("directory-picker-item-Volumes")).toBeInTheDocument(),
     );

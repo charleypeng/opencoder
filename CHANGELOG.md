@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(sessions): Use the native folder picker only for local-mode servers and keep the in-app browser as the remote fallback. (sessions)
 - fix(models): Show only connected providers and defer catalog filtering so model search stays responsive. (models)
 - fix(settings): Explain that bundled pet packs are already installed instead of exposing a raw reserved ID. (settings)
 - fix(pet): Prevent concurrent renderer mounts from appending duplicate pet canvases to the companion window. (pet)
