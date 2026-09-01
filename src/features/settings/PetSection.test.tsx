@@ -71,7 +71,7 @@ describe("PetSection", () => {
     fireEvent.input(screen.getByTestId("pet-opacity-slider"), { target: { value: "0.6" } });
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toMatchObject({
-        petType: "robot",
+        selectedPackId: "dev.opencoder.byte",
         movement: "bottom",
         size: 190,
         opacity: 0.6,

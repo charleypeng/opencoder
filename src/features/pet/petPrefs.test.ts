@@ -43,7 +43,7 @@ afterEach(() => {
 
 describe("loadPetPrefs", () => {
   it("returns an empty object without stored prefs", () => {
-    expect(loadPetPrefs()).toEqual({});
+    expect(loadPetPrefs()).toEqual({ selectedPackId: "dev.opencoder.byte" });
   });
 
   it("round-trips stored prefs", () => {
@@ -56,6 +56,7 @@ describe("loadPetPrefs", () => {
       clickThrough: true,
     });
     expect(loadPetPrefs()).toEqual({
+      selectedPackId: "dev.opencoder.byte",
       size: 180,
       opacity: 0.7,
       topmost: false,
@@ -77,14 +78,29 @@ describe("loadPetPrefs", () => {
       "oc-pet",
       JSON.stringify({ size: "big", opacity: "full", topmost: 1, mute: "yes", dock: 0 }),
     );
-    expect(loadPetPrefs()).toEqual({});
+    expect(loadPetPrefs()).toEqual({ selectedPackId: "dev.opencoder.byte" });
   });
 
   it("clamps out-of-range numbers into the settings range", () => {
     localStorage.setItem("oc-pet", JSON.stringify({ size: 40, opacity: 3 }));
-    expect(loadPetPrefs()).toEqual({ size: 120, opacity: 1 });
+    expect(loadPetPrefs()).toEqual({ selectedPackId: "dev.opencoder.byte", size: 120, opacity: 1 });
     localStorage.setItem("oc-pet", JSON.stringify({ size: 900, opacity: 0.1 }));
-    expect(loadPetPrefs()).toEqual({ size: 200, opacity: 0.4 });
+    expect(loadPetPrefs()).toEqual({
+      selectedPackId: "dev.opencoder.byte",
+      size: 200,
+      opacity: 0.4,
+    });
+  });
+
+  it("migrates every legacy type to the matching pack without dropping display prefs", () => {
+    localStorage.setItem("oc-pet", JSON.stringify({ petType: "cat", size: 180, dock: false }));
+    expect(loadPetPrefs()).toEqual({
+      selectedPackId: "dev.opencoder.box-cat",
+      size: 180,
+      dock: false,
+    });
+    localStorage.setItem("oc-pet", JSON.stringify({ petType: "robot" }));
+    expect(loadPetPrefs().selectedPackId).toBe("dev.opencoder.byte");
   });
 });
 

@@ -13,7 +13,14 @@ import {
   setPetSize,
 } from "../../services/pet.js";
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
-import { loadPetPrefs, savePetPrefs, type PetMovement, type PetType } from "../pet/petPrefs.js";
+import {
+  legacyPetTypeToPackId,
+  loadPetPrefs,
+  packIdToLegacyPetType,
+  savePetPrefs,
+  type PetMovement,
+  type PetType,
+} from "../pet/petPrefs.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -50,7 +57,9 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [petBusy, setPetBusy] = createSignal(false);
   const [petClickThrough, setPetClickThrough] = createSignal(false);
   const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
-  const [petType, setPetType] = createSignal<PetType>(loadPetPrefs().petType ?? "cat");
+  const [petType, setPetType] = createSignal<PetType>(
+    packIdToLegacyPetType(loadPetPrefs().selectedPackId),
+  );
   const [movement, setMovement] = createSignal<PetMovement>(loadPetPrefs().movement ?? "fixed");
   const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
   const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);
@@ -102,7 +111,7 @@ const PetSection: Component<{ serverId: string }> = () => {
 
   function changeType(value: PetType): void {
     setPetType(value);
-    persistPrefs({ petType: value });
+    persistPrefs({ selectedPackId: legacyPetTypeToPackId(value) });
   }
 
   function changeMovement(value: PetMovement): void {

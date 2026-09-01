@@ -14,14 +14,30 @@ import {
   setPetSize,
   setPetTopmost,
 } from "../../services/pet.js";
+import { BOX_CAT_PET_PACK_ID, DEFAULT_PET_PACK_ID } from "./packTypes.js";
 
 export type PetType = "blob" | "cat" | "dog" | "robot";
 export type PetMovement = "fixed" | "roam" | "bottom";
 
+const legacyPackIds: Record<PetType, string> = {
+  blob: DEFAULT_PET_PACK_ID,
+  cat: BOX_CAT_PET_PACK_ID,
+  dog: DEFAULT_PET_PACK_ID,
+  robot: DEFAULT_PET_PACK_ID,
+};
+
+export function legacyPetTypeToPackId(type: PetType): string {
+  return legacyPackIds[type];
+}
+
+export function packIdToLegacyPetType(id: string | undefined): PetType {
+  return id === BOX_CAT_PET_PACK_ID ? "cat" : "robot";
+}
+
 /** Display settings of the pet window (absent fields = defaults). */
 export interface PetPrefs {
-  /** Selected visual character. */
-  petType?: PetType;
+  /** Selected data-only pet pack. */
+  selectedPackId?: string;
   /** Screen movement behavior. */
   movement?: PetMovement;
   /** Window edge length in px (120-200). */
@@ -46,17 +62,16 @@ const KEY = "oc-pet";
 export function loadPetPrefs(): PetPrefs {
   try {
     const raw = localStorage.getItem(KEY);
-    if (raw === null) return {};
-    const parsed = JSON.parse(raw) as Partial<PetPrefs>;
-    if (parsed === null || typeof parsed !== "object") return {};
+    if (raw === null) return { selectedPackId: DEFAULT_PET_PACK_ID };
+    const parsed = JSON.parse(raw) as Partial<PetPrefs> & { petType?: unknown };
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) return {};
     const prefs: PetPrefs = {};
-    if (
-      parsed.petType === "blob" ||
-      parsed.petType === "cat" ||
-      parsed.petType === "dog" ||
-      parsed.petType === "robot"
-    ) {
-      prefs.petType = parsed.petType;
+    if (typeof parsed.selectedPackId === "string" && validPackId(parsed.selectedPackId)) {
+      prefs.selectedPackId = parsed.selectedPackId;
+    } else if (isLegacyPetType(parsed.petType)) {
+      prefs.selectedPackId = legacyPetTypeToPackId(parsed.petType);
+    } else {
+      prefs.selectedPackId = DEFAULT_PET_PACK_ID;
     }
     if (parsed.movement === "fixed" || parsed.movement === "roam" || parsed.movement === "bottom") {
       prefs.movement = parsed.movement;
@@ -75,6 +90,18 @@ export function loadPetPrefs(): PetPrefs {
   } catch {
     return {};
   }
+}
+
+function isLegacyPetType(value: unknown): value is PetType {
+  return value === "blob" || value === "cat" || value === "dog" || value === "robot";
+}
+
+function validPackId(value: string): boolean {
+  return (
+    value.length <= 128 &&
+    value.includes(".") &&
+    /^[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?(?:\.[a-z0-9]+(?:[a-z0-9-]*[a-z0-9])?)+$/.test(value)
+  );
 }
 
 /** Persists the pet prefs; storage failures (private mode) are swallowed

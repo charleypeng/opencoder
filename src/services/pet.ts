@@ -28,7 +28,7 @@ export const PET_INTENSITY_EVENT = "pet-intensity";
 export const PET_PREFS_EVENT = "pet-prefs";
 
 export interface PetPrefsPayload {
-  petType?: "blob" | "cat" | "dog" | "robot";
+  selectedPackId?: string;
   movement?: "fixed" | "roam" | "bottom";
   size?: number;
   opacity?: number;

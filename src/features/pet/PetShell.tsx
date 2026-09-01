@@ -41,8 +41,16 @@ import {
   type PetPrefsPayload,
   subscribeToPetState,
   type PetAnimationState,
+  notifyPetPrefsChanged,
 } from "../../services/pet.js";
-import { applyPetPrefs, loadPetPrefs, type PetMovement, type PetType } from "./petPrefs.js";
+import {
+  applyPetPrefs,
+  loadPetPrefs,
+  packIdToLegacyPetType,
+  savePetPrefs,
+  type PetMovement,
+} from "./petPrefs.js";
+import { refreshPetPacks, resolvedPetPackId } from "./packStore.js";
 import { TRANSIENT_MS } from "./petState.js";
 import { useT } from "../../i18n/index.js";
 
@@ -71,7 +79,7 @@ const PetShell: Component = () => {
   const [headpatActive, setHeadpatActive] = createSignal(false);
   const [size, setSize] = createSignal(stored.size ?? 160);
   const [opacity, setOpacity] = createSignal(stored.opacity ?? 1);
-  const [petType, setPetType] = createSignal<PetType>(stored.petType ?? "cat");
+  const [selectedPackId, setSelectedPackId] = createSignal(stored.selectedPackId);
   const [movement, setMovement] = createSignal<PetMovement>(stored.movement ?? "fixed");
   let movementTimer: ReturnType<typeof setInterval> | undefined;
 
@@ -134,7 +142,7 @@ const PetShell: Component = () => {
   }
 
   function applyExternalPrefs(prefs: PetPrefsPayload): void {
-    if (prefs.petType !== undefined) setPetType(prefs.petType);
+    if (prefs.selectedPackId !== undefined) setSelectedPackId(prefs.selectedPackId);
     if (prefs.movement !== undefined) {
       setMovement(prefs.movement);
       restartMovement();
@@ -161,6 +169,18 @@ const PetShell: Component = () => {
     void applyPetPrefs().catch(() => {
       // Nothing to report: the window defaults still apply.
     });
+    const requestedPackId = selectedPackId();
+    void refreshPetPacks()
+      .then(() => {
+        const resolved = resolvedPetPackId(requestedPackId);
+        if (resolved === requestedPackId) return;
+        setSelectedPackId(resolved);
+        savePetPrefs({ ...loadPetPrefs(), selectedPackId: resolved });
+        void notifyPetPrefsChanged({ selectedPackId: resolved });
+      })
+      .catch(() => {
+        // The persisted default remains available when the registry is unavailable.
+      });
     const stopState = subscribeToPetState((next) => {
       setLastForwarded(next);
       setState(next);
@@ -228,6 +248,7 @@ const PetShell: Component = () => {
   }
 
   const blobSize = () => (collapsed() ? 30 : Math.round(size() * 0.62));
+  const petType = () => packIdToLegacyPetType(selectedPackId());
 
   return (
     <div
@@ -245,7 +266,7 @@ const PetShell: Component = () => {
         <div
           data-testid="pet-blob"
           data-pet-state={state()}
-          data-pet-type={petType()}
+          data-pet-pack={selectedPackId()}
           data-headpat={headpatActive() ? "true" : "false"}
           data-collapsed={collapsed() ? "true" : "false"}
           class="pet-blob relative flex items-end justify-center"
