@@ -47,6 +47,7 @@ import { applyPetPrefs, loadPetPrefs, savePetPrefs, type PetMovement } from "./p
 import { refreshPetPacks, resolvedPetPackId } from "./packStore.js";
 import PetSurface from "./PetSurface.js";
 import { TRANSIENT_MS } from "./petState.js";
+import type { PetReaction } from "./renderers/types.js";
 import { useT } from "../../i18n/index.js";
 
 /** Collapsed window edge length (double-click toggle, TASK-M8-08). */
@@ -72,6 +73,7 @@ const PetShell: Component = () => {
   const [intensity, setIntensity] = createSignal(0);
   const [collapsed, setCollapsed] = createSignal(false);
   const [headpatActive, setHeadpatActive] = createSignal(false);
+  const [reaction, setReaction] = createSignal<PetReaction | null>(null);
   const [size, setSize] = createSignal(stored.size ?? 160);
   const [opacity, setOpacity] = createSignal(stored.opacity ?? 1);
   const [selectedPackId, setSelectedPackId] = createSignal(stored.selectedPackId);
@@ -80,6 +82,7 @@ const PetShell: Component = () => {
 
   let clickTimer: ReturnType<typeof setTimeout> | undefined;
   let headpatTimer: ReturnType<typeof setTimeout> | undefined;
+  let reactionTimer: ReturnType<typeof setTimeout> | undefined;
 
   function clearClickTimer() {
     if (clickTimer !== undefined) {
@@ -94,6 +97,25 @@ const PetShell: Component = () => {
       headpatTimer = undefined;
     }
     setHeadpatActive(false);
+    clearReaction();
+  }
+
+  function clearReaction() {
+    if (reactionTimer !== undefined) {
+      clearTimeout(reactionTimer);
+      reactionTimer = undefined;
+    }
+    setReaction(null);
+  }
+
+  function playReaction(next: PetReaction, durationMs?: number): void {
+    if (reactionTimer !== undefined) clearTimeout(reactionTimer);
+    setReaction(next);
+    if (durationMs === undefined) return;
+    reactionTimer = setTimeout(() => {
+      reactionTimer = undefined;
+      setReaction(null);
+    }, durationMs);
   }
 
   async function moveWindow(mode: PetMovement): Promise<void> {
@@ -158,12 +180,16 @@ const PetShell: Component = () => {
     // separate transparent Tauri webview must explicitly clear it or the
     // pet appears inside a square opaque frame instead of blending with the
     // client behind it.
-    const html = document.documentElement;
-    const body = document.body;
-    const previousHtmlBackground = html.style.backgroundColor;
-    const previousBodyBackground = body.style.backgroundColor;
-    html.style.backgroundColor = "transparent";
-    body.style.backgroundColor = "transparent";
+    const transparentLayers = [
+      document.documentElement,
+      document.body,
+      document.getElementById("root"),
+    ]
+      .filter((element): element is HTMLElement => element !== null)
+      .map((element) => ({ element, style: element.getAttribute("style") }));
+    for (const { element } of transparentLayers) {
+      element.style.background = "transparent";
+    }
 
     // Re-apply the persisted settings to Rust (size/opacity/topmost/mute/
     // dock/click-through) so a fresh window matches the stored prefs; a
@@ -193,22 +219,27 @@ const PetShell: Component = () => {
     const stopPrefs = subscribeToPetPrefs(applyExternalPrefs);
     restartMovement();
     onCleanup(() => {
-      html.style.backgroundColor = previousHtmlBackground;
-      body.style.backgroundColor = previousBodyBackground;
+      for (const { element, style } of transparentLayers) {
+        if (style === null) element.removeAttribute("style");
+        else element.setAttribute("style", style);
+      }
       stopState();
       stopIntensity();
       stopPrefs();
       if (movementTimer !== undefined) clearInterval(movementTimer);
       clearClickTimer();
       clearHeadpat();
+      clearReaction();
     });
   });
 
   function startWindowDrag(event: MouseEvent): void {
     if (event.button !== 0 || collapsed()) return;
+    playReaction("press", 180);
     if (typeof window !== "undefined" && window.__TAURI_INTERNALS__ !== undefined) {
       void getCurrentWindow()
         .startDragging()
+        .then(() => playReaction("dragStart", 180))
         .catch(() => {
           // The data-tauri-drag-region attribute remains as a native fallback.
         });
@@ -220,11 +251,13 @@ const PetShell: Component = () => {
     if (collapsed()) return;
     clickTimer = undefined;
     setHeadpatActive(true);
+    playReaction("tap", TRANSIENT_MS.attention);
     setState("attention");
     if (headpatTimer !== undefined) clearTimeout(headpatTimer);
     headpatTimer = setTimeout(() => {
       headpatTimer = undefined;
       setHeadpatActive(false);
+      clearReaction();
       setState(lastForwarded());
     }, TRANSIENT_MS.attention);
   }
@@ -249,7 +282,21 @@ const PetShell: Component = () => {
     void setPetSize(next ? COLLAPSED_SIZE : size());
   }
 
-  const blobSize = () => (collapsed() ? 30 : Math.round(size() * 0.62));
+  function handleMouseEnter(): void {
+    if (!headpatActive() && !collapsed()) playReaction("hover");
+  }
+
+  function handleMouseLeave(): void {
+    if (!headpatActive()) clearReaction();
+  }
+
+  function handleMouseUp(): void {
+    if (!collapsed()) playReaction("drop", 700);
+  }
+
+  // Keep the hit area nearly identical to the rendered companion. A smaller
+  // inner canvas made the transparent window feel like an invisible square.
+  const blobSize = () => (collapsed() ? 30 : Math.max(1, size() - 8));
   return (
     <div
       data-testid="pet-shell"
@@ -260,9 +307,6 @@ const PetShell: Component = () => {
       class="pet-window-shell flex h-full w-full select-none items-end justify-start bg-transparent pb-2 pl-2"
     >
       <div class="relative">
-        {/* The pet: a CSS blob with eyes animated per state (the Rive
-          renderer is a documented integration point, see petState.ts's
-          PetRenderer — no .riv asset exists, so the CSS pet ships). */}
         <div
           data-testid="pet-blob"
           data-pet-state={state()}
@@ -280,6 +324,9 @@ const PetShell: Component = () => {
           }}
           onClick={handleBlobClick}
           onDblClick={handleBlobDoubleClick}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onMouseUp={handleMouseUp}
           title={collapsed() ? t("pet:doubleClickToRestore") : t("pet:clickToPet")}
         >
           <PetSurface
@@ -287,6 +334,7 @@ const PetShell: Component = () => {
             state={state()}
             intensity={intensity()}
             size={blobSize()}
+            reaction={reaction()}
           />
           <Show when={collapsed()}>
             <span

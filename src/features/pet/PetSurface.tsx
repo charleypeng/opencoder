@@ -3,37 +3,48 @@ import type { Component } from "solid-js";
 import type { PetAnimationState } from "../../services/pet.js";
 import { getPetPackAssetUrl } from "../../services/petPacks.js";
 import { SpriteRenderer } from "./renderers/SpriteRenderer.js";
-import type { PetRendererInstance, SpritePackManifest } from "./renderers/types.js";
+import type { PetReaction, PetRendererInstance, SpritePackManifest } from "./renderers/types.js";
 
 interface PetSurfaceProps {
   packId: string;
   state: PetAnimationState;
   intensity: number;
   size: number;
+  reaction?: PetReaction | null;
 }
 
 const PetSurface: Component<PetSurfaceProps> = (props) => {
   let host: HTMLDivElement | undefined;
   let renderer: PetRendererInstance | undefined;
+  let mountedPackId: string | undefined;
+  let mountGeneration = 0;
+  let disposed = false;
 
-  async function mount(): Promise<void> {
-    if (host === undefined) return;
+  async function mount(packId: string): Promise<void> {
+    if (disposed || host === undefined) return;
+    if (mountedPackId === packId) return;
+    mountedPackId = packId;
+    const generation = ++mountGeneration;
     renderer?.dispose();
+    renderer = undefined;
     host.replaceChildren();
     try {
-      const manifestUrl = await getPetPackAssetUrl(props.packId, "manifest.json");
+      const manifestUrl = await getPetPackAssetUrl(packId, "manifest.json");
       const manifest = (await fetch(manifestUrl).then((response) =>
         response.json(),
       )) as SpritePackManifest;
       if (manifest.renderer.type !== "sprite") throw new Error("unsupported renderer");
+      if (generation !== mountGeneration || mountedPackId !== props.packId) return;
       const canvas = document.createElement("canvas");
       canvas.dataset.testid = "pet-sprite";
       host.append(canvas);
-      renderer = new SpriteRenderer(canvas, props.packId, manifest);
+      renderer = new SpriteRenderer(canvas, packId, manifest);
       renderer.setState(props.state);
       renderer.setIntensity(props.intensity);
+      renderer.setReaction(props.reaction ?? null);
       renderer.resize(props.size);
     } catch {
+      if (generation !== mountGeneration || mountedPackId !== props.packId) return;
       host.replaceChildren();
       const fallback = document.createElementNS("http://www.w3.org/2000/svg", "svg");
       fallback.setAttribute("viewBox", "0 0 100 100");
@@ -44,15 +55,34 @@ const PetSurface: Component<PetSurfaceProps> = (props) => {
     }
   }
 
-  onMount(() => void mount());
-  createEffect(() => renderer?.setState(props.state));
-  createEffect(() => renderer?.setIntensity(props.intensity));
-  createEffect(() => renderer?.resize(props.size));
+  onMount(() => void mount(props.packId));
   createEffect(() => {
-    void props.packId;
-    void mount();
+    const state = props.state;
+    renderer?.setState(state);
   });
-  onCleanup(() => renderer?.dispose());
+  createEffect(() => {
+    const intensity = props.intensity;
+    renderer?.setIntensity(intensity);
+  });
+  createEffect(() => {
+    const reaction = props.reaction ?? null;
+    renderer?.setReaction(reaction);
+  });
+  createEffect(() => {
+    const size = props.size;
+    renderer?.resize(size);
+  });
+  createEffect(() => {
+    const packId = props.packId;
+    if (host !== undefined) void mount(packId);
+  });
+  onCleanup(() => {
+    disposed = true;
+    mountGeneration += 1;
+    mountedPackId = undefined;
+    renderer?.dispose();
+    renderer = undefined;
+  });
 
   return <div ref={host} data-testid="pet-surface" class="h-full w-full" />;
 };

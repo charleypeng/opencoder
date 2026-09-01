@@ -10,9 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - feat(settings): Add a system file-picker button for importing `.opet` pet packs and selecting the newly installed pack. (settings)
+- feat(pet): Add data-driven sprite-sheet playback and tap/hover/drag reactions so pets can blink, move, and show expressions from pack manifests. (pet)
 
 ### Fixed
 
+- fix(pet): Prevent concurrent renderer mounts from appending duplicate pet canvases to the companion window. (pet)
+- fix(pet): Resize the native companion window in logical pixels so Retina displays no longer clip the sprite to a partial image. (pet)
+- fix(pet): Fill the companion window with the rendered pet and clear every webview background layer so its transparent edge blends into the desktop. (pet)
 - fix(pet): Discover bundled pet packs from Tauri's deployed `resources/pets` directory so the default companion appears without an import. (pet)
 
 - feat(pet): Let Settings show selectable pet packs and make enabled companion movement a slow local wander instead of screen-wide jumps. (pet)

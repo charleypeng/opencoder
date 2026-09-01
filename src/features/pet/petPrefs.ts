@@ -46,7 +46,7 @@ export interface PetPrefs {
   opacity?: number;
   /** Whether the window stays above other windows. */
   topmost?: boolean;
-  /** Whether pet sounds are muted. The CSS pet is silent (TASK-M8-08
+  /** Whether pet sounds are muted. The sprite pet is silent (TASK-M8-08
    *  consumes the flag as a no-op); a future sound renderer gates on it. */
   mute?: boolean;
   /** Whether drags snap to screen edges. */

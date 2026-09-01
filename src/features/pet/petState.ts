@@ -2,9 +2,9 @@
 // coding events (session statuses, permission/question requests,
 // interactions) to the six pet animation states. The state machine is the
 // deliverable of the animation task; the RENDERER is pluggable — the
-// shipped renderer is the CSS pet in PetShell (zero asset weight, far
-// under the 500KB budget), and a Rive-backed implementation can plug in
-// through the PetRenderer contract once a .riv asset exists, without
+// shipped renderer is the data-driven sprite canvas in PetSurface, and a
+// Rive-backed implementation can plug in through the PetRenderer contract
+// once a .riv asset exists, without
 // touching this module or the event linkage.
 //
 // Transition model: the main-window watcher (petEvents.ts) folds the FULL
@@ -70,9 +70,9 @@ const PRIORITY: Record<PetState, number> = {
  * Renderer contract the pet frontend satisfies (TASK-M8-08): a Rive-backed
  * implementation can plug in once a .riv state-machine asset exists — it
  * only needs to render one state at a time plus the working intensity
- * (0-100). The shipped renderer is the CSS pet in PetShell; the interface
- * documents the swap point so the state machine and the event linkage stay
- * untouched.
+ * (0-100). The shipped renderer is the sprite canvas in PetSurface; the
+ * interface documents the swap point so the state machine and the event
+ * linkage stay untouched.
  */
 export interface PetRenderer {
   /** Renders the given state (the pet window receives it as `pet-state`). */

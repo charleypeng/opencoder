@@ -1,8 +1,8 @@
 // L2 tests for the pet companion shell (TASK-M8-07/08): the page rendered
 // in the pet window (label "pet"). Renders the transparent drag-region
-// root with the animated CSS pet blob and a state pill driven by
-// `pet-state` events, the working animation speed driven by
-// `pet-intensity` events, the click headpat easter egg (attention for the
+// root with the data-driven sprite canvas and state driven by `pet-state`
+// events, the working animation speed driven by `pet-intensity` events, the
+// click headpat easter egg (attention for the
 // transient lifetime, then revert to the last forwarded state), the
 // double-click collapse/expand (48px window / restore) and the settings
 // popover whose size/opacity sliders and topmost/mute/dock/click-through
@@ -107,12 +107,34 @@ describe("PetShell rendering", () => {
   it("renders a transparent, control-free pet canvas", () => {
     render(() => <PetShell />);
     const shell = screen.getByTestId("pet-shell");
+    const blob = screen.getByTestId("pet-blob");
     expect(shell).toHaveAttribute("data-tauri-drag-region", "deep");
     expect(shell).toHaveAttribute("data-pet-state", "idle");
-    expect(screen.getByTestId("pet-blob")).toBeInTheDocument();
+    expect(blob).toBeInTheDocument();
+    expect(blob).toHaveStyle({ width: "152px", height: "152px" });
     expect(screen.getByTestId("pet-surface")).toBeInTheDocument();
     expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pet-settings-toggle")).not.toBeInTheDocument();
+  });
+
+  it("clears every app layer background while the transparent pet window is mounted", () => {
+    const root = document.createElement("div");
+    root.id = "root";
+    document.body.append(root);
+    document.documentElement.style.background = "red";
+    document.body.style.background = "green";
+    root.style.background = "blue";
+
+    const view = render(() => <PetShell />);
+    expect(document.documentElement.style.background).toBe("transparent");
+    expect(document.body.style.background).toBe("transparent");
+    expect(root.style.background).toBe("transparent");
+
+    view.unmount();
+    expect(document.documentElement.style.background).toBe("red");
+    expect(document.body.style.background).toBe("green");
+    expect(root.style.background).toBe("blue");
+    root.remove();
   });
 
   it("subscribes to the pet-state event and updates the animation state", () => {

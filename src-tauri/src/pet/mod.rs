@@ -41,8 +41,8 @@ use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, State, WebviewWindowBuilder,
-    WindowEvent,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, State,
+    WebviewWindowBuilder, WindowEvent,
 };
 
 /// The pet window's label (the capability file and the frontend route
@@ -52,7 +52,7 @@ pub const PET_LABEL: &str = "pet";
 /// Frontend route the pet window loads (App renders PetShell for it).
 const PET_URL: &str = "/pet";
 
-/// Default pet window edge length in physical pixels.
+/// Default pet window edge length in logical pixels.
 const DEFAULT_PET_SIZE: u32 = 160;
 /// Collapsed pet window edge (double-click toggle, TASK-M8-08) — the
 /// smallest size the resize clamp admits.
@@ -181,6 +181,13 @@ impl PetState {
 /// size (double-click, TASK-M8-08) up to the settings maximum.
 pub fn clamp_pet_size(size: u32) -> u32 {
     size.clamp(COLLAPSED_PET_SIZE, MAX_PET_SIZE)
+}
+
+/// Converts the settings value to logical window units so the CSS canvas and
+/// native webview keep the same edge length on Retina and scaled displays.
+fn logical_pet_size(size: u32) -> LogicalSize<f64> {
+    let size = clamp_pet_size(size) as f64;
+    LogicalSize::new(size, size)
 }
 
 /// Clamps a pet working intensity into 0-100.
@@ -417,7 +424,7 @@ pub fn pet_set_size(app: AppHandle, state: State<'_, PetState>, size: u32) -> Re
     state.set_size(size);
     if let Some(window) = app.get_webview_window(PET_LABEL) {
         window
-            .set_size(PhysicalSize::new(size, size))
+            .set_size(logical_pet_size(size))
             .map_err(|err| err.to_string())?;
     }
     Ok(())
@@ -518,8 +525,8 @@ pub fn pet_pack_diagnostics(state: State<'_, PetPackManager>) -> Vec<PetPackDiag
 #[cfg(test)]
 mod tests {
     use super::{
-        clamp_pet_intensity, clamp_pet_opacity, clamp_pet_size, docked_position, pet_show,
-        PetAnimationState, PetState, COLLAPSED_PET_SIZE,
+        clamp_pet_intensity, clamp_pet_opacity, clamp_pet_size, docked_position, logical_pet_size,
+        pet_show, PetAnimationState, PetState, COLLAPSED_PET_SIZE,
     };
     use std::sync::atomic::Ordering;
     use tauri::{PhysicalPosition, PhysicalSize};
@@ -539,6 +546,15 @@ mod tests {
         assert_eq!(clamp_pet_size(48), 48);
         assert_eq!(clamp_pet_size(47), 48);
         assert_eq!(clamp_pet_size(49), 49);
+    }
+
+    #[test]
+    fn keeps_the_native_window_in_logical_css_units() {
+        let size = logical_pet_size(160);
+        assert_eq!(size.width, 160.0);
+        assert_eq!(size.height, 160.0);
+        let collapsed = logical_pet_size(0);
+        assert_eq!(collapsed.width, COLLAPSED_PET_SIZE as f64);
     }
 
     #[test]

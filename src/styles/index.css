@@ -379,16 +379,12 @@
 }
 
 /*
- * M8-08 pet animation (ui-design §6): the pure-CSS renderer for the pet
- * state machine (petState.ts). Each state maps to a keyframe on the blob;
- * the working cycle duration is driven inline from the forwarded intensity
- * (0-100). Per-state accents: a waving paw while waiting, a sparkle above
- * the head on forwarded attention, a popping heart on a headpat, droopy
- * eyes on error and a squint on success. The Rive renderer is a
- * documented integration point (see petState.ts PetRenderer) — no .riv
- * asset exists, so the CSS pet ships (zero asset weight, trivially under
- * the 500KB budget). Every animation collapses to a static pet under
- * prefers-reduced-motion.
+ * M8-08 pet presentation: PetSurface renders the current pet-pack sprite
+ * canvas, while this transparent shell supplies state-level motion and
+ * interaction affordances around it. The working cycle duration is driven
+ * inline from the forwarded intensity (0-100). Every CSS motion collapses to
+ * a static shell under prefers-reduced-motion; sprite playback follows the
+ * same preference inside SpriteRenderer.
  */
 
 .pet-window-shell {
