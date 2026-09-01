@@ -16,6 +16,7 @@
 
 ### 修复
 
+- fix(settings)：让桌面设置导航项的选中背景保持统一的全宽尺寸。(settings)
 - fix(desktop)：让托盘菜单文案跟随设置中选择的应用语言同步更新。(desktop)
 - fix(sessions)：仅为本地模式服务器使用系统目录选择器，远程服务器继续回退到应用内目录浏览器。(sessions)
 - fix(models)：只显示已连接的模型服务商，并延迟目录过滤，提升模型搜索响应速度。(models)

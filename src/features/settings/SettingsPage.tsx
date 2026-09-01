@@ -73,7 +73,7 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         class={`outline-none transition-colors ${selectedClass(def.id)} ${
           chip
             ? "flex shrink-0 items-center gap-1.5 rounded-full border border-bg-sunken px-3 py-1.5 text-xs"
-            : "flex items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs"
+            : "flex w-full items-center gap-2 rounded-md px-3 py-1.5 text-left text-xs"
         }`}
         onClick={() => setSection(def.id)}
       >

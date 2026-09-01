@@ -108,6 +108,8 @@ describe("SettingsPage", () => {
       expect(screen.getByTestId(`settings-section-${id}`)).toBeInTheDocument();
     }
     expect(screen.getByTestId("settings-section-general")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("settings-section-general")).toHaveClass("w-full");
+    expect(screen.getByTestId("settings-section-mcp")).toHaveClass("w-full");
     expect(screen.getByTestId("general-section")).toBeInTheDocument();
     expect(screen.getByTestId("settings-close")).toBeInTheDocument();
   });

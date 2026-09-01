@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(settings): Give desktop settings navigation items a uniform full-width selection background. (settings)
 - fix(desktop): Sync tray menu labels with the language selected in app settings. (desktop)
 - fix(sessions): Use the native folder picker only for local-mode servers and keep the in-app browser as the remote fallback. (sessions)
 - fix(models): Show only connected providers and defer catalog filtering so model search stays responsive. (models)
