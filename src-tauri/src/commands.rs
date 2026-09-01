@@ -4,6 +4,7 @@
 //! `crate::connections` so it can be unit-tested without a Tauri runtime.
 
 use crate::connections::health::{HealthMonitor, ServerHealth};
+use crate::connections::local::LocalServerManager;
 use crate::connections::registry::{RegistryError, ServerEntry, ServerEntryInput};
 use crate::connections::ServerRegistry;
 use crate::discovery::{DiscoveredServer, MdnsDiscovery};
@@ -114,10 +115,38 @@ pub fn remove_server(
     id: String,
     registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
     monitor: tauri::State<'_, HealthMonitor<tauri::Wry>>,
+    local: tauri::State<'_, LocalServerManager>,
 ) -> Result<(), ApiError> {
+    local.stop(&id);
     registry.remove(id.clone()).map_err(map_registry_error)?;
     monitor.stop(&id);
     Ok(())
+}
+
+/// Starts the app-managed local `opencode serve` process for a saved server.
+#[cfg(desktop)]
+#[tauri::command]
+pub fn start_local_server(
+    server_id: String,
+    registry: tauri::State<'_, ServerRegistry<tauri::Wry>>,
+    local: tauri::State<'_, LocalServerManager>,
+) -> Result<u32, ApiError> {
+    let entry = registry
+        .get(&server_id)
+        .ok_or_else(|| ApiError::not_found(format!("server {server_id} not found")))?;
+    if entry.mode != crate::connections::registry::ServerMode::Local {
+        return Err(ApiError::invalid_url(
+            "only local-mode servers can be started by the app",
+        ));
+    }
+    local.start(&server_id).map_err(ApiError::network)
+}
+
+/// Stops an app-managed local server. Idempotent for already-exited processes.
+#[cfg(desktop)]
+#[tauri::command]
+pub fn stop_local_server(server_id: String, local: tauri::State<'_, LocalServerManager>) {
+    local.stop(&server_id);
 }
 
 /// Latest health snapshot of the server, cached by the running monitor.

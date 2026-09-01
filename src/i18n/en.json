@@ -23,6 +23,10 @@
   "servers": {
     "servers": "Servers",
     "addServer": "Add server",
+    "mode": "Connection mode",
+    "modeRemote": "Connect to existing server",
+    "modeLocal": "Manage local opencode serve",
+    "modeLocalHint": "The app starts `bash opencode serve` on localhost:4096 and stops it when the app exits.",
     "name": "Name",
     "url": "URL",
     "connect": "Connect",

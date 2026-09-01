@@ -108,6 +108,7 @@ impl ServerStore for PluginServerStore {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::connections::registry::ServerMode;
     use std::sync::atomic::{AtomicU64, Ordering};
 
     static TEST_FILE_COUNTER: AtomicU64 = AtomicU64::new(0);
@@ -128,6 +129,7 @@ mod tests {
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
             oauth: None,
+            mode: ServerMode::Remote,
             created_at: 1_700_000_000_000,
             last_connected_at: Some(1_700_000_060_000),
         }

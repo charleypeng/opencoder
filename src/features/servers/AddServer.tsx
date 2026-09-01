@@ -13,11 +13,19 @@ import {
 } from "../../services/discovery";
 import type { DiscoveredServer } from "../../services/discovery";
 import { ScanCancelledError, canScan, scanQrCode } from "../../services/scanner";
-import { addServer, discoverOAuth, probeServer, updateServer } from "../../services/servers";
-import type { ServerEntry } from "../../services/servers";
+import {
+  addServer,
+  discoverOAuth,
+  probeServer,
+  startLocalServer,
+  stopLocalServer,
+  updateServer,
+} from "../../services/servers";
+import type { ServerEntry, ServerEntryInput, ServerMode } from "../../services/servers";
 import { isRemotePlainHttp, normalizeServerUrl } from "./url";
 import { parseConnectUrl } from "./qrConnect";
 import ServerOAuthDialog from "./ServerOAuthDialog";
+import { platform } from "../../platform/index.js";
 
 export interface AddServerProps {
   /** Called with the saved entry (password stripped) after a successful save. */
@@ -62,8 +70,13 @@ function AddServer(props: AddServerProps) {
   const [username, setUsername] = createSignal(props.server?.username ?? "");
   const [password, setPassword] = createSignal("");
   const [showPassword, setShowPassword] = createSignal(false);
+  // A local entry owns an `opencode serve` process; remote entries only
+  // connect to a server that was started elsewhere.
+  // eslint-disable-next-line solid/reactivity -- one-time prefill of edit mode
+  const [mode, setMode] = createSignal<ServerMode>(props.server?.mode ?? "remote");
   const [probe, setProbe] = createSignal<ProbeState>({ kind: "idle" });
   const [saving, setSaving] = createSignal(false);
+  const [localStarting, setLocalStarting] = createSignal(false);
   const [saveError, setSaveError] = createSignal<string | null>(null);
   const [qrScanning, setQrScanning] = createSignal(false);
   const [qrScanError, setQrScanError] = createSignal<string | null>(null);
@@ -79,6 +92,7 @@ function AddServer(props: AddServerProps) {
   const urlValid = () => normalizedUrl() !== null;
   const nameValid = () => name().trim().length > 0;
   const canSave = () => nameValid() && urlValid() && !saving();
+  const localMode = () => mode() === "local";
   const canProbe = () => urlValid() && probe().kind !== "loading";
   const remotePlainHttp = () => {
     const normalized = normalizedUrl();
@@ -219,17 +233,28 @@ function AddServer(props: AddServerProps) {
     const normalized = normalizedUrl();
     if (!normalized || !canSave()) return;
     setSaving(true);
+    setLocalStarting(false);
     setSaveError(null);
     try {
-      const input = {
+      const input: ServerEntryInput = {
         name: name().trim(),
         url: normalized,
         username: username().trim() || undefined,
         password: password() || storedPassword(),
       };
+      if (localMode()) input.mode = "local";
+      // Switching an existing managed server back to remote mode must stop
+      // the process before the registry entry changes ownership.
+      if (props.server?.mode === "local" && !localMode()) {
+        await stopLocalServer(props.server.id);
+      }
       const server = props.server
         ? await updateServer(props.server.id, input)
         : await addServer(input);
+      if (localMode()) {
+        setLocalStarting(true);
+        await startLocalServer(server.id);
+      }
       // The saved entry is shared onward without the password.
       const publicEntry: ServerEntry = {
         id: server.id,
@@ -238,6 +263,7 @@ function AddServer(props: AddServerProps) {
         username: server.username,
         createdAt: server.createdAt,
         lastConnectedAt: server.lastConnectedAt,
+        ...(server.mode ? { mode: server.mode } : {}),
       };
       onAdded(publicEntry);
       // An OAuth-protected server needs one more step: the consent flow
@@ -258,6 +284,7 @@ function AddServer(props: AddServerProps) {
     } catch (err) {
       setSaveError(ApiError.fromUnknown(err).message);
     } finally {
+      setLocalStarting(false);
       setSaving(false);
     }
   }
@@ -293,6 +320,28 @@ function AddServer(props: AddServerProps) {
         </label>
 
         <label class="block">
+          <span class="text-sm font-medium text-fg-secondary">{t("servers:mode")}</span>
+          <select
+            data-testid="mode-select"
+            class={inputClass}
+            value={mode()}
+            onChange={(event) => {
+              const next = event.currentTarget.value as ServerMode;
+              setMode(next);
+              if (next === "local") setUrl("http://127.0.0.1:4096");
+            }}
+          >
+            <option value="remote">{t("servers:modeRemote")}</option>
+            <Show when={platform.kind === "desktop"}>
+              <option value="local">{t("servers:modeLocal")}</option>
+            </Show>
+          </select>
+          <Show when={localMode()}>
+            <p class="mt-1 text-xs text-fg-faint">{t("servers:modeLocalHint")}</p>
+          </Show>
+        </label>
+
+        <label class="block">
           <span class="text-sm font-medium text-fg-secondary">{t("servers:url")}</span>
           <span class="flex gap-2">
             <input
@@ -302,6 +351,7 @@ function AddServer(props: AddServerProps) {
               inputmode="url"
               placeholder={t("servers:urlPlaceholder")}
               value={url()}
+              disabled={localMode()}
               onInput={(event) => setUrl(event.currentTarget.value)}
             />
             <Show when={scanVisible()}>
@@ -382,7 +432,7 @@ function AddServer(props: AddServerProps) {
             data-testid="save-server"
             type="submit"
             class={`rounded-md bg-accent px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50`}
-            disabled={!canSave()}
+            disabled={!canSave() || localStarting()}
           >
             {saving()
               ? t("servers:saving")

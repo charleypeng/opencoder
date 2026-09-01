@@ -9,6 +9,7 @@
 //! (health.rs) polls each server and emits `server-health` snapshots.
 
 pub mod health;
+pub mod local;
 pub mod oauth;
 pub mod registry;
 pub mod store;
@@ -185,6 +186,7 @@ mod tests {
             url: url.to_string(),
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
+            mode: crate::connections::registry::ServerMode::Remote,
         }
     }
 
@@ -196,6 +198,7 @@ mod tests {
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
             oauth: None,
+            mode: crate::connections::registry::ServerMode::Remote,
             created_at: 1_700_000_000_000,
             last_connected_at: Some(1_700_000_060_000),
         }

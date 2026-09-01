@@ -52,8 +52,22 @@ pub struct ServerEntry {
     pub password: Option<String>,
     #[serde(default)]
     pub oauth: Option<ServerOAuth>,
+    /// Whether the app owns the local `opencode serve` process.
+    #[serde(default)]
+    pub mode: ServerMode,
     pub created_at: i64,
     pub last_connected_at: Option<i64>,
+}
+
+/// How a saved server process is managed by the client.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "lowercase")]
+pub enum ServerMode {
+    /// Connect to an already-running server (the historical/default mode).
+    #[default]
+    Remote,
+    /// Start and stop `opencode serve` with the desktop application.
+    Local,
 }
 
 /// User-supplied fields of a server entry; id and timestamps are generated
@@ -65,6 +79,8 @@ pub struct ServerEntryInput {
     pub url: String,
     pub username: Option<String>,
     pub password: Option<String>,
+    #[serde(default)]
+    pub mode: ServerMode,
 }
 
 /// Failures of registry mutations.
@@ -116,6 +132,7 @@ impl ServerRegistryCore {
             username: input.username,
             password: input.password,
             oauth: None,
+            mode: input.mode,
             created_at: now_millis(),
             last_connected_at: None,
         };
@@ -139,6 +156,7 @@ impl ServerRegistryCore {
         entry.url = input.url;
         entry.username = input.username;
         entry.password = input.password;
+        entry.mode = input.mode;
         Ok(entry.clone())
     }
 
@@ -204,6 +222,7 @@ mod tests {
             url: url.to_string(),
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
+            mode: ServerMode::Remote,
         }
     }
 
@@ -232,6 +251,7 @@ mod tests {
                     url: "https://opencode.example.com".to_string(),
                     username: None,
                     password: None,
+                    mode: ServerMode::Remote,
                 },
             )
             .unwrap();
@@ -336,6 +356,7 @@ mod tests {
                 url: "http://localhost:14096".to_string(),
                 username: None,
                 password: None,
+                mode: ServerMode::Remote,
             },
         )
         .unwrap();
@@ -377,6 +398,7 @@ mod tests {
         assert!(object.contains_key("username"));
         assert!(object.contains_key("password"));
         assert!(object.contains_key("oauth"));
+        assert_eq!(object.get("mode"), Some(&serde_json::json!("remote")));
         assert!(object.contains_key("createdAt"));
         assert!(object.contains_key("lastConnectedAt"));
         assert!(!object.contains_key("created_at"));
@@ -398,6 +420,7 @@ mod tests {
         assert_eq!(entry.id, "srv_1");
         assert_eq!(entry.created_at, 1_700_000_000_000);
         assert_eq!(entry.last_connected_at, None);
+        assert_eq!(entry.mode, ServerMode::Remote);
     }
 
     #[test]

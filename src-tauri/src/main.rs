@@ -2,5 +2,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 fn main() {
+    if opencoder_lib::run_watchdog_if_requested() {
+        return;
+    }
     opencoder_lib::run()
 }

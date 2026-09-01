@@ -13,9 +13,13 @@ export interface ServerEntry {
   username?: string;
   password?: string;
   oauth?: ServerOAuth;
+  /** Whether the desktop app owns the local opencode serve process. */
+  mode?: ServerMode;
   createdAt: number;
   lastConnectedAt?: number;
 }
+
+export type ServerMode = "remote" | "local";
 
 /** RFC 9728 OAuth credentials stored on a server entry (mirrors the Rust
  *  `ServerOAuth`). Tokens are managed by the Rust side; the frontend only
@@ -58,6 +62,7 @@ export interface ServerEntryInput {
   url: string;
   username?: string;
   password?: string;
+  mode?: ServerMode;
 }
 
 /** Basic Auth credentials for probes and requests. */
@@ -97,6 +102,20 @@ export async function updateServer(id: string, input: ServerEntryInput): Promise
 
 export async function removeServer(id: string): Promise<void> {
   return invoke<void>("remove_server", { id }).catch((err: unknown) => {
+    throw ApiError.fromUnknown(err);
+  });
+}
+
+/** Starts a saved server configured for app-managed local mode. */
+export async function startLocalServer(serverId: string): Promise<number> {
+  return invoke<number>("start_local_server", { serverId }).catch((err: unknown) => {
+    throw ApiError.fromUnknown(err);
+  });
+}
+
+/** Stops a saved app-managed local server; safe to call during teardown. */
+export async function stopLocalServer(serverId: string): Promise<void> {
+  return invoke<void>("stop_local_server", { serverId }).catch((err: unknown) => {
     throw ApiError.fromUnknown(err);
   });
 }

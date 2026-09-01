@@ -3,7 +3,15 @@
 
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "./errors.js";
-import { addServer, listServers, probeServer, removeServer, updateServer } from "./servers.js";
+import {
+  addServer,
+  listServers,
+  probeServer,
+  removeServer,
+  startLocalServer,
+  stopLocalServer,
+  updateServer,
+} from "./servers.js";
 
 const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
@@ -58,6 +66,18 @@ describe("server registry wrappers", () => {
     invokeMock.mockResolvedValue(undefined);
     await removeServer("srv-1");
     expect(invokeMock).toHaveBeenCalledWith("remove_server", { id: "srv-1" });
+  });
+
+  it("starts and stops an app-managed local server", async () => {
+    invokeMock.mockResolvedValueOnce(1234).mockResolvedValueOnce(undefined);
+    await expect(startLocalServer("srv-local")).resolves.toBe(1234);
+    await expect(stopLocalServer("srv-local")).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenNthCalledWith(1, "start_local_server", {
+      serverId: "srv-local",
+    });
+    expect(invokeMock).toHaveBeenNthCalledWith(2, "stop_local_server", {
+      serverId: "srv-local",
+    });
   });
 
   it("probeServer passes url and auth when auth is given", async () => {

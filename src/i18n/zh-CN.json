@@ -23,6 +23,10 @@
   "servers": {
     "servers": "服务器",
     "addServer": "添加服务器",
+    "mode": "连接模式",
+    "modeRemote": "连接已有服务器",
+    "modeLocal": "自动管理本地 opencode serve",
+    "modeLocalHint": "应用会在 localhost:4096 启动 bash opencode serve，并在退出时自动停止。",
     "name": "名称",
     "url": "URL",
     "connect": "连接",

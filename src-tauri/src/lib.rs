@@ -9,8 +9,11 @@ mod pet;
 pub mod transport;
 
 use connections::health::HealthMonitor;
+use connections::local::LocalServerManager;
 use discovery::MdnsDiscovery;
 use tauri::Manager;
+
+pub use connections::local::run_watchdog_if_requested;
 
 // Window chrome integration (TASK-M8-04): the window-state plugin persists
 // and restores the main window's size/position (and maximized flag) across
@@ -121,6 +124,27 @@ pub fn run() {
             app.manage(registry);
             app.manage(monitor);
             app.manage(discovery);
+            app.manage(LocalServerManager::default());
+            #[cfg(desktop)]
+            let local_servers = app
+                .state::<connections::ServerRegistry<tauri::Wry>>()
+                .list()
+                .into_iter()
+                .filter(|entry| entry.mode == connections::registry::ServerMode::Local)
+                .collect::<Vec<_>>();
+            #[cfg(desktop)]
+            let local_manager = app.state::<LocalServerManager>();
+            #[cfg(desktop)]
+            for server in local_servers {
+                // Persisted local entries are restarted only on desktop: the
+                // mobile shells cannot own a local process on the host.
+                if let Err(error) = local_manager.start(&server.id) {
+                    eprintln!(
+                        "opencoder: failed to restart local server {}: {error}",
+                        server.id
+                    );
+                }
+            }
             // System tray + global summon (TASK-M8-05): desktop-only, both
             // best-effort (a missing Linux tray host or an OS-rejected
             // shortcut is logged, never fatal).
@@ -152,6 +176,10 @@ pub fn run() {
             commands::add_server,
             commands::update_server,
             commands::remove_server,
+            #[cfg(desktop)]
+            commands::start_local_server,
+            #[cfg(desktop)]
+            commands::stop_local_server,
             commands::resolve_server_base_url,
             commands::get_server_health,
             commands::probe_server,
@@ -214,6 +242,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
         .run(|app_handle, event| {
+            #[cfg(desktop)]
+            if let tauri::RunEvent::ExitRequested { .. } = event {
+                app_handle.state::<LocalServerManager>().stop_all();
+            }
             // macOS Dock click while the window is hidden (close-to-tray):
             // the OS emits Reopen and expects the app to bring the window
             // back — without this, only the tray menu / summon shortcut

@@ -256,6 +256,34 @@ describe("AddServer save flow", () => {
       expect(screen.getByTestId("save-error")).toHaveTextContent("store failed");
     });
   });
+
+  it("starts an app-managed local server after saving", async () => {
+    const saved: ServerEntry = {
+      id: "srv-local",
+      name: "Local OpenCode",
+      url: "http://127.0.0.1:4096",
+      mode: "local",
+      createdAt: 123,
+    };
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "add_server") return Promise.resolve(saved);
+      if (cmd === "start_local_server") return Promise.resolve(4321);
+      return Promise.resolve(undefined);
+    });
+    const onAdded = vi.fn();
+    render(() => <AddServer onAdded={onAdded} />);
+    fireEvent.input(screen.getByTestId("name-input"), { target: { value: "Local OpenCode" } });
+    fireEvent.change(screen.getByTestId("mode-select"), { target: { value: "local" } });
+    expect(screen.getByTestId("url-input")).toHaveValue("http://127.0.0.1:4096");
+    expect(screen.getByTestId("url-input")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("save-server"));
+
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith(saved));
+    expect(invokeMock).toHaveBeenCalledWith("add_server", {
+      entry: { name: "Local OpenCode", url: "http://127.0.0.1:4096", mode: "local" },
+    });
+    expect(invokeMock).toHaveBeenCalledWith("start_local_server", { serverId: "srv-local" });
+  });
 });
 
 describe("AddServer edit mode", () => {

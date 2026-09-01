@@ -357,7 +357,7 @@ pub async fn probe(url: String, auth: Option<Auth>) -> ServerHealth {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::connections::registry::ServerEntry;
+    use crate::connections::registry::{ServerEntry, ServerMode};
     use crate::connections::store::{JsonFileStore, ServerStore};
     use std::io::{BufRead, BufReader, Write};
     use std::net::{SocketAddr, TcpListener, TcpStream};
@@ -757,6 +757,7 @@ mod tests {
             username: Some("admin".to_string()),
             password: Some("secret".to_string()),
             oauth: None,
+            mode: ServerMode::Remote,
             created_at: 1_700_000_000_000,
             last_connected_at: None,
         }
