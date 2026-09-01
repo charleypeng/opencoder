@@ -1,0 +1,260 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://opencoder.dev/schemas/pet-pack-v1.schema.json",
+  "title": "opencoder pet pack manifest v1",
+  "description": "A data-only manifest for an opencoder .opet package.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "version",
+    "author",
+    "preview",
+    "renderer"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 80
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)(?:-[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?(?:\\+[0-9A-Za-z-]+(?:\\.[0-9A-Za-z-]+)*)?$"
+    },
+    "author": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "license": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 500
+    },
+    "preview": {
+      "$ref": "#/definitions/imageAssetPath"
+    },
+    "renderer": {
+      "oneOf": [
+        { "$ref": "#/definitions/spriteRenderer" },
+        { "$ref": "#/definitions/riveRenderer" }
+      ]
+    },
+    "interaction": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "hitbox": { "$ref": "#/definitions/hitbox" },
+        "tapRevertsAfterMs": {
+          "type": "integer",
+          "minimum": 250,
+          "maximum": 10000
+        }
+      }
+    }
+  },
+  "definitions": {
+    "assetPath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 240,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.?/)[A-Za-z0-9][A-Za-z0-9._/-]*$"
+    },
+    "imageAssetPath": {
+      "allOf": [
+        { "$ref": "#/definitions/assetPath" },
+        { "pattern": "\\.(?:png|webp)$" }
+      ]
+    },
+    "riveAssetPath": {
+      "allOf": [
+        { "$ref": "#/definitions/assetPath" },
+        { "pattern": "\\.riv$" }
+      ]
+    },
+    "animationState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["asset", "frames", "fps", "loop"],
+      "properties": {
+        "asset": { "$ref": "#/definitions/imageAssetPath" },
+        "frames": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        },
+        "fps": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 30
+        },
+        "loop": { "type": "boolean" }
+      }
+    },
+    "reaction": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state"],
+          "properties": {
+            "state": {
+              "enum": ["idle", "working", "waiting", "success", "error", "attention"]
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["asset", "startFrame", "frames", "fps"],
+          "properties": {
+            "asset": { "$ref": "#/definitions/imageAssetPath" },
+            "startFrame": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 119
+            },
+            "frames": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 120
+            },
+            "fps": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 30
+            }
+          }
+        }
+      ]
+    },
+    "spriteRenderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "pixelated", "canvas", "states"],
+      "properties": {
+        "type": { "const": "sprite" },
+        "pixelated": { "type": "boolean" },
+        "canvas": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["width", "height"],
+          "properties": {
+            "width": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 2048
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 16,
+              "maximum": 2048
+            }
+          }
+        },
+        "states": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["idle"],
+          "properties": {
+            "idle": { "$ref": "#/definitions/animationState" },
+            "working": { "$ref": "#/definitions/animationState" },
+            "waiting": { "$ref": "#/definitions/animationState" },
+            "success": { "$ref": "#/definitions/animationState" },
+            "error": { "$ref": "#/definitions/animationState" },
+            "attention": { "$ref": "#/definitions/animationState" }
+          }
+        },
+        "reactions": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "tap": { "$ref": "#/definitions/reaction" },
+            "hover": { "$ref": "#/definitions/reaction" },
+            "press": { "$ref": "#/definitions/reaction" },
+            "dragStart": { "$ref": "#/definitions/reaction" },
+            "drop": { "$ref": "#/definitions/reaction" }
+          }
+        }
+      }
+    },
+    "riveRenderer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "asset", "artboard", "stateMachine", "inputs"],
+      "properties": {
+        "type": { "const": "rive" },
+        "asset": { "$ref": "#/definitions/riveAssetPath" },
+        "artboard": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "stateMachine": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "inputs": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["state", "intensity"],
+          "properties": {
+            "state": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "intensity": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "tap": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "hovered": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            },
+            "dragging": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 80
+            }
+          }
+        }
+      }
+    },
+    "hitbox": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["x", "y", "width", "height"],
+      "properties": {
+        "x": { "type": "number", "minimum": 0, "maximum": 1 },
+        "y": { "type": "number", "minimum": 0, "maximum": 1 },
+        "width": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 },
+        "height": { "type": "number", "exclusiveMinimum": 0, "maximum": 1 }
+      }
+    }
+  }
+}

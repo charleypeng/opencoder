@@ -70,6 +70,7 @@
     "@types/node": "^26.1.2",
     "@types/qrcode": "^1.5.6",
     "@vitest/coverage-v8": "^4.1.10",
+    "ajv": "^6.15.0",
     "axe-core": "^4.12.1",
     "eslint": "^9.39.5",
     "eslint-plugin-solid": "^0.14.5",

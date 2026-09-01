@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.example.nova",
+  "name": "Nova",
+  "version": "1.2.3",
+  "author": "Example Creator",
+  "license": "CC-BY-4.0",
+  "description": "A test-only pixel companion.",
+  "preview": "preview.webp",
+  "renderer": {
+    "type": "sprite",
+    "pixelated": true,
+    "canvas": { "width": 256, "height": 256 },
+    "states": {
+      "idle": { "asset": "assets/idle.webp", "frames": 8, "fps": 8, "loop": true },
+      "working": { "asset": "assets/working.webp", "frames": 8, "fps": 12, "loop": true },
+      "waiting": { "asset": "assets/waiting.webp", "frames": 6, "fps": 8, "loop": true },
+      "success": { "asset": "assets/success.webp", "frames": 8, "fps": 12, "loop": false },
+      "error": { "asset": "assets/error.webp", "frames": 6, "fps": 6, "loop": true },
+      "attention": { "asset": "assets/attention.webp", "frames": 8, "fps": 12, "loop": false }
+    },
+    "reactions": {
+      "tap": { "asset": "assets/reactions.webp", "startFrame": 0, "frames": 6, "fps": 12 },
+      "hover": { "state": "attention" },
+      "dragStart": { "state": "attention" },
+      "drop": { "asset": "assets/reactions.webp", "startFrame": 6, "frames": 4, "fps": 10 }
+    }
+  },
+  "interaction": {
+    "hitbox": { "x": 0.16, "y": 0.08, "width": 0.68, "height": 0.86 },
+    "tapRevertsAfterMs": 1800
+  }
+}

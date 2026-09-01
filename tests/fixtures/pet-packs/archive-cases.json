@@ -1,0 +1,28 @@
+[
+  {
+    "id": "zip-slip",
+    "entries": ["manifest.json", "../outside.txt"],
+    "expectedError": "pathTraversal"
+  },
+  {
+    "id": "absolute-path",
+    "entries": ["manifest.json", "/etc/passwd"],
+    "expectedError": "absolutePath"
+  },
+  {
+    "id": "windows-path",
+    "entries": ["manifest.json", "assets\\outside.webp"],
+    "expectedError": "backslashPath"
+  },
+  {
+    "id": "nested-archive",
+    "entries": ["manifest.json", "assets/other.zip"],
+    "expectedError": "nestedArchive"
+  },
+  {
+    "id": "oversized-file",
+    "entries": ["manifest.json", "assets/idle.webp"],
+    "uncompressedBytes": 16777217,
+    "expectedError": "fileTooLarge"
+  }
+]

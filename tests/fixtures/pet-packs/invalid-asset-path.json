@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.example.nova",
+  "name": "Nova",
+  "version": "1.2.3",
+  "author": "Example Creator",
+  "preview": "../preview.webp",
+  "renderer": {
+    "type": "sprite",
+    "pixelated": true,
+    "canvas": { "width": 256, "height": 256 },
+    "states": {
+      "idle": { "asset": "assets/idle.webp", "frames": 1, "fps": 1, "loop": true }
+    }
+  }
+}

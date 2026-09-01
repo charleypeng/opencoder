@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "id": "org.example.fox",
+  "name": "Fox",
+  "version": "1.0.0-beta.1+build.7",
+  "author": "Example Creator",
+  "preview": "preview.png",
+  "renderer": {
+    "type": "rive",
+    "asset": "assets/fox.riv",
+    "artboard": "Pet",
+    "stateMachine": "PetMachine",
+    "inputs": {
+      "state": "state",
+      "intensity": "intensity",
+      "tap": "tap",
+      "hovered": "hovered",
+      "dragging": "dragging"
+    }
+  }
+}
