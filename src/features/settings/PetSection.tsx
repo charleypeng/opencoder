@@ -4,6 +4,7 @@
 
 import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
+import { open } from "@tauri-apps/plugin-dialog";
 import { useT } from "../../i18n/index.js";
 import {
   notifyPetPrefsChanged,
@@ -15,6 +16,7 @@ import {
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
 import { loadPetPrefs, savePetPrefs, type PetMovement } from "../pet/petPrefs.js";
 import { petPacks, refreshPetPacks } from "../pet/packStore.js";
+import { installPetPack } from "../../services/petPacks.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -56,6 +58,7 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
   const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);
   const [error, setError] = createSignal<string | null>(null);
+  const [importing, setImporting] = createSignal(false);
   const [loaded, setLoaded] = createSignal(false);
 
   createEffect(() => {
@@ -110,6 +113,27 @@ const PetSection: Component<{ serverId: string }> = () => {
     persistPrefs({ selectedPackId: id });
   }
 
+  async function importPack(): Promise<void> {
+    if (importing()) return;
+    setImporting(true);
+    setError(null);
+    try {
+      const selected = await open({
+        multiple: false,
+        directory: false,
+        filters: [{ name: "OpenCoder pet pack", extensions: ["opet"] }],
+      });
+      if (typeof selected !== "string") return;
+      const result = await installPetPack(selected);
+      await refreshPetPacks();
+      selectPack(result.pack.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
+  }
+
   function changeMovement(value: PetMovement): void {
     setMovement(value);
     persistPrefs({ movement: value });
@@ -140,7 +164,18 @@ const PetSection: Component<{ serverId: string }> = () => {
             <label> so the association survives the layout change. */}
         <div class="space-y-1 border-b border-bg-sunken pb-2">
           <section aria-label={t("pet:availablePacks")} class="py-2">
-            <p class="mb-2 text-xs font-medium">{t("pet:availablePacks")}</p>
+            <div class="mb-2 flex items-center justify-between gap-3">
+              <p class="text-xs font-medium">{t("pet:availablePacks")}</p>
+              <button
+                type="button"
+                data-testid="pet-pack-import"
+                disabled={importing()}
+                onClick={() => void importPack()}
+                class="rounded-md border border-bg-sunken px-2 py-1 text-xs font-medium hover:bg-bg-hover disabled:opacity-50"
+              >
+                {importing() ? t("pet:importingPack") : t("pet:importPack")}
+              </button>
+            </div>
             <div role="listbox" class="space-y-1" data-testid="pet-pack-list">
               <For each={petPacks()}>
                 {(pack) => (

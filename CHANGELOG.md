@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(settings): Add a system file-picker button for importing `.opet` pet packs and selecting the newly installed pack. (settings)
+
 - feat(pet): Let Settings show selectable pet packs and make enabled companion movement a slow local wander instead of screen-wide jumps. (pet)
 
 - feat(pet): Add typed pet-pack state, binary asset URL caching, and a safe migration from legacy character preferences to selected pack IDs. (pet)
