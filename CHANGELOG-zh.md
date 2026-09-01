@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- feat(pet)：为交互式宠物系统新增仅数据 `.opet` 包的安全桌面注册表，提供 manifest/媒体校验、原子导入、版本选择、隔离诊断及只返回二进制的资源读取。(pet)
+
 ## [1.0.4] - 2026-08-28
 
 ### 新增

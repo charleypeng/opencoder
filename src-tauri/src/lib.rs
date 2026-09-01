@@ -132,6 +132,8 @@ pub fn run() {
             // own localStorage re-applies the persisted values at mount.
             #[cfg(desktop)]
             app.manage(pet::PetState::default());
+            #[cfg(desktop)]
+            app.manage(pet::PetPackManager::new(app.handle())?);
             // Start per-server health polling for every persisted server.
             let monitor = app.state::<HealthMonitor<tauri::Wry>>();
             monitor.start_all(&app.state::<connections::ServerRegistry<tauri::Wry>>());
@@ -197,7 +199,17 @@ pub fn run() {
             #[cfg(desktop)]
             pet::pet_set_mute,
             #[cfg(desktop)]
-            pet::pet_set_dock
+            pet::pet_set_dock,
+            #[cfg(desktop)]
+            pet::pet_pack_list,
+            #[cfg(desktop)]
+            pet::pet_pack_install,
+            #[cfg(desktop)]
+            pet::pet_pack_remove,
+            #[cfg(desktop)]
+            pet::pet_pack_read_asset,
+            #[cfg(desktop)]
+            pet::pet_pack_diagnostics
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

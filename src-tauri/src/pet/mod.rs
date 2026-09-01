@@ -30,6 +30,12 @@
 // the Tauri-bound wiring (window creation, event forwarding, dock
 // listener, commands) is exercised through the frontend L2 tests.
 
+mod manifest;
+mod packs;
+
+pub use packs::PetPackManager;
+use packs::{PetPackDiagnostic, PetPackInstallResult, PetPackSummary};
+
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::sync::Mutex;
 
@@ -454,6 +460,59 @@ pub fn pet_set_mute(state: State<'_, PetState>, muted: bool) {
 #[tauri::command]
 pub fn pet_set_dock(state: State<'_, PetState>, docked: bool) {
     state.dock.store(docked, Ordering::Relaxed);
+}
+
+/// Lists valid bundled and user-installed data-only pet packs. Invalid packs
+/// are omitted and exposed through `pet_pack_diagnostics` instead of
+/// blocking application startup.
+#[tauri::command]
+pub fn pet_pack_list(state: State<'_, PetPackManager>) -> Result<Vec<PetPackSummary>, String> {
+    state.list().map_err(|error| error.to_string())
+}
+
+/// Validates and atomically installs a local `.opet` archive. The path comes
+/// from the native file picker but remains untrusted input at this boundary.
+#[tauri::command]
+pub fn pet_pack_install(
+    state: State<'_, PetPackManager>,
+    path: String,
+    allow_downgrade: bool,
+) -> Result<PetPackInstallResult, String> {
+    state
+        .install(std::path::Path::new(&path), allow_downgrade)
+        .map_err(|error| error.to_string())
+}
+
+/// Removes every installed version of an external pack. The frontend supplies
+/// its selected ID so this command can also refuse removal of the active pack.
+#[tauri::command]
+pub fn pet_pack_remove(
+    state: State<'_, PetPackManager>,
+    id: String,
+    selected_pack_id: Option<String>,
+) -> Result<(), String> {
+    state
+        .remove(&id, selected_pack_id.as_deref())
+        .map_err(|error| error.to_string())
+}
+
+/// Reads one validated asset from a selected pack as raw IPC bytes. This
+/// avoids granting WebViews a broad filesystem or asset-protocol scope.
+#[tauri::command]
+pub fn pet_pack_read_asset(
+    state: State<'_, PetPackManager>,
+    id: String,
+    relative_path: String,
+) -> Result<tauri::ipc::Response, String> {
+    state
+        .read_asset(&id, &relative_path)
+        .map(tauri::ipc::Response::new)
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub fn pet_pack_diagnostics(state: State<'_, PetPackManager>) -> Vec<PetPackDiagnostic> {
+    state.diagnostics()
 }
 
 #[cfg(test)]

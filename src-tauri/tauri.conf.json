@@ -33,6 +33,7 @@
   },
   "bundle": {
     "active": true,
+    "resources": ["resources/pets/**/*"],
     "targets": ["app", "dmg", "nsis", "msi", "deb", "appimage"],
     "createUpdaterArtifacts": true,
     "icon": [
