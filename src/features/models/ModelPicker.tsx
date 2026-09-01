@@ -1,7 +1,7 @@
 // Model picker (TASK-M5-05): lists the server's models grouped by
 // provider with a search box, capability badges (tools/vision/reasoning),
-// cost + context-limit hints, unconnected providers grayed out and
-// disabled, a Default marker per provider (from the /config/providers
+// cost + context-limit hints, connected providers only, a Default marker per
+// provider (from the /config/providers
 // default record) and a favorites section (star toggle persisted in
 // localStorage `oc-fav-models`). The catalog is fetched on open through
 // the models store (loaded flag + in-flight guard; PromptBox also
@@ -12,7 +12,15 @@
 // dismissible there (scrim / Esc / drag-down), unlike the permission and
 // question sheets.
 
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import {
+  createDeferred,
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  onCleanup,
+  Show,
+} from "solid-js";
 import type { Component } from "solid-js";
 import { Dialog } from "@kobalte/core";
 import Sheet from "../../components/Sheet.js";
@@ -97,7 +105,6 @@ interface ModelRowProps {
 
 function ModelRow(props: ModelRowProps) {
   const state = createMemo(() => getServerModelState(props.serverId));
-  const connected = createMemo(() => state().connected.includes(props.provider.id));
   const defaultRow = createMemo(() => state().defaultModels[props.provider.id] === props.model.id);
   const activeRow = createMemo(
     () =>
@@ -112,10 +119,8 @@ function ModelRow(props: ModelRowProps) {
       data-testid="model-item"
       data-provider={props.provider.id}
       data-model={props.model.id}
-      data-connected={connected()}
-      class={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs ${
-        connected() ? "hover:bg-bg-sunken" : "cursor-not-allowed opacity-40"
-      } ${activeRow() ? "bg-bg-sunken" : ""}`}
+      data-connected="true"
+      class={`flex w-full items-center gap-1.5 rounded-md px-1.5 py-1 text-left text-xs hover:bg-bg-sunken ${activeRow() ? "bg-bg-sunken" : ""}`}
     >
       <button
         type="button"
@@ -135,9 +140,8 @@ function ModelRow(props: ModelRowProps) {
       <button
         type="button"
         data-testid="model-item-select"
-        disabled={!connected()}
         onClick={() => props.onSelect(props.provider.id, props.model.id)}
-        class="flex min-w-0 flex-1 items-center gap-2 py-0.5 text-left disabled:cursor-not-allowed"
+        class="flex min-w-0 flex-1 items-center gap-2 py-0.5 text-left"
       >
         <span class="flex min-w-0 flex-1 flex-col items-start gap-0.5">
           <span class="flex w-full flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
@@ -202,6 +206,9 @@ interface ModelPickerContentProps {
 export function ModelPickerContent(props: ModelPickerContentProps) {
   const t = useT();
   const [search, setSearch] = createSignal("");
+  // Defer the expensive list projection until typing settles. The input stays
+  // responsive while large provider catalogs are filtered off the keystroke.
+  const deferredSearch = createDeferred(search, { timeoutMs: 120 });
   const [favorites, setFavorites] = createSignal<string[]>(loadFavorites());
 
   const sessionModel = createMemo(
@@ -213,27 +220,44 @@ export function ModelPickerContent(props: ModelPickerContentProps) {
       : activeModelFor(props.serverId, props.sessionId, sessionModel()),
   );
 
-  /** Whether the model row matches the search (provider or model name). */
-  function rowMatches(provider: Provider, model: Model, needle: string): boolean {
-    if (needle === "") return true;
-    if (provider.name.toLowerCase().includes(needle)) return true;
-    return `${modelName(model)} ${model.id}`.toLowerCase().includes(needle);
-  }
-
   interface Group {
     provider: Provider;
     models: Model[];
   }
 
-  const groups = createMemo<Group[]>(() => {
-    const needle = search().trim().toLowerCase();
+  interface IndexedGroup {
+    provider: Provider;
+    providerSearch: string;
+    models: { model: Model; searchText: string }[];
+  }
+
+  /** Builds the searchable index once per catalog update, not once per key. */
+  const indexedGroups = createMemo<IndexedGroup[]>(() => {
     const state = getServerModelState(props.serverId);
+    const connected = new Set(state.connected);
     return state.providers
+      .filter((provider) => connected.has(provider.id))
       .map((provider) => ({
         provider,
-        models: Object.values(provider.models ?? {}).filter((model) =>
-          rowMatches(provider, model, needle),
-        ),
+        providerSearch: provider.name.toLowerCase(),
+        models: Object.values(provider.models ?? {}).map((model) => ({
+          model,
+          searchText: `${modelName(model)} ${model.id}`.toLowerCase(),
+        })),
+      }));
+  });
+
+  const groups = createMemo<Group[]>(() => {
+    const needle = deferredSearch().trim().toLowerCase();
+    return indexedGroups()
+      .map((group) => ({
+        provider: group.provider,
+        models:
+          needle === "" || group.providerSearch.includes(needle)
+            ? group.models.map(({ model }) => model)
+            : group.models
+                .filter(({ searchText }) => searchText.includes(needle))
+                .map(({ model }) => model),
       }))
       .filter((group) => group.models.length > 0);
   });
@@ -286,7 +310,9 @@ export function ModelPickerContent(props: ModelPickerContentProps) {
               class="px-1 py-3 text-center text-xs text-fg-faint"
             >
               {getServerModelState(props.serverId).loaded
-                ? t("models:noMatchingModels")
+                ? getServerModelState(props.serverId).connected.length === 0
+                  ? t("models:noConnectedProviders")
+                  : t("models:noMatchingModels")
                 : t("models:modelsUnavailable")}
             </div>
           }
@@ -319,18 +345,6 @@ export function ModelPickerContent(props: ModelPickerContentProps) {
                   class="flex items-center gap-1.5 px-2 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-fg-faint"
                 >
                   <span class="truncate">{group.provider.name}</span>
-                  <Show
-                    when={
-                      !getServerModelState(props.serverId).connected.includes(group.provider.id)
-                    }
-                  >
-                    <span
-                      data-testid="model-not-connected"
-                      class="rounded border border-bg-sunken bg-bg-elevated px-1 py-px text-[10px] normal-case tracking-normal text-fg-secondary"
-                    >
-                      {t("models:notConnected")}
-                    </span>
-                  </Show>
                 </h3>
                 <For each={group.models}>
                   {(model) => (

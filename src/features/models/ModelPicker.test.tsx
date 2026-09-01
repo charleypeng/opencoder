@@ -1,5 +1,5 @@
 // L2 tests for the model picker dialog (TASK-M5-05): the provider group
-// headers with the unconnected tag, capability badges, cost + context
+// headers for connected providers, capability badges, cost + context
 // hints, the Default marker (from the /config/providers default record),
 // the favorites section with the localStorage-persisted star toggle, the
 // search filter, the Current marker, and selection recording the
@@ -175,10 +175,10 @@ describe("ModelPicker", () => {
   it("groups models by provider with headers and fetches the catalog on open", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     expect(screen.getByText("OpenAI")).toBeInTheDocument();
     expect(screen.getByText("Anthropic")).toBeInTheDocument();
-    expect(screen.getByText("Azure OpenAI")).toBeInTheDocument();
+    expect(screen.queryByText("Azure OpenAI")).not.toBeInTheDocument();
     expect(screen.getAllByTestId("model-group")[0].getAttribute("data-provider")).toBe("openai");
     expect(client.get).toHaveBeenCalledWith("/provider", undefined);
     expect(client.get).toHaveBeenCalledWith("/config/providers", undefined);
@@ -192,9 +192,9 @@ describe("ModelPicker", () => {
     });
     renderPicker();
 
-    // The catalog still populates: all three provider groups render and
+    // The catalog still populates: both connected provider groups render and
     // the /provider default record marks openai/gpt-5 as the default.
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     expect(screen.getAllByTestId("model-default")).toHaveLength(1);
     expect(
       screen
@@ -204,45 +204,30 @@ describe("ModelPicker", () => {
     ).toBe("gpt-5");
   });
 
-  it("grays out an unconnected provider: tag, grayed rows and disabled select", async () => {
+  it("hides an unconnected provider and all of its models", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
-    const azureItems = screen
-      .getAllByTestId("model-item")
-      .filter((item) => item.getAttribute("data-provider") === "azure");
-    expect(azureItems).toHaveLength(1);
-    expect(azureItems[0].getAttribute("data-connected")).toBe("false");
-    expect(azureItems[0].className).toContain("opacity-40");
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
+    expect(screen.queryByText("Azure OpenAI")).not.toBeInTheDocument();
     expect(
-      (azureItems[0].querySelector("[data-testid='model-item-select']") as HTMLButtonElement)
-        .disabled,
-    ).toBe(true);
-    expect(screen.getAllByTestId("model-not-connected")).toHaveLength(1);
-    expect(screen.getByText("Not connected")).toBeInTheDocument();
+      screen
+        .getAllByTestId("model-item")
+        .some((item) => item.getAttribute("data-provider") === "azure"),
+    ).toBe(false);
   });
 
   it("shows capability badges only for the true capabilities", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const badges = screen.getAllByTestId("model-badge").map((b) => b.textContent);
-    expect(badges).toEqual([
-      "tools",
-      "vision",
-      "reasoning",
-      "tools",
-      "tools",
-      "reasoning",
-      "tools",
-      "vision",
-    ]);
+    expect(badges).toEqual(["tools", "vision", "reasoning", "tools", "tools", "reasoning"]);
   });
 
   it("shows cost and context-limit hints per model", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     expect(screen.getAllByTestId("model-cost")[0]).toHaveTextContent("$1.25/M in · $10/M out");
     expect(screen.getAllByTestId("model-context")[0]).toHaveTextContent("400K context");
     expect(screen.getByText("$3/M in · $15/M out")).toBeInTheDocument();
@@ -252,7 +237,7 @@ describe("ModelPicker", () => {
   it("marks the config default model with the Default badge", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const defaults = screen.getAllByTestId("model-default");
     expect(defaults).toHaveLength(1);
     const row = defaults[0].closest("[data-testid='model-item']");
@@ -262,7 +247,7 @@ describe("ModelPicker", () => {
   it("marks the current model with the Current check", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const active = screen.getAllByTestId("model-active");
     expect(active).toHaveLength(1);
     expect(active[0].closest("[data-testid='model-item']")?.getAttribute("data-model")).toBe(
@@ -274,7 +259,7 @@ describe("ModelPicker", () => {
     const onOpenChange = vi.fn();
     renderPicker(onOpenChange);
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const claudeRow = screen
       .getAllByTestId("model-item")
       .find((item) => item.getAttribute("data-model") === "claude-sonnet-4-5");
@@ -287,23 +272,10 @@ describe("ModelPicker", () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
-  it("does not select a disabled (unconnected) model", async () => {
-    renderPicker();
-
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
-    const azureSelect = screen
-      .getAllByTestId("model-item")
-      .find((item) => item.getAttribute("data-provider") === "azure")!
-      .querySelector("[data-testid='model-item-select']")! as HTMLButtonElement;
-    expect(azureSelect.disabled).toBe(true);
-    fireEvent.click(azureSelect);
-    expect(activeModelFor(SERVER, SESSION)).toEqual({ providerID: "openai", modelID: "gpt-5" });
-  });
-
   it("favorites: star toggle moves the model into the favorites section and persists", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     expect(screen.queryByTestId("model-favorites-section")).not.toBeInTheDocument();
 
     const favButton = screen
@@ -332,7 +304,7 @@ describe("ModelPicker", () => {
     window.localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(["openai:gpt-4.1"]));
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     expect(screen.getByTestId("model-favorites-section")).toBeInTheDocument();
     expect(
       screen
@@ -345,23 +317,24 @@ describe("ModelPicker", () => {
   it("search filters by provider or model name", async () => {
     renderPicker();
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const search = screen.getByTestId("model-picker-search") as HTMLInputElement;
 
     fireEvent.input(search, { target: { value: "claude" } });
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(1));
     const groups = screen.getAllByTestId("model-group");
     expect(groups).toHaveLength(1);
     expect(groups[0].getAttribute("data-provider")).toBe("anthropic");
 
-    // A provider-name match shows all of that provider's models.
+    // A disconnected provider-name match remains hidden.
     fireEvent.input(search, { target: { value: "azure" } });
-    const azureModels = screen
-      .getAllByTestId("model-item")
-      .filter((item) => item.getAttribute("data-provider") === "azure");
-    expect(azureModels).toHaveLength(1);
+    await waitFor(() => expect(screen.getByTestId("model-picker-empty")).toBeInTheDocument());
+    expect(screen.queryByText("Azure OpenAI")).not.toBeInTheDocument();
 
     fireEvent.input(search, { target: { value: "zzz_no_match" } });
-    expect(screen.getByTestId("model-picker-empty")).toHaveTextContent("No matching models");
+    await waitFor(() =>
+      expect(screen.getByTestId("model-picker-empty")).toHaveTextContent("No matching models"),
+    );
     expect(screen.queryByTestId("model-group")).not.toBeInTheDocument();
   });
 
@@ -380,7 +353,7 @@ describe("ModelPicker (mobile sheet, TASK-M7-05)", () => {
     const onOpenChange = vi.fn();
     renderPicker(onOpenChange);
 
-    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(3));
+    await waitFor(() => expect(screen.getAllByTestId("model-group")).toHaveLength(2));
     const panel = screen.getByTestId("model-picker");
     expect(panel).toHaveAttribute("data-snap", "high");
     expect(panel.getAttribute("role")).toBe("dialog");

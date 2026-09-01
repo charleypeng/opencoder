@@ -407,6 +407,7 @@
     "selectModel": "Select model",
     "choiceHint": "The choice is kept for this session.",
     "noMatchingModels": "No matching models",
+    "noConnectedProviders": "No connected model providers",
     "modelsUnavailable": "Models unavailable",
     "providerLabel": "Provider",
     "modelLabel": "Model",

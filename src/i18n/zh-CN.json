@@ -407,6 +407,7 @@
     "selectModel": "选择模型",
     "choiceHint": "本次会话保持该选择。",
     "noMatchingModels": "没有匹配的模型",
+    "noConnectedProviders": "没有已连接的模型服务商",
     "modelsUnavailable": "模型暂不可用",
     "providerLabel": "模型服务商",
     "modelLabel": "模型",
