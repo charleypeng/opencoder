@@ -9,6 +9,7 @@
 
 ### 新增
 
+- feat(desktop)：新增可用键盘操作且会持久化的分隔条，用于调整工作区侧栏宽度。(desktop)
 - feat(servers)：新增由应用管理的本地 `opencode serve` 模式，自动启动并在生命周期结束时清理服务。(servers)
 - feat(pet)：将可用宠物包改为支持搜索的预览卡片，便于快速按形象选择。(pet)
 - feat(settings)：新增系统文件选择器导入 `.opet` 宠物包的按钮，导入成功后自动选中新包。(settings)

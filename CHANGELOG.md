@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(desktop): Add a keyboard-accessible, persisted splitbar for resizing the workspace sidebar. (desktop)
 - feat(servers): Add an app-managed local `opencode serve` mode with automatic startup and lifecycle cleanup. (servers)
 - feat(pet): Present available pet packs as searchable preview cards for faster visual selection. (pet)
 - feat(settings): Add a system file-picker button for importing `.opet` pet packs and selecting the newly installed pack. (settings)

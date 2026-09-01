@@ -767,6 +767,7 @@
     "serverUpdateBanner": "服务器有可用更新：v{{version}}{{running}} — 重启 opencode serve 以生效。",
     "runningVersion": "（当前运行 v{{version}}）",
     "sidebarView": "侧边栏视图",
+    "resizeSidebar": "调整侧边栏宽度",
     "mainView": "主视图",
     "switchToServer": "切换到 {{name}}",
     "toggleSearch": "切换全文搜索",

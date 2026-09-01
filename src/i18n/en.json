@@ -767,6 +767,7 @@
     "serverUpdateBanner": "Server update available: v{{version}}{{running}} — restart opencode serve to apply.",
     "runningVersion": " (running v{{version}})",
     "sidebarView": "Sidebar view",
+    "resizeSidebar": "Resize sidebar",
     "mainView": "Main view",
     "switchToServer": "Switch to {{name}}",
     "toggleSearch": "Toggle full-text search",

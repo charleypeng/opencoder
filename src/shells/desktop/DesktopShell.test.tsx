@@ -2102,6 +2102,28 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(screen.getByTestId("sidebar")).not.toHaveClass("hidden");
   });
 
+  it("resizes the sidebar with the splitbar and persists the width", () => {
+    const alpha = server({ id: "srv-resize", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    localStorage.removeItem("oc-sidebar-width");
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    const sidebar = screen.getByTestId("sidebar");
+    const handle = screen.getByTestId("sidebar-resize-handle");
+    expect(handle).toHaveAttribute("role", "separator");
+    expect(handle).toHaveAttribute("aria-valuenow", "256");
+    expect(sidebar).toHaveStyle({ width: "256px" });
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
+    fireEvent.pointerMove(window, { clientX: 140 });
+    expect(handle).toHaveAttribute("aria-valuenow", "296");
+    expect(sidebar).toHaveStyle({ width: "296px" });
+    expect(localStorage.getItem("oc-sidebar-width")).toBe("296");
+
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(handle).toHaveAttribute("aria-valuenow", "280");
+  });
+
   it("⌘[ and ⌘] step through the session order with wrap-around", async () => {
     const alpha = server({ id: "srv-m8step", name: "Alpha" });
     // Mock the REST routes so the workspace tree can load: the roots list

@@ -156,6 +156,26 @@ export interface DesktopShellProps {
 
 type HealthKind = "ok" | "slow" | "down" | "unknown";
 
+const SIDEBAR_WIDTH_STORAGE_KEY = "oc-sidebar-width";
+const SIDEBAR_MIN_WIDTH = 208;
+const SIDEBAR_MAX_WIDTH = 440;
+const SIDEBAR_DEFAULT_WIDTH = 256;
+
+function readSidebarWidth(): number {
+  try {
+    const raw = localStorage.getItem(SIDEBAR_WIDTH_STORAGE_KEY);
+    if (raw !== null) {
+      const stored = Number(raw);
+      if (Number.isFinite(stored)) {
+        return Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, stored));
+      }
+    }
+  } catch {
+    // Storage may be unavailable in a private or embedded webview.
+  }
+  return SIDEBAR_DEFAULT_WIDTH;
+}
+
 const dotClass: Record<HealthKind, string> = {
   ok: "bg-success",
   slow: "bg-warning",
@@ -446,6 +466,62 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Sidebar visibility (TASK-M8-01): ⌘/Ctrl+B collapses and restores the
   // sidebar aside; the rail stays put as the toggle affordance.
   const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
+  // The sidebar can be resized without changing the fixed server rail. The
+  // width is persisted so reopening the workspace keeps the user's layout.
+  const [sidebarWidth, setSidebarWidth] = createSignal(readSidebarWidth());
+  let resizeStartX: number | null = null;
+  let resizeStartWidth = SIDEBAR_DEFAULT_WIDTH;
+
+  function updateSidebarWidth(next: number): void {
+    const width = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, next));
+    setSidebarWidth(width);
+    try {
+      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(width));
+    } catch {
+      // Keep the live resize working when persistence is unavailable.
+    }
+  }
+
+  function stopSidebarResize(): void {
+    resizeStartX = null;
+    window.removeEventListener("pointermove", onSidebarResizeMove);
+    window.removeEventListener("pointerup", stopSidebarResize);
+    window.removeEventListener("pointercancel", stopSidebarResize);
+  }
+
+  function onSidebarResizeMove(event: PointerEvent): void {
+    if (resizeStartX === null) return;
+    updateSidebarWidth(resizeStartWidth + event.clientX - resizeStartX);
+  }
+
+  function onSidebarResizeStart(event: PointerEvent): void {
+    if (event.button !== 0 || sidebarCollapsed()) return;
+    event.preventDefault();
+    resizeStartX = event.clientX;
+    resizeStartWidth = sidebarWidth();
+    window.addEventListener("pointermove", onSidebarResizeMove);
+    window.addEventListener("pointerup", stopSidebarResize);
+    window.addEventListener("pointercancel", stopSidebarResize);
+  }
+
+  function onSidebarResizeKeyDown(event: KeyboardEvent): void {
+    const step = event.shiftKey ? 64 : 16;
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      updateSidebarWidth(sidebarWidth() - step);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      updateSidebarWidth(sidebarWidth() + step);
+    } else if (event.key === "Home") {
+      event.preventDefault();
+      updateSidebarWidth(SIDEBAR_MIN_WIDTH);
+    } else if (event.key === "End") {
+      event.preventDefault();
+      updateSidebarWidth(SIDEBAR_MAX_WIDTH);
+    }
+  }
+
+  onCleanup(stopSidebarResize);
   // Shortcut dispatch scope (TASK-M8-01): follows the focused main area
   // (chat input / session list), "global" otherwise; gates the registry's
   // chat/list-scoped shortcuts.
@@ -1053,7 +1129,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         <aside
           data-testid="sidebar"
           data-collapsed={sidebarCollapsed() ? "true" : "false"}
-          class={`w-64 shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated ${
+          style={{ width: `${sidebarWidth()}px` }}
+          class={`shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated ${
             sidebarCollapsed() ? "hidden" : "flex"
           }`}
         >
@@ -1157,6 +1234,23 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             </div>
           </Show>
         </aside>
+        <Show when={!sidebarCollapsed()}>
+          <div
+            data-testid="sidebar-resize-handle"
+            role="separator"
+            aria-label={t("desktop:resizeSidebar")}
+            aria-orientation="vertical"
+            aria-valuemin={SIDEBAR_MIN_WIDTH}
+            aria-valuemax={SIDEBAR_MAX_WIDTH}
+            aria-valuenow={sidebarWidth()}
+            tabIndex={0}
+            class="group z-10 flex w-1 shrink-0 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
+            onPointerDown={onSidebarResizeStart}
+            onKeyDown={onSidebarResizeKeyDown}
+          >
+            <span class="w-px bg-bg-sunken transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+          </div>
+        </Show>
 
         <main class="flex min-w-0 flex-1 flex-col">
           <Show
