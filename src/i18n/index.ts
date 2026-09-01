@@ -9,6 +9,7 @@ import type { ResourceLanguage, TFunction } from "i18next";
 import { createSignal } from "solid-js";
 import en from "./en.json";
 import zhCN from "./zh-CN.json";
+import { setTrayLanguage } from "../services/tray.js";
 
 export type AppLanguage = "en" | "zh-CN";
 
@@ -49,6 +50,17 @@ void i18next.init({
   returnEmptyString: false,
 });
 
+/** Keeps native surfaces (currently the system tray) aligned with the
+ *  language selected in the webview, including the persisted choice that is
+ *  applied during initial module evaluation. */
+function syncNativeLanguage(lng: AppLanguage): void {
+  void setTrayLanguage(lng).catch(() => {
+    // Browser previews and older native builds may not expose this command.
+  });
+}
+
+syncNativeLanguage(detectLanguage());
+
 /** The current language signal (read-only; switch via `setLang`). */
 export { language };
 
@@ -58,6 +70,7 @@ export { language };
 export function setLang(lng: AppLanguage): void {
   setLanguage(lng);
   void i18next.changeLanguage(lng);
+  syncNativeLanguage(lng);
   try {
     localStorage.setItem(LANG_STORAGE_KEY, lng);
   } catch {

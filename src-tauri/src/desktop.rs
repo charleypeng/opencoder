@@ -43,6 +43,10 @@ const KEY_SUMMON_SHORTCUT: &str = "global_shortcut";
 pub struct DesktopState {
     close_to_tray: AtomicBool,
     summon_shortcut: Mutex<String>,
+    /// The frontend-selected language used for tray labels. `None` means
+    /// the runtime should fall back to the host locale until the webview
+    /// reports its persisted preference.
+    tray_language: Mutex<Option<String>>,
 }
 
 impl Default for DesktopState {
@@ -50,6 +54,7 @@ impl Default for DesktopState {
         Self {
             close_to_tray: AtomicBool::new(false),
             summon_shortcut: Mutex::new(DEFAULT_SUMMON_SHORTCUT.to_string()),
+            tray_language: Mutex::new(None),
         }
     }
 }
@@ -93,15 +98,17 @@ pub fn is_valid_shortcut(accelerator: &str) -> bool {
     !shortcut.mods.is_empty()
 }
 
-/// Localized tray menu labels: follow the system locale (zh vs everything
-/// else), so the tray stays readable for Chinese users without depending
-/// on the webview's i18n state. The standard `LANG` environment variable
-/// carries the user locale on macOS/Linux (e.g. `zh_CN.UTF-8`); Windows
-/// falls back to English here.
-fn tray_labels() -> (String, String, String) {
-    let zh = std::env::var("LANG")
-        .map(|locale| locale.starts_with("zh"))
-        .unwrap_or(false);
+/// Localized tray menu labels. The webview-selected language takes
+/// precedence; before it reports that preference, the host locale provides
+/// a useful startup fallback.
+fn tray_labels(language: Option<&str>) -> (String, String, String) {
+    let zh = language
+        .map(|locale| locale.eq_ignore_ascii_case("zh-CN"))
+        .unwrap_or_else(|| {
+            std::env::var("LANG")
+                .map(|locale| locale.starts_with("zh"))
+                .unwrap_or(false)
+        });
     if zh {
         (
             "显示/隐藏".to_string(),
@@ -122,8 +129,8 @@ fn tray_labels() -> (String, String, String) {
 /// the frontend (emits `tray-new-session`, handled by DesktopShell).
 /// Called when the close-to-tray setting is enabled; the tray exists only
 /// while that behaviour is on.
-fn build_tray(app: &AppHandle) -> tauri::Result<()> {
-    let (show_hide_text, new_session_text, quit_text) = tray_labels();
+fn build_tray(app: &AppHandle, language: Option<&str>) -> tauri::Result<()> {
+    let (show_hide_text, new_session_text, quit_text) = tray_labels(language);
     let show_hide = MenuItem::with_id(app, "show_hide", &show_hide_text, true, None::<&str>)?;
     let new_session = MenuItem::with_id(app, "new_session", &new_session_text, true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", &quit_text, true, None::<&str>)?;
@@ -236,7 +243,7 @@ pub fn setup(app: &App) {
         let _ = register_shortcut(handle, DEFAULT_SUMMON_SHORTCUT);
     }
     if state.close_to_tray() {
-        if let Err(err) = build_tray(handle) {
+        if let Err(err) = build_tray(handle, state.tray_language.lock().unwrap().as_deref()) {
             eprintln!("opencoder: tray setup failed: {err}");
         }
     }
@@ -257,13 +264,34 @@ pub fn set_close_to_tray(enabled: bool, app: AppHandle, state: State<'_, Desktop
     persist_desktop_pref(&app, KEY_CLOSE_TO_TRAY, json!(enabled));
     if enabled {
         if app.tray_by_id(TRAY_ID).is_none() {
-            if let Err(err) = build_tray(&app) {
+            if let Err(err) = build_tray(&app, state.tray_language.lock().unwrap().as_deref()) {
                 eprintln!("opencoder: tray setup failed: {err}");
             }
         }
     } else {
         remove_tray(&app);
     }
+}
+
+/// Updates tray labels when the user changes the app language. Rebuilding
+/// the small menu keeps the item ids and event handlers identical while
+/// avoiding stale labels from the previous language.
+#[tauri::command]
+pub fn set_tray_language(
+    language: String,
+    app: AppHandle,
+    state: State<'_, DesktopState>,
+) -> Result<(), String> {
+    if language != "en" && language != "zh-CN" {
+        return Err(format!("unsupported language: {language}"));
+    }
+    *state.tray_language.lock().unwrap() = Some(language);
+    if state.close_to_tray() {
+        remove_tray(&app);
+        build_tray(&app, state.tray_language.lock().unwrap().as_deref())
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(())
 }
 
 /// Current close-to-tray flag.
@@ -324,7 +352,27 @@ pub fn tray_set_badge(count: u32, app: AppHandle) {
 
 #[cfg(test)]
 mod tests {
-    use super::{badge_title, is_valid_shortcut};
+    use super::{badge_title, is_valid_shortcut, tray_labels};
+
+    #[test]
+    fn tray_labels_follow_the_selected_language() {
+        assert_eq!(
+            tray_labels(Some("zh-CN")),
+            (
+                "显示/隐藏".to_string(),
+                "新建会话".to_string(),
+                "退出".to_string()
+            )
+        );
+        assert_eq!(
+            tray_labels(Some("en")),
+            (
+                "Show/Hide".to_string(),
+                "New session".to_string(),
+                "Quit".to_string()
+            )
+        );
+    }
 
     #[test]
     fn badge_title_hides_zero() {

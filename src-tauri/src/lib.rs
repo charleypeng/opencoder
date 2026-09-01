@@ -199,6 +199,8 @@ pub fn run() {
             #[cfg(desktop)]
             desktop::get_close_to_tray,
             #[cfg(desktop)]
+            desktop::set_tray_language,
+            #[cfg(desktop)]
             desktop::set_global_shortcut,
             #[cfg(desktop)]
             desktop::get_global_shortcut,

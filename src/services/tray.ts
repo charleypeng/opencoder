@@ -25,6 +25,13 @@ export function setCloseToTray(enabled: boolean): Promise<void> {
   return invoke("set_close_to_tray", { enabled });
 }
 
+/** Applies the frontend language to the native tray menu. Non-desktop
+ *  builds and browser previews intentionally ignore this command. */
+export function setTrayLanguage(language: "en" | "zh-CN"): Promise<void> {
+  if (!inTauri()) return Promise.resolve();
+  return invoke("set_tray_language", { language });
+}
+
 /** Current close-to-tray flag; false outside Tauri. */
 export function getCloseToTray(): Promise<boolean> {
   if (!inTauri()) return Promise.resolve(false);
