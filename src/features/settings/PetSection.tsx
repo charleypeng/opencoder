@@ -81,11 +81,7 @@ const PetSection: Component<{ serverId: string }> = () => {
       await setPetEnabled(!showPet());
       setShowPet((shown) => !shown);
     } catch (err) {
-      if (err instanceof PetPackError && err.code === "reservedPackId") {
-        setError(t("pet:bundledPackAlreadyInstalled"));
-      } else {
-        setError(err instanceof Error ? err.message : String(err));
-      }
+      setError(err instanceof Error ? err.message : String(err));
     } finally {
       setPetBusy(false);
     }
@@ -132,7 +128,11 @@ const PetSection: Component<{ serverId: string }> = () => {
       await refreshPetPacks();
       selectPack(result.pack.id);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      if (err instanceof PetPackError && err.code === "reservedPackId") {
+        setError(t("pet:bundledPackAlreadyInstalled"));
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+      }
     } finally {
       setImporting(false);
     }

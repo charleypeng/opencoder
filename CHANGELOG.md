@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(settings): Explain that bundled pet packs are already installed instead of exposing a raw reserved ID. (settings)
 - fix(pet): Prevent concurrent renderer mounts from appending duplicate pet canvases to the companion window. (pet)
 - fix(pet): Resize the native companion window in logical pixels so Retina displays no longer clip the sprite to a partial image. (pet)
 - fix(pet): Fill the companion window with the rendered pet and clear every webview background layer so its transparent edge blends into the desktop. (pet)

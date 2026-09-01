@@ -127,6 +127,28 @@ describe("PetSection", () => {
       }),
     );
   });
+
+  it("explains that a bundled pack is already installed", async () => {
+    openMock.mockResolvedValueOnce("/tmp/default.opet");
+    invokeMock.mockImplementation((cmd: string) => {
+      if (cmd === "pet_get_ignore_mouse") return Promise.resolve(false);
+      if (cmd === "pet_pack_install") {
+        return Promise.reject("reservedPackId: dev.opencoder.byte");
+      }
+      if (cmd === "pet_pack_list") {
+        return Promise.resolve([{ id: "dev.opencoder.byte", name: "Byte", source: "bundled" }]);
+      }
+      return Promise.resolve(undefined);
+    });
+    render(() => <PetSection serverId="srv-pet" />);
+    fireEvent.click(screen.getByTestId("pet-pack-import"));
+    await waitFor(() =>
+      expect(screen.getByTestId("pet-error")).toHaveTextContent(
+        "This built-in pet is already included with the app.",
+      ),
+    );
+  });
+
   it("keeps the applied state and shows an error when the pet action fails", async () => {
     invokeMock.mockImplementation((cmd: string) => {
       if (cmd === "pet_hide") return Promise.reject("pet unavailable");
