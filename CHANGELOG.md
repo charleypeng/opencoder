@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(pet): Bundle original orange-tabby, Shiba Inu, and retro helper-robot sprite packs as built-in animated defaults. (pet)
+- feat(terminal): Restore existing PTYs when opened and dock the terminal below the chat transcript for a working in-context terminal. (terminal)
+- feat(sessions): Add a checkable workspace-tree batch mode with API-confirmed delete and archive operations, including partial-failure recovery. (sessions)
 - feat(desktop): Add a keyboard-accessible, persisted splitbar for resizing the workspace sidebar. (desktop)
 - feat(servers): Add an app-managed local `opencode serve` mode with automatic startup and lifecycle cleanup. (servers)
 - feat(pet): Present available pet packs as searchable preview cards for faster visual selection. (pet)
@@ -17,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(desktop): Suppress the WebView reload and inspector context menu in release builds. (desktop)
+- fix(styles): Make the light workspace canvas white while retaining a contrasting gray sidebar and controls. (styles)
 - fix(settings): Give desktop settings navigation items a uniform full-width selection background. (settings)
 - fix(desktop): Sync tray menu labels with the language selected in app settings. (desktop)
 - fix(sessions): Use the native folder picker only for local-mode servers and keep the in-app browser as the remote fallback. (sessions)

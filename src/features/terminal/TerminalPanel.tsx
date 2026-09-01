@@ -9,10 +9,10 @@
 // note until the user closes them (removal also DELETEs the server-side
 // pty and unmounting the tab closes its channel).
 
-import { createEffect, createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { getApiClient } from "../../services/client.js";
-import { createPtyService, type PtyShell } from "../../services/pty.js";
+import { createPtyService, type Pty, type PtyShell } from "../../services/pty.js";
 import { getServerPtyState, removePty, upsertPty } from "../../stores/ptys.js";
 import TerminalInstance, { type TerminalInstanceApi } from "./TerminalInstance.js";
 import TerminalKeyStrip from "./TerminalKeyStrip.js";
@@ -41,6 +41,31 @@ const TerminalPanel: Component<TerminalPanelProps> = (props) => {
   const [shellsError, setShellsError] = createSignal(false);
   const [creating, setCreating] = createSignal(false);
   const [createError, setCreateError] = createSignal(false);
+
+  // Restore PTYs that already exist on the server when the panel is opened.
+  // The SSE stream only reports changes after subscription; without this
+  // initial snapshot, opening the terminal after a restart showed an empty
+  // panel until the user created another PTY.
+  onMount(() => {
+    const serverId = props.serverId;
+    const timer = window.setTimeout(() => {
+      void ptyService
+        .list()
+        .then((list) => {
+          // Merge the snapshot so a PTY created by SSE while the request was
+          // in flight is not erased by a late response.
+          if (Array.isArray(list)) {
+            for (const pty of list) {
+              if (pty !== null && typeof pty === "object" && "id" in pty) {
+                upsertPty(serverId, pty as Pty);
+              }
+            }
+          }
+        })
+        .catch(() => undefined);
+    }, 0);
+    onCleanup(() => window.clearTimeout(timer));
+  });
 
   // Per-pty input APIs (TASK-M7-09): each mounted instance registers its
   // sendInput handle here; the aux key strip routes to the active one.

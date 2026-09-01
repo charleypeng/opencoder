@@ -105,9 +105,11 @@
 }
 
 [data-theme="light"] {
-  --bg-base: #f6f7f9;
-  --bg-elevated: #ffffff;
-  --bg-sunken: #ecedf1;
+  /* Keep the workspace canvas white while the rail/sidebar stays visibly
+     darker, matching native productivity apps in daylight mode. */
+  --bg-base: #ffffff;
+  --bg-elevated: #f1f2f4;
+  --bg-sunken: #e4e6ea;
   --fg-primary: #191e29;
   --fg-secondary: #586071;
   /* TASK-M9-08 contrast fixes (docs/a11y-report.md contrast table):

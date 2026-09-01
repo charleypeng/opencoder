@@ -3,7 +3,7 @@
 // completion from projects, expand/collapse with persistence, search
 // filtering, session selection with directory switch, folder hover actions
 // (open folder picker / remove from list), status dots, the session ⋯ menu
-// (batch disabled placeholder, open folder, danger delete) and the empty
+// (batch selection, open folder, danger delete) and the empty
 // state with the add-directory entry.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -90,8 +90,8 @@ function mockClient(overrides: { roots?: Session[]; projects?: Project[] } = {})
     post: vi.fn<(path: string, opts?: unknown) => Promise<Session>>(async () =>
       session("s-new", "/dev/opencoder"),
     ),
-    patch: vi.fn(async () => undefined),
-    delete: vi.fn(async () => undefined),
+    patch: vi.fn<(path: string, opts?: unknown) => Promise<unknown>>(async () => undefined),
+    delete: vi.fn<(path: string, opts?: unknown) => Promise<unknown>>(async () => true),
   };
   getApiClientMock.mockReturnValue(client);
   return client;
@@ -290,7 +290,7 @@ describe("WorkspaceTree", () => {
     expect(status).toHaveAttribute("data-status", "busy");
   });
 
-  it("opens the session ⋯ menu with batch placeholder and danger delete", async () => {
+  it("opens the session ⋯ menu with batch action and danger delete", async () => {
     renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
     const menuButton = within(screen.getByTestId("workspace-session-s1")).getByTestId(
@@ -300,11 +300,68 @@ describe("WorkspaceTree", () => {
     await waitFor(() =>
       expect(screen.getByTestId("workspace-session-menu-open-folder")).toBeInTheDocument(),
     );
-    // Batch actions are a disabled placeholder.
+    // Batch actions enter the checkable tree mode.
     const batch = screen.getByTestId("workspace-session-menu-batch");
-    expect(batch).toBeDisabled();
-    // Delete renders with danger styling.
+    expect(batch).toBeEnabled();
+    // Delete remains available as a separate danger action in the menu.
     expect(screen.getByTestId("workspace-session-menu-delete")).toBeInTheDocument();
+    fireEvent.click(batch);
+    expect(screen.getByTestId("workspace-batch-bar")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-session-select-s1")).toBeChecked();
+  });
+
+  it("deletes selected sessions only after every API request succeeds", async () => {
+    const client = mockClient();
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
+    fireEvent.click(screen.getByTestId("workspace-select-all"));
+    expect(screen.getByTestId("workspace-selection-count")).toHaveTextContent("3");
+
+    fireEvent.click(screen.getByTestId("workspace-batch-delete"));
+    await waitFor(() => expect(client.delete).toHaveBeenCalledTimes(3));
+    await waitFor(() => expect(screen.queryByTestId("workspace-batch-bar")).toBeNull());
+  });
+
+  it("keeps failed sessions selected and reports partial batch failures", async () => {
+    const client = mockClient();
+    client.delete
+      .mockResolvedValueOnce(true)
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockResolvedValue(true);
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
+    fireEvent.click(screen.getByTestId("workspace-session-select-s1"));
+    fireEvent.click(screen.getByTestId("workspace-session-select-s2"));
+    fireEvent.click(screen.getByTestId("workspace-batch-delete"));
+
+    await waitFor(() => expect(screen.getByTestId("workspace-batch-error")).toBeInTheDocument());
+    expect(screen.getByTestId("workspace-session-s2")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-session-select-s2")).toBeChecked();
+  });
+
+  it("archives sessions only when the server confirms the archive", async () => {
+    const client = mockClient();
+    client.patch.mockResolvedValue({ time: { archived: 123 } });
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
+    fireEvent.click(screen.getByTestId("workspace-session-select-s1"));
+    fireEvent.click(screen.getByTestId("workspace-batch-archive"));
+
+    await waitFor(() =>
+      expect(client.patch).toHaveBeenCalledWith(
+        "/session/s1",
+        expect.objectContaining({
+          body: expect.objectContaining({
+            time: expect.objectContaining({ archived: expect.any(Number) }),
+          }),
+          query: { directory: "/dev/opencoder" },
+        }),
+      ),
+    );
+    await waitFor(() => expect(screen.queryByTestId("workspace-batch-bar")).toBeNull());
   });
 
   it("renders the empty state with an add-directory entry", async () => {

@@ -33,6 +33,7 @@ import { createSessionService, type Session } from "../../services/session.js";
 import { applyProjects, getServerProjectState, setCurrent } from "../../stores/project.js";
 import {
   getServerSessionState,
+  removeSession,
   sessions as sessionStore,
   setActiveSession,
   type SessionStatusEntry,
@@ -133,6 +134,9 @@ function FolderRow(props: {
   isCurrent: boolean;
   isDefault: boolean;
   statusKind: StatusKind;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onToggle: () => void;
   onAddSession: () => void;
   onMore: (position: { x: number; y: number }) => void;
@@ -163,6 +167,17 @@ function FolderRow(props: {
       >
         ▸
       </button>
+      <Show when={props.selectionMode}>
+        <input
+          type="checkbox"
+          data-testid={`workspace-folder-select-${props.folder.directory || "uncategorized"}`}
+          aria-label={t("sessions:selectWorkspace")}
+          checked={props.selected ?? false}
+          onChange={() => props.onToggleSelect?.()}
+          onClick={(event) => event.stopPropagation()}
+          class="h-4 w-4 shrink-0 accent-accent"
+        />
+      </Show>
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
@@ -264,6 +279,9 @@ function SessionRow(props: {
   nowMs: number;
   forked: boolean;
   parentTitle?: string;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onSelect: () => void;
   onMenu: (session: Session, position: { x: number; y: number }) => void;
 }) {
@@ -299,6 +317,17 @@ function SessionRow(props: {
         props.onMenu(props.session, { x: event.clientX, y: event.clientY });
       }}
     >
+      <Show when={props.selectionMode}>
+        <input
+          type="checkbox"
+          data-testid={`workspace-session-select-${props.session.id}`}
+          aria-label={t("sessions:selectSession", { title: title() })}
+          checked={props.selected ?? false}
+          onChange={() => props.onToggleSelect?.()}
+          onClick={(event) => event.stopPropagation()}
+          class="h-4 w-4 shrink-0 accent-accent"
+        />
+      </Show>
       <button
         type="button"
         aria-current={props.active ? "true" : undefined}
@@ -369,6 +398,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   const [query, setQuery] = createSignal("");
   const [creating, setCreating] = createSignal(false);
   const [createError, setCreateError] = createSignal<ApiError | null>(null);
+  const [selectionMode, setSelectionMode] = createSignal(false);
+  const [selectedIds, setSelectedIds] = createSignal<ReadonlySet<string>>(new Set());
+  const [batchBusy, setBatchBusy] = createSignal<"delete" | "archive" | null>(null);
+  const [batchError, setBatchError] = createSignal<string | null>(null);
   const [collapsed, setCollapsed] = createSignal<ReadonlySet<string>>(readStringSet(COLLAPSED_KEY));
   const [hiddenFolders, setHiddenFolders] = createSignal<ReadonlySet<string>>(
     readStringSet(HIDDEN_KEY),
@@ -512,6 +545,107 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   });
 
   const storeSessions = createMemo(() => Object.values(localSessions));
+
+  function toggleSelection(sessionId: string): void {
+    const next = new Set(selectedIds());
+    if (next.has(sessionId)) next.delete(sessionId);
+    else next.add(sessionId);
+    setSelectedIds(next);
+  }
+
+  function toggleFolderSelection(folder: WorkspaceFolder): void {
+    const next = new Set(selectedIds());
+    const ids = folder.sessions.map((session) => session.id);
+    const shouldSelect = ids.some((id) => !next.has(id));
+    for (const id of ids) {
+      if (shouldSelect) next.add(id);
+      else next.delete(id);
+    }
+    setSelectedIds(next);
+  }
+
+  function handleSessionClick(session: Session): void {
+    if (selectionMode()) {
+      toggleSelection(session.id);
+      return;
+    }
+    void selectSession(session);
+  }
+
+  function folderSelected(folder: WorkspaceFolder): boolean {
+    return (
+      folder.sessions.length > 0 &&
+      folder.sessions.every((session) => selectedIds().has(session.id))
+    );
+  }
+
+  function enterSelectionMode(sessionId?: string): void {
+    setBatchError(null);
+    setSelectionMode(true);
+    if (sessionId !== undefined) setSelectedIds(new Set([sessionId]));
+  }
+
+  function exitSelectionMode(): void {
+    if (batchBusy() !== null) return;
+    setSelectionMode(false);
+    setSelectedIds(new Set<string>());
+    setBatchError(null);
+  }
+
+  function selectAllSessions(): void {
+    setSelectedIds(new Set(selectableSessions().map((session) => session.id)));
+  }
+
+  function removeLocalSessions(ids: ReadonlySet<string>): void {
+    setLocalSessions(
+      produce((draft) => {
+        for (const id of ids) delete draft[id];
+      }),
+    );
+  }
+
+  async function runBatch(action: "delete" | "archive"): Promise<void> {
+    const ids = [...selectedIds()];
+    if (ids.length === 0 || batchBusy() !== null) return;
+    setBatchBusy(action);
+    setBatchError(null);
+    const service = createSessionService(getApiClient());
+    const directories = new Map(ids.map((id) => [id, localSessions[id]?.directory]));
+    const results = await Promise.allSettled(
+      ids.map(async (id) => {
+        const directory = directories.get(id);
+        if (action === "delete") {
+          const removed = await service.remove(id, directory);
+          if (removed !== true) throw new Error("The server did not confirm the deletion");
+          return;
+        }
+        const updated = await service.update(id, { time: { archived: Date.now() } }, directory);
+        if (updated.time.archived === undefined) {
+          throw new Error("The server did not confirm the archive");
+        }
+      }),
+    );
+    const failed = new Set<string>();
+    for (let index = 0; index < results.length; index += 1) {
+      if (results[index]?.status === "fulfilled") {
+        removeSession(props.serverId, ids[index]);
+      } else {
+        failed.add(ids[index]);
+      }
+    }
+    removeLocalSessions(new Set(ids.filter((id) => !failed.has(id))));
+    setSelectedIds(failed);
+    setBatchBusy(null);
+    if (failed.size > 0) {
+      setBatchError(
+        t("sessions:batchPartial", { succeeded: ids.length - failed.size, failed: failed.size }),
+      );
+      refresh();
+      return;
+    }
+    setSelectionMode(false);
+    refresh();
+  }
   // The rendered workspaces = the persisted explicit list + the default
   // workspace. With NO persisted workspaces yet the tree falls back to every
   // derived directory (existing servers / pre-onboarding); once the user
@@ -544,6 +678,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       }
     }
     return built;
+  });
+  const selectableSessions = createMemo(() => {
+    const { folders, uncategorized } = tree();
+    return [...folders.flatMap((folder) => folder.sessions), ...uncategorized];
   });
 
   // Search filter: a folder stays visible when any of its sessions (or the
@@ -739,8 +877,8 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     return parent === undefined ? undefined : parent.title || parent.slug;
   }
 
-  /** Row ⋯ menu (WorkBuddy-style): batch (disabled placeholder), open
-   *  folder, then the existing session actions; delete is danger-red. */
+  /** Row ⋯ menu (WorkBuddy-style): enter selection mode for batch actions,
+   *  open the folder, then the existing session actions. */
   const rowMenuItems = createMemo<MenuItem[]>(() => {
     const target = rowMenu();
     if (target === null) return [];
@@ -749,8 +887,7 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       {
         id: "batch",
         label: t("sessions:batchActions"),
-        disabled: true,
-        hint: t("sessions:comingSoon"),
+        onSelect: () => enterSelectionMode(session.id),
       },
       {
         id: "open-folder",
@@ -870,6 +1007,36 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           onInput={(event) => setQuery(event.currentTarget.value)}
           class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
         />
+        <Show when={!selectionMode()}>
+          <button
+            type="button"
+            data-testid="workspace-batch-toggle"
+            class="mt-1.5 flex w-full items-center justify-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+            onClick={() => enterSelectionMode()}
+          >
+            {t("sessions:batchActions")}
+          </button>
+        </Show>
+        <Show when={selectionMode()}>
+          <div class="mt-1.5 flex items-center justify-between gap-2 text-xs text-fg-secondary">
+            <span data-testid="workspace-selection-count">
+              {t("sessions:batchSelectionCount", { count: selectedIds().size })}
+            </span>
+            <button
+              type="button"
+              data-testid="workspace-select-all"
+              class="rounded px-1.5 py-0.5 text-accent outline-none hover:bg-bg-sunken"
+              onClick={() => selectAllSessions()}
+            >
+              {t("sessions:selectAll")}
+            </button>
+          </div>
+        </Show>
+        <Show when={batchError()}>
+          <p data-testid="workspace-batch-error" class="mt-1 text-xs text-danger">
+            {batchError()}
+          </p>
+        </Show>
       </div>
       <div class="min-h-0 flex-1 overflow-y-auto pb-3">
         <Show
@@ -907,6 +1074,9 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
               expanded={isExpanded(defaultFolder()!.directory, filteredTree().matched)}
               isCurrent={projectState().current === defaultFolder()!.directory}
               isDefault
+              selectionMode={selectionMode()}
+              selected={folderSelected(defaultFolder()!)}
+              onToggleSelect={() => toggleFolderSelection(defaultFolder()!)}
               statusKind={folderStatusKind(
                 defaultFolder()!,
                 projectState().current === defaultFolder()!.directory,
@@ -933,7 +1103,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     nowMs={now()}
                     forked={session.parentID !== undefined}
                     parentTitle={parentTitleOf(session)}
-                    onSelect={() => void selectSession(session)}
+                    selectionMode={selectionMode()}
+                    selected={selectedIds().has(session.id)}
+                    onToggleSelect={() => toggleSelection(session.id)}
+                    onSelect={() => handleSessionClick(session)}
                     onMenu={(target, position) => setRowMenu({ session: target, ...position })}
                   />
                 )}
@@ -960,6 +1133,9 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     expanded={expanded()}
                     isCurrent={isCurrent()}
                     isDefault={false}
+                    selectionMode={selectionMode()}
+                    selected={folderSelected(folder)}
+                    onToggleSelect={() => toggleFolderSelection(folder)}
                     statusKind={statusKind()}
                     onToggle={() => toggleFolder(folder.directory)}
                     onAddSession={() => void handleCreateIn(folder.directory)}
@@ -977,7 +1153,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                           nowMs={now()}
                           forked={session.parentID !== undefined}
                           parentTitle={parentTitleOf(session)}
-                          onSelect={() => void selectSession(session)}
+                          selectionMode={selectionMode()}
+                          selected={selectedIds().has(session.id)}
+                          onToggleSelect={() => toggleSelection(session.id)}
+                          onSelect={() => handleSessionClick(session)}
                           onMenu={(target, position) =>
                             setRowMenu({ session: target, ...position })
                           }
@@ -1001,6 +1180,21 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                 expanded={!collapsed().has("__uncategorized__")}
                 isCurrent={false}
                 isDefault={false}
+                selectionMode={selectionMode()}
+                selected={folderSelected({
+                  directory: "",
+                  name: t("sessions:uncategorized"),
+                  sessions: filteredTree().uncategorized,
+                  recentMs: 0,
+                })}
+                onToggleSelect={() =>
+                  toggleFolderSelection({
+                    directory: "",
+                    name: t("sessions:uncategorized"),
+                    sessions: filteredTree().uncategorized,
+                    recentMs: 0,
+                  })
+                }
                 statusKind="none"
                 onToggle={() => toggleFolder("__uncategorized__")}
                 onAddSession={() => undefined}
@@ -1016,7 +1210,10 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                       nowMs={now()}
                       forked={session.parentID !== undefined}
                       parentTitle={parentTitleOf(session)}
-                      onSelect={() => void selectSession(session)}
+                      selectionMode={selectionMode()}
+                      selected={selectedIds().has(session.id)}
+                      onToggleSelect={() => toggleSelection(session.id)}
+                      onSelect={() => handleSessionClick(session)}
                       onMenu={(target, position) => setRowMenu({ session: target, ...position })}
                     />
                   )}
@@ -1026,6 +1223,44 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           </Show>
         </Show>
       </div>
+      <Show when={selectionMode()}>
+        <div
+          data-testid="workspace-batch-bar"
+          class="sticky bottom-0 flex shrink-0 items-center gap-2 border-t border-bg-sunken bg-bg-elevated px-3 py-2"
+        >
+          <span class="min-w-0 flex-1 truncate text-xs text-fg-secondary">
+            {t("sessions:batchSelectionCount", { count: selectedIds().size })}
+          </span>
+          <button
+            type="button"
+            data-testid="workspace-batch-delete"
+            disabled={selectedIds().size === 0 || batchBusy() !== null}
+            class="rounded-md border border-danger/50 px-2 py-1 text-xs text-danger outline-none hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void runBatch("delete")}
+          >
+            {batchBusy() === "delete" ? t("sessions:batchWorking") : t("sessions:delete")}
+          </button>
+          <button
+            type="button"
+            data-testid="workspace-batch-archive"
+            disabled={selectedIds().size === 0 || batchBusy() !== null}
+            class="rounded-md border border-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+            onClick={() => void runBatch("archive")}
+          >
+            {batchBusy() === "archive" ? t("sessions:batchWorking") : t("sessions:archive")}
+          </button>
+          <button
+            type="button"
+            data-testid="workspace-batch-close"
+            aria-label={t("sessions:closeBatch")}
+            disabled={batchBusy() !== null}
+            class="rounded-md px-1.5 py-1 text-lg leading-none text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary disabled:opacity-50"
+            onClick={() => exitSelectionMode()}
+          >
+            ×
+          </button>
+        </div>
+      </Show>
 
       {/* Open-folder picker: positioned at the target directory (defaults
           to the filesystem root when no directory is given). Adding a

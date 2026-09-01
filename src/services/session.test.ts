@@ -138,12 +138,41 @@ describe("session service (invoke payload assembly)", () => {
     });
   });
 
+  it("update passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: { id: "sess_01", title: "Renamed" } }));
+    await createSessionService(makeClient()).update(
+      "sess_01",
+      { title: "Renamed" },
+      "/project/alpha",
+    );
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "PATCH",
+        path: "/session/sess_01",
+        body: { title: "Renamed" },
+        query: { directory: "/project/alpha" },
+      },
+    });
+  });
+
   it("remove DELETEs the session", async () => {
     invokeMock.mockResolvedValue(httpResponse({ body: true }));
     const result = await createSessionService(makeClient()).remove("sess_01");
     expect(result).toBe(true);
     expect(invokeMock).toHaveBeenCalledWith("http_request", {
       request: { method: "DELETE", path: "/session/sess_01" },
+    });
+  });
+
+  it("remove passes an explicit directory", async () => {
+    invokeMock.mockResolvedValue(httpResponse({ body: true }));
+    await createSessionService(makeClient()).remove("sess_01", "/project/alpha");
+    expect(invokeMock).toHaveBeenCalledWith("http_request", {
+      request: {
+        method: "DELETE",
+        path: "/session/sess_01",
+        query: { directory: "/project/alpha" },
+      },
     });
   });
 

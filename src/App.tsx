@@ -1,4 +1,4 @@
-import { createEffect, createSignal, onMount, Show } from "solid-js";
+import { createEffect, createSignal, onCleanup, onMount, Show } from "solid-js";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import ServerHome from "./features/servers/ServerHome";
 import DesktopShell from "./shells/desktop/DesktopShell";
@@ -46,6 +46,13 @@ function App() {
   });
 
   onMount(() => {
+    // The native WebView context menu exposes reload and inspector actions in
+    // development, but must stay unavailable in release builds.
+    if (import.meta.env.PROD) {
+      const preventContextMenu = (event: MouseEvent): void => event.preventDefault();
+      window.addEventListener("contextmenu", preventContextMenu);
+      onCleanup(() => window.removeEventListener("contextmenu", preventContextMenu));
+    }
     if (window.__TAURI_INTERNALS__ !== undefined) {
       try {
         setPetWindow(getCurrentWindow().label === "pet");

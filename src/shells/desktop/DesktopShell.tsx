@@ -440,6 +440,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [mainView, setMainView] = createSignal<"chat" | "files" | "diff" | "changes" | "terminal">(
     "chat",
   );
+  // The terminal is a docked panel in Chat, so opening it keeps the
+  // transcript and composer visible while sharing the available height.
+  const [terminalDocked, setTerminalDocked] = createSignal(false);
   // Settings dialog (TASK-UI-01): settings floats above the active view
   // as a modal instead of replacing it — the gear button, the command
   // palette's settings action and the ⌘, shortcut open this dialog.
@@ -759,7 +762,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         if (!activeSessionId()) return;
         openDiff();
       },
-      toggleTerminal: () => setMainView((view) => (view === "terminal" ? "chat" : "terminal")),
+      toggleTerminal: () => setTerminalDocked((open) => !open),
       switchServer: (event) => {
         const target = servers()[Number(event.key) - 1];
         if (!target) return;
@@ -1261,63 +1264,90 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   action buttons (search/changes/terminal/settings), so it
                   is NOT a tablist (axe aria-required-children); the active
                   view uses aria-current instead of aria-selected. */}
-                <div class="flex shrink-0 items-center gap-1 border-b border-bg-sunken px-3 py-2">
-                  {/* Segmented view switch: compact auto-width control (the
+                <Show when={!terminalDocked()}>
+                  <div class="flex shrink-0 items-center gap-1 border-b border-bg-sunken px-3 py-2">
+                    {/* Segmented view switch: compact auto-width control (the
                     previous flex-1 tabs stretched into full-width pills). */}
-                  <div class="flex gap-0.5 rounded-lg bg-bg-sunken/60 p-0.5">
-                    <button
-                      type="button"
-                      data-testid="main-tab-chat"
-                      aria-current={mainView() === "chat" ? "true" : undefined}
-                      class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                        mainView() === "chat"
-                          ? "bg-accent-soft text-fg-primary"
-                          : "text-fg-secondary hover:text-fg-primary"
-                      }`}
-                      onClick={() => setMainView("chat")}
-                    >
-                      {t("desktop:chatTab")}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid="main-tab-files"
-                      aria-current={mainView() === "files" ? "true" : undefined}
-                      class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
-                        mainView() === "files"
-                          ? "bg-accent-soft text-fg-primary"
-                          : "text-fg-secondary hover:text-fg-primary"
-                      }`}
-                      onClick={() => setMainView("files")}
-                    >
-                      {t("desktop:filesTab")}
-                    </button>
-                  </div>
-                  <div class="ml-auto flex items-center gap-1">
-                    <Show when={mainView() === "files"}>
+                    <div class="flex gap-0.5 rounded-lg bg-bg-sunken/60 p-0.5">
                       <button
                         type="button"
-                        data-testid="files-search-toggle"
-                        aria-pressed={filesMode() === "search" ? "true" : "false"}
-                        aria-label={t("desktop:toggleSearch")}
-                        title={t("desktop:searchHint")}
-                        class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
-                          filesMode() === "search"
-                            ? "text-accent"
+                        data-testid="main-tab-chat"
+                        aria-current={mainView() === "chat" ? "true" : undefined}
+                        class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                          mainView() === "chat"
+                            ? "bg-accent-soft text-fg-primary"
                             : "text-fg-secondary hover:text-fg-primary"
                         }`}
-                        onClick={() =>
-                          setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
-                        }
+                        onClick={() => setMainView("chat")}
                       >
-                        <SearchIcon />
+                        {t("desktop:chatTab")}
                       </button>
                       <button
                         type="button"
-                        data-testid="changes-toggle"
-                        aria-label={t("desktop:openVcs")}
-                        title={t("desktop:vcsHint")}
+                        data-testid="main-tab-files"
+                        aria-current={mainView() === "files" ? "true" : undefined}
+                        class={`rounded-md px-3 py-1 text-xs outline-none transition-colors ${
+                          mainView() === "files"
+                            ? "bg-accent-soft text-fg-primary"
+                            : "text-fg-secondary hover:text-fg-primary"
+                        }`}
+                        onClick={() => setMainView("files")}
+                      >
+                        {t("desktop:filesTab")}
+                      </button>
+                    </div>
+                    <div class="ml-auto flex items-center gap-1">
+                      <Show when={mainView() === "files"}>
+                        <button
+                          type="button"
+                          data-testid="files-search-toggle"
+                          aria-pressed={filesMode() === "search" ? "true" : "false"}
+                          aria-label={t("desktop:toggleSearch")}
+                          title={t("desktop:searchHint")}
+                          class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                            filesMode() === "search"
+                              ? "text-accent"
+                              : "text-fg-secondary hover:text-fg-primary"
+                          }`}
+                          onClick={() =>
+                            setFilesMode((mode) => (mode === "viewer" ? "search" : "viewer"))
+                          }
+                        >
+                          <SearchIcon />
+                        </button>
+                        <button
+                          type="button"
+                          data-testid="changes-toggle"
+                          aria-label={t("desktop:openVcs")}
+                          title={t("desktop:vcsHint")}
+                          class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
+                          onClick={() => setMainView("changes")}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.6"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            class="h-4 w-4"
+                            aria-hidden="true"
+                          >
+                            <circle cx="6" cy="6" r="2.4" />
+                            <circle cx="6" cy="18" r="2.4" />
+                            <circle cx="18" cy="8" r="2.4" />
+                            <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+                          </svg>
+                        </button>
+                      </Show>
+                      <button
+                        type="button"
+                        data-testid="terminal-toggle"
+                        aria-pressed={terminalDocked() ? "true" : "false"}
+                        aria-label={t("desktop:openTerminal")}
+                        title={t("desktop:terminalHint")}
                         class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                        onClick={() => setMainView("changes")}
+                        onClick={() => setTerminalDocked((open) => !open)}
                       >
                         <svg
                           viewBox="0 0 24 24"
@@ -1329,36 +1359,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           class="h-4 w-4"
                           aria-hidden="true"
                         >
-                          <circle cx="6" cy="6" r="2.4" />
-                          <circle cx="6" cy="18" r="2.4" />
-                          <circle cx="18" cy="8" r="2.4" />
-                          <path d="M6 8.4v7.2M6 8.4a5 5 0 0 0 5 5h5" />
+                          <path d="m4 7 5 5-5 5M12 17h8" />
                         </svg>
                       </button>
-                    </Show>
-                    <button
-                      type="button"
-                      data-testid="terminal-toggle"
-                      aria-label={t("desktop:openTerminal")}
-                      title={t("desktop:terminalHint")}
-                      class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                      onClick={() => setMainView("terminal")}
-                    >
-                      <svg
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        stroke-width="1.6"
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        class="h-4 w-4"
-                        aria-hidden="true"
-                      >
-                        <path d="m4 7 5 5-5 5M12 17h8" />
-                      </svg>
-                    </button>
+                    </div>
                   </div>
-                </div>
+                </Show>
                 <Show
                   when={mainView() === "chat"}
                   fallback={
@@ -1513,6 +1519,31 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     </div>
                   </Show>
                 </Show>
+                <Show when={terminalDocked()}>
+                  <section
+                    data-testid="terminal-dock"
+                    aria-label={t("desktop:terminal")}
+                    class="flex h-64 min-h-0 shrink-0 flex-col border-t border-bg-sunken bg-bg-base"
+                  >
+                    <div class="flex h-8 shrink-0 items-center justify-between border-b border-bg-sunken px-3">
+                      <span class="text-xs font-medium text-fg-secondary">
+                        {t("desktop:terminal")}
+                      </span>
+                      <button
+                        type="button"
+                        data-testid="terminal-back"
+                        aria-label={t("terminal:close")}
+                        class="rounded px-1.5 text-xs text-fg-secondary outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                        onClick={() => setTerminalDocked(false)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <Suspense fallback={<div class="flex min-h-0 flex-1" />}>
+                      <TerminalPanel serverId={activeServerId()} />
+                    </Suspense>
+                  </section>
+                </Show>
               </>
             }
           >
@@ -1599,7 +1630,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   type="button"
                   data-testid="terminal-back"
                   class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                  onClick={() => setMainView("chat")}
+                  onClick={() => {
+                    setMainView("chat");
+                    setTerminalDocked(false);
+                  }}
                 >
                   ← {t("common:back")}
                 </button>
@@ -1655,7 +1689,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           onNewSession: () => void handleNewSession(),
           onOpenSettings: () => setSettingsOpen(true),
           onToggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
-          onOpenTerminal: () => setMainView("terminal"),
+          onOpenTerminal: () => setTerminalDocked(true),
           onOpenDiff: () => {
             if (activeSessionId()) openDiff();
           },

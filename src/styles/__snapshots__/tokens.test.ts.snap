@@ -38,9 +38,9 @@ exports[`design tokens (L2 snapshot) > matches the token snapshot for dark and l
     "--font-code: "JetBrains Mono", "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace",
   ],
   "light": [
-    "--bg-base: #f6f7f9",
-    "--bg-elevated: #ffffff",
-    "--bg-sunken: #ecedf1",
+    "--bg-base: #ffffff",
+    "--bg-elevated: #f1f2f4",
+    "--bg-sunken: #e4e6ea",
     "--fg-primary: #191e29",
     "--fg-secondary: #586071",
     "--fg-faint: #646d7e",

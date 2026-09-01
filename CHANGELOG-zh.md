@@ -9,6 +9,9 @@
 
 ### 新增
 
+- feat(pet)：将原创橘猫、柴犬和复古助手机器人精灵图包作为内置动画默认宠物一起发布。(pet)
+- feat(terminal)：打开终端时恢复已有 PTY，并将终端停靠在聊天记录下方，便于在当前上下文中操作。(terminal)
+- feat(sessions)：为工作区树新增可勾选的批量模式，删除和归档均以服务端 API 确认成功为准，并支持部分失败后重试。(sessions)
 - feat(desktop)：新增可用键盘操作且会持久化的分隔条，用于调整工作区侧栏宽度。(desktop)
 - feat(servers)：新增由应用管理的本地 `opencode serve` 模式，自动启动并在生命周期结束时清理服务。(servers)
 - feat(pet)：将可用宠物包改为支持搜索的预览卡片，便于快速按形象选择。(pet)
@@ -17,6 +20,8 @@
 
 ### 修复
 
+- fix(desktop)：发布版本中屏蔽 WebView 的 Reload 和 Inspect Element 右键菜单。(desktop)
+- fix(styles)：让白天模式的工作区主画布为白色，同时保留有对比度的灰色侧栏和控件背景。(styles)
 - fix(settings)：让桌面设置导航项的选中背景保持统一的全宽尺寸。(settings)
 - fix(desktop)：让托盘菜单文案跟随设置中选择的应用语言同步更新。(desktop)
 - fix(sessions)：仅为本地模式服务器使用系统目录选择器，远程服务器继续回退到应用内目录浏览器。(sessions)

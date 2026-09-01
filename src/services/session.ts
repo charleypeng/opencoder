@@ -94,10 +94,16 @@ export function createSessionService(client: ApiClient) {
     get: (sessionID: string, dir?: string) =>
       client.get<Session>(sessionPath(sessionID), dirQuery(dir)),
     /** Update session properties such as title or archived time. */
-    update: (sessionID: string, patch: SessionUpdateInput) =>
-      client.patch<Session>(sessionPath(sessionID), { body: patch }),
+    update: (sessionID: string, patch: SessionUpdateInput, dir?: string) =>
+      client.patch<Session>(sessionPath(sessionID), {
+        body: patch,
+        ...(dirQuery(dir) ?? {}),
+      }),
     /** Delete a session and all of its messages. */
-    remove: (sessionID: string) => client.delete<boolean>(sessionPath(sessionID)),
+    remove: (sessionID: string, dir?: string) =>
+      dir === undefined
+        ? client.delete<boolean>(sessionPath(sessionID))
+        : client.delete<boolean>(sessionPath(sessionID), dirQuery(dir)),
     /** Current status of all sessions (idle/busy/retry), keyed by session id. */
     statusAll: (dir?: string) =>
       client.get<Record<string, SessionStatus>>("/session/status", dirQuery(dir)),
