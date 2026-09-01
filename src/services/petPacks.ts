@@ -40,7 +40,8 @@ function binaryBytes(value: unknown): Uint8Array {
 export async function listPetPacks(): Promise<readonly PetPackSummary[]> {
   if (!inTauri()) return testPetPacks;
   try {
-    return await invoke<PetPackSummary[]>("pet_pack_list");
+    const packs = await invoke<unknown>("pet_pack_list");
+    return Array.isArray(packs) ? (packs as PetPackSummary[]) : [];
   } catch (error) {
     throw toPetPackError(error);
   }

@@ -110,7 +110,7 @@ describe("PetShell rendering", () => {
     expect(shell).toHaveAttribute("data-tauri-drag-region", "deep");
     expect(shell).toHaveAttribute("data-pet-state", "idle");
     expect(screen.getByTestId("pet-blob")).toBeInTheDocument();
-    expect(screen.getByTestId("pet-character")).toBeInTheDocument();
+    expect(screen.getByTestId("pet-surface")).toBeInTheDocument();
     expect(screen.queryByTestId("pet-state")).not.toBeInTheDocument();
     expect(screen.queryByTestId("pet-settings-toggle")).not.toBeInTheDocument();
   });

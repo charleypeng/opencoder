@@ -2,7 +2,7 @@
 // click-through escape hatch. Both settings apply immediately and persist
 // through the existing desktop preference and pet service layers.
 
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, For, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { useT } from "../../i18n/index.js";
 import {
@@ -13,14 +13,8 @@ import {
   setPetSize,
 } from "../../services/pet.js";
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
-import {
-  legacyPetTypeToPackId,
-  loadPetPrefs,
-  packIdToLegacyPetType,
-  savePetPrefs,
-  type PetMovement,
-  type PetType,
-} from "../pet/petPrefs.js";
+import { loadPetPrefs, savePetPrefs, type PetMovement } from "../pet/petPrefs.js";
+import { petPacks, refreshPetPacks } from "../pet/packStore.js";
 
 function ToggleSwitch(props: {
   testId: string;
@@ -57,9 +51,7 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [petBusy, setPetBusy] = createSignal(false);
   const [petClickThrough, setPetClickThrough] = createSignal(false);
   const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
-  const [petType, setPetType] = createSignal<PetType>(
-    packIdToLegacyPetType(loadPetPrefs().selectedPackId),
-  );
+  const [selectedPackId, setSelectedPackId] = createSignal(loadPetPrefs().selectedPackId);
   const [movement, setMovement] = createSignal<PetMovement>(loadPetPrefs().movement ?? "fixed");
   const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
   const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);
@@ -72,6 +64,10 @@ const PetSection: Component<{ serverId: string }> = () => {
     void getPetIgnoreMouse()
       .then(setPetClickThrough)
       .catch(() => setError(t("settings:clickThroughReadError")));
+  });
+
+  onMount(() => {
+    void refreshPetPacks().catch(() => setError(t("pet:packLoadError")));
   });
 
   async function togglePet(): Promise<void> {
@@ -109,9 +105,9 @@ const PetSection: Component<{ serverId: string }> = () => {
     void notifyPetPrefsChanged(patch);
   }
 
-  function changeType(value: PetType): void {
-    setPetType(value);
-    persistPrefs({ selectedPackId: legacyPetTypeToPackId(value) });
+  function selectPack(id: string): void {
+    setSelectedPackId(id);
+    persistPrefs({ selectedPackId: id });
   }
 
   function changeMovement(value: PetMovement): void {
@@ -143,20 +139,37 @@ const PetSection: Component<{ serverId: string }> = () => {
             mirror the toggle rows below them. Controls stay inside their
             <label> so the association survives the layout change. */}
         <div class="space-y-1 border-b border-bg-sunken pb-2">
-          <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
-            <span class="min-w-0">{t("pet:type")}</span>
-            <select
-              data-testid="pet-type-select"
-              value={petType()}
-              onChange={(event) => changeType(event.currentTarget.value as PetType)}
-              class="w-44 shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs"
-            >
-              <option value="blob">{t("pet:typeBlob")}</option>
-              <option value="cat">{t("pet:typeCat")}</option>
-              <option value="dog">{t("pet:typeDog")}</option>
-              <option value="robot">{t("pet:typeRobot")}</option>
-            </select>
-          </label>
+          <section aria-label={t("pet:availablePacks")} class="py-2">
+            <p class="mb-2 text-xs font-medium">{t("pet:availablePacks")}</p>
+            <div role="listbox" class="space-y-1" data-testid="pet-pack-list">
+              <For each={petPacks()}>
+                {(pack) => (
+                  <button
+                    type="button"
+                    role="option"
+                    aria-selected={selectedPackId() === pack.id}
+                    data-testid={`pet-pack-${pack.id}`}
+                    onClick={() => selectPack(pack.id)}
+                    class={`flex w-full items-center justify-between rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
+                      selectedPackId() === pack.id
+                        ? "border-accent bg-accent/10"
+                        : "border-bg-sunken bg-bg-sunken hover:bg-bg-hover"
+                    }`}
+                  >
+                    <span class="min-w-0 truncate font-medium">{pack.name}</span>
+                    <span class="ml-3 shrink-0 text-fg-secondary">
+                      {pack.source === "bundled" ? t("pet:bundledPack") : t("pet:localPack")}
+                    </span>
+                  </button>
+                )}
+              </For>
+              <Show when={petPacks().length === 0}>
+                <p class="rounded-md border border-dashed border-bg-sunken px-2.5 py-2 text-xs text-fg-secondary">
+                  {t("pet:noPacks")}
+                </p>
+              </Show>
+            </div>
+          </section>
           <label class="flex items-center justify-between gap-3 py-2 text-xs font-medium">
             <span class="min-w-0">{t("pet:movement")}</span>
             <select

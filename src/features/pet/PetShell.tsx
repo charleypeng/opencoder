@@ -43,14 +43,9 @@ import {
   type PetAnimationState,
   notifyPetPrefsChanged,
 } from "../../services/pet.js";
-import {
-  applyPetPrefs,
-  loadPetPrefs,
-  packIdToLegacyPetType,
-  savePetPrefs,
-  type PetMovement,
-} from "./petPrefs.js";
+import { applyPetPrefs, loadPetPrefs, savePetPrefs, type PetMovement } from "./petPrefs.js";
 import { refreshPetPacks, resolvedPetPackId } from "./packStore.js";
+import PetSurface from "./PetSurface.js";
 import { TRANSIENT_MS } from "./petState.js";
 import { useT } from "../../i18n/index.js";
 
@@ -112,15 +107,22 @@ const PetShell: Component = () => {
     const monitor = await currentMonitor();
     if (monitor === null) return;
     const win = getCurrentWindow();
-    const size = await win.outerSize();
+    const [size, position] = await Promise.all([win.outerSize(), win.outerPosition()]);
     const area = monitor.workArea;
     const maxX = Math.max(area.position.x, area.position.x + area.size.width - size.width);
     const maxY = Math.max(area.position.y, area.position.y + area.size.height - size.height);
-    const x = Math.round(area.position.x + Math.random() * Math.max(0, maxX - area.position.x));
+    const step = 18;
+    const x = Math.min(
+      maxX,
+      Math.max(area.position.x, position.x + Math.round((Math.random() * 2 - 1) * step)),
+    );
     const y =
       mode === "bottom"
         ? maxY
-        : Math.round(area.position.y + Math.random() * Math.max(0, maxY - area.position.y));
+        : Math.min(
+            maxY,
+            Math.max(area.position.y, position.y + Math.round((Math.random() * 2 - 1) * step)),
+          );
     await win.setPosition(new PhysicalPosition(x, y));
   }
 
@@ -137,7 +139,7 @@ const PetShell: Component = () => {
           // Ignore transient monitor/window errors.
         });
       },
-      movement() === "bottom" ? 900 : 1800,
+      movement() === "bottom" ? 3600 : 3000,
     );
   }
 
@@ -248,8 +250,6 @@ const PetShell: Component = () => {
   }
 
   const blobSize = () => (collapsed() ? 30 : Math.round(size() * 0.62));
-  const petType = () => packIdToLegacyPetType(selectedPackId());
-
   return (
     <div
       data-testid="pet-shell"
@@ -282,29 +282,12 @@ const PetShell: Component = () => {
           onDblClick={handleBlobDoubleClick}
           title={collapsed() ? t("pet:doubleClickToRestore") : t("pet:clickToPet")}
         >
-          <div
-            class="pet-art"
-            aria-label={t(`pet:type${petType().charAt(0).toUpperCase()}${petType().slice(1)}`)}
-          >
-            <span
-              data-testid="pet-character"
-              class={`pet-character pet-character-${petType()}`}
-              aria-hidden="true"
-            >
-              {petType() === "cat"
-                ? "🐱"
-                : petType() === "dog"
-                  ? "🐶"
-                  : petType() === "robot"
-                    ? "🤖"
-                    : "●"}
-            </span>
-            <Show when={petType() === "cat" || petType() === "dog"}>
-              <span class="pet-cardboard-box" aria-hidden="true">
-                <span class="pet-box-label">TER</span>
-              </span>
-            </Show>
-          </div>
+          <PetSurface
+            packId={selectedPackId() ?? "dev.opencoder.byte"}
+            state={state()}
+            intensity={intensity()}
+            size={blobSize()}
+          />
           <Show when={collapsed()}>
             <span
               data-testid="pet-restore-hint"

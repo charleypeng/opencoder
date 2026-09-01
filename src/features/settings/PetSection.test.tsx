@@ -13,6 +13,12 @@ beforeEach(() => {
   invokeMock.mockReset();
   invokeMock.mockImplementation((cmd: string) => {
     if (cmd === "pet_get_ignore_mouse") return Promise.resolve(false);
+    if (cmd === "pet_pack_list") {
+      return Promise.resolve([
+        { id: "dev.opencoder.byte", name: "Byte", source: "bundled" },
+        { id: "dev.opencoder.box-cat", name: "Box Cat", source: "bundled" },
+      ]);
+    }
     return Promise.resolve(undefined);
   });
 });
@@ -62,16 +68,18 @@ describe("PetSection", () => {
     expect(screen.getByTestId("pet-click-through")).toHaveAttribute("aria-checked", "false");
   });
 
-  it("persists character, movement, size and opacity settings", async () => {
+  it("persists the selected pack, movement, size and opacity settings", async () => {
     render(() => <PetSection serverId="srv-pet" />);
-    await waitFor(() => expect(screen.getByTestId("pet-type-select")).toBeInTheDocument());
-    fireEvent.change(screen.getByTestId("pet-type-select"), { target: { value: "robot" } });
+    await waitFor(() =>
+      expect(screen.getByTestId("pet-pack-dev.opencoder.box-cat")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("pet-pack-dev.opencoder.box-cat"));
     fireEvent.change(screen.getByTestId("pet-movement-select"), { target: { value: "bottom" } });
     fireEvent.input(screen.getByTestId("pet-size-slider"), { target: { value: "190" } });
     fireEvent.input(screen.getByTestId("pet-opacity-slider"), { target: { value: "0.6" } });
     await waitFor(() =>
       expect(JSON.parse(localStorage.getItem("oc-pet") ?? "{}")).toMatchObject({
-        selectedPackId: "dev.opencoder.byte",
+        selectedPackId: "dev.opencoder.box-cat",
         movement: "bottom",
         size: 190,
         opacity: 0.6,

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(pet): Let Settings show selectable pet packs and make enabled companion movement a slow local wander instead of screen-wide jumps. (pet)
+
 - feat(pet): Add typed pet-pack state, binary asset URL caching, and a safe migration from legacy character preferences to selected pack IDs. (pet)
 
 - feat(pet): Add a secure desktop registry for data-only `.opet` packs, including manifest/media validation, atomic import, version selection, quarantine diagnostics, and binary-only asset reads for the interactive pet system. (pet)

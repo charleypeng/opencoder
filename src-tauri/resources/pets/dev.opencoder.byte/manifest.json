@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "id": "dev.opencoder.byte",
+  "name": "Moss Lantern",
+  "version": "1.0.0",
+  "author": "OpenCoder contributors",
+  "license": "MIT",
+  "description": "An original pixel-art lantern companion.",
+  "preview": "preview.png",
+  "renderer": {
+    "type": "sprite",
+    "pixelated": true,
+    "canvas": { "width": 160, "height": 160 },
+    "states": {
+      "idle": { "asset": "assets/idle.png", "frames": 1, "fps": 1, "loop": true },
+      "working": { "asset": "assets/working.png", "frames": 1, "fps": 1, "loop": true },
+      "waiting": { "asset": "assets/waiting.png", "frames": 1, "fps": 1, "loop": true },
+      "success": { "asset": "assets/success.png", "frames": 1, "fps": 1, "loop": false },
+      "error": { "asset": "assets/error.png", "frames": 1, "fps": 1, "loop": false },
+      "attention": { "asset": "assets/attention.png", "frames": 1, "fps": 1, "loop": false }
+    },
+    "reactions": {
+      "tap": { "state": "attention" },
+      "hover": { "state": "attention" },
+      "press": { "asset": "assets/reactions.png", "startFrame": 0, "frames": 1, "fps": 1 },
+      "dragStart": { "asset": "assets/reactions.png", "startFrame": 0, "frames": 1, "fps": 1 },
+      "drop": { "state": "success" }
+    }
+  }
+}
