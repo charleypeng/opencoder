@@ -91,6 +91,17 @@ describe("PetSection", () => {
     expect(invokeMock).toHaveBeenCalledWith("pet_set_opacity", { opacity: 0.6 });
   });
 
+  it("renders pet packs as preview cards and filters them by name or id", async () => {
+    render(() => <PetSection serverId="srv-pet" />);
+    await waitFor(() => expect(screen.getByTestId("pet-pack-list")).toBeInTheDocument());
+    expect(screen.getByTestId("pet-pack-preview-dev.opencoder.byte")).toBeInTheDocument();
+    expect(screen.getByTestId("pet-pack-preview-dev.opencoder.box-cat")).toBeInTheDocument();
+
+    fireEvent.input(screen.getByTestId("pet-pack-search"), { target: { value: "box-cat" } });
+    expect(screen.queryByTestId("pet-pack-dev.opencoder.byte")).not.toBeInTheDocument();
+    expect(screen.getByTestId("pet-pack-dev.opencoder.box-cat")).toBeInTheDocument();
+  });
+
   it("imports a pack through the system picker and selects it after refreshing", async () => {
     openMock.mockResolvedValueOnce("/tmp/fox.opet");
     invokeMock.mockImplementation((cmd: string) => {

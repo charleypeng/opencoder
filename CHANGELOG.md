@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(pet): Present available pet packs as searchable preview cards for faster visual selection. (pet)
 - feat(settings): Add a system file-picker button for importing `.opet` pet packs and selecting the newly installed pack. (settings)
 - feat(pet): Add data-driven sprite-sheet playback and tap/hover/drag reactions so pets can blink, move, and show expressions from pack manifests. (pet)
 

@@ -2,7 +2,15 @@
 // click-through escape hatch. Both settings apply immediately and persist
 // through the existing desktop preference and pet service layers.
 
-import { createEffect, createSignal, For, onMount, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createResource,
+  createSignal,
+  For,
+  onMount,
+  Show,
+} from "solid-js";
 import type { Component } from "solid-js";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useT } from "../../i18n/index.js";
@@ -15,8 +23,92 @@ import {
 } from "../../services/pet.js";
 import { petEnabled, setPetEnabled } from "./desktopPrefs.js";
 import { loadPetPrefs, savePetPrefs, type PetMovement } from "../pet/petPrefs.js";
-import { petPacks, refreshPetPacks } from "../pet/packStore.js";
-import { installPetPack, PetPackError } from "../../services/petPacks.js";
+import { petPacks, petPacksLoading, refreshPetPacks } from "../pet/packStore.js";
+import { getPetPackAssetUrl, installPetPack, PetPackError } from "../../services/petPacks.js";
+import type { PetPackSummary } from "../pet/packTypes.js";
+
+function PetPackPreview(props: { pack: PetPackSummary }) {
+  const [previewUrl] = createResource(
+    () => `${props.pack.id}\u0000${props.pack.preview}`,
+    async (assetKey) => {
+      const separator = assetKey.indexOf("\u0000");
+      const packId = separator === -1 ? assetKey : assetKey.slice(0, separator);
+      const preview = separator === -1 ? "" : assetKey.slice(separator + 1);
+      try {
+        return await getPetPackAssetUrl(packId, preview);
+      } catch {
+        return null;
+      }
+    },
+  );
+
+  return (
+    <div
+      data-testid={`pet-pack-preview-${props.pack.id}`}
+      class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-bg-sunken/70"
+    >
+      <Show
+        when={previewUrl()}
+        fallback={
+          <svg viewBox="0 0 64 64" class="h-10 w-10 text-fg-faint" aria-hidden="true">
+            <path d="M12 28 20 16h24l8 12v20H12Z" fill="currentColor" opacity=".24" />
+            <circle cx="25" cy="34" r="3" fill="currentColor" />
+            <circle cx="39" cy="34" r="3" fill="currentColor" />
+            <path d="M25 43c4 3 10 3 14 0" fill="none" stroke="currentColor" stroke-width="3" />
+          </svg>
+        }
+      >
+        <img
+          src={previewUrl() ?? undefined}
+          alt=""
+          class="h-full w-full object-contain"
+          draggable={false}
+        />
+      </Show>
+    </div>
+  );
+}
+
+function PetPackCard(props: {
+  pack: PetPackSummary;
+  selected: boolean;
+  onSelect: () => void;
+  builtInLabel: string;
+  localLabel: string;
+  authorLabel: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="option"
+      aria-selected={props.selected}
+      data-testid={`pet-pack-${props.pack.id}`}
+      onClick={() => props.onSelect()}
+      class={`group flex min-w-0 items-center gap-3 rounded-lg border p-2.5 text-left transition-colors focus:outline-none focus:ring-2 focus:ring-accent/60 ${
+        props.selected
+          ? "border-accent bg-accent-soft"
+          : "border-bg-sunken bg-bg-sunken/40 hover:border-fg-faint hover:bg-bg-hover"
+      }`}
+    >
+      <PetPackPreview pack={props.pack} />
+      <span class="min-w-0 flex-1">
+        <span class="block truncate text-sm font-medium text-fg-primary">{props.pack.name}</span>
+        <span class="mt-0.5 block truncate font-code text-[11px] text-fg-secondary">
+          {props.pack.id}
+        </span>
+        <span class="mt-1 block truncate text-[11px] text-fg-faint">
+          {props.pack.source === "bundled" ? props.builtInLabel : props.localLabel}
+          {props.pack.author ? ` · ${props.authorLabel}` : ""}
+        </span>
+      </span>
+      <Show when={props.selected}>
+        <span class="shrink-0 text-accent" aria-hidden="true">
+          ✓
+        </span>
+      </Show>
+    </button>
+  );
+}
 
 function ToggleSwitch(props: {
   testId: string;
@@ -54,12 +146,22 @@ const PetSection: Component<{ serverId: string }> = () => {
   const [petClickThrough, setPetClickThrough] = createSignal(false);
   const [petClickThroughBusy, setPetClickThroughBusy] = createSignal(false);
   const [selectedPackId, setSelectedPackId] = createSignal(loadPetPrefs().selectedPackId);
+  const [packQuery, setPackQuery] = createSignal("");
   const [movement, setMovement] = createSignal<PetMovement>(loadPetPrefs().movement ?? "fixed");
   const [size, setSize] = createSignal(loadPetPrefs().size ?? 160);
   const [opacity, setOpacity] = createSignal(loadPetPrefs().opacity ?? 1);
   const [error, setError] = createSignal<string | null>(null);
   const [importing, setImporting] = createSignal(false);
   const [loaded, setLoaded] = createSignal(false);
+  const filteredPacks = createMemo(() => {
+    const query = packQuery().trim().toLowerCase();
+    if (!query) return petPacks();
+    return petPacks().filter((pack) =>
+      [pack.name, pack.id, pack.author ?? "", pack.description ?? ""].some((value) =>
+        value.toLowerCase().includes(query),
+      ),
+    );
+  });
 
   createEffect(() => {
     if (loaded()) return;
@@ -180,31 +282,46 @@ const PetSection: Component<{ serverId: string }> = () => {
                 {importing() ? t("pet:importingPack") : t("pet:importPack")}
               </button>
             </div>
-            <div role="listbox" class="space-y-1" data-testid="pet-pack-list">
-              <For each={petPacks()}>
+            <input
+              data-testid="pet-pack-search"
+              type="search"
+              value={packQuery()}
+              placeholder={t("pet:searchPacks")}
+              aria-label={t("pet:searchPacks")}
+              onInput={(event) => setPackQuery(event.currentTarget.value)}
+              class="mb-3 w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-2 text-sm outline-none placeholder:text-fg-faint focus:border-accent"
+            />
+            <div
+              role="listbox"
+              aria-label={t("pet:availablePacks")}
+              class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3"
+              data-testid="pet-pack-list"
+            >
+              <For each={filteredPacks()}>
                 {(pack) => (
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={selectedPackId() === pack.id}
-                    data-testid={`pet-pack-${pack.id}`}
-                    onClick={() => selectPack(pack.id)}
-                    class={`flex w-full items-center justify-between rounded-md border px-2.5 py-2 text-left text-xs transition-colors ${
-                      selectedPackId() === pack.id
-                        ? "border-accent bg-accent/10"
-                        : "border-bg-sunken bg-bg-sunken hover:bg-bg-hover"
-                    }`}
-                  >
-                    <span class="min-w-0 truncate font-medium">{pack.name}</span>
-                    <span class="ml-3 shrink-0 text-fg-secondary">
-                      {pack.source === "bundled" ? t("pet:bundledPack") : t("pet:localPack")}
-                    </span>
-                  </button>
+                  <PetPackCard
+                    pack={pack}
+                    selected={selectedPackId() === pack.id}
+                    onSelect={() => selectPack(pack.id)}
+                    builtInLabel={t("pet:bundledPack")}
+                    localLabel={t("pet:localPack")}
+                    authorLabel={t("pet:packAuthor", { author: pack.author })}
+                  />
                 )}
               </For>
-              <Show when={petPacks().length === 0}>
-                <p class="rounded-md border border-dashed border-bg-sunken px-2.5 py-2 text-xs text-fg-secondary">
+              <Show when={!petPacksLoading() && petPacks().length === 0}>
+                <p class="col-span-full rounded-md border border-dashed border-bg-sunken px-2.5 py-4 text-xs text-fg-secondary">
                   {t("pet:noPacks")}
+                </p>
+              </Show>
+              <Show
+                when={!petPacksLoading() && petPacks().length > 0 && filteredPacks().length === 0}
+              >
+                <p
+                  data-testid="pet-pack-empty"
+                  class="col-span-full rounded-md border border-dashed border-bg-sunken px-2.5 py-4 text-xs text-fg-secondary"
+                >
+                  {t("pet:noMatchingPacks")}
                 </p>
               </Show>
             </div>
