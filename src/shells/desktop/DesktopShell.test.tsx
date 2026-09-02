@@ -2100,6 +2100,9 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
 
     const sidebar = screen.getByTestId("sidebar");
     const handle = screen.getByTestId("sidebar-resize-handle");
+    expect(screen.getByTestId("rail")).not.toHaveClass("border-r");
+    expect(sidebar).not.toHaveClass("border-r");
+    expect(handle.querySelectorAll("span")).toHaveLength(1);
     expect(handle).toHaveAttribute("role", "separator");
     expect(handle).toHaveAttribute("aria-valuenow", "256");
     expect(sidebar).toHaveStyle({ width: "256px" });

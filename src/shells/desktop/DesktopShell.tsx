@@ -1104,7 +1104,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </Show>
       <div class="flex min-h-0 flex-1">
         <nav
-          class="relative z-20 flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"
+          class="relative z-20 flex w-14 shrink-0 flex-col items-center gap-2 bg-bg-elevated py-3"
           data-testid="rail"
         >
           <For each={servers()}>
@@ -1182,10 +1182,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           aria-hidden={sidebarCollapsed() ? "true" : "false"}
           inert={sidebarCollapsed()}
           style={{ width: sidebarCollapsed() ? "0px" : `${sidebarWidth()}px` }}
-          class={`relative z-20 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,border-color,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
+          class={`relative z-20 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
             sidebarCollapsed()
-              ? "pointer-events-none -translate-x-1 border-r border-transparent opacity-0"
-              : "translate-x-0 border-r border-bg-sunken opacity-100"
+              ? "pointer-events-none -translate-x-1 opacity-0"
+              : "translate-x-0 opacity-100"
           }`}
         >
           <header class="flex items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
