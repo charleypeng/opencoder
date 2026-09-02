@@ -260,7 +260,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
           <Show when={processParts().length > 0}>
             <ProcessFold
               parts={processParts()}
-              runKey={props.messageID}
+              runKey={`${props.serverId}:${props.sessionId}:${props.messageID}`}
               streaming={props.streaming === true}
             />
           </Show>

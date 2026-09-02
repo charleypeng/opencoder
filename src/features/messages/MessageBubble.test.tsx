@@ -18,6 +18,7 @@ import {
 } from "../../stores/messages";
 import type { Message, Part } from "../../stores/messages";
 import allPartsFixtureJson from "../../../tests/fixtures/message.stream.all-parts.json";
+import { clearActivityViewState } from "./activity/activityViewState";
 
 const SERVER = "srv-bubble";
 const SESSION = "ses_bubble_1";
@@ -47,10 +48,12 @@ function seedMessage(messageID: string, partIds: string[], texts: string[]): voi
 
 beforeEach(() => {
   resetServer(SERVER);
+  clearActivityViewState();
 });
 
 afterEach(() => {
   resetServer(SERVER);
+  clearActivityViewState();
 });
 
 describe("MessageBubble", () => {

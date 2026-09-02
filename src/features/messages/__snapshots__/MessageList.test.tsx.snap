@@ -6,9 +6,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
     class="flex min-h-0 min-w-0 flex-1 flex-col"
     data-testid="message-list"
   >
-
-
-
+    
+    
+    
     <div
       aria-atomic="false"
       aria-live="polite"
@@ -49,12 +49,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Add a login flow with password-based auth.
                     </p>
-
+                    
 
                   </div>
-
+                  
                 </div>
-
+                
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -70,9 +70,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-
-
-
+              
+              
+              
             </div>
           </div>
         </div>
@@ -111,10 +111,10 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Let me check the existing project structure first.
                     </p>
-
+                    
 
                   </div>
-
+                  
                 </div>
                 <div
                   class="activity-trace my-1 rounded-md bg-bg-sunken/50"
@@ -230,7 +230,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           >
                             bash
                           </span>
-
+                          
                         </div>
                         <div
                           class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
@@ -286,7 +286,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               data-testid="tool-shimmer"
                             />
                           </button>
-
+                          
                         </div>
                       </div>
                       <div
@@ -379,9 +379,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             >
                               bash completed
                             </span>
-
+                            
                           </button>
-
+                          
                         </div>
                       </div>
                     </div>
@@ -402,9 +402,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-
-
-
+              
+              
+              
             </div>
           </div>
         </div>
@@ -437,12 +437,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Also add a logout button to the sidebar.
                     </p>
-
+                    
 
                   </div>
-
+                  
                 </div>
-
+                
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -458,9 +458,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-
-
-
+              
+              
+              
             </div>
           </div>
         </div>
@@ -499,12 +499,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Done. The sidebar now shows a logout button in the account section.
                     </p>
-
+                    
 
                   </div>
-
+                  
                 </div>
-
+                
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -520,14 +520,14 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-
-
-
+              
+              
+              
             </div>
           </div>
         </div>
       </div>
-
+      
     </div>
     <div
       aria-atomic="true"

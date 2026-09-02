@@ -4,11 +4,12 @@
 // running, reasoning volume); clicking expands it with a grid-row animation.
 // Streaming marks the trace as active but does not force it open.
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import ProcessFold from "./ProcessFold";
 import type { Part } from "../../../stores/messages";
+import { clearActivityViewState } from "../activity/activityViewState";
 
 function reasoningPart(text: string, id = "prt_r", end: number | null = 2): Part {
   return {
@@ -57,6 +58,8 @@ function toolPart(
 }
 
 describe("ProcessFold", () => {
+  beforeEach(() => clearActivityViewState());
+
   it("renders collapsed by default with a tool-call summary", () => {
     render(() => (
       <ProcessFold

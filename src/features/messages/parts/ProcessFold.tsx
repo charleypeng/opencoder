@@ -9,6 +9,7 @@ import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
 import { deriveActivityTrace, type ActivityEntry } from "../activity/deriveActivityTrace.js";
+import { readActivityExpanded, writeActivityExpanded } from "../activity/activityViewState.js";
 import CompactionPart, { type CompactionPartData } from "./CompactionPart.js";
 import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart.js";
 import RetryPart, { type RetryPartData } from "./RetryPart.js";
@@ -91,8 +92,15 @@ function renderEntryPart(entry: ActivityEntry) {
 
 const ProcessFold: Component<ProcessFoldProps> = (props) => {
   const t = useT();
-  const [expanded, setExpanded] = createSignal(false);
+  const traceKey = () => props.runKey ?? "run";
+  const [expanded, setExpanded] = createSignal(readActivityExpanded(traceKey()));
   const bodyId = createUniqueId();
+
+  function toggleExpanded(): void {
+    const next = !expanded();
+    setExpanded(next);
+    writeActivityExpanded(traceKey(), next);
+  }
 
   const trace = createMemo(() =>
     deriveActivityTrace(props.parts, Date.now(), props.runKey ?? "run"),
@@ -180,7 +188,7 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
         aria-expanded={expanded()}
         aria-controls={bodyId}
         class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={toggleExpanded}
       >
         <span
           data-testid="activity-trace-status"
