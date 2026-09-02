@@ -1,30 +1,25 @@
-// Process fold (chat refactor): gathers every intermediate-process part of
-// one message (reasoning + tool calls) into a SINGLE fold rendered BELOW the
-// answer, instead of interspersed between text parts. Collapsed by default so
-// the final answer reads first; the header carries a status summary (call
-// count, succeeded / failed / in-progress, reasoning volume) so the user
-// knows what happened without expanding. While the session is streaming the
-// fold auto-expands so the process is visible live (codex / claude code
-// style); when generation ends it auto-collapses. A manual click still wins
-// at any time, mirroring the previous per-part reasoning behavior.
-//
-// Expansion animation: the body is a CSS grid whose row track animates
-// 0fr -> 1fr (see .process-fold-body in styles/index.css), so BOTH
-// directions are smooth without measuring content height; the duration token
-// collapses to 0ms under prefers-reduced-motion (tokens.css).
+// Activity Trace (CHAT-TRACE-03/04): keeps observable agent work below the
+// answer in one compact disclosure. The trace is collapsed by default even
+// while streaming; its active rail communicates progress without taking
+// over the conversation. Existing tool/detail renderers remain the source of
+// truth for command output, edits, reads and other operation details.
 
-import { createEffect, createMemo, createSignal, createUniqueId, For } from "solid-js";
+import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
+import { deriveActivityTrace, type ActivityEntry } from "../activity/deriveActivityTrace.js";
+import CompactionPart, { type CompactionPartData } from "./CompactionPart.js";
 import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart.js";
+import RetryPart, { type RetryPartData } from "./RetryPart.js";
 import ToolPart, { type ToolPartData } from "./ToolPart.js";
 
 export interface ProcessFoldProps {
-  /** The message's process parts (reasoning / tool), in message order. */
+  /** Observable parts belonging to one assistant run. */
   parts: Array<Part | undefined>;
-  /** Session-level streaming flag: auto-expands the fold while the agent
-   *  is generating and auto-collapses it when generation ends. */
+  /** Stable assistant-message key used to keep runs isolated. */
+  runKey?: string;
+  /** Kept for call-site compatibility; streaming never forces disclosure. */
   streaming?: boolean;
 }
 
@@ -35,12 +30,63 @@ interface ProcessStats {
   running: number;
   pending: number;
   thinkingChars: number;
+  steps: number;
 }
 
-/** Compact count formatting: 1234 -> "1.2k" (summary keeps the header short). */
 function formatCompact(n: number): string {
   if (n < 1000) return String(n);
   return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
+}
+
+function entryTitle(t: ReturnType<typeof useT>, entry: ActivityEntry): string {
+  switch (entry.kind) {
+    case "summary":
+      return t("messages:activityThinking");
+    case "compaction":
+      return t("messages:compacted");
+    case "retry":
+      return t("messages:retrying");
+    case "command":
+    case "tool":
+      return entry.title ?? t("messages:activityOperation");
+    case "file-change":
+      return t("messages:activityFileChange");
+  }
+}
+
+function statusClass(entry: ActivityEntry): string {
+  switch (entry.status) {
+    case "active":
+      return "bg-accent";
+    case "failed":
+    case "blocked":
+      return "bg-danger";
+    case "queued":
+      return "border border-fg-faint bg-transparent";
+    default:
+      return "bg-success";
+  }
+}
+
+function traceStatusClass(status: "active" | "error" | "complete"): string {
+  if (status === "active") return "bg-accent";
+  if (status === "error") return "bg-danger";
+  return "bg-success";
+}
+
+function renderEntryPart(entry: ActivityEntry) {
+  switch (entry.part.type) {
+    case "reasoning":
+      return <ReasoningPart part={entry.part as ReasoningPartData} />;
+    case "tool":
+      return <ToolPart part={entry.part as ToolPartData} />;
+    case "compaction":
+      return <CompactionPart part={entry.part as CompactionPartData} />;
+    case "retry":
+      return <RetryPart part={entry.part as RetryPartData} />;
+    default:
+      return null;
+  }
 }
 
 const ProcessFold: Component<ProcessFoldProps> = (props) => {
@@ -48,17 +94,9 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
   const [expanded, setExpanded] = createSignal(false);
   const bodyId = createUniqueId();
 
-  // Auto-expand while streaming, auto-collapse when it ends. The effect
-  // only runs on streaming flips, so a manual click in between still wins.
-  createEffect(() => {
-    if (props.streaming === true) setExpanded(true);
-    else setExpanded(false);
-  });
-
-  // Status summary: counts every tool call by its terminal/live state and
-  // the total reasoning volume. Reading the part fields inside the memo
-  // subscribes to their store updates, so a streamed delta (status flip or
-  // more reasoning text) recomputes the summary without remounting.
+  const trace = createMemo(() =>
+    deriveActivityTrace(props.parts, Date.now(), props.runKey ?? "run"),
+  );
   const stats = createMemo<ProcessStats>(() => {
     const out: ProcessStats = {
       tools: 0,
@@ -67,30 +105,41 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
       running: 0,
       pending: 0,
       thinkingChars: 0,
+      steps: trace().length,
     };
-    for (const part of props.parts) {
-      if (part === undefined) continue;
-      if (part.type === "reasoning") {
-        out.thinkingChars += part.text.length;
-      } else if (part.type === "tool") {
-        out.tools += 1;
-        switch (part.state.status) {
-          case "completed":
-            out.ok += 1;
-            break;
-          case "error":
-            out.failed += 1;
-            break;
-          case "running":
-            out.running += 1;
-            break;
-          case "pending":
-            out.pending += 1;
-            break;
-        }
+    for (const entry of trace()) {
+      if (entry.part.type === "reasoning") out.thinkingChars += entry.part.text.length;
+      if (entry.part.type !== "tool") continue;
+      out.tools += 1;
+      switch (entry.part.state.status) {
+        case "completed":
+          out.ok += 1;
+          break;
+        case "error":
+          out.failed += 1;
+          break;
+        case "running":
+          out.running += 1;
+          break;
+        case "pending":
+          out.pending += 1;
+          break;
       }
     }
     return out;
+  });
+
+  const active = createMemo(() => trace().some((entry) => entry.status === "active"));
+  const failed = createMemo(() => trace().some((entry) => entry.status === "failed"));
+  const current = createMemo(() => {
+    const entries = trace();
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (entry !== undefined && (entry.status === "active" || entry.preview !== undefined)) {
+        return entry;
+      }
+    }
+    return undefined;
   });
 
   const summary = createMemo(() => {
@@ -106,36 +155,63 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     if (s.thinkingChars > 0) {
       bits.push(t("messages:processReasoningChars", { chars: formatCompact(s.thinkingChars) }));
     }
+    if (bits.length === 0 && s.steps > 0) {
+      bits.push(t("messages:activityStepCount", { count: s.steps }));
+    }
     return bits.join(" · ");
   });
 
+  const traceStatus = createMemo(() => {
+    if (failed()) return "error";
+    if (active()) return "active";
+    return "complete";
+  });
+
   return (
-    <div data-testid="process-fold" class="my-1 rounded-md bg-bg-sunken/50">
+    <div
+      data-testid="process-fold"
+      data-active={active() ? "true" : "false"}
+      data-status={traceStatus()}
+      class="activity-trace my-1 rounded-md bg-bg-sunken/50"
+    >
       <button
         type="button"
         data-testid="process-fold-toggle"
         aria-expanded={expanded()}
         aria-controls={bodyId}
-        class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+        class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
         onClick={() => setExpanded((value) => !value)}
       >
         <span
-          aria-hidden
-          class={`inline-block shrink-0 text-fg-faint transition-transform ${
-            expanded() ? "rotate-90" : ""
-          }`}
+          data-testid="activity-trace-status"
+          aria-hidden="true"
+          class={`h-1.5 w-1.5 shrink-0 rounded-full ${traceStatusClass(traceStatus())}`}
+        />
+        <span
+          aria-hidden="true"
+          class={`inline-block shrink-0 text-fg-faint transition-transform ${expanded() ? "rotate-90" : ""}`}
         >
           ▸
         </span>
-        <span class="shrink-0 font-medium text-fg-secondary">{t("messages:processTrail")}</span>
+        <span class="shrink-0 font-medium text-fg-secondary">
+          {active()
+            ? t("messages:activityWorking")
+            : failed()
+              ? t("messages:activityNeedsAttention")
+              : t("messages:activityCompleted")}
+        </span>
+        <Show when={current()?.preview !== undefined}>
+          <span data-testid="process-fold-current" class="min-w-0 truncate text-fg-faint">
+            {current()?.preview}
+          </span>
+        </Show>
         <span data-testid="process-fold-summary" class="min-w-0 truncate text-fg-faint">
           {summary()}
         </span>
+        <span class="ml-auto shrink-0 text-fg-faint" aria-hidden="true">
+          {expanded() ? "" : "›"}
+        </span>
       </button>
-      {/* The body stays mounted so the grid-row animation runs in both
-          directions; while collapsed it is clipped to zero height, hidden
-          from screen readers (aria-hidden) and non-interactive (visibility:
-          hidden after the collapse animation — see .process-fold-body). */}
       <div
         id={bodyId}
         data-testid="process-fold-body"
@@ -143,18 +219,29 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
         aria-hidden={expanded() ? "false" : "true"}
         class="process-fold-body"
       >
-        <div>
-          <For each={props.parts}>
-            {(part) => {
-              if (part === undefined) return null;
-              // The caller only feeds reasoning/tool parts; branch by type
-              // and narrow the union for each part component.
-              return part.type === "reasoning" ? (
-                <ReasoningPart part={part as ReasoningPartData} />
-              ) : (
-                <ToolPart part={part as ToolPartData} />
-              );
-            }}
+        <div class="activity-trace-timeline">
+          <For each={trace()}>
+            {(entry) => (
+              <div
+                data-testid="activity-entry"
+                data-kind={entry.kind}
+                data-phase={entry.phase}
+                data-status={entry.status}
+                class="activity-trace-entry relative pl-4"
+              >
+                <span
+                  aria-hidden="true"
+                  class={`absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full ${statusClass(entry)}`}
+                />
+                <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
+                  <span class="truncate font-medium text-fg-primary">{entryTitle(t, entry)}</span>
+                  <Show when={entry.preview !== undefined}>
+                    <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
+                  </Show>
+                </div>
+                {renderEntryPart(entry)}
+              </div>
+            )}
           </For>
         </div>
       </div>

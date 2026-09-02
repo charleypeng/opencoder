@@ -6,9 +6,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
     class="flex min-h-0 min-w-0 flex-1 flex-col"
     data-testid="message-list"
   >
-    
-    
-    
+
+
+
     <div
       aria-atomic="false"
       aria-live="polite"
@@ -49,12 +49,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Add a login flow with password-based auth.
                     </p>
-                    
+
 
                   </div>
-                  
+
                 </div>
-                
+
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -70,9 +70,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-              
-              
-              
+
+
+
             </div>
           </div>
         </div>
@@ -111,24 +111,31 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Let me check the existing project structure first.
                     </p>
-                    
+
 
                   </div>
-                  
+
                 </div>
                 <div
-                  class="my-1 rounded-md bg-bg-sunken/50"
+                  class="activity-trace my-1 rounded-md bg-bg-sunken/50"
+                  data-active="true"
+                  data-status="active"
                   data-testid="process-fold"
                 >
                   <button
                     aria-controls="cl-8"
                     aria-expanded="false"
-                    class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                    class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
                     data-testid="process-fold-toggle"
                     type="button"
                   >
                     <span
-                      aria-hidden=""
+                      aria-hidden="true"
+                      class="h-1.5 w-1.5 shrink-0 rounded-full bg-accent"
+                      data-testid="activity-trace-status"
+                    />
+                    <span
+                      aria-hidden="true"
                       class="inline-block shrink-0 text-fg-faint transition-transform "
                     >
                       ▸
@@ -136,13 +143,25 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <span
                       class="shrink-0 font-medium text-fg-secondary"
                     >
-                      Thinking process
+                      Working
+                    </span>
+                    <span
+                      class="min-w-0 truncate text-fg-faint"
+                      data-testid="process-fold-current"
+                    >
+                      auth/
                     </span>
                     <span
                       class="min-w-0 truncate text-fg-faint"
                       data-testid="process-fold-summary"
                     >
                       2 tool calls · 1 succeeded · 1 running · 69 chars of reasoning
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      class="ml-auto shrink-0 text-fg-faint"
+                    >
+                      ›
                     </span>
                   </button>
                   <div
@@ -152,142 +171,218 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     data-testid="process-fold-body"
                     id="cl-8"
                   >
-                    <div>
+                    <div
+                      class="activity-trace-timeline"
+                    >
                       <div
-                        class="my-1 rounded-md bg-bg-sunken/50 px-2 py-2"
-                        data-testid="reasoning-part"
+                        class="activity-trace-entry relative pl-4"
+                        data-kind="summary"
+                        data-phase="decide"
+                        data-status="complete"
+                        data-testid="activity-entry"
                       >
+                        <span
+                          aria-hidden="true"
+                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
+                        />
                         <div
-                          class="whitespace-pre-wrap break-words text-xs leading-relaxed text-fg-secondary"
-                          data-testid="reasoning-body"
+                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
                         >
-                          The client needs a login form, a session store, and an auth API call.
+                          <span
+                            class="truncate font-medium text-fg-primary"
+                          >
+                            Thinking
+                          </span>
+                          <span
+                            class="min-w-0 truncate text-fg-faint"
+                          >
+                            The client needs a login form, a session store, and an auth API call.
+                          </span>
+                        </div>
+                        <div
+                          class="my-1 rounded-md bg-bg-sunken/50 px-2 py-2"
+                          data-testid="reasoning-part"
+                        >
+                          <div
+                            class="whitespace-pre-wrap break-words text-xs leading-relaxed text-fg-secondary"
+                            data-testid="reasoning-body"
+                          >
+                            The client needs a login form, a session store, and an auth API call.
+                          </div>
                         </div>
                       </div>
                       <div
-                        class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
-                        data-status="running"
-                        data-testid="tool-part"
+                        class="activity-trace-entry relative pl-4"
+                        data-kind="command"
+                        data-phase="verify"
+                        data-status="active"
+                        data-testid="activity-entry"
                       >
-                        <button
-                          aria-expanded="false"
-                          class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-                          data-testid="tool-toggle"
-                          type="button"
+                        <span
+                          aria-hidden="true"
+                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-accent"
+                        />
+                        <div
+                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
                         >
                           <span
-                            aria-hidden=""
-                            class="inline-block shrink-0 text-fg-faint transition-transform "
-                          >
-                            ▸
-                          </span>
-                          <span
-                            aria-hidden=""
-                            class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
-                          />
-                          <svg
-                            aria-hidden=""
-                            class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="1.5"
-                            viewBox="0 0 16 16"
-                          />
-                          <span
-                            class="truncate font-code font-medium text-fg-primary"
+                            class="truncate font-medium text-fg-primary"
                           >
                             bash
                           </span>
-                          <span
-                            class="shrink-0 font-code text-fg-faint"
-                            data-testid="tool-duration"
+
+                        </div>
+                        <div
+                          class="my-1 overflow-hidden rounded-md bg-bg-sunken/50 border-l-2 border-l-accent"
+                          data-status="running"
+                          data-testid="tool-part"
+                        >
+                          <button
+                            aria-expanded="false"
+                            class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                            data-testid="tool-toggle"
+                            type="button"
                           >
-                            500ms
-                          </span>
-                          <span
-                            class="ml-auto shrink-0 text-fg-faint"
-                            data-testid="tool-status-label"
-                          >
-                            Running bash
-                          </span>
-                          <span
-                            aria-hidden=""
-                            class="tool-shimmer"
-                            data-testid="tool-shimmer"
-                          />
-                        </button>
-                        
+                            <span
+                              aria-hidden=""
+                              class="inline-block shrink-0 text-fg-faint transition-transform "
+                            >
+                              ▸
+                            </span>
+                            <span
+                              aria-hidden=""
+                              class="inline-block h-3.5 w-3.5 shrink-0 animate-spin rounded-full border-2 border-accent border-t-transparent"
+                            />
+                            <svg
+                              aria-hidden=""
+                              class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="1.5"
+                              viewBox="0 0 16 16"
+                            />
+                            <span
+                              class="truncate font-code font-medium text-fg-primary"
+                            >
+                              bash
+                            </span>
+                            <span
+                              class="shrink-0 font-code text-fg-faint"
+                              data-testid="tool-duration"
+                            >
+                              500ms
+                            </span>
+                            <span
+                              class="ml-auto shrink-0 text-fg-faint"
+                              data-testid="tool-status-label"
+                            >
+                              Running bash
+                            </span>
+                            <span
+                              aria-hidden=""
+                              class="tool-shimmer"
+                              data-testid="tool-shimmer"
+                            />
+                          </button>
+
+                        </div>
                       </div>
                       <div
-                        class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
-                        data-status="completed"
-                        data-testid="tool-part"
+                        class="activity-trace-entry relative pl-4"
+                        data-kind="command"
+                        data-phase="verify"
+                        data-status="complete"
+                        data-testid="activity-entry"
                       >
-                        <button
-                          aria-expanded="false"
-                          class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-                          data-testid="tool-toggle"
-                          type="button"
+                        <span
+                          aria-hidden="true"
+                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
+                        />
+                        <div
+                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
                         >
                           <span
-                            aria-hidden=""
-                            class="inline-block shrink-0 text-fg-faint transition-transform "
-                          >
-                            ▸
-                          </span>
-                          <svg
-                            aria-hidden=""
-                            class="h-3.5 w-3.5 shrink-0 text-success"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="2"
-                            viewBox="0 0 16 16"
-                          >
-                            <path
-                              d="M3 8.5l3.5 3.5L13 5"
-                            />
-                          </svg>
-                          <svg
-                            aria-hidden=""
-                            class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                            stroke-width="1.5"
-                            viewBox="0 0 16 16"
-                          >
-                            <path
-                              d="M2.5 3.5 6.5 8l-4 4.5"
-                            />
-                            <path
-                              d="M8 12.5h5.5"
-                            />
-                          </svg>
-                          <span
-                            class="truncate font-code font-medium text-fg-primary"
+                            class="truncate font-medium text-fg-primary"
                           >
                             bash
                           </span>
                           <span
-                            class="shrink-0 font-code text-fg-faint"
-                            data-testid="tool-duration"
+                            class="min-w-0 truncate text-fg-faint"
                           >
-                            3s
+                            auth/
                           </span>
-                          <span
-                            class="ml-auto shrink-0 text-fg-faint"
-                            data-testid="tool-status-label"
+                        </div>
+                        <div
+                          class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+                          data-status="completed"
+                          data-testid="tool-part"
+                        >
+                          <button
+                            aria-expanded="false"
+                            class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                            data-testid="tool-toggle"
+                            type="button"
                           >
-                            bash completed
-                          </span>
-                          
-                        </button>
-                        
+                            <span
+                              aria-hidden=""
+                              class="inline-block shrink-0 text-fg-faint transition-transform "
+                            >
+                              ▸
+                            </span>
+                            <svg
+                              aria-hidden=""
+                              class="h-3.5 w-3.5 shrink-0 text-success"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              viewBox="0 0 16 16"
+                            >
+                              <path
+                                d="M3 8.5l3.5 3.5L13 5"
+                              />
+                            </svg>
+                            <svg
+                              aria-hidden=""
+                              class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="1.5"
+                              viewBox="0 0 16 16"
+                            >
+                              <path
+                                d="M2.5 3.5 6.5 8l-4 4.5"
+                              />
+                              <path
+                                d="M8 12.5h5.5"
+                              />
+                            </svg>
+                            <span
+                              class="truncate font-code font-medium text-fg-primary"
+                            >
+                              bash
+                            </span>
+                            <span
+                              class="shrink-0 font-code text-fg-faint"
+                              data-testid="tool-duration"
+                            >
+                              3s
+                            </span>
+                            <span
+                              class="ml-auto shrink-0 text-fg-faint"
+                              data-testid="tool-status-label"
+                            >
+                              bash completed
+                            </span>
+
+                          </button>
+
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -307,9 +402,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-              
-              
-              
+
+
+
             </div>
           </div>
         </div>
@@ -342,12 +437,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Also add a logout button to the sidebar.
                     </p>
-                    
+
 
                   </div>
-                  
+
                 </div>
-                
+
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -363,9 +458,9 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-              
-              
-              
+
+
+
             </div>
           </div>
         </div>
@@ -404,12 +499,12 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     <p>
                       Done. The sidebar now shows a logout button in the account section.
                     </p>
-                    
+
 
                   </div>
-                  
+
                 </div>
-                
+
               </div>
               <span
                 class="px-1 text-xs text-fg-faint"
@@ -425,14 +520,14 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               >
                 ⋯
               </button>
-              
-              
-              
+
+
+
             </div>
           </div>
         </div>
       </div>
-      
+
     </div>
     <div
       aria-atomic="true"

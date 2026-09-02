@@ -334,8 +334,9 @@
 }
 
 /*
- * Chat refactor: the process fold (reasoning + tool calls grouped below the
- * answer). Collapse/expand animates the grid ROW height (0fr -> 1fr), so
+ * Chat refactor: the Activity Trace (reasoning + observable operations
+ * grouped below the answer). Collapse/expand animates the grid ROW height
+ * (0fr -> 1fr), so
  * both directions are smooth without measuring content; the transition uses
  * the standard duration/easing tokens, and --dur-med collapses to 0ms under
  * prefers-reduced-motion (tokens.css), making the swap instant there.
@@ -365,6 +366,79 @@
 .process-fold-body > div {
   min-height: 0;
   overflow: hidden;
+}
+
+/*
+ * CHAT-TRACE-03: one restrained progress rail for the active run. The light
+ * uses only transform and opacity so streamed updates do not trigger layout
+ * work; completed and failed traces remain visually still.
+ */
+.activity-trace {
+  position: relative;
+  overflow: hidden;
+}
+
+.activity-trace::before,
+.activity-trace::after {
+  position: absolute;
+  left: 0;
+  z-index: 1;
+  width: 2px;
+  pointer-events: none;
+  content: "";
+}
+
+.activity-trace::before {
+  inset-block: 0;
+  background: color-mix(in srgb, var(--fg-faint) 28%, transparent);
+}
+
+.activity-trace::after {
+  top: -35%;
+  height: 35%;
+  opacity: 0;
+  background: var(--accent);
+}
+
+.activity-trace[data-active="true"]::after {
+  opacity: 0.8;
+  animation: activity-trace-light 1.35s linear infinite;
+}
+
+.activity-trace[data-status="complete"]::before {
+  background: color-mix(in srgb, var(--success) 55%, transparent);
+}
+
+.activity-trace[data-status="error"]::before {
+  background: color-mix(in srgb, var(--danger) 70%, transparent);
+}
+
+@keyframes activity-trace-light {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(380%);
+  }
+}
+
+.activity-trace-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.25rem 0.5rem 0.5rem 0.75rem;
+}
+
+.activity-trace-entry {
+  border-left: 1px solid color-mix(in srgb, var(--fg-faint) 18%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-trace[data-active="true"]::after {
+    animation: none;
+    opacity: 0.8;
+    transform: translateY(25%);
+  }
 }
 
 /*

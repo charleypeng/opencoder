@@ -2,8 +2,7 @@
 // one message are grouped into a single fold below the answer. The fold is
 // collapsed by default with a status summary (call count, succeeded/failed/
 // running, reasoning volume); clicking expands it with a grid-row animation.
-// While the session is streaming it auto-expands, and auto-collapses when
-// generation ends; a manual click still wins at any time.
+// Streaming marks the trace as active but does not force it open.
 
 import { describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
@@ -11,14 +10,14 @@ import { fireEvent, render, screen } from "@solidjs/testing-library";
 import ProcessFold from "./ProcessFold";
 import type { Part } from "../../../stores/messages";
 
-function reasoningPart(text: string, id = "prt_r"): Part {
+function reasoningPart(text: string, id = "prt_r", end: number | null = 2): Part {
   return {
     id,
     sessionID: "sess_1",
     messageID: "msg_1",
     type: "reasoning",
     text,
-    time: { start: 1, end: 2 },
+    time: { start: 1, ...(end === null ? {} : { end }) },
   };
 }
 
@@ -112,7 +111,7 @@ describe("ProcessFold", () => {
   it("shows reasoning volume when there are no tool calls", () => {
     render(() => <ProcessFold parts={[reasoningPart("a".repeat(1500))]} />);
     expect(screen.getByTestId("process-fold-summary")).toHaveTextContent("1.5k chars of reasoning");
-    expect(screen.getByText("Thinking process")).toBeInTheDocument();
+    expect(screen.getByText("Thinking")).toBeInTheDocument();
   });
 
   it("renders nothing for absent parts", () => {
@@ -122,18 +121,26 @@ describe("ProcessFold", () => {
     expect(screen.getByTestId("process-fold-summary")).toHaveTextContent("");
   });
 
-  it("auto-expands while streaming and auto-collapses when generation ends", async () => {
+  it("stays collapsed while streaming until the user opens it", async () => {
     const [streaming, setStreaming] = createSignal(true);
-    render(() => <ProcessFold parts={[reasoningPart("thinking live")]} streaming={streaming()} />);
+    render(() => (
+      <ProcessFold
+        parts={[reasoningPart("thinking live", "prt_r", null)]}
+        streaming={streaming()}
+      />
+    ));
     const toggle = screen.getByTestId("process-fold-toggle");
     await Promise.resolve();
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
+
+    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking live");
-
     setStreaming(false);
     await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
   });
 
   it("keeps a manual toggle effective across streaming flips", async () => {
@@ -141,19 +148,19 @@ describe("ProcessFold", () => {
     render(() => <ProcessFold parts={[reasoningPart("thinking")]} streaming={streaming()} />);
     const toggle = screen.getByTestId("process-fold-toggle");
     await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-
-    // Manual collapse wins over the auto-expand.
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
 
-    // Stream ends: the auto-collapse is a no-op (already collapsed).
+    // Manual disclosure is the only ordinary expansion path.
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    // Stream flips do not steal the user's disclosure choice.
     setStreaming(false);
     await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    // And the toggle still works afterwards.
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    // The toggle still works afterwards.
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 });

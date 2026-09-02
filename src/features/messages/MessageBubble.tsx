@@ -36,10 +36,8 @@ export interface MessageBubbleProps {
   partIds: string[];
   /** Shows the breathing caret on the message's last text part. */
   typing?: boolean;
-  /** Session-level streaming flag (busy + recent deltas): the process fold
-   *  (reasoning + tool calls) auto-expands while the agent is generating
-   *  and auto-collapses when generation ends, so the thinking process is
-   *  visible live. */
+  /** Session-level streaming flag (busy + recent deltas) used by the trace
+   *  caller for compatibility; streaming status never forces disclosure. */
   streaming?: boolean;
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the message menu's "View diff" item stays disabled. */
@@ -88,17 +86,25 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
   );
 }
 
-// Process parts (reasoning + tool calls) are intermediate steps of the
-// agent's thinking. The chat refactor collects them into one fold rendered
-// BELOW the answer (ProcessFold) instead of interspersed between text parts,
-// so the final answer reads first and the process is one optional disclosure.
+// Process parts and attention events are observable steps of one agent run.
+// The chat refactor collects them into one Activity Trace rendered BELOW the
+// answer instead of interspersed between text parts, so the final answer reads
+// first and the process is one optional disclosure.
 // Todo/task tools still go to the TaskPanel and never reach the fold.
-type ProcessPart = Extract<Part, { type: "reasoning" } | { type: "tool" }>;
+type ProcessPart = Extract<
+  Part,
+  { type: "reasoning" } | { type: "tool" } | { type: "compaction" } | { type: "retry" }
+>;
 
 function isProcessPart(part: Part | undefined): part is ProcessPart {
   if (part === undefined) return false;
   if (part.type === "tool" && /^(todo|task)/i.test(part.tool ?? "")) return false;
-  return part.type === "reasoning" || part.type === "tool";
+  return (
+    part.type === "reasoning" ||
+    part.type === "tool" ||
+    part.type === "compaction" ||
+    part.type === "retry"
+  );
 }
 
 /** Local hh:mm timestamp for a message's created time. */
@@ -176,7 +182,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
 
   // Chat refactor: the message's parts are split into the ANSWER parts
   // (text/file/patch/snapshot/retry/compaction, rendered in original order)
-  // and the PROCESS parts (reasoning/tool calls, collected into one fold
+  // and the PROCESS parts (reasoning/tool calls/attention events, collected into one trace
   // below the answer). Each memo reads the store per part id, so streamed
   // deltas keep the fine-grained updates (only the touched part re-renders).
   const contentPartIds = createMemo(() =>
@@ -252,7 +258,11 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
           {/* Chat refactor: all process parts (reasoning + tool calls) render
               below the answer in one collapsed fold with a status summary. */}
           <Show when={processParts().length > 0}>
-            <ProcessFold parts={processParts()} streaming={props.streaming === true} />
+            <ProcessFold
+              parts={processParts()}
+              runKey={props.messageID}
+              streaming={props.streaming === true}
+            />
           </Show>
         </div>
         <Show when={created() !== undefined}>

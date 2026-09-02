@@ -5,6 +5,13 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 变更
+
+- feat(messages)：将流式处理折叠区替换为默认折叠的 Activity Trace，用于展示可观察的操作状态、需要处理的事件和克制的活跃进度光效。(messages)
+- fix(desktop)：将右侧工作区工具栏默认宽度调整为与 256px 会话侧栏一致，同时保留鼠标和键盘调宽能力。(desktop)
+
 ## [1.1.0] - 2026-09-02
 
 ### 新增

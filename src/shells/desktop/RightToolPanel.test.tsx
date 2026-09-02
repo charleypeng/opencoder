@@ -43,6 +43,7 @@ describe("RightToolPanel", () => {
     renderPanel();
     const panel = screen.getByTestId("right-tool-panel");
     expect(panel).toHaveAttribute("data-collapsed", "false");
+    expect(panel).toHaveStyle({ width: "256px" });
     expect(panel).toHaveClass("bg-bg-base");
     expect(screen.getByTestId("right-tools-review-pane")).toBeInTheDocument();
     expect(screen.getByTestId("right-tools-review")).toHaveAttribute("aria-selected", "true");
@@ -91,15 +92,15 @@ describe("RightToolPanel", () => {
   it("resizes with the splitter and keyboard arrows", () => {
     renderPanel();
     const handle = screen.getByTestId("right-tools-resize-handle");
-    expect(handle).toHaveAttribute("aria-valuenow", "360");
+    expect(handle).toHaveAttribute("aria-valuenow", "256");
 
     fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
     fireEvent.pointerMove(window, { clientX: 60 });
-    expect(handle).toHaveAttribute("aria-valuenow", "400");
-    expect(localStorage.getItem("oc-right-tools-width")).toBe("400");
+    expect(handle).toHaveAttribute("aria-valuenow", "296");
+    expect(localStorage.getItem("oc-right-tools-width")).toBe("296");
 
     fireEvent.keyDown(handle, { key: "ArrowRight" });
-    expect(handle).toHaveAttribute("aria-valuenow", "384");
+    expect(handle).toHaveAttribute("aria-valuenow", "280");
   });
 
   it("normalizes a URL for the embedded browser and supports an external fallback", async () => {

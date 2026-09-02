@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- feat(messages): Replace the streaming process fold with a collapsed Activity Trace for observable operation states, attention events, and restrained active progress motion. (messages)
+- fix(desktop): Match the default right workspace-tools width to the 256px session sidebar while preserving pointer and keyboard resizing. (desktop)
+
 ## [1.1.0] - 2026-09-02
 
 ### Added

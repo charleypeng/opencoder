@@ -36,9 +36,9 @@ export interface RightToolPanelProps {
   onOpenFile?: (path: string) => void;
 }
 
-const RIGHT_PANEL_MIN_WIDTH = 300;
-const RIGHT_PANEL_MAX_WIDTH = 640;
-const RIGHT_PANEL_DEFAULT_WIDTH = 360;
+const RIGHT_PANEL_MIN_WIDTH = 208;
+const RIGHT_PANEL_MAX_WIDTH = 440;
+const RIGHT_PANEL_DEFAULT_WIDTH = 256;
 const RIGHT_PANEL_WIDTH_KEY = "oc-right-tools-width";
 
 function readPanelWidth(): number {

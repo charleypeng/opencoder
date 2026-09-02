@@ -349,7 +349,7 @@ describe("MessageBubble", () => {
     );
   });
 
-  it("auto-expands the process fold while streaming and collapses when it ends", async () => {
+  it("keeps the process fold collapsed while streaming", async () => {
     const [streaming, setStreaming] = createSignal(true);
     upsertMessage(SERVER, SESSION, userMessage("msg_r"));
     applyPartDelta(SERVER, SESSION, {
@@ -370,20 +370,19 @@ describe("MessageBubble", () => {
       />
     ));
 
-    // While streaming the fold is auto-expanded.
+    // Streaming exposes an active status without forcing the trace open.
     await waitFor(() =>
-      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "true"),
+      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false"),
     );
-    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking in progress");
+    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
 
-    // Generation ended: the fold auto-collapses.
+    // The caller can update streaming without changing disclosure state.
     setStreaming(false);
     await waitFor(() =>
       expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false"),
     );
-    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
 
-    // A manual click still re-opens it.
+    // The user can inspect the trace on demand.
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
@@ -409,14 +408,14 @@ describe("MessageBubble", () => {
       />
     ));
 
-    // Auto-expanded while streaming; the user manually collapses it.
+    // The trace starts collapsed and the user can open it manually.
     const toggle = screen.getByTestId("process-fold-toggle");
-    await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "true"));
+    await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "false"));
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
 
     // message.part.updated replaces the part object; the manual choice
-    // (collapsed) must survive the swap instead of being reset.
+    // (expanded) must survive the swap instead of being reset.
     applyPartDelta(SERVER, SESSION, {
       id: "prt_r",
       sessionID: SESSION,
@@ -425,17 +424,13 @@ describe("MessageBubble", () => {
       text: "thinking in progress, still thinking",
       time: { start: 1 },
     } as never);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    // Stream ends: fold stays collapsed (auto-collapse is a no-op).
-    setStreaming(false);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-
-    // And the toggle still works afterwards (the "can't collapse after
-    // streaming" bug: the click updated a signal the DOM was no longer
-    // bound to because the part component had been re-created).
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    // Stream ends: fold stays expanded because the user opened it.
+    setStreaming(false);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+
+    // And the toggle still works after part replacement.
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
