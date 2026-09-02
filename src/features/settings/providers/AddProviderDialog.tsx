@@ -1,15 +1,16 @@
 // Provider add dialog (TASK-S1-02): the "Add provider" entry of the
 // Providers settings section. Dynamic providers are registered by merging
-// `provider.<id>` (ProviderConfig: name? + options.baseURL/apiKey) into
+// `provider.<id>` (including the SDK package and model definition required by
+// OpenCode) into
 // the global or the project config via the Config PATCH family — the
 // contract has no providers registry key, and the project-level PATCH
 // targets the active server's current project directory through the
 // client's global directory injection. Submit PATCHes, then re-lists the
 // provider catalog (GET /provider -> models store) so the new provider
 // appears in the Providers list and the Models section, toasts success and
-// closes; failures stay inline with the dialog open. The id must be a
-// slug (letters/digits/dashes/underscores); an apiKey without a baseURL
-// is allowed and targets the provider's built-in endpoint (hint only).
+// closes; failures stay inline with the dialog open. The id must be a slug
+// (letters/digits/dashes/underscores); an apiKey without a baseURL is allowed
+// and targets the provider's built-in endpoint (hint only).
 
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -29,6 +30,8 @@ export interface AddProviderDialogProps {
   serverId: string;
   /** Closes the dialog (cancel, Esc, backdrop). */
   onClose: () => void;
+  /** Notifies the parent after the provider has been added and re-listed. */
+  onAdded?: (providerID: string) => void;
 }
 
 const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
@@ -37,19 +40,26 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
   const providers = createProviderService(getApiClient());
   const [id, setId] = createSignal("");
   const [name, setName] = createSignal("");
+  const [npm, setNpm] = createSignal("@ai-sdk/openai-compatible");
   const [baseURL, setBaseURL] = createSignal("");
   const [apiKey, setApiKey] = createSignal("");
+  const [modelID, setModelID] = createSignal("");
+  const [modelName, setModelName] = createSignal("");
   const [scope, setScope] = createSignal<AddProviderScope>("global");
   const [submitting, setSubmitting] = createSignal(false);
   const [error, setError] = createSignal<string | null>(null);
   // Validation hints appear only after the field was typed into — showing
   // "required" on a pristine dialog is premature (docs/ui-audit-2026-08 V8).
   const [idTouched, setIdTouched] = createSignal(false);
+  const [modelTouched, setModelTouched] = createSignal(false);
 
   const trimmedId = () => id().trim();
+  const trimmedModelID = () => modelID().trim();
   // Empty id: the required hint; non-empty invalid id: the slug hint.
   const idValid = createMemo(() => isValidProviderId(trimmedId()));
-  const canSubmit = createMemo(() => trimmedId() !== "" && idValid() && !submitting());
+  const canSubmit = createMemo(
+    () => trimmedId() !== "" && idValid() && trimmedModelID() !== "" && !submitting(),
+  );
   // A key without a base URL is sent to the provider's built-in endpoint.
   const showApiKeyHint = () => apiKey().trim() !== "" && baseURL().trim() === "";
 
@@ -61,14 +71,18 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
       const patch: ConfigPatch = buildProviderPatch(trimmedId(), {
         id: trimmedId(),
         name: name(),
+        npm: npm(),
         baseURL: baseURL(),
         apiKey: apiKey(),
+        modelID: trimmedModelID(),
+        modelName: modelName(),
       });
       await (scope() === "global" ? config.updateGlobal(patch) : config.update(patch));
       // Re-fetch the catalog so the new provider shows up in the list and
       // the Models section (setProviders replaces the full catalog).
       const list = await providers.list();
       setProviders(props.serverId, list);
+      props.onAdded?.(trimmedId());
       createToast(t("settings:providerAdded"), "success");
       props.onClose();
     } catch (err) {
@@ -91,7 +105,7 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
         <Dialog.Overlay class="fixed inset-0 z-40 bg-black/50" />
         <Dialog.Content
           data-testid="provider-add-dialog"
-          class="glass fixed left-1/2 top-1/2 z-50 flex w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-3 p-5"
+          class="glass fixed left-1/2 top-1/2 z-50 flex max-h-[90vh] w-full max-w-md -translate-x-1/2 -translate-y-1/2 flex-col gap-3 overflow-y-auto p-5"
         >
           <Dialog.Title class="text-md font-semibold">{t("settings:addProvider")}</Dialog.Title>
 
@@ -129,6 +143,17 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
             />
 
             <input
+              data-testid="provider-add-npm"
+              type="text"
+              value={npm()}
+              placeholder={t("settings:providerPackage")}
+              aria-label={t("settings:providerPackage")}
+              disabled={submitting()}
+              onInput={(event) => setNpm(event.currentTarget.value)}
+              class={inputClass}
+            />
+
+            <input
               data-testid="provider-add-baseurl"
               type="text"
               value={baseURL()}
@@ -155,6 +180,36 @@ const AddProviderDialog: Component<AddProviderDialogProps> = (props) => {
                 {t("settings:apiKeyHint")}
               </p>
             </Show>
+
+            <input
+              data-testid="provider-add-model-id"
+              type="text"
+              value={modelID()}
+              placeholder={t("settings:providerModelId")}
+              aria-label={t("settings:providerModelId")}
+              disabled={submitting()}
+              onInput={(event) => {
+                setModelTouched(true);
+                setModelID(event.currentTarget.value);
+              }}
+              class={inputClass}
+            />
+            <Show when={modelTouched() && trimmedModelID() === ""}>
+              <p data-testid="provider-add-model-id-hint" class="text-[10px] text-fg-faint">
+                {t("settings:providerModelIdRequired")}
+              </p>
+            </Show>
+
+            <input
+              data-testid="provider-add-model-name"
+              type="text"
+              value={modelName()}
+              placeholder={t("settings:providerModelName")}
+              aria-label={t("settings:providerModelName")}
+              disabled={submitting()}
+              onInput={(event) => setModelName(event.currentTarget.value)}
+              class={inputClass}
+            />
 
             <div class="flex items-center gap-2">
               <span class="text-xs text-fg-secondary">{t("settings:providerScope")}</span>

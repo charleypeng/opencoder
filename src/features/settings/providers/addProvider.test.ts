@@ -1,21 +1,39 @@
 // L1 tests for the provider-add patch builder (TASK-S1-02): the pure
 // `buildProviderPatch` shape that registers a dynamic provider through the
-// Config PATCH family (provider.<id> with name? + options.baseURL/apiKey —
-// empty fields omitted) and the provider-id slug validation.
+// Config PATCH family (provider.<id> with SDK package, model, name? and
+// options.baseURL/apiKey) and the provider-id slug validation.
 
 import { describe, expect, it } from "vitest";
 import { buildProviderPatch, isValidProviderId } from "./addProvider";
 
 describe("buildProviderPatch", () => {
-  it("yields a bare provider entry for an id only", () => {
-    expect(buildProviderPatch("myllm", { id: "myllm" })).toEqual({
-      provider: { myllm: {} },
+  it("includes the default SDK package and model declaration", () => {
+    expect(buildProviderPatch("myllm", { id: "myllm", modelID: "my-model" })).toEqual({
+      provider: {
+        myllm: {
+          npm: "@ai-sdk/openai-compatible",
+          models: { "my-model": { name: "my-model" } },
+        },
+      },
     });
   });
 
   it("includes the display name when given", () => {
-    expect(buildProviderPatch("myllm", { id: "myllm", name: "My LLM" })).toEqual({
-      provider: { myllm: { name: "My LLM" } },
+    expect(
+      buildProviderPatch("myllm", {
+        id: "myllm",
+        name: "My LLM",
+        modelID: "my-model",
+        modelName: "My Model",
+      }),
+    ).toEqual({
+      provider: {
+        myllm: {
+          name: "My LLM",
+          npm: "@ai-sdk/openai-compatible",
+          models: { "my-model": { name: "My Model" } },
+        },
+      },
     });
   });
 
@@ -25,33 +43,71 @@ describe("buildProviderPatch", () => {
         id: "myllm",
         baseURL: "https://myllm.example/v1",
         apiKey: "sk-test",
+        modelID: "my-model",
       }),
     ).toEqual({
-      provider: { myllm: { options: { baseURL: "https://myllm.example/v1", apiKey: "sk-test" } } },
+      provider: {
+        myllm: {
+          npm: "@ai-sdk/openai-compatible",
+          options: { baseURL: "https://myllm.example/v1", apiKey: "sk-test" },
+          models: { "my-model": { name: "my-model" } },
+        },
+      },
     });
   });
 
   it("omits the options object when neither baseURL nor apiKey is set", () => {
-    expect(buildProviderPatch("myllm", { id: "myllm", name: "My LLM" })).toEqual({
-      provider: { myllm: { name: "My LLM" } },
+    expect(
+      buildProviderPatch("myllm", { id: "myllm", name: "My LLM", modelID: "my-model" }),
+    ).toEqual({
+      provider: {
+        myllm: {
+          name: "My LLM",
+          npm: "@ai-sdk/openai-compatible",
+          models: { "my-model": { name: "my-model" } },
+        },
+      },
     });
   });
 
   it("omits each empty field individually (apiKey without baseURL stays valid)", () => {
-    expect(buildProviderPatch("myllm", { id: "myllm", baseURL: "", apiKey: "sk-test" })).toEqual({
-      provider: { myllm: { options: { apiKey: "sk-test" } } },
+    expect(
+      buildProviderPatch("myllm", {
+        id: "myllm",
+        baseURL: "",
+        apiKey: "sk-test",
+        modelID: "my-model",
+      }),
+    ).toEqual({
+      provider: {
+        myllm: {
+          npm: "@ai-sdk/openai-compatible",
+          options: { apiKey: "sk-test" },
+          models: { "my-model": { name: "my-model" } },
+        },
+      },
     });
   });
 
-  it("trims id, name, baseURL and apiKey", () => {
+  it("trims id, name, package, model and endpoint fields", () => {
     expect(
       buildProviderPatch("  myllm  ", {
         id: "  myllm  ",
         name: "  My LLM ",
+        npm: " @ai-sdk/openai-compatible ",
+        modelID: " my-model ",
+        modelName: " My Model ",
         baseURL: " https://x ",
       }),
     ).toEqual({
-      provider: { myllm: { name: "My LLM", options: { baseURL: "https://x" } } },
+      provider: {
+        myllm: {
+          name: "My LLM",
+          npm: "@ai-sdk/openai-compatible",
+          options: { baseURL: "https://x" },
+          models: { "my-model": { name: "My Model" } },
+        },
+      },
     });
   });
 });

@@ -53,14 +53,23 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
   // one click away. With no connection at all the full list stays visible
   // (a collapsed empty view would read as "no providers").
   const [showAllProviders, setShowAllProviders] = createSignal(false);
+  const [providerSearch, setProviderSearch] = createSignal("");
+  const allProviders = createMemo(() => getServerModelState(props.serverId).providers);
   const connectedSet = createMemo(() => new Set(getServerModelState(props.serverId).connected));
+  const searchNeedle = createMemo(() => providerSearch().trim().toLowerCase());
   const visibleProviders = createMemo(() => {
-    const all = getServerModelState(props.serverId).providers;
+    const all = allProviders();
+    const needle = searchNeedle();
+    if (needle !== "") {
+      return all.filter((provider) =>
+        `${provider.name} ${provider.id}`.toLowerCase().includes(needle),
+      );
+    }
     if (showAllProviders() || connectedSet().size === 0) return all;
     return all.filter((provider) => connectedSet().has(provider.id));
   });
-  const hiddenCount = createMemo(
-    () => getServerModelState(props.serverId).providers.length - visibleProviders().length,
+  const hiddenCount = createMemo(() =>
+    searchNeedle() === "" ? allProviders().length - visibleProviders().length : 0,
   );
   const [error, setError] = createSignal<string | null>(null);
   const [loadFailed, setLoadFailed] = createSignal(false);
@@ -175,6 +184,15 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
           </div>
         }
       >
+        <input
+          data-testid="provider-keys-search"
+          type="search"
+          value={providerSearch()}
+          placeholder={t("settings:providerSearch")}
+          aria-label={t("settings:providerSearch")}
+          onInput={(event) => setProviderSearch(event.currentTarget.value)}
+          class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
+        />
         <Show
           when={getServerModelState(props.serverId).providers.length > 0}
           fallback={
@@ -183,145 +201,160 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
             </p>
           }
         >
-          <ul class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-            <For each={visibleProviders()}>
-              {(provider: Provider) => {
-                const methods = () => authMethods()[provider.id] ?? [];
-                const apiMethod = () => methods().find((m) => m.type === "api");
-                const oauthMethodIndex = () => methods().findIndex((m) => m.type === "oauth");
-                const connected = () =>
-                  getServerModelState(props.serverId).connected.includes(provider.id);
-                const draft = () => drafts()[provider.id] ?? "";
-                const isBusy = () => busy() === provider.id;
-                const confirming = () => confirmRemove() === provider.id;
-                return (
-                  <li
-                    data-testid={`provider-key-row-${provider.id}`}
-                    data-provider={provider.id}
-                    data-connected={connected() ? "true" : "false"}
-                    title={t("settings:providerEditHint")}
-                    class="cursor-pointer rounded-md border border-bg-sunken bg-bg-elevated p-3"
-                    onDblClick={() => setEditTarget(provider)}
-                  >
-                    <div class="flex items-center justify-between gap-2">
-                      <h3 class="text-sm font-medium">{provider.name}</h3>
-                      <span class="flex items-center gap-1.5">
-                        <Show when={connected()}>
+          <Show
+            when={visibleProviders().length > 0}
+            fallback={
+              <p data-testid="provider-keys-search-empty" class="text-xs text-fg-faint">
+                {t("settings:providerSearchNoMatches", { query: providerSearch().trim() })}
+              </p>
+            }
+          >
+            <ul class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+              <For each={visibleProviders()}>
+                {(provider: Provider) => {
+                  const methods = () => authMethods()[provider.id] ?? [];
+                  const apiMethod = () => methods().find((m) => m.type === "api");
+                  const oauthMethodIndex = () => methods().findIndex((m) => m.type === "oauth");
+                  const connected = () =>
+                    getServerModelState(props.serverId).connected.includes(provider.id);
+                  const draft = () => drafts()[provider.id] ?? "";
+                  const isBusy = () => busy() === provider.id;
+                  const confirming = () => confirmRemove() === provider.id;
+                  return (
+                    <li
+                      data-testid={`provider-key-row-${provider.id}`}
+                      data-provider={provider.id}
+                      data-connected={connected() ? "true" : "false"}
+                      title={t("settings:providerEditHint")}
+                      class="cursor-pointer rounded-md border border-bg-sunken bg-bg-elevated p-3"
+                      onDblClick={() => setEditTarget(provider)}
+                    >
+                      <div class="flex items-center justify-between gap-2">
+                        <h3 class="text-sm font-medium">{provider.name}</h3>
+                        <span class="flex items-center gap-1.5">
+                          <Show when={connected()}>
+                            <span
+                              data-testid="provider-key-set"
+                              class="rounded border border-bg-sunken bg-bg-sunken px-1.5 py-px text-[10px] text-fg-secondary"
+                            >
+                              {t("settings:keySet")}
+                            </span>
+                          </Show>
                           <span
-                            data-testid="provider-key-set"
-                            class="rounded border border-bg-sunken bg-bg-sunken px-1.5 py-px text-[10px] text-fg-secondary"
+                            data-testid="provider-connected"
+                            class={`rounded border px-1.5 py-px text-[10px] ${
+                              connected()
+                                ? "border-accent/40 text-accent"
+                                : "border-bg-sunken text-fg-faint"
+                            }`}
                           >
-                            {t("settings:keySet")}
+                            {connected() ? t("models:connected") : t("models:notConnected")}
                           </span>
-                        </Show>
-                        <span
-                          data-testid="provider-connected"
-                          class={`rounded border px-1.5 py-px text-[10px] ${
-                            connected()
-                              ? "border-accent/40 text-accent"
-                              : "border-bg-sunken text-fg-faint"
-                          }`}
-                        >
-                          {connected() ? t("models:connected") : t("models:notConnected")}
                         </span>
-                      </span>
-                    </div>
+                      </div>
 
-                    <Show when={apiMethod() !== undefined}>
-                      <form
-                        class="mt-2 flex items-center gap-2"
-                        onSubmit={(event) => {
-                          event.preventDefault();
-                          void saveKey(provider.id);
-                        }}
-                      >
-                        <input
-                          data-testid="provider-key-input"
-                          type="password"
-                          autocomplete="new-password"
-                          value={draft()}
-                          placeholder="••••••••"
-                          aria-label={t("settings:apiKeyFor", { name: provider.name })}
-                          disabled={isBusy()}
-                          onInput={(event) =>
-                            setDrafts((d) => ({ ...d, [provider.id]: event.currentTarget.value }))
-                          }
-                          class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint disabled:opacity-50"
-                        />
-                        <button
-                          type="button"
-                          data-testid="provider-key-save"
-                          // Any in-flight mutation locks every row's actions
-                          // so concurrent saves/removes cannot race (M5 review).
-                          disabled={draft().trim() === "" || busy() !== null}
-                          class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
-                          onClick={() => void saveKey(provider.id)}
+                      <Show when={apiMethod() !== undefined}>
+                        <form
+                          class="mt-2 flex items-center gap-2"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            void saveKey(provider.id);
+                          }}
                         >
-                          {isBusy() ? t("common:saving") : t("common:save")}
-                        </button>
-                        <Show when={connected()}>
+                          <input
+                            data-testid="provider-key-input"
+                            type="password"
+                            autocomplete="new-password"
+                            value={draft()}
+                            placeholder="••••••••"
+                            aria-label={t("settings:apiKeyFor", { name: provider.name })}
+                            disabled={isBusy()}
+                            onInput={(event) =>
+                              setDrafts((d) => ({ ...d, [provider.id]: event.currentTarget.value }))
+                            }
+                            class="min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1.5 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint disabled:opacity-50"
+                          />
                           <button
                             type="button"
-                            data-testid="provider-key-remove"
-                            class={`shrink-0 rounded-md border px-3 py-1.5 text-xs outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
-                              confirming()
-                                ? "border-danger text-danger"
-                                : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
-                            }`}
-                            disabled={busy() !== null}
-                            onClick={() =>
-                              confirming()
-                                ? void removeKey(provider.id)
-                                : setConfirmRemove(provider.id)
-                            }
+                            data-testid="provider-key-save"
+                            // Any in-flight mutation locks every row's actions
+                            // so concurrent saves/removes cannot race (M5 review).
+                            disabled={draft().trim() === "" || busy() !== null}
+                            class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-50"
+                            onClick={() => void saveKey(provider.id)}
                           >
-                            {confirming() ? t("settings:confirmRemove") : t("common:remove")}
+                            {isBusy() ? t("common:saving") : t("common:save")}
                           </button>
-                          <Show when={confirming()}>
+                          <Show when={connected()}>
                             <button
                               type="button"
-                              data-testid="provider-key-remove-cancel"
-                              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
-                              onClick={() => setConfirmRemove(null)}
+                              data-testid="provider-key-remove"
+                              class={`shrink-0 rounded-md border px-3 py-1.5 text-xs outline-none disabled:cursor-not-allowed disabled:opacity-50 ${
+                                confirming()
+                                  ? "border-danger text-danger"
+                                  : "border-bg-sunken bg-bg-sunken text-fg-secondary hover:text-fg-primary"
+                              }`}
+                              disabled={busy() !== null}
+                              onClick={() =>
+                                confirming()
+                                  ? void removeKey(provider.id)
+                                  : setConfirmRemove(provider.id)
+                              }
                             >
-                              {t("common:cancel")}
+                              {confirming() ? t("settings:confirmRemove") : t("common:remove")}
                             </button>
+                            <Show when={confirming()}>
+                              <button
+                                type="button"
+                                data-testid="provider-key-remove-cancel"
+                                class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+                                onClick={() => setConfirmRemove(null)}
+                              >
+                                {t("common:cancel")}
+                              </button>
+                            </Show>
                           </Show>
+                        </form>
+                        <Show when={confirming()}>
+                          <p
+                            data-testid="provider-key-remove-confirm"
+                            class="mt-1.5 text-[10px] text-fg-faint"
+                          >
+                            This removes the stored key and disconnects the provider.
+                          </p>
                         </Show>
-                      </form>
-                      <Show when={confirming()}>
-                        <p
-                          data-testid="provider-key-remove-confirm"
-                          class="mt-1.5 text-[10px] text-fg-faint"
-                        >
-                          This removes the stored key and disconnects the provider.
-                        </p>
                       </Show>
-                    </Show>
 
-                    <Show when={oauthMethodIndex() !== -1}>
-                      <div class="mt-2">
-                        <button
-                          type="button"
-                          data-testid="provider-oauth-authorize"
-                          class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
-                          onClick={() =>
-                            setOauthTarget({
-                              provider,
-                              methodIndex: oauthMethodIndex(),
-                            })
-                          }
-                        >
-                          Authorize
-                        </button>
-                      </div>
-                    </Show>
-                  </li>
-                );
-              }}
-            </For>
-          </ul>
-          <Show when={connectedSet().size > 0 && (hiddenCount() > 0 || showAllProviders())}>
+                      <Show when={oauthMethodIndex() !== -1}>
+                        <div class="mt-2">
+                          <button
+                            type="button"
+                            data-testid="provider-oauth-authorize"
+                            class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-xs text-fg-secondary outline-none hover:text-fg-primary"
+                            onClick={() =>
+                              setOauthTarget({
+                                provider,
+                                methodIndex: oauthMethodIndex(),
+                              })
+                            }
+                          >
+                            Authorize
+                          </button>
+                        </div>
+                      </Show>
+                    </li>
+                  );
+                }}
+              </For>
+            </ul>
+          </Show>
+          <Show
+            when={
+              searchNeedle() === "" &&
+              connectedSet().size > 0 &&
+              (hiddenCount() > 0 || showAllProviders())
+            }
+          >
             <button
               type="button"
               data-testid="provider-keys-toggle"
@@ -470,7 +503,11 @@ const ProviderKeys: Component<ProviderKeysProps> = (props) => {
         </Show>
 
         <Show when={addOpen()}>
-          <AddProviderDialog serverId={props.serverId} onClose={() => setAddOpen(false)} />
+          <AddProviderDialog
+            serverId={props.serverId}
+            onClose={() => setAddOpen(false)}
+            onAdded={() => setShowAllProviders(true)}
+          />
         </Show>
 
         <Show when={error() !== null}>

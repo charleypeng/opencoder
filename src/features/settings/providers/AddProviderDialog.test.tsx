@@ -1,5 +1,5 @@
 // L2 tests for the provider add dialog (TASK-S1-02): the form renders the
-// id/name/baseURL/apiKey fields plus a scope toggle (global default,
+// id/name/package/baseURL/apiKey/model fields plus a scope toggle (global default,
 // project PATCHes /config), validation disables submit on an empty or
 // non-slug id, a key without a base URL shows the built-in-endpoint hint,
 // a successful global add PATCHes /global/config with the provider entry,
@@ -85,7 +85,9 @@ const FULL_PATCH = {
   provider: {
     myllm: {
       name: "My LLM",
+      npm: "@ai-sdk/openai-compatible",
       options: { baseURL: "https://myllm.example/v1", apiKey: "sk-test" },
+      models: { "my-model": { name: "my-model" } },
     },
   },
 };
@@ -96,8 +98,11 @@ describe("AddProviderDialog", () => {
 
     expect(screen.getByTestId("provider-add-id")).toBeInTheDocument();
     expect(screen.getByTestId("provider-add-name")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-add-npm")).toHaveValue("@ai-sdk/openai-compatible");
     expect(screen.getByTestId("provider-add-baseurl")).toBeInTheDocument();
     expect(screen.getByTestId("provider-add-apikey")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-add-model-id")).toBeInTheDocument();
+    expect(screen.getByTestId("provider-add-model-name")).toBeInTheDocument();
     expect(screen.getByTestId("provider-add-scope-global")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("provider-add-scope-project")).toHaveAttribute(
       "aria-pressed",
@@ -125,6 +130,9 @@ describe("AddProviderDialog", () => {
 
     fireEvent.input(screen.getByTestId("provider-add-id"), {
       target: { value: "my-llm" },
+    });
+    fireEvent.input(screen.getByTestId("provider-add-model-id"), {
+      target: { value: "my-model" },
     });
     expect(screen.queryByTestId("provider-add-id-hint")).not.toBeInTheDocument();
     expect((screen.getByTestId("provider-add-submit") as HTMLButtonElement).disabled).toBe(false);
@@ -166,6 +174,9 @@ describe("AddProviderDialog", () => {
       target: { value: "https://myllm.example/v1" },
     });
     fireEvent.input(screen.getByTestId("provider-add-apikey"), { target: { value: "sk-test" } });
+    fireEvent.input(screen.getByTestId("provider-add-model-id"), {
+      target: { value: "my-model" },
+    });
     fireEvent.click(screen.getByTestId("provider-add-submit"));
 
     await waitFor(() =>
@@ -197,6 +208,9 @@ describe("AddProviderDialog", () => {
       target: { value: "https://myllm.example/v1" },
     });
     fireEvent.input(screen.getByTestId("provider-add-apikey"), { target: { value: "sk-test" } });
+    fireEvent.input(screen.getByTestId("provider-add-model-id"), {
+      target: { value: "my-model" },
+    });
     fireEvent.click(screen.getByTestId("provider-add-submit"));
 
     // Project scope PATCHes /config — the active directory is injected by
@@ -209,6 +223,9 @@ describe("AddProviderDialog", () => {
     renderDialog();
 
     fireEvent.input(screen.getByTestId("provider-add-id"), { target: { value: "myllm" } });
+    fireEvent.input(screen.getByTestId("provider-add-model-id"), {
+      target: { value: "my-model" },
+    });
     fireEvent.click(screen.getByTestId("provider-add-submit"));
 
     await waitFor(() =>

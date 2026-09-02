@@ -161,6 +161,32 @@ describe("ProviderKeys", () => {
     await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1));
   });
 
+  it("searches the full catalog, including collapsed providers", async () => {
+    renderKeys();
+
+    await waitFor(() => expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1));
+    fireEvent.input(screen.getByTestId("provider-keys-search"), {
+      target: { value: "azure" },
+    });
+
+    await waitFor(() => expect(rowOf("azure")).toBeInTheDocument());
+    expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1);
+    expect(screen.queryByTestId("provider-keys-toggle")).not.toBeInTheDocument();
+
+    fireEvent.input(screen.getByTestId("provider-keys-search"), {
+      target: { value: "missing" },
+    });
+    await waitFor(() =>
+      expect(screen.getByTestId("provider-keys-search-empty")).toHaveTextContent(
+        "No providers match",
+      ),
+    );
+
+    fireEvent.input(screen.getByTestId("provider-keys-search"), { target: { value: "" } });
+    await waitFor(() => expect(rowOf("openai")).toBeInTheDocument());
+    expect(screen.getAllByTestId(/^provider-key-row-./)).toHaveLength(1);
+  });
+
   it("shows every provider when nothing is connected (no empty collapsed view)", async () => {
     (client as unknown as { __setConnected: (ids: string[]) => void }).__setConnected([]);
     renderKeys();
@@ -456,6 +482,9 @@ describe("ProviderKeys", () => {
     fireEvent.click(screen.getByTestId("add-provider"));
     await waitFor(() => expect(screen.getByTestId("provider-add-dialog")).toBeInTheDocument());
     fireEvent.input(screen.getByTestId("provider-add-id"), { target: { value: "myllm" } });
+    fireEvent.input(screen.getByTestId("provider-add-model-id"), {
+      target: { value: "my-model" },
+    });
     fireEvent.click(screen.getByTestId("provider-add-submit"));
 
     await waitFor(() => expect(rowOf("myllm")).toBeInTheDocument());
