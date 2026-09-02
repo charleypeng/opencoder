@@ -1849,17 +1849,19 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
     fireEvent.click(screen.getByTestId("changes-toggle"));
 
     // The Changes view replaces the tab bar with its own header + panel.
-    expect(screen.getByTestId("vcs-panel")).toBeInTheDocument();
+    expect(screen.getAllByTestId("vcs-panel").length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText("Changes")).toBeInTheDocument();
     expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId("vcs-branch")).toHaveTextContent("main"));
+    await waitFor(() => expect(screen.getAllByTestId("vcs-branch")[0]).toHaveTextContent("main"));
     await waitFor(() =>
-      expect(screen.getByTestId("vcs-change")).toHaveTextContent("src/features/a.ts"),
+      expect(screen.getAllByTestId("vcs-change")[0]).toHaveTextContent("src/features/a.ts"),
     );
 
     // Back returns to the Files view.
     fireEvent.click(screen.getByTestId("changes-back"));
-    expect(screen.queryByTestId("vcs-panel")).not.toBeInTheDocument();
+    // The right-side tools keep their Review tab mounted after the main
+    // Changes view closes; only the main Changes header should disappear.
+    expect(screen.queryByTestId("changes-back")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
   });
 

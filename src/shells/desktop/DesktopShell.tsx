@@ -146,6 +146,7 @@ import {
   shouldAutoCheck,
 } from "../../services/updates.js";
 import { serverUpdate, clearServerUpdate } from "../../stores/serverUpdate.js";
+import RightToolPanel from "./RightToolPanel";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -451,6 +452,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // as a modal instead of replacing it — the gear button, the command
   // palette's settings action and the ⌘, shortcut open this dialog.
   const [settingsOpen, setSettingsOpen] = createSignal(false);
+  // Right-side tools (review / files / browser): visible beside the chat to
+  // establish the desktop three-column layout. The panel owns its selected
+  // tool and width; this shell coordinates maximize with the chat.
+  const [rightToolsOpen, setRightToolsOpen] = createSignal(true);
+  const [rightToolsMaximized, setRightToolsMaximized] = createSignal(false);
   // Default-workspace onboarding (feat(default-workspace)): opened on first
   // entry of a server with no workspace history (see onMount).
   const [defaultWorkspaceOpen, setDefaultWorkspaceOpen] = createSignal(false);
@@ -1246,7 +1252,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           </div>
         </Show>
 
-        <main class="flex min-w-0 flex-1 flex-col">
+        <main class={rightToolsMaximized() ? "hidden" : "flex min-w-0 flex-1 flex-col"}>
           <Show
             when={mainView() === "diff" || mainView() === "changes" || mainView() === "terminal"}
             fallback={
@@ -1351,6 +1357,37 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           aria-hidden="true"
                         >
                           <path d="m4 7 5 5-5 5M12 17h8" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        data-testid="right-tools-toggle"
+                        aria-pressed={rightToolsOpen() ? "true" : "false"}
+                        aria-label={t("desktop:openTools")}
+                        title={t("desktop:toolsHint")}
+                        class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
+                          rightToolsOpen()
+                            ? "text-accent"
+                            : "text-fg-secondary hover:text-fg-primary"
+                        }`}
+                        onClick={() => {
+                          const next = !rightToolsOpen();
+                          setRightToolsOpen(next);
+                          if (!next) setRightToolsMaximized(false);
+                        }}
+                      >
+                        <svg
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          stroke="currentColor"
+                          stroke-width="1.6"
+                          stroke-linecap="round"
+                          stroke-linejoin="round"
+                          class="h-4 w-4"
+                          aria-hidden="true"
+                        >
+                          <rect x="4" y="4" width="16" height="16" rx="2" />
+                          <path d="M15 4v16" />
                         </svg>
                       </button>
                     </div>
@@ -1636,6 +1673,22 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             </Show>
           </Show>
         </main>
+        <RightToolPanel
+          serverId={activeServerId()}
+          directory={
+            filesDirectory() ?? getServerProjectState(activeServerId()).current ?? undefined
+          }
+          open={rightToolsOpen()}
+          onOpenChange={(open) => {
+            setRightToolsOpen(open);
+            if (!open) setRightToolsMaximized(false);
+          }}
+          onMaximizedChange={setRightToolsMaximized}
+          onOpenFile={(path) => {
+            openTab(activeServerId(), path);
+            setMainView("files");
+          }}
+        />
       </div>
 
       {/* Status bar (TASK-M4-08): minimal bottom bar with the branch chip,

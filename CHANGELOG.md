@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(desktop): Add a Codex-style right workspace-tools panel for review, files, and browser views with collapsible, maximizable, keyboard-accessible splitter resizing. (desktop)
 - feat(pet): Bundle original orange-tabby, Shiba Inu, and retro helper-robot sprite packs as built-in animated defaults. (pet)
 - feat(terminal): Restore existing PTYs when opened and dock the terminal below the chat transcript for a working in-context terminal. (terminal)
 - feat(sessions): Add a checkable workspace-tree batch mode with API-confirmed delete and archive operations, including partial-failure recovery. (sessions)
