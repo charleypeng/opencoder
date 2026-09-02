@@ -1007,16 +1007,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           onInput={(event) => setQuery(event.currentTarget.value)}
           class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
         />
-        <Show when={!selectionMode()}>
-          <button
-            type="button"
-            data-testid="workspace-batch-toggle"
-            class="mt-1.5 flex w-full items-center justify-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-            onClick={() => enterSelectionMode()}
-          >
-            {t("sessions:batchActions")}
-          </button>
-        </Show>
         <Show when={selectionMode()}>
           <div class="mt-1.5 flex items-center justify-between gap-2 text-xs text-fg-secondary">
             <span data-testid="workspace-selection-count">

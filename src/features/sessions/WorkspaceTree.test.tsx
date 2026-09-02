@@ -293,6 +293,7 @@ describe("WorkspaceTree", () => {
   it("opens the session ⋯ menu with batch action and danger delete", async () => {
     renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    expect(screen.queryByTestId("workspace-batch-toggle")).toBeNull();
     const menuButton = within(screen.getByTestId("workspace-session-s1")).getByTestId(
       "workspace-session-menu",
     );
@@ -314,7 +315,10 @@ describe("WorkspaceTree", () => {
     const client = mockClient();
     renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
+    fireEvent.click(
+      within(screen.getByTestId("workspace-session-s1")).getByTestId("workspace-session-menu"),
+    );
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-batch"));
     fireEvent.click(screen.getByTestId("workspace-select-all"));
     expect(screen.getByTestId("workspace-selection-count")).toHaveTextContent("3");
 
@@ -331,8 +335,10 @@ describe("WorkspaceTree", () => {
       .mockResolvedValue(true);
     renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
-    fireEvent.click(screen.getByTestId("workspace-session-select-s1"));
+    fireEvent.click(
+      within(screen.getByTestId("workspace-session-s1")).getByTestId("workspace-session-menu"),
+    );
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-batch"));
     fireEvent.click(screen.getByTestId("workspace-session-select-s2"));
     fireEvent.click(screen.getByTestId("workspace-batch-delete"));
 
@@ -346,8 +352,10 @@ describe("WorkspaceTree", () => {
     client.patch.mockResolvedValue({ time: { archived: 123 } });
     renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
-    fireEvent.click(screen.getByTestId("workspace-batch-toggle"));
-    fireEvent.click(screen.getByTestId("workspace-session-select-s1"));
+    fireEvent.click(
+      within(screen.getByTestId("workspace-session-s1")).getByTestId("workspace-session-menu"),
+    );
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-batch"));
     fireEvent.click(screen.getByTestId("workspace-batch-archive"));
 
     await waitFor(() =>
