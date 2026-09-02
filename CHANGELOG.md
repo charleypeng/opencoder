@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- feat(messages): Replace the composer image placeholder with a plus attachment picker that sends image and video FilePartInput payloads and renders inline previews. (messages)
 - feat(desktop): Add a Codex-style right workspace-tools panel for review, files, and browser views with collapsible, maximizable, keyboard-accessible splitter resizing. (desktop)
 - feat(pet): Bundle original orange-tabby, Shiba Inu, and retro helper-robot sprite packs as built-in animated defaults. (pet)
 - feat(terminal): Restore existing PTYs when opened and dock the terminal below the chat transcript for a working in-context terminal. (terminal)
@@ -22,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- fix(desktop): Match the right-tool maximize and collapse controls at the same size and place maximize before collapse in the title bar. (desktop)
 - feat(desktop): Add an embedded right-side Browser preview with a safe system-browser fallback while preserving the Codex-style tool panel layout. (desktop)
 - feat(desktop): Remove redundant center-pane chrome, move right-tool controls into the title bar, and align the right-panel surface with the chat canvas. (desktop)
 

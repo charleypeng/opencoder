@@ -11,9 +11,9 @@
 // streaming progress bar lives at the top of the chat area in MessageList
 // (TASK-M2-09, single source: session busy status).
 //
-// TASK-M3-08 (attachments & @ file references): clipboard images and
+// TASK-M3-08 (attachments & @ file references): clipboard images/videos and
 // dropped/picked files become removable attachment chips above the
-// textarea (images and large/binary files as base64 data URLs, small
+// textarea (images/videos and large/binary files as base64 data URLs, small
 // text-like files as plain text) and are sent as FilePartInput parts
 // (cleared on success, kept for retry on failure). `@` at a word start
 // opens a debounced (150ms, in-flight responses invalidated) file
@@ -21,7 +21,7 @@
 // inserts `@<path>` at the caret. Drops use the plain HTML5 handlers —
 // File objects from a WebView drop carry no absolute path; when Tauri
 // v2's onDragDropEvent is wired the path could be attached there. The
-// image picker button is a disabled M7 placeholder (mobile dialog plugin).
+// plus button opens the same image/video-capable picker on every platform.
 //
 // TASK-M5-08 (skill references): the `@` menu gains a skills group above
 // the file results — the skill catalog (GET /skill) is fetched once per
@@ -148,7 +148,7 @@ interface SlashMenuState {
   selected: number;
 }
 
-function PaperclipIcon() {
+function PlusIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -160,7 +160,7 @@ function PaperclipIcon() {
       stroke-linejoin="round"
       class="h-4 w-4"
     >
-      <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+      <path d="M12 5v14M5 12h14" />
     </svg>
   );
 }
@@ -180,6 +180,24 @@ function ImageIcon() {
       <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
       <circle cx="9" cy="9" r="2" />
       <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    </svg>
+  );
+}
+
+function VideoIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="2"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      class="h-4 w-4"
+    >
+      <rect width="14" height="14" x="3" y="5" rx="2" />
+      <path d="m17 9 4-2v10l-4-2z" />
     </svg>
   );
 }
@@ -881,7 +899,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     const items = event.clipboardData?.items;
     if (items === undefined) return;
     for (const item of Array.from(items)) {
-      if (!item.type.startsWith("image/")) continue;
+      if (!item.type.startsWith("image/") && !item.type.startsWith("video/")) continue;
       const file = item.getAsFile();
       if (file === null) continue;
       event.preventDefault();
@@ -1335,7 +1353,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                       data-testid="attachment-chip"
                       class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1 text-xs text-fg-default"
                     >
-                      {attachment.category === "image" ? <ImageIcon /> : <FileIcon />}
+                      {attachment.category === "image" ? (
+                        <ImageIcon />
+                      ) : attachment.category === "video" ? (
+                        <VideoIcon />
+                      ) : (
+                        <FileIcon />
+                      )}
                       <span class="max-w-40 truncate" title={attachment.name}>
                         {attachment.name}
                       </span>
@@ -1377,19 +1401,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   onClick={() => fileInputRef?.click()}
                   class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bg-base hover:text-fg-default disabled:cursor-not-allowed disabled:opacity-40"
                 >
-                  <PaperclipIcon />
-                </button>
-                <button
-                  type="button"
-                  data-testid="prompt-pick-image"
-                  aria-label={t("messages:pickImage")}
-                  // M7 wires the mobile system image picker (dialog plugin)
-                  // plus platform detection; until then the picker is inert.
-                  title={t("messages:imagePickerHint")}
-                  disabled
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint"
-                >
-                  <ImageIcon />
+                  <PlusIcon />
                 </button>
                 <input
                   ref={fileInputRef}

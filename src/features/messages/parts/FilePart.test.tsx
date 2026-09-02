@@ -10,6 +10,7 @@ import allPartsFixtureJson from "../../../../tests/fixtures/message.stream.all-p
 
 const PNG_BASE64 =
   "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+const VIDEO_BASE64 = "dmlkZW8=";
 
 function filePart(overrides: Partial<FilePartData>): FilePartData {
   return {
@@ -101,6 +102,63 @@ describe("FilePart", () => {
     fireEvent.click(screen.getByTestId("file-part").querySelector("button") as HTMLButtonElement);
     const pre = screen.getByTestId("file-text");
     expect(pre.textContent).toBe("line one\nline two");
+  });
+
+  it("expands video content into a native media preview", () => {
+    render(() => (
+      <FilePart
+        part={filePart({
+          mime: "video/mp4",
+          filename: "clip.mp4",
+          ...withContent(VIDEO_BASE64),
+        } as FilePartData)}
+      />
+    ));
+
+    const chip = screen.getByTestId("file-part");
+    expect(chip).toHaveAttribute("data-mime-kind", "video");
+    fireEvent.click(chip.querySelector("button") as HTMLButtonElement);
+    const video = screen.getByTestId("file-video") as HTMLVideoElement;
+    expect(video.src).toBe(`data:video/mp4;base64,${VIDEO_BASE64}`);
+    expect(video.controls).toBe(true);
+  });
+
+  it("accepts a data URL in the API url field without loading remote URLs", () => {
+    render(() => (
+      <FilePart
+        part={filePart({
+          mime: "image/png",
+          filename: "inline.png",
+          url: `data:image/png;base64,${PNG_BASE64}`,
+          source: undefined,
+        })}
+      />
+    ));
+
+    const chip = screen.getByTestId("file-part");
+    expect(chip.querySelector("button")).not.toBeDisabled();
+    fireEvent.click(chip.querySelector("button") as HTMLButtonElement);
+    expect(screen.getByTestId("file-image")).toHaveAttribute(
+      "src",
+      `data:image/png;base64,${PNG_BASE64}`,
+    );
+  });
+
+  it("does not render an external media URL", () => {
+    render(() => (
+      <FilePart
+        part={filePart({
+          mime: "video/mp4",
+          filename: "remote.mp4",
+          url: "https://example.test/remote.mp4",
+          source: undefined,
+        })}
+      />
+    ));
+
+    expect(screen.getByTestId("file-part")).toHaveAttribute("data-mime-kind", "video");
+    expect(screen.getByTestId("file-part").querySelector("button")).toBeDisabled();
+    expect(screen.queryByTestId("file-video")).not.toBeInTheDocument();
   });
 
   it("never expands when the part has no inline content", () => {

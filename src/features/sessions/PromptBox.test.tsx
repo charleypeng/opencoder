@@ -13,9 +13,9 @@
 // that POSTs /session/{id}/abort (double-clicks collapsed to one call), Esc
 // does the same, an abort failure surfaces as the inline banner, and the
 // Send button returns once the session turns idle. M3-08 additions: the
-// attachment button opens a file picker, clipboard images and dropped
-// files become removable chips (cleared on a successful send, kept for
-// retry on failure), the M7 image-pick button is a disabled placeholder,
+// attachment button opens an image/video-capable file picker, clipboard
+// media and dropped files become removable chips (cleared on a successful
+// send, kept for retry on failure),
 // and `@` at a word start opens a debounced /find/file reference menu with
 // ↑↓/Enter/Esc keyboard navigation inserting the chosen path. M5-04
 // additions: the agent chip (toolbar row above the textarea) shows the
@@ -400,12 +400,13 @@ describe("PromptBox", () => {
     await waitFor(() => expect(screen.getByText("pick.txt")).toBeInTheDocument());
   });
 
-  it("shows the M7 image picker placeholder as a disabled button", () => {
+  it("uses one plus button for image and video attachments", () => {
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
 
-    const pick = screen.getByTestId("prompt-pick-image");
-    expect(pick).toBeDisabled();
-    expect(pick).toHaveAttribute("title", expect.stringContaining("M7"));
+    const attach = screen.getByTestId("prompt-attach");
+    expect(attach.querySelector("path")).toHaveAttribute("d", "M12 5v14M5 12h14");
+    expect(screen.queryByTestId("prompt-pick-image")).not.toBeInTheDocument();
+    expect(screen.getByTestId("prompt-file-input")).toHaveAttribute("type", "file");
   });
 
   it("pastes a clipboard image as a removable attachment chip", async () => {
@@ -419,6 +420,17 @@ describe("PromptBox", () => {
     await waitFor(() => expect(screen.getByText("clip.png")).toBeInTheDocument());
     // The pasted image does not leak text into the input.
     expect(input().value).toBe("");
+  });
+
+  it("pastes a clipboard video as a removable attachment chip", async () => {
+    const file = new File(["video-bytes"], "clip.mp4", { type: "video/mp4" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.paste(input(), {
+      clipboardData: { items: [{ type: "video/mp4", getAsFile: () => file }] },
+    });
+
+    await waitFor(() => expect(screen.getByText("clip.mp4")).toBeInTheDocument());
   });
 
   it("does not treat a text-only paste as an attachment", async () => {
@@ -482,6 +494,33 @@ describe("PromptBox", () => {
     );
     // Chips clear once the send round-trip succeeds.
     await waitFor(() => expect(screen.queryByText("notes.txt")).not.toBeInTheDocument());
+  });
+
+  it("sends a video attachment with the API media mime and data URL", async () => {
+    const file = new File(["video"], "clip.mp4", { type: "video/mp4" });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+    fireEvent.change(screen.getByTestId("prompt-file-input"), {
+      target: { files: [file] },
+    });
+    await waitFor(() => expect(screen.getByText("clip.mp4")).toBeInTheDocument());
+
+    fireEvent.keyDown(input(), { key: "Enter", metaKey: true });
+
+    await waitFor(() =>
+      expect(client.post).toHaveBeenCalledWith(`/session/${SESSION}/prompt_async`, {
+        body: {
+          parts: [
+            {
+              type: "file",
+              mime: "video/mp4",
+              filename: "clip.mp4",
+              url: "data:video/mp4;base64,dmlkZW8=",
+            },
+          ],
+        },
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("clip.mp4")).not.toBeInTheDocument());
   });
 
   it("keeps the attachments for retry when the send fails", async () => {

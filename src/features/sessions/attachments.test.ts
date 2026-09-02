@@ -30,6 +30,24 @@ describe("attachmentToPart", () => {
     });
   });
 
+  it("maps a video attachment onto a FilePartInput with its data URL", () => {
+    const part = attachmentToPart({
+      id: "att-video",
+      category: "video",
+      kind: "data-url",
+      name: "clip.mp4",
+      mimeType: "video/mp4",
+      content: "data:video/mp4;base64,aGVsbG8=",
+    });
+
+    expect(part).toMatchObject({
+      type: "file",
+      mime: "video/mp4",
+      filename: "clip.mp4",
+      url: "data:video/mp4;base64,aGVsbG8=",
+    });
+  });
+
   it("encodes plain text file content into a utf-8 data URL", () => {
     const part = attachmentToPart({
       id: "att-2",
@@ -91,6 +109,29 @@ describe("fileToAttachment", () => {
       mimeType: "image/png",
     });
     expect(attachment.content.startsWith("data:image/png;base64,")).toBe(true);
+  });
+
+  it("reads a video file as a base64 data URL attachment", async () => {
+    const file = new File(["video"], "clip.mp4", { type: "video/mp4" });
+
+    const attachment = await fileToAttachment(file);
+
+    expect(attachment).toMatchObject({
+      category: "video",
+      kind: "data-url",
+      name: "clip.mp4",
+      mimeType: "video/mp4",
+    });
+    expect(attachment.content.startsWith("data:video/mp4;base64,")).toBe(true);
+  });
+
+  it("infers media mime types when a picker omits File.type", async () => {
+    const file = new File(["video"], "clip.webm");
+
+    const attachment = await fileToAttachment(file);
+
+    expect(attachment.category).toBe("video");
+    expect(attachment.mimeType).toBe("video/webm");
   });
 
   it("reads a small text file as plain text content", async () => {

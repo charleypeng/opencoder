@@ -247,8 +247,6 @@
     "files": "文件",
     "attachments": "附件",
     "addFiles": "添加文件",
-    "pickImage": "选择图片",
-    "imagePickerHint": "图片选择器 — M7",
     "removeAttachment": "移除 {{name}}",
     "attachNotSent": "命令发送时不附带附件",
     "stopGenerating": "停止生成",

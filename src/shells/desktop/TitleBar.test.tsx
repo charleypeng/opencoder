@@ -270,6 +270,13 @@ describe("TitleBar sidebar toggle", () => {
 
     const collapse = screen.getByTestId("titlebar-right-tools-toggle");
     const maximize = screen.getByTestId("titlebar-right-tools-maximize");
+    expect(maximize.className).toContain("h-7");
+    expect(maximize.className).toContain("w-7");
+    expect(collapse.className).toContain("h-7");
+    expect(collapse.className).toContain("w-7");
+    expect(
+      maximize.compareDocumentPosition(collapse) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     expect(collapse).toHaveAttribute("aria-pressed", "true");
     expect(maximize).toHaveAttribute("aria-pressed", "false");
     expect(collapse.querySelector("rect")).toHaveAttribute("x", "4");

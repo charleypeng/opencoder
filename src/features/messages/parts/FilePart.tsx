@@ -1,11 +1,8 @@
 // File attachment card (TASK-M3-02): renders a FilePart as an attachment
-// chip — mime-derived icon (image/text/generic file), file name (falling
-// back to the URL or source path basename) and, when the part carries
-// inline content in `source.text.value`, a click-to-expand preview
-// (image mime renders the content as a base64 data URL, anything else as
-// a text block). Remote URLs are NEVER loaded: the preview only reads
-// inline content from the part itself; without content the chip shows a
-// "Content unavailable" note and stays non-expandable.
+// chip — mime-derived icon (image/video/text/generic file), file name
+// (falling back to the URL or source path basename) and, when the part
+// carries inline content, a click-to-expand preview. Media is only rendered
+// from data URLs supplied by the API; remote URLs are NEVER loaded.
 //
 // IA-24: FilePart renders as a context entry — a visual cue that this
 // file is part of the AI's current context. The file path is shown in
@@ -24,10 +21,11 @@ export interface FilePartProps {
   part: FilePartData;
 }
 
-type MimeKind = "image" | "text" | "other";
+type MimeKind = "image" | "video" | "text" | "other";
 
 function mimeKind(mime: string): MimeKind {
   if (mime.startsWith("image/")) return "image";
+  if (mime.startsWith("video/")) return "video";
   if (mime.startsWith("text/")) return "text";
   return "other";
 }
@@ -38,6 +36,13 @@ const MIME_ICON: Record<MimeKind, JSX.Element> = {
       <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
       <circle cx="6" cy="6.5" r="1" />
       <path d="m3.5 11.5 3-2.5 2.5 2 2.5-2.5 1 1.5" />
+    </>
+  ),
+  video: (
+    <>
+      <rect x="2.5" y="4" width="9" height="8" rx="1.5" />
+      <path d="m11.5 6.5 3-1.5v7l-3-1.5" />
+      <path d="M6 7.5v1M5.5 13.5h5" />
     </>
   ),
   text: (
@@ -83,23 +88,41 @@ function mimeLabel(mime: string): string {
   return sub.length > 8 ? sub.slice(0, 6) + "…" : sub;
 }
 
+function dataUrl(value: string): string | undefined {
+  return value.startsWith("data:") && value.includes(",") ? value : undefined;
+}
+
+/**
+ * Resolves inline media without dereferencing arbitrary URLs. FilePart
+ * responses may put the payload in source.text.value (raw base64 or a data
+ * URL) or return a data URL directly in url.
+ */
+function inlineMediaUrl(part: FilePartData, kind: MimeKind): string | undefined {
+  if (kind !== "image" && kind !== "video") return undefined;
+  const sourceValue = part.source?.text?.value ?? "";
+  const sourceDataUrl = dataUrl(sourceValue);
+  if (sourceDataUrl !== undefined) return sourceDataUrl;
+  if (sourceValue.length > 0) return `data:${part.mime};base64,${sourceValue}`;
+  return dataUrl(part.url);
+}
+
 const FilePart: Component<FilePartProps> = (props) => {
   const t = useT();
   // Inline content lives in the part's source text; the 1.18.11 schema has
   // no separate content field on FilePart itself.
   const content = () => props.part.source?.text?.value ?? "";
-  const hasContent = createMemo(() => content().length > 0);
   const kind = createMemo(() => mimeKind(props.part.mime));
+  const mediaSrc = createMemo(() => inlineMediaUrl(props.part, kind()));
+  const hasContent = createMemo(() => content().length > 0 || mediaSrc() !== undefined);
   const mimeLbl = createMemo(() => mimeLabel(props.part.mime));
-  const displayName = createMemo(
-    () =>
-      props.part.filename ?? basename(props.part.url) ?? sourcePath(props.part.source) ?? "file",
-  );
+  const displayName = createMemo(() => {
+    const name = props.part.filename;
+    if (name !== undefined && name.length > 0) return name;
+    const urlName = basename(props.part.url);
+    if (urlName.length > 0 && !urlName.startsWith("data:")) return urlName;
+    return sourcePath(props.part.source) ?? "file";
+  });
   const [expanded, setExpanded] = createSignal(false);
-
-  // Images arrive base64-encoded (the schema has no encoding flag), so the
-  // preview rebuilds them as data URLs; text content is shown as-is.
-  const imageSrc = createMemo(() => `data:${props.part.mime};base64,${content()}`);
 
   return (
     <div
@@ -145,23 +168,30 @@ const FilePart: Component<FilePartProps> = (props) => {
       </button>
       <Show when={hasContent() && expanded()}>
         <div data-testid="file-preview" class="border-t border-bg-sunken px-2 py-2">
-          <Show
-            when={kind() === "image"}
-            fallback={
-              <pre
-                data-testid="file-text"
-                class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-elevated px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-              >
-                {content()}
-              </pre>
-            }
-          >
+          <Show when={kind() === "image" && mediaSrc() !== undefined}>
             <img
               data-testid="file-image"
-              src={imageSrc()}
+              src={mediaSrc()}
               alt={displayName()}
               class="max-h-64 w-full rounded-sm object-contain bg-bg-elevated"
             />
+          </Show>
+          <Show when={kind() === "video" && mediaSrc() !== undefined}>
+            <video
+              data-testid="file-video"
+              src={mediaSrc()}
+              controls
+              preload="metadata"
+              class="max-h-64 w-full rounded-sm bg-bg-elevated"
+            />
+          </Show>
+          <Show when={kind() !== "image" && kind() !== "video"}>
+            <pre
+              data-testid="file-text"
+              class="max-h-48 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-elevated px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
+            >
+              {content()}
+            </pre>
           </Show>
         </div>
       </Show>

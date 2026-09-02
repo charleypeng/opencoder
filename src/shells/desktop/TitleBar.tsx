@@ -177,11 +177,35 @@ const TitleBar: Component<TitleBarProps> = (props) => {
       <Show when={props.onToggleRightTools !== undefined}>
         <button
           type="button"
+          data-testid="titlebar-right-tools-maximize"
+          aria-label={
+            props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")
+          }
+          title={props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
+          aria-pressed={props.rightToolsMaximized ? "true" : "false"}
+          class="mr-1 flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
+          onClick={() => props.onToggleRightToolsMaximized?.()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+            aria-hidden="true"
+          >
+            <path d="M13 3h8v8M21 3l-9 9M11 21H3v-8M3 21l9-9" />
+          </svg>
+        </button>
+        <button
+          type="button"
           data-testid="titlebar-right-tools-toggle"
           aria-label={props.rightToolsOpen ? t("desktop:closeTools") : t("desktop:openTools")}
           title={props.rightToolsOpen ? t("desktop:closeTools") : t("desktop:openTools")}
           aria-pressed={props.rightToolsOpen ? "true" : "false"}
-          class="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
+          class="mr-1 flex h-7 w-7 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
           onClick={() => props.onToggleRightTools?.()}
         >
           <svg
@@ -196,30 +220,6 @@ const TitleBar: Component<TitleBarProps> = (props) => {
           >
             <rect x="4" y="4" width="16" height="16" rx="2" />
             <path d="M15 4v16" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          data-testid="titlebar-right-tools-maximize"
-          aria-label={
-            props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")
-          }
-          title={props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
-          aria-pressed={props.rightToolsMaximized ? "true" : "false"}
-          class="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
-          onClick={() => props.onToggleRightToolsMaximized?.()}
-        >
-          <svg
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-            aria-hidden="true"
-          >
-            <path d="M13 3h8v8M21 3l-9 9M11 21H3v-8M3 21l9-9" />
           </svg>
         </button>
       </Show>

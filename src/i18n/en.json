@@ -247,8 +247,6 @@
     "files": "Files",
     "attachments": "Attachments",
     "addFiles": "Add files",
-    "pickImage": "Pick image",
-    "imagePickerHint": "Image picker — M7",
     "removeAttachment": "Remove {{name}}",
     "attachNotSent": "Attachments are not sent with commands",
     "stopGenerating": "Stop generating",
