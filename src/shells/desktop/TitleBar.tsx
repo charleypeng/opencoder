@@ -21,7 +21,14 @@ import { platform } from "../../platform/index.js";
 import { hidePet, isPetVisible, showPet } from "../../services/pet.js";
 import { useT } from "../../i18n/index.js";
 
-const TitleBar: Component = () => {
+export interface TitleBarProps {
+  /** Whether the workspace sidebar is currently collapsed. */
+  sidebarCollapsed?: boolean;
+  /** Toggles the workspace sidebar when the control is available. */
+  onToggleSidebar?: () => void;
+}
+
+const TitleBar: Component<TitleBarProps> = (props) => {
   const t = useT();
   const tauri = isTauri();
   const mac = platform.kind === "desktop" && platform.os === "macos";
@@ -88,6 +95,34 @@ const TitleBar: Component = () => {
         mac ? "pl-[78px]" : "pl-3"
       }`}
     >
+      <Show when={props.onToggleSidebar !== undefined}>
+        <button
+          type="button"
+          data-testid="titlebar-sidebar-toggle"
+          aria-label={t("desktop:toggleSidebar")}
+          title={t("desktop:toggleSidebar")}
+          aria-pressed={props.sidebarCollapsed ? "true" : "false"}
+          data-collapsed={props.sidebarCollapsed ? "true" : "false"}
+          class="mr-3 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-transparent text-fg-secondary outline-none transition-[background-color,border-color,color,transform] duration-(--dur-fast) hover:border-bg-sunken hover:bg-bg-sunken/60 hover:text-fg-primary active:scale-[0.98] active:bg-bg-sunken"
+          onClick={() => props.onToggleSidebar?.()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class={`h-4 w-4 transition-transform duration-(--dur-fast) ${
+              props.sidebarCollapsed ? "rotate-180" : ""
+            }`}
+            aria-hidden="true"
+          >
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <path d="M9 4v16" />
+          </svg>
+        </button>
+      </Show>
       <span class="flex min-w-0 items-center gap-2">
         <svg
           viewBox="0 0 24 24"

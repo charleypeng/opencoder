@@ -233,3 +233,25 @@ describe("TitleBar pet toggle (TASK-M8-07)", () => {
     expect(screen.queryByTestId("titlebar-minimize")).not.toBeInTheDocument();
   });
 });
+
+describe("TitleBar sidebar toggle", () => {
+  it("renders beside the window-button area and delegates the toggle", () => {
+    const onToggleSidebar = vi.fn();
+    render(() => <TitleBar sidebarCollapsed={false} onToggleSidebar={onToggleSidebar} />);
+
+    const button = screen.getByTestId("titlebar-sidebar-toggle");
+    expect(button).toHaveAttribute("aria-label", "Toggle sidebar");
+    expect(button).toHaveAttribute("aria-pressed", "false");
+    expect(button).toHaveAttribute("data-collapsed", "false");
+    fireEvent.click(button);
+    expect(onToggleSidebar).toHaveBeenCalledTimes(1);
+  });
+
+  it("reflects the collapsed state with a restrained visual cue", () => {
+    render(() => <TitleBar sidebarCollapsed onToggleSidebar={vi.fn()} />);
+    const button = screen.getByTestId("titlebar-sidebar-toggle");
+    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(button).toHaveAttribute("data-collapsed", "true");
+    expect(button.querySelector("svg")).toHaveClass("rotate-180");
+  });
+});

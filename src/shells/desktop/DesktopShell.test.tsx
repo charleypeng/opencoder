@@ -2084,24 +2084,6 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(screen.getByTestId("sidebar")).not.toHaveClass("hidden");
   });
 
-  it("the rail sidebar toggle collapses and restores the sidebar", async () => {
-    const alpha = server({ id: "srv-m8sidebtn", name: "Alpha" });
-    invokeMock.mockResolvedValueOnce([alpha]);
-    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
-    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
-
-    // Mouse affordance for the ⌘/Ctrl+B action (docs/ui-audit-2026-08 V4):
-    // the collapsed sidebar must be restorable without the keyboard.
-    const toggle = screen.getByTestId("rail-sidebar-toggle");
-    expect(toggle).toHaveAttribute("aria-pressed", "false");
-    fireEvent.click(toggle);
-    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "true");
-    expect(toggle).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(toggle);
-    expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getByTestId("sidebar")).not.toHaveClass("hidden");
-  });
-
   it("resizes the sidebar with the splitbar and persists the width", () => {
     const alpha = server({ id: "srv-resize", name: "Alpha" });
     mockHttpRoutes([alpha]);

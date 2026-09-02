@@ -36,6 +36,16 @@ import type { ServerEntry } from "./services/servers";
 function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
   const [petWindow, setPetWindow] = createSignal(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
+
+  function toggleSidebar(): void {
+    setSidebarCollapsed((collapsed) => !collapsed);
+  }
+
+  function exitWorkspace(): void {
+    setSelected(null);
+    setSidebarCollapsed(false);
+  }
 
   // TASK-M9-03: the theme store follows the active server — a per-server
   // override wins over the global mode and the resolved theme (incl. the
@@ -74,14 +84,22 @@ function App() {
     >
       <div class="flex h-dvh flex-col">
         <Show when={platform.kind === "desktop"}>
-          <TitleBar />
+          <TitleBar
+            sidebarCollapsed={sidebarCollapsed()}
+            onToggleSidebar={selected() === null ? undefined : toggleSidebar}
+          />
         </Show>
         <div class="min-h-0 flex-1">
           <Show when={selected()} fallback={<ServerHome onSelect={setSelected} />}>
             {platform.kind === "mobile" ? (
-              <MobileShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+              <MobileShell server={selected() as ServerEntry} onExit={exitWorkspace} />
             ) : (
-              <DesktopShell server={selected() as ServerEntry} onExit={() => setSelected(null)} />
+              <DesktopShell
+                server={selected() as ServerEntry}
+                onExit={exitWorkspace}
+                sidebarCollapsed={sidebarCollapsed()}
+                onToggleSidebar={toggleSidebar}
+              />
             )}
           </Show>
         </div>

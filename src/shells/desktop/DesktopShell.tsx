@@ -152,6 +152,10 @@ export interface DesktopShellProps {
   server: ServerEntry;
   /** Called to leave the workspace and return to the servers home. */
   onExit: () => void;
+  /** Controlled sidebar state supplied by the app shell when available. */
+  sidebarCollapsed?: boolean;
+  /** Called when the title bar or keyboard shortcut toggles the sidebar. */
+  onToggleSidebar?: () => void;
 }
 
 type HealthKind = "ok" | "slow" | "down" | "unknown";
@@ -466,9 +470,18 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // settings/servers and delegates every execution back to the handlers
   // below (this signal + the actions prop).
   const [commandPalette, setCommandPalette] = createSignal(false);
-  // Sidebar visibility (TASK-M8-01): ⌘/Ctrl+B collapses and restores the
-  // sidebar aside; the rail stays put as the toggle affordance.
-  const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
+  // Sidebar visibility (TASK-M8-01): ⌘/Ctrl+B and the title-bar control
+  // collapse and restore the sidebar aside. Direct shell consumers keep a
+  // local fallback when no controlled state is supplied by App.
+  const [internalSidebarCollapsed, setInternalSidebarCollapsed] = createSignal(false);
+  const sidebarCollapsed = () => props.sidebarCollapsed ?? internalSidebarCollapsed();
+  function toggleSidebar(): void {
+    if (props.onToggleSidebar !== undefined) {
+      props.onToggleSidebar();
+    } else {
+      setInternalSidebarCollapsed((collapsed) => !collapsed);
+    }
+  }
   // The sidebar can be resized without changing the fixed server rail. The
   // width is persisted so reopening the workspace keeps the user's layout.
   const [sidebarWidth, setSidebarWidth] = createSignal(readSidebarWidth());
@@ -770,7 +783,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       },
       prevSession: () => stepSession(-1),
       nextSession: () => stepSession(1),
-      toggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
+      toggleSidebar,
       openSettings: () => setSettingsOpen(true),
     },
   });
@@ -1076,32 +1089,6 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           >
             +
           </button>
-          {/* Sidebar toggle (docs/ui-audit-2026-08 V4): the rail is the
-              documented toggle affordance, so the button must exist — a
-              collapsed sidebar was restorable only via ⌘/Ctrl+B. */}
-          <button
-            type="button"
-            data-testid="rail-sidebar-toggle"
-            aria-label={t("desktop:toggleSidebar")}
-            title={t("desktop:toggleSidebar")}
-            aria-pressed={sidebarCollapsed() ? "true" : "false"}
-            class="mt-auto flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
-            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}
-          >
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.6"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              class="h-5 w-5"
-              aria-hidden="true"
-            >
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M9 4v16" />
-            </svg>
-          </button>
           {/* The rail lives outside the main-area view switch, so this gear
               keeps settings reachable from chat, files, diff, terminal and
               changes alike (the main-area tab bar has no gear of its own). */}
@@ -1110,7 +1097,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             data-testid="rail-settings"
             aria-label={t("desktop:openSettings")}
             title={t("settings:settings")}
-            class="mt-2 flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
+            class="mt-auto flex h-10 w-10 items-center justify-center rounded-full border border-bg-sunken text-fg-secondary transition-colors hover:border-fg-faint hover:text-fg-primary"
             onClick={() => setSettingsOpen(true)}
           >
             <svg
@@ -1688,7 +1675,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         actions={{
           onNewSession: () => void handleNewSession(),
           onOpenSettings: () => setSettingsOpen(true),
-          onToggleSidebar: () => setSidebarCollapsed((collapsed) => !collapsed),
+          onToggleSidebar: toggleSidebar,
           onOpenTerminal: () => setTerminalDocked(true),
           onOpenDiff: () => {
             if (activeSessionId()) openDiff();

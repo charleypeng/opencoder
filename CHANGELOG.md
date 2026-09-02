@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat(pet): Present available pet packs as searchable preview cards for faster visual selection. (pet)
 - feat(settings): Add a system file-picker button for importing `.opet` pet packs and selecting the newly installed pack. (settings)
 - feat(pet): Add data-driven sprite-sheet playback and tap/hover/drag reactions so pets can blink, move, and show expressions from pack manifests. (pet)
+- feat(desktop): Move the sidebar toggle beside the native window controls in the title bar with a restrained hover and pressed-state treatment. (desktop)
 
 ### Fixed
 
