@@ -830,7 +830,10 @@
     "browserEmpty": "打开一个页面",
     "browserEmptyHint": "输入网址后，将使用系统浏览器打开。",
     "browserReady": "准备打开",
-    "browserExternalHint": "页面会在系统浏览器中打开。"
+    "browserExternalHint": "页面会在系统浏览器中打开。",
+    "browserOpenExternal": "在外部浏览器打开",
+    "browserFrameTitle": "内嵌浏览器",
+    "browserFrameHint": "部分网站会阻止内嵌预览，需要时可选择在外部浏览器打开。"
   },
   "updates": {
     "checkForUpdates": "检查更新",

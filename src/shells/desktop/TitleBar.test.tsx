@@ -255,4 +255,28 @@ describe("TitleBar sidebar toggle", () => {
     expect(button.querySelector("svg")).toHaveClass("h-4", "w-4");
     expect(button.querySelector("svg")).not.toHaveClass("rotate-180");
   });
+
+  it("places right-tool collapse and maximize controls in the title bar", () => {
+    const onToggleRightTools = vi.fn();
+    const onToggleRightToolsMaximized = vi.fn();
+    render(() => (
+      <TitleBar
+        rightToolsOpen
+        rightToolsMaximized={false}
+        onToggleRightTools={onToggleRightTools}
+        onToggleRightToolsMaximized={onToggleRightToolsMaximized}
+      />
+    ));
+
+    const collapse = screen.getByTestId("titlebar-right-tools-toggle");
+    const maximize = screen.getByTestId("titlebar-right-tools-maximize");
+    expect(collapse).toHaveAttribute("aria-pressed", "true");
+    expect(maximize).toHaveAttribute("aria-pressed", "false");
+    expect(collapse.querySelector("path")?.getAttribute("d")).toContain("M4 12h16");
+    expect(maximize.querySelector("path")?.getAttribute("d")).toContain("M4 12h16");
+    fireEvent.click(collapse);
+    fireEvent.click(maximize);
+    expect(onToggleRightTools).toHaveBeenCalledTimes(1);
+    expect(onToggleRightToolsMaximized).toHaveBeenCalledTimes(1);
+  });
 });

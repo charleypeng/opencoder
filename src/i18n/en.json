@@ -830,7 +830,10 @@
     "browserEmpty": "Open a page",
     "browserEmptyHint": "Enter a URL to open it in your system browser.",
     "browserReady": "Ready to open",
-    "browserExternalHint": "The page will open in your system browser."
+    "browserExternalHint": "The page will open in your system browser.",
+    "browserOpenExternal": "Open externally",
+    "browserFrameTitle": "Embedded browser",
+    "browserFrameHint": "Some sites block embedded previews; use Open externally when needed."
   },
   "updates": {
     "checkForUpdates": "Check for updates",

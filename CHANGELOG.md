@@ -20,7 +20,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat(pet): Add data-driven sprite-sheet playback and tap/hover/drag reactions so pets can blink, move, and show expressions from pack manifests. (pet)
 - feat(desktop): Move the sidebar toggle beside the native window controls in the title bar with a restrained hover and pressed-state treatment. (desktop)
 
+### Changed
+
+- feat(desktop): Add an embedded right-side Browser preview with a safe system-browser fallback while preserving the Codex-style tool panel layout. (desktop)
+
 ### Fixed
+
+- feat(desktop): Keep right-side tool controls in sync with the title bar, show file contents in the Files tool, and raise the navigation columns above the workspace so their menus remain visible. (desktop)
 
 - fix(desktop): Keep the titlebar sidebar control icon static so toggling the sidebar does not rotate it. (desktop)
 - fix(desktop): Animate sidebar collapse and expansion with a measured width, opacity, and content-slide transition instead of an abrupt display toggle. (desktop)

@@ -14,8 +14,8 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 vi.mock("../../features/vcs/VcsPanel", () => ({
   default: () => <div data-testid="right-tools-review-pane">Review content</div>,
 }));
-vi.mock("../../features/files/FileTree", () => ({
-  default: () => <div data-testid="right-tools-files-pane">Files content</div>,
+vi.mock("../../features/files/FileViewer", () => ({
+  default: () => <div data-testid="file-viewer-mock">File content</div>,
 }));
 
 beforeEach(() => {
@@ -92,14 +92,19 @@ describe("RightToolPanel", () => {
     expect(handle).toHaveAttribute("aria-valuenow", "384");
   });
 
-  it("normalizes a URL and opens it in the system browser", async () => {
+  it("normalizes a URL for the embedded browser and supports an external fallback", async () => {
     renderPanel();
     fireEvent.click(screen.getByTestId("right-tools-browser"));
     fireEvent.input(screen.getByTestId("right-tools-browser-url"), {
       target: { value: "example.com/docs" },
     });
     fireEvent.submit(screen.getByTestId("right-tools-browser-url").closest("form")!);
+    expect(screen.getByTestId("right-tools-browser-frame")).toHaveAttribute(
+      "src",
+      "https://example.com/docs",
+    );
+    expect(openUrlMock).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("right-tools-browser-external"));
     await waitFor(() => expect(openUrlMock).toHaveBeenCalledWith("https://example.com/docs"));
-    expect(screen.getByText("Ready to open")).toBeInTheDocument();
   });
 });

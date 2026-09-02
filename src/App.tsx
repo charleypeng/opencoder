@@ -37,14 +37,31 @@ function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
   const [petWindow, setPetWindow] = createSignal(false);
   const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
+  const [rightToolsOpen, setRightToolsOpen] = createSignal(true);
+  const [rightToolsMaximized, setRightToolsMaximized] = createSignal(false);
 
   function toggleSidebar(): void {
     setSidebarCollapsed((collapsed) => !collapsed);
   }
 
+  function toggleRightTools(): void {
+    setRightToolsOpen((open) => {
+      const next = !open;
+      if (!next) setRightToolsMaximized(false);
+      return next;
+    });
+  }
+
+  function toggleRightToolsMaximized(): void {
+    if (!rightToolsOpen()) setRightToolsOpen(true);
+    setRightToolsMaximized((maximized) => !maximized);
+  }
+
   function exitWorkspace(): void {
     setSelected(null);
     setSidebarCollapsed(false);
+    setRightToolsOpen(true);
+    setRightToolsMaximized(false);
   }
 
   // TASK-M9-03: the theme store follows the active server — a per-server
@@ -87,6 +104,12 @@ function App() {
           <TitleBar
             sidebarCollapsed={sidebarCollapsed()}
             onToggleSidebar={selected() === null ? undefined : toggleSidebar}
+            rightToolsOpen={rightToolsOpen()}
+            rightToolsMaximized={rightToolsMaximized()}
+            onToggleRightTools={selected() === null ? undefined : toggleRightTools}
+            onToggleRightToolsMaximized={
+              selected() === null ? undefined : toggleRightToolsMaximized
+            }
           />
         </Show>
         <div class="min-h-0 flex-1">
@@ -99,6 +122,10 @@ function App() {
                 onExit={exitWorkspace}
                 sidebarCollapsed={sidebarCollapsed()}
                 onToggleSidebar={toggleSidebar}
+                rightToolsOpen={rightToolsOpen()}
+                rightToolsMaximized={rightToolsMaximized()}
+                onToggleRightTools={toggleRightTools}
+                onRightToolsMaximizedChange={setRightToolsMaximized}
               />
             )}
           </Show>

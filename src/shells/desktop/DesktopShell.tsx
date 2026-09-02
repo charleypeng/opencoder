@@ -157,6 +157,14 @@ export interface DesktopShellProps {
   sidebarCollapsed?: boolean;
   /** Called when the title bar or keyboard shortcut toggles the sidebar. */
   onToggleSidebar?: () => void;
+  /** Whether the right-side workspace tools are expanded. */
+  rightToolsOpen?: boolean;
+  /** Toggles the right-side workspace tools. */
+  onToggleRightTools?: () => void;
+  /** Whether the right-side workspace tools occupy the full center area. */
+  rightToolsMaximized?: boolean;
+  /** Receives right-side workspace tools maximize changes. */
+  onRightToolsMaximizedChange?: (maximized: boolean) => void;
 }
 
 type HealthKind = "ok" | "slow" | "down" | "unknown";
@@ -455,8 +463,32 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // Right-side tools (review / files / browser): visible beside the chat to
   // establish the desktop three-column layout. The panel owns its selected
   // tool and width; this shell coordinates maximize with the chat.
-  const [rightToolsOpen, setRightToolsOpen] = createSignal(true);
-  const [rightToolsMaximized, setRightToolsMaximized] = createSignal(false);
+  const [internalRightToolsOpen, setInternalRightToolsOpen] = createSignal(true);
+  const rightToolsOpen = () => props.rightToolsOpen ?? internalRightToolsOpen();
+  const [internalRightToolsMaximized, setInternalRightToolsMaximized] = createSignal(false);
+  const rightToolsMaximized = () => props.rightToolsMaximized ?? internalRightToolsMaximized();
+
+  function setRightToolsOpen(open: boolean): void {
+    if (open === rightToolsOpen()) return;
+    if (props.onToggleRightTools !== undefined) {
+      props.onToggleRightTools();
+    } else {
+      setInternalRightToolsOpen(open);
+    }
+    if (!open) setRightToolsMaximized(false);
+  }
+
+  function toggleRightTools(): void {
+    setRightToolsOpen(!rightToolsOpen());
+  }
+
+  function setRightToolsMaximized(maximized: boolean): void {
+    if (props.onRightToolsMaximizedChange !== undefined) {
+      props.onRightToolsMaximizedChange(maximized);
+    } else {
+      setInternalRightToolsMaximized(maximized);
+    }
+  }
   // Default-workspace onboarding (feat(default-workspace)): opened on first
   // entry of a server with no workspace history (see onMount).
   const [defaultWorkspaceOpen, setDefaultWorkspaceOpen] = createSignal(false);
@@ -1050,7 +1082,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </Show>
       <div class="flex min-h-0 flex-1">
         <nav
-          class="flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"
+          class="relative z-20 flex w-14 shrink-0 flex-col items-center gap-2 border-r border-bg-sunken bg-bg-elevated py-3"
           data-testid="rail"
         >
           <For each={servers()}>
@@ -1128,7 +1160,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           aria-hidden={sidebarCollapsed() ? "true" : "false"}
           inert={sidebarCollapsed()}
           style={{ width: sidebarCollapsed() ? "0px" : `${sidebarWidth()}px` }}
-          class={`flex shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,border-color,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
+          class={`relative z-20 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,border-color,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
             sidebarCollapsed()
               ? "pointer-events-none -translate-x-1 border-r border-transparent opacity-0"
               : "translate-x-0 border-r border-bg-sunken opacity-100"
@@ -1370,11 +1402,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                             ? "text-accent"
                             : "text-fg-secondary hover:text-fg-primary"
                         }`}
-                        onClick={() => {
-                          const next = !rightToolsOpen();
-                          setRightToolsOpen(next);
-                          if (!next) setRightToolsMaximized(false);
-                        }}
+                        onClick={toggleRightTools}
                       >
                         <svg
                           viewBox="0 0 24 24"
@@ -1679,10 +1707,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             filesDirectory() ?? getServerProjectState(activeServerId()).current ?? undefined
           }
           open={rightToolsOpen()}
-          onOpenChange={(open) => {
-            setRightToolsOpen(open);
-            if (!open) setRightToolsMaximized(false);
-          }}
+          maximized={rightToolsMaximized()}
+          showHeaderControls={false}
+          onOpenChange={setRightToolsOpen}
           onMaximizedChange={setRightToolsMaximized}
           onOpenFile={(path) => {
             openTab(activeServerId(), path);

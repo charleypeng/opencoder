@@ -26,6 +26,14 @@ export interface TitleBarProps {
   sidebarCollapsed?: boolean;
   /** Toggles the workspace sidebar when the control is available. */
   onToggleSidebar?: () => void;
+  /** Whether the right-side workspace tools are expanded. */
+  rightToolsOpen?: boolean;
+  /** Toggles the right-side workspace tools. */
+  onToggleRightTools?: () => void;
+  /** Whether the right-side workspace tools occupy the full center area. */
+  rightToolsMaximized?: boolean;
+  /** Toggles right-side workspace tools maximization. */
+  onToggleRightToolsMaximized?: () => void;
 }
 
 const TitleBar: Component<TitleBarProps> = (props) => {
@@ -166,6 +174,54 @@ const TitleBar: Component<TitleBarProps> = (props) => {
           <path d="M12 13.2c1.5 0 2.8-.4 3.9-.1 1.7.5 2.6 2.2 2.2 3.9-.5 2.3-3 4-6.1 4s-5.6-1.7-6.1-4c-.4-1.7.5-3.4 2.2-3.9 1.1-.3 2.4.1 3.9.1z" />
         </svg>
       </button>
+      <Show when={props.onToggleRightTools !== undefined}>
+        <button
+          type="button"
+          data-testid="titlebar-right-tools-toggle"
+          aria-label={props.rightToolsOpen ? t("desktop:closeTools") : t("desktop:openTools")}
+          title={props.rightToolsOpen ? t("desktop:closeTools") : t("desktop:openTools")}
+          aria-pressed={props.rightToolsOpen ? "true" : "false"}
+          class="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
+          onClick={() => props.onToggleRightTools?.()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+            aria-hidden="true"
+          >
+            <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          data-testid="titlebar-right-tools-maximize"
+          aria-label={
+            props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")
+          }
+          title={props.rightToolsMaximized ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
+          aria-pressed={props.rightToolsMaximized ? "true" : "false"}
+          class="mr-1 flex h-6 w-6 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary"
+          onClick={() => props.onToggleRightToolsMaximized?.()}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.6"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            class="h-4 w-4"
+            aria-hidden="true"
+          >
+            <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+          </svg>
+        </button>
+      </Show>
       <Show when={!mac && tauri}>
         <div class="flex h-full items-stretch">
           <button

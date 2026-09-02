@@ -6,7 +6,7 @@
 
 import { createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
-import FileTree from "../../features/files/FileTree";
+import FileViewer from "../../features/files/FileViewer";
 import VcsPanel from "../../features/vcs/VcsPanel";
 import { useT } from "../../i18n/index.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -24,6 +24,10 @@ export interface RightToolPanelProps {
   onOpenChange: (open: boolean) => void;
   /** Hides the chat pane while the tools occupy the full workspace. */
   onMaximizedChange: (maximized: boolean) => void;
+  /** Controlled maximize state, shared with the title-bar control. */
+  maximized?: boolean;
+  /** Keeps the title-bar as the single source of panel chrome in desktop. */
+  showHeaderControls?: boolean;
   /** Opens a file in the shell's main viewer. */
   onOpenFile?: (path: string) => void;
 }
@@ -116,11 +120,12 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   const t = useT();
   const [view, setView] = createSignal<RightToolView>("review");
   const [width, setWidth] = createSignal(readPanelWidth());
-  const [maximized, setMaximized] = createSignal(false);
+  const [internalMaximized, setInternalMaximized] = createSignal(false);
   const [browserUrl, setBrowserUrl] = createSignal("");
   const [browserTarget, setBrowserTarget] = createSignal("");
   let resizeStartX: number | null = null;
   let resizeStartWidth = RIGHT_PANEL_DEFAULT_WIDTH;
+  const maximized = () => props.maximized ?? internalMaximized();
 
   function updateWidth(next: number): void {
     const value = Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, next));
@@ -176,7 +181,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
 
   function toggleMaximized(): void {
     const next = !maximized();
-    setMaximized(next);
+    if (props.maximized === undefined) setInternalMaximized(next);
     props.onMaximizedChange(next);
   }
 
@@ -187,8 +192,13 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
     const normalized = /^https?:\/\//i.test(value) ? value : `https://${value}`;
     setBrowserUrl(normalized);
     setBrowserTarget(normalized);
-    void openUrl(normalized).catch(() => {
-      // The URL remains visible when the system browser cannot be opened.
+  }
+
+  function openBrowserExternally(): void {
+    const target = browserTarget();
+    if (target === "") return;
+    void openUrl(target).catch(() => {
+      // The embedded page remains available when the system browser cannot be opened.
     });
   }
 
@@ -291,36 +301,58 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
               <span class="truncate">{t("desktop:browser")}</span>
             </button>
           </div>
-          <button
-            type="button"
-            data-testid="right-tools-maximize"
-            aria-label={maximized() ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
-            title={maximized() ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
-            aria-pressed={maximized() ? "true" : "false"}
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken/70 hover:text-fg-primary"
-            onClick={toggleMaximized}
-          >
-            <Show when={maximized()} fallback={<span aria-hidden="true">↗</span>}>
-              <span aria-hidden="true">↙</span>
-            </Show>
-          </button>
-          <button
-            type="button"
-            data-testid="right-tools-collapse"
-            aria-label={t("desktop:closeTools")}
-            title={t("desktop:closeTools")}
-            aria-expanded="true"
-            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken/70 hover:text-fg-primary"
-            onClick={() => {
-              if (maximized()) {
-                setMaximized(false);
-                props.onMaximizedChange(false);
-              }
-              props.onOpenChange(false);
-            }}
-          >
-            ×
-          </button>
+          <Show when={props.showHeaderControls !== false}>
+            <button
+              type="button"
+              data-testid="right-tools-maximize"
+              aria-label={maximized() ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
+              title={maximized() ? t("desktop:restoreTools") : t("desktop:maximizeTools")}
+              aria-pressed={maximized() ? "true" : "false"}
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken/70 hover:text-fg-primary"
+              onClick={toggleMaximized}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              data-testid="right-tools-collapse"
+              aria-label={t("desktop:closeTools")}
+              title={t("desktop:closeTools")}
+              aria-expanded="true"
+              class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-secondary outline-none transition-colors hover:bg-bg-sunken/70 hover:text-fg-primary"
+              onClick={() => {
+                if (maximized()) {
+                  if (props.maximized === undefined) setInternalMaximized(false);
+                  props.onMaximizedChange(false);
+                }
+                props.onOpenChange(false);
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="1.6"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                class="h-4 w-4"
+                aria-hidden="true"
+              >
+                <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+              </svg>
+            </button>
+          </Show>
         </header>
 
         <div class="min-h-0 flex-1 overflow-hidden">
@@ -328,11 +360,9 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
             <VcsPanel serverId={props.serverId} />
           </Show>
           <Show when={view() === "files"}>
-            <FileTree
-              serverId={props.serverId}
-              directory={props.directory}
-              onOpenFile={props.onOpenFile}
-            />
+            <div data-testid="right-tools-files-pane" class="h-full min-h-0">
+              <FileViewer serverId={props.serverId} visible />
+            </div>
           </Show>
           <Show when={view() === "browser"}>
             <div data-testid="right-tools-browser-pane" class="flex h-full min-h-0 flex-col p-3">
@@ -366,16 +396,34 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                   </div>
                 }
               >
-                <div class="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-fg-secondary">
-                  <BrowserIcon />
-                  <p class="text-sm">{t("desktop:browserReady")}</p>
-                  <p
-                    class="max-w-full truncate font-code text-xs text-fg-faint"
-                    title={browserTarget()}
-                  >
-                    {browserTarget()}
+                <div class="flex min-h-0 flex-1 flex-col gap-2 pt-3">
+                  <div class="flex shrink-0 items-center justify-between gap-2 px-1">
+                    <p
+                      class="min-w-0 truncate font-code text-xs text-fg-faint"
+                      title={browserTarget()}
+                    >
+                      {browserTarget()}
+                    </p>
+                    <button
+                      type="button"
+                      data-testid="right-tools-browser-external"
+                      class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none transition-colors hover:border-fg-faint hover:text-fg-primary"
+                      onClick={openBrowserExternally}
+                    >
+                      {t("desktop:browserOpenExternal")}
+                    </button>
+                  </div>
+                  <iframe
+                    data-testid="right-tools-browser-frame"
+                    src={browserTarget()}
+                    title={t("desktop:browserFrameTitle")}
+                    sandbox="allow-forms allow-modals allow-popups allow-presentation allow-scripts"
+                    referrerpolicy="no-referrer"
+                    class="min-h-0 min-w-0 flex-1 rounded-md border border-bg-sunken bg-bg-base"
+                  />
+                  <p class="shrink-0 px-1 text-[11px] text-fg-faint">
+                    {t("desktop:browserFrameHint")}
                   </p>
-                  <p class="text-xs text-fg-faint">{t("desktop:browserExternalHint")}</p>
                 </div>
               </Show>
             </div>
