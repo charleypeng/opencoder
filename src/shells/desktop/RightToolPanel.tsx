@@ -26,9 +26,13 @@ export interface RightToolPanelProps {
   onMaximizedChange: (maximized: boolean) => void;
   /** Controlled maximize state, shared with the title-bar control. */
   maximized?: boolean;
+  /** Controlled tool selection, shared with file-opening actions in the shell. */
+  view?: RightToolView;
+  /** Notifies the shell when the selected tool changes. */
+  onViewChange?: (view: RightToolView) => void;
   /** Keeps the title-bar as the single source of panel chrome in desktop. */
   showHeaderControls?: boolean;
-  /** Opens a file in the shell's main viewer. */
+  /** Notifies the shell when a file should open in the Files tool. */
   onOpenFile?: (path: string) => void;
 }
 
@@ -118,7 +122,7 @@ function PanelIcon() {
 
 const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   const t = useT();
-  const [view, setView] = createSignal<RightToolView>("review");
+  const [internalView, setInternalView] = createSignal<RightToolView>("review");
   const [width, setWidth] = createSignal(readPanelWidth());
   const [internalMaximized, setInternalMaximized] = createSignal(false);
   const [browserUrl, setBrowserUrl] = createSignal("");
@@ -126,6 +130,12 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   let resizeStartX: number | null = null;
   let resizeStartWidth = RIGHT_PANEL_DEFAULT_WIDTH;
   const maximized = () => props.maximized ?? internalMaximized();
+  const view = () => props.view ?? internalView();
+
+  function selectView(next: RightToolView): void {
+    if (props.view === undefined) setInternalView(next);
+    props.onViewChange?.(next);
+  }
 
   function updateWidth(next: number): void {
     const value = Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, next));
@@ -261,7 +271,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                   ? "bg-accent-soft text-fg-primary"
                   : "text-fg-secondary hover:bg-bg-sunken/70 hover:text-fg-primary"
               }`}
-              onClick={() => setView("review")}
+              onClick={() => selectView("review")}
             >
               <ReviewIcon />
               <span class="truncate">{t("desktop:review")}</span>
@@ -278,7 +288,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                   ? "bg-accent-soft text-fg-primary"
                   : "text-fg-secondary hover:bg-bg-sunken/70 hover:text-fg-primary"
               }`}
-              onClick={() => setView("files")}
+              onClick={() => selectView("files")}
             >
               <FilesIcon />
               <span class="truncate">{t("desktop:filesTab")}</span>
@@ -295,7 +305,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                   ? "bg-accent-soft text-fg-primary"
                   : "text-fg-secondary hover:bg-bg-sunken/70 hover:text-fg-primary"
               }`}
-              onClick={() => setView("browser")}
+              onClick={() => selectView("browser")}
             >
               <BrowserIcon />
               <span class="truncate">{t("desktop:browser")}</span>

@@ -8,9 +8,8 @@
 // flag: the 1.18.11 contract exposes only `pattern`, so a real server
 // ignores the flag and matches literally — documented in
 // docs/api-coverage.md. Clicking a hit opens the file in the viewer and
-// targets its line (viewer store activeLine); the panel is mounted
-// alongside the viewer in the Files view, so results survive the round
-// trip when the shell switches back to viewer mode.
+// targets its line (viewer store activeLine); the shell then hands the file
+// to the right-side viewer while keeping the chat surface in the center.
 
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";

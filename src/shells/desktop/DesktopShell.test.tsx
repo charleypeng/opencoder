@@ -1059,10 +1059,11 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
     expect(screen.getByText("Select a session")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("main-tab-files"));
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("file-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
-    expect(screen.queryByText("Select a session")).not.toBeInTheDocument();
+    expect(screen.getByText("Select a session")).toBeInTheDocument();
 
     // Back to Chat restores the chat pane.
     fireEvent.click(screen.getByTestId("main-tab-chat"));
@@ -1091,7 +1092,7 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
     expect(viewer["srv-m4view"]).toBeUndefined();
   });
 
-  it("a sidebar tree click opens the file tab in the Main Files view and switches to it", async () => {
+  it("a sidebar tree click opens the file tab in the right-side Files tool", async () => {
     const alpha = server({ id: "srv-m4view", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1102,10 +1103,11 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
     await waitFor(() => expect(screen.getByTestId("file-row-README.md")).toBeInTheDocument());
     fireEvent.click(screen.getByTestId("file-row-README.md"));
 
-    // Main switched to Files with the opened tab; the content is fetched
-    // and highlighted through the stubbed highlighter.
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    // Chat remains central while the right-side Files tool owns the content.
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
+    expect(screen.getAllByTestId("file-viewer")).toHaveLength(1);
     await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
 
@@ -1114,7 +1116,7 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
     expect(viewer["srv-m4view"]?.tabs).toHaveLength(1);
   });
 
-  it("the workspace ⋯ menu's view folder jumps to the Files view in that directory", async () => {
+  it("the workspace ⋯ menu's view folder opens the right-side Files tool in that directory", async () => {
     const alpha = server({ id: "srv-viewfolder", name: "Alpha" });
     // Seed the workspace list so both folders render without onboarding
     // (Bug 3: a prompted server shows ONLY the explicit + default list,
@@ -1141,11 +1143,12 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
     // (every file request is routed by the active directory, so browsing a
     // folder must set it — otherwise subtree/content/status requests answer
     // for the wrong workspace), points the sidebar file tree at it and
-    // shows the Files view.
+    // focuses the right-side Files tool while keeping Chat central.
     await waitFor(() =>
       expect(getServerProjectState("srv-viewfolder").current).toBe("/mock/projects/opencode-labs"),
     );
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
       expect(screen.getByTestId("sidebar-view-files")).toHaveAttribute("aria-selected", "true"),
     );
@@ -1436,7 +1439,7 @@ describe("DesktopShell terminal view (TASK-M6-02)", () => {
 });
 
 describe("DesktopShell quick open (TASK-M4-04)", () => {
-  it("⌘P opens the dialog and picking a recent file jumps Main to Files", async () => {
+  it("⌘P opens the dialog and picking a recent file opens the right-side Files tool", async () => {
     const alpha = server({ id: "srv-m4quick", name: "Alpha" });
     mockHttpRoutes([alpha]);
     localStorage.setItem("oc-recent-files:srv-m4quick", JSON.stringify(["README.md"]));
@@ -1450,11 +1453,12 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     // The empty-query view lists the seeded recent file.
     expect(screen.getByTestId("quick-open-item-README.md")).toBeInTheDocument();
 
-    // Picking it opens the viewer tab and switches Main to Files, like a
-    // sidebar tree click; the content fetch lands through the stub.
+    // Picking it opens the right-side viewer tab like a sidebar tree click;
+    // the content fetch lands through the stub while Chat remains central.
     fireEvent.click(screen.getByTestId("quick-open-item-README.md"));
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4quick"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
@@ -1514,11 +1518,12 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     expect(viewer["srv-m4search"]?.tabs.map((tab) => tab.path)).toEqual(["src/app.ts"]);
     expect(viewer["srv-m4search"]?.activePath).toBe("src/app.ts");
     expect(viewer["srv-m4search"]?.activeLine).toEqual({ path: "src/app.ts", line: 3 });
-    // The hit returns to the viewer mode; the panel stays mounted.
+    // The hit returns to the right-side viewer while Chat remains central.
     await waitFor(() =>
-      expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true"),
+      expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true"),
     );
-    expect(screen.getByTestId("search-input")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
+    expect(screen.queryByTestId("search-input")).not.toBeInTheDocument();
   });
 
   it("repeated ⌘⇧F cycles between the search panel and the viewer", async () => {
@@ -1531,8 +1536,9 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
 
     fireEvent.keyDown(window, { key: "f", shiftKey: true, ctrlKey: true });
-    expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
-    expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "false");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByTestId("files-search-pane")).not.toBeInTheDocument();
   });
 
   it("the search toggle button in the Files tab switches modes and shows its state", async () => {
@@ -1541,19 +1547,13 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    // The toggle only exists while the Files tab is active.
+    // The legacy center toggle is intentionally gone; the right-side Files
+    // tool is selected directly and full-text search is opened by shortcut.
     expect(screen.queryByTestId("files-search-toggle")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("main-tab-files"));
-    const button = screen.getByTestId("files-search-toggle");
-    expect(button).toHaveAttribute("aria-pressed", "false");
-
-    fireEvent.click(button);
-    expect(button).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
+    fireEvent.keyDown(window, { key: "f", shiftKey: true, ctrlKey: true });
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
-
-    fireEvent.click(button);
-    expect(button).toHaveAttribute("aria-pressed", "false");
-    expect(screen.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
   });
 
   it("fires ⌘⇧F even while typing in a text control", async () => {
@@ -1838,15 +1838,16 @@ describe("DesktopShell task navigation", () => {
 });
 
 describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
-  it("opens the Changes view from the Files tab and Back returns to Files", async () => {
+  it("opens the Changes view from the Files tool and Back returns to Chat", async () => {
     const alpha = server({ id: "srv-m4vcs", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
-    // The changes toggle only exists on the Files tab.
+    // The changes toggle remains a legacy action hook while the center is in
+    // the search view; the visible Review tool is owned by the right panel.
     expect(screen.queryByTestId("changes-toggle")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("main-tab-files"));
+    fireEvent.keyDown(window, { key: "F", shiftKey: true, metaKey: true });
     fireEvent.click(screen.getByTestId("changes-toggle"));
 
     // The Changes view replaces the tab bar with its own header + panel.
@@ -1858,12 +1859,12 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
       expect(screen.getAllByTestId("vcs-change")[0]).toHaveTextContent("src/features/a.ts"),
     );
 
-    // Back returns to the Files view.
+    // Back returns to Chat while the right-side Review tool stays mounted.
     fireEvent.click(screen.getByTestId("changes-back"));
     // The right-side tools keep their Review tab mounted after the main
     // Changes view closes; only the main Changes header should disappear.
     expect(screen.queryByTestId("changes-back")).not.toBeInTheDocument();
-    expect(screen.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
+    expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
   });
 
   it("shows the branch chip in the status bar and updates it on vcs.branch.updated", async () => {

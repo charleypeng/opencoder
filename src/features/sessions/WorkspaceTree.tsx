@@ -61,8 +61,8 @@ export interface WorkspaceTreeProps {
   serverId: string;
   /** Called when a session row is selected. */
   onSelectSession: (sessionId: string) => void;
-  /** Called by the folder ⋯ menu's "View folder": switch the main pane to
-   *  that directory's files (DesktopShell sets the context + Files view). */
+  /** Called by the folder ⋯ menu's "View folder": focus that directory in
+   *  the right-side Files tool (DesktopShell sets context and selection). */
   onViewFolder: (directory: string) => void;
 }
 
@@ -1339,7 +1339,7 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       </Show>
 
       {/* Folder ⋯ menu (workspace layout redesign): view the workspace's
-          files in the main pane, or remove it from the list (persisted). */}
+          files in the right-side tool, or remove it from the list (persisted). */}
       <Show when={folderMenu() !== null}>
         <ContextMenu
           testId="workspace-folder-menu"

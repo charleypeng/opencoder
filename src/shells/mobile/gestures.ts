@@ -43,16 +43,18 @@ export const CLICK_GUARD_MS = 500;
 
 // --- shared click guard ---------------------------------------------------
 
-/** One-shot capture click swallow on `element`: after a gesture the click
- *  that follows the pointer release must not activate what is under the
- *  finger (a swiped row, a long-pressed bubble). Self-removing on the
- *  first click and after a timeout, so a stray later tap is never lost. */
+/** One-shot capture click swallow after a gesture. The element listener
+ *  covers the original target; the window listener also covers overlays that
+ *  mount outside that target (for example a portalled long-press menu).
+ *  Self-removing on the first click and after a timeout keeps later taps
+ *  responsive. */
 function armClickGuard(
   element: HTMLElement | undefined,
   state: {
     stop: ((event: Event) => void) | undefined;
     timer: number | undefined;
   },
+  includeWindow = false,
 ): void {
   disarmClickGuard(element, state);
   const stop = (event: Event): void => {
@@ -63,6 +65,7 @@ function armClickGuard(
   state.stop = stop;
   state.timer = window.setTimeout(() => disarmClickGuard(element, state), CLICK_GUARD_MS);
   element?.addEventListener("click", stop, true);
+  if (includeWindow) window.addEventListener("click", stop, true);
 }
 
 function disarmClickGuard(
@@ -74,6 +77,9 @@ function disarmClickGuard(
 ): void {
   if (state.stop !== undefined && element !== undefined) {
     element.removeEventListener("click", state.stop, true);
+  }
+  if (state.stop !== undefined) {
+    window.removeEventListener("click", state.stop, true);
   }
   state.stop = undefined;
   if (state.timer !== undefined) {
@@ -277,7 +283,7 @@ export function useLongPress(
     window.addEventListener("pointercancel", onPointerCancel);
     holdTimer = window.setTimeout(() => {
       holdTimer = undefined;
-      armClickGuard(element, guard);
+      armClickGuard(element, guard, true);
       onLongPress({ x: startX, y: startY });
     }, ms);
   }

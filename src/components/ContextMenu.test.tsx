@@ -138,6 +138,11 @@ describe("ContextMenu items", () => {
     expect(screen.getByTestId("cm-b").querySelector('[data-testid="hint-icon"]')).not.toBeNull();
   });
 
+  it("mounts outside transformed workspace containers so menus are not clipped", () => {
+    renderMenu({ items: [makeItem({ id: "open" })] });
+    expect(screen.getByTestId("cm").closest("[data-testid='workspace-tree']")).toBeNull();
+  });
+
   it("marks danger items and renders separators", () => {
     renderMenu({
       items: [makeItem({ id: "del", label: "Delete", danger: true }), { separator: true }],

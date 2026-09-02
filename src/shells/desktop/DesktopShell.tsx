@@ -8,17 +8,16 @@
 // toggling between the session list (TASK-M2-04) and the files tree; the
 // main pane shows the chat transcript (TASK-M2-06) for the store's active
 // session id (set by row selection and by the "New session" flow,
-// TASK-M2-05), keeping a placeholder only while no session is open. A
-// Main-area tab bar (TASK-M4-03) switches between Chat and Files: the
-// Files tab mounts the tabbed file viewer, and clicking a file in the
-// sidebar tree opens its tab and switches Main to Files. ⌘/Ctrl+P opens
-// the QuickOpen file search dialog (TASK-M4-04; the shortcut moves to the
-// M8 command-palette registry) whose picks jump Main to Files the same
-// way. The Files view holds the tabbed viewer and the full-text search
-// panel (TASK-M4-05) side by side, toggled by ⌘/Ctrl+⇧F or the search
-// button; both stay mounted so search results survive hit navigation.
-// TASK-M4-08 adds the VCS changes view (a git button in the Files tab bar
-// opens it; its own Back header returns to Files) and a bottom status bar
+// TASK-M2-05), keeping a placeholder only while no session is open. File
+// content is rendered by the right-side workspace tools panel; the legacy
+// main Files state remains for search and keyboard compatibility but is
+// hidden whenever the right panel is open. ⌘/Ctrl+P opens the QuickOpen file
+// search dialog (TASK-M4-04; the shortcut moves to the M8 command-palette
+// registry), whose picks open the right-side Files tool. The full-text
+// search panel (TASK-M4-05) still uses the main surface while a search is in
+// progress, then hands the selected file to the right-side viewer.
+// TASK-M4-08 adds the VCS changes view (a legacy action hook opens it; its
+// own Back header returns to Chat) and a bottom status bar
 // whose branch chip follows the vcs store (one GET /vcs per server on
 // mount and after each re-sync that clears the store bucket;
 // `vcs.branch.updated` SSE events and the VCS panel keep it fresh;
@@ -146,7 +145,7 @@ import {
   shouldAutoCheck,
 } from "../../services/updates.js";
 import { serverUpdate, clearServerUpdate } from "../../stores/serverUpdate.js";
-import RightToolPanel from "./RightToolPanel";
+import RightToolPanel, { type RightToolView } from "./RightToolPanel";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -435,21 +434,21 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [taskExpandToken, setTaskExpandToken] = createSignal(0);
   // Sidebar view switch (TASK-M4-02): Sessions list or the Files tree.
   const [sidebarView, setSidebarView] = createSignal<"sessions" | "files">("sessions");
-  // The directory the sidebar file tree browses (undefined = the server's
-  // default); set by the workspace ⋯ menu's "View folder".
+  // The directory the sidebar file tree and right-side Files tool browse
+  // (undefined = the server's default); set by the workspace ⋯ menu's
+  // "View folder".
   const [filesDirectory, setFilesDirectory] = createSignal<string | undefined>(undefined);
-  // Main pane view switch (TASK-M4-03): Chat transcript or the Files
-  // viewer; opening a file from the sidebar tree jumps Main to Files.
+  // Main pane view switch (TASK-M4-03): Chat transcript or the legacy Files
+  // viewer. File openings focus the right-side viewer, while retaining the
+  // Files state for search and keyboard compatibility.
   // TASK-M4-07 adds the session/message diff view (⌘/Ctrl+D or the
   // message menu's "View diff"), reached through its own header's back
   // button; the Chat|Files tab bar is hidden while it is open. TASK-M4-08
-  // adds the Changes view (VCS panel), opened from the Files tab bar's git
-  // button, with the tab bar hidden while it is open like the diff view.
-  // TASK-M5-06 adds the Settings view (gear button in the tab bar; its own
-  // Back header returns to the chat view), the base for the M9-04 settings
-  // center. TASK-M6-02 adds the Terminal view (terminal icon in the tab
-  // bar or the provisional ⌘/Ctrl+J hook; its own Back header returns to
-  // chat, and the tab bar is hidden while it is open like the others).
+  // adds the Changes view (VCS panel), with its own header and back action.
+  // TASK-M5-06 adds the Settings view (rail gear; its own Back header
+  // returns to the chat view), the base for the M9-04 settings center.
+  // TASK-M6-02 adds the Terminal view (the ⌘/Ctrl+J shortcut or command
+  // palette action; its own Back header returns to chat).
   const [mainView, setMainView] = createSignal<"chat" | "files" | "diff" | "changes" | "terminal">(
     "chat",
   );
@@ -467,6 +466,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const rightToolsOpen = () => props.rightToolsOpen ?? internalRightToolsOpen();
   const [internalRightToolsMaximized, setInternalRightToolsMaximized] = createSignal(false);
   const rightToolsMaximized = () => props.rightToolsMaximized ?? internalRightToolsMaximized();
+  const [rightToolsView, setRightToolsView] = createSignal<RightToolView>("review");
 
   function setRightToolsOpen(open: boolean): void {
     if (open === rightToolsOpen()) return;
@@ -475,7 +475,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     } else {
       setInternalRightToolsOpen(open);
     }
-    if (!open) setRightToolsMaximized(false);
+    if (!open) {
+      setRightToolsMaximized(false);
+      // File content has one home: the right tool panel. Returning to chat
+      // when that panel is collapsed prevents the old main viewer from
+      // resurfacing underneath the collapsed rail.
+      if (mainView() === "files") setMainView("chat");
+    }
   }
 
   function toggleRightTools(): void {
@@ -488,6 +494,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     } else {
       setInternalRightToolsMaximized(maximized);
     }
+  }
+
+  /** Opens a file in the right-side tool panel while keeping the chat canvas
+   *  as the only visible main-pane surface. The legacy Files state remains
+   *  available to keyboard-driven search actions, but its viewer is never
+   *  mounted alongside the right-side viewer. */
+  function focusRightFiles(): void {
+    setRightToolsView("files");
+    setRightToolsOpen(true);
+    setMainView("chat");
   }
   // Default-workspace onboarding (feat(default-workspace)): opened on first
   // entry of a server with no workspace history (see onMount).
@@ -795,9 +811,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       newSession: () => void handleNewSession(),
       quickOpen: () => setQuickOpen(true),
       fullTextSearch: () => {
-        setMainView("files");
-        // Repeated presses cycle between the search panel and the viewer.
-        setFilesMode((mode) => (mode === "search" ? "viewer" : "search"));
+        if (filesMode() === "search") {
+          // Search results open in the right-side Files tool; the chat stays
+          // visible in the center instead of leaving an empty legacy pane.
+          setFilesMode("viewer");
+          focusRightFiles();
+        } else {
+          setMainView("files");
+          setFilesMode("search");
+        }
       },
       sessionDiff: () => {
         if (mainView() === "diff") {
@@ -1224,7 +1246,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 directory={filesDirectory()}
                 onOpenFile={(path) => {
                   openTab(activeServerId(), path);
-                  setMainView("files");
+                  focusRightFiles();
                 }}
                 onReference={(path) => prefillComposer(`@${path}`)}
               />
@@ -1260,7 +1282,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   pushRecentProject(activeServerId(), directory);
                   setFilesDirectory(directory);
                   setSidebarView("files");
-                  setMainView("files");
+                  focusRightFiles();
                 }}
               />
             </div>
@@ -1320,7 +1342,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                             ? "bg-accent-soft text-fg-primary"
                             : "text-fg-secondary hover:text-fg-primary"
                         }`}
-                        onClick={() => setMainView("files")}
+                        onClick={() => focusRightFiles()}
                       >
                         {t("desktop:filesTab")}
                       </button>
@@ -1424,16 +1446,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 <Show
                   when={mainView() === "chat"}
                   fallback={
-                    <div class="flex h-full min-h-0 flex-col">
+                    <div data-testid="main-files-pane" class="flex h-full min-h-0 flex-col">
                       <div
                         data-testid="files-viewer-pane"
                         data-visible={filesMode() === "viewer" ? "true" : "false"}
-                        class={filesMode() === "viewer" ? "min-h-0 flex-1" : "hidden"}
+                        class={
+                          filesMode() === "viewer" && !rightToolsOpen()
+                            ? "min-h-0 flex-1"
+                            : "hidden"
+                        }
                       >
-                        <FileViewer
-                          serverId={activeServerId()}
-                          visible={filesMode() === "viewer"}
-                        />
+                        <Show when={!rightToolsOpen()}>
+                          <FileViewer serverId={activeServerId()} visible />
+                        </Show>
                       </div>
                       <div
                         data-testid="files-search-pane"
@@ -1442,7 +1467,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       >
                         <SearchPanel
                           serverId={activeServerId()}
-                          onOpenHit={() => setFilesMode("viewer")}
+                          onOpenHit={() => {
+                            setFilesMode("viewer");
+                            focusRightFiles();
+                          }}
                         />
                       </div>
                     </div>
@@ -1663,13 +1691,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   }
                 >
                   {/* Changes view (TASK-M4-08): the VCS panel with its own back
-                    header returning to the Files view it was opened from. */}
+                    header returning to the chat while the right-side tools
+                    remain available. */}
                   <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-4 py-2">
                     <button
                       type="button"
                       data-testid="changes-back"
                       class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                      onClick={() => setMainView("files")}
+                      onClick={() => setMainView("chat")}
                     >
                       ← {t("common:back")}
                     </button>
@@ -1708,12 +1737,14 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           }
           open={rightToolsOpen()}
           maximized={rightToolsMaximized()}
+          view={rightToolsView()}
+          onViewChange={setRightToolsView}
           showHeaderControls={false}
           onOpenChange={setRightToolsOpen}
           onMaximizedChange={setRightToolsMaximized}
           onOpenFile={(path) => {
             openTab(activeServerId(), path);
-            setMainView("files");
+            focusRightFiles();
           }}
         />
       </div>
@@ -1736,12 +1767,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       </footer>
 
       {/* Quick open (TASK-M4-04): ⌘/Ctrl+P opens the file search dialog; a
-          picked file jumps Main to Files like a sidebar tree click. */}
+          picked file opens in the right-side Files tool. */}
       <QuickOpen
         serverId={activeServerId()}
         open={quickOpen()}
         onClose={() => setQuickOpen(false)}
-        onOpenFile={() => setMainView("files")}
+        onOpenFile={() => focusRightFiles()}
       />
 
       {/* Command palette (TASK-M8-02): ⌘/Ctrl+K aggregates sessions /
@@ -1777,8 +1808,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                 createToast(t("desktop:commandFailed"), "error");
               });
           },
-          onOpenFile: () => setMainView("files"),
-          onOpenSymbol: () => setMainView("files"),
+          onOpenFile: () => focusRightFiles(),
+          onOpenSymbol: () => focusRightFiles(),
         }}
       />
 
