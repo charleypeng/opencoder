@@ -29,7 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- fix(desktop): Assign every workspace boundary a single divider owner so the sidebar splitter and maximized tools never stack overlapping lines. (desktop)
+- fix(desktop): Use one overlay divider per workspace boundary so sidebar resizing and maximized tools never stack or leave a splitbar gap. (desktop)
 - fix(desktop): Hide the right workspace tools completely when collapsed so no empty rail remains beside the chat. (desktop)
 - fix(desktop): Keep file content in the right workspace tool, portal context menus above clipped navigation layers, and long-press menu taps working across the overlay. (desktop)
 - feat(desktop): Keep right-side tool controls in sync with the title bar, show file contents in the Files tool, and raise the navigation columns above the workspace so their menus remain visible. (desktop)

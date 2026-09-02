@@ -1289,20 +1289,22 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           </Show>
         </aside>
         <Show when={!sidebarCollapsed()}>
-          <div
-            data-testid="sidebar-resize-handle"
-            role="separator"
-            aria-label={t("desktop:resizeSidebar")}
-            aria-orientation="vertical"
-            aria-valuemin={SIDEBAR_MIN_WIDTH}
-            aria-valuemax={SIDEBAR_MAX_WIDTH}
-            aria-valuenow={sidebarWidth()}
-            tabIndex={0}
-            class="group z-10 flex w-1 shrink-0 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
-            onPointerDown={onSidebarResizeStart}
-            onKeyDown={onSidebarResizeKeyDown}
-          >
-            <span class="w-px bg-bg-sunken transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+          <div class="relative z-10 w-0 shrink-0">
+            <div
+              data-testid="sidebar-resize-handle"
+              role="separator"
+              aria-label={t("desktop:resizeSidebar")}
+              aria-orientation="vertical"
+              aria-valuemin={SIDEBAR_MIN_WIDTH}
+              aria-valuemax={SIDEBAR_MAX_WIDTH}
+              aria-valuenow={sidebarWidth()}
+              tabIndex={0}
+              class="group absolute inset-y-0 left-0 flex w-1 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
+              onPointerDown={onSidebarResizeStart}
+              onKeyDown={onSidebarResizeKeyDown}
+            >
+              <span class="w-px bg-bg-sunken transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+            </div>
           </div>
         </Show>
 
