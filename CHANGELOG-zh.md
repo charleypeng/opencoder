@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.1.0] - 2026-09-02
 
 ### 新增
 
@@ -29,6 +29,7 @@
 
 ### 修复
 
+- fix(ci)：生成 `latest.json` 时同步下载 Windows 的 `.exe`/`.msi` 安装包及其签名；Tauri v2 直接为这些自包含安装包签名，不会产生 `*.nsis.zip`/`*.msi.zip`，漏下载会导致 `windows-x86_64` 更新条目被静默丢弃并使发布失败。(ci)
 - fix(sessions)：移除重复的独立批量操作按钮，将批量控制保留在会话右键菜单中。(sessions)
 - fix(settings)：为自定义服务商写入 OpenAI 兼容包与模型元数据，将其刷新到共享目录，并支持搜索折叠列表中隐藏的服务商。(settings)
 - fix(desktop)：让每条工作区边界只由一个覆盖式分隔条绘制，避免侧栏拖拽条留下缝隙或与最大化工具栏叠加出多条竖线。(desktop)

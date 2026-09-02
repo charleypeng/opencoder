@@ -268,6 +268,13 @@ jobs:
         with:
           node-version: 22
 
+      # Only macOS ships a zipped updater artifact (app.tar.gz): in Tauri v2
+      # (createUpdaterArtifacts: true, i.e. NOT v1Compatible) the Windows
+      # .exe/.msi and the Linux .AppImage/.deb installers are self contained
+      # and get signed directly — no .nsis.zip / .msi.zip is ever produced.
+      # The patterns below must therefore cover those installers too, or
+      # gen-latest-json.mjs finds a .sig with no matching asset and silently
+      # drops the platform.
       - name: Download updater assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -279,7 +286,9 @@ jobs:
             --pattern '*.tar.gz' \
             --pattern '*.zip' \
             --pattern '*.AppImage' \
-            --pattern '*.deb'
+            --pattern '*.deb' \
+            --pattern '*.exe' \
+            --pattern '*.msi'
 
       - name: Extract release notes
         run: |

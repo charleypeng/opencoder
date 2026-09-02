@@ -24,6 +24,12 @@
 //   windows: *-setup.nsis.zip.sig > *_en-US.msi.zip.sig > -setup.exe.sig
 //            > .msi.sig
 //   linux:   *.AppImage.tar.gz.sig > *.AppImage.sig > *.deb.sig
+// The .zip / .tar.gz variants only exist in v1-compatible mode
+// (bundle.createUpdaterArtifacts = "v1Compatible"): with the v2 setting
+// (true) the bundler treats Windows .exe/.msi and Linux .AppImage/.deb as
+// self-contained updater payloads and signs them directly, so only macOS
+// produces an archive (app.tar.gz). Callers must therefore have the bare
+// installers next to their .sig files, otherwise the platform is dropped.
 // A universal macOS artifact maps to BOTH darwin-aarch64 and darwin-x86_64.
 // Exits 1 when no updater artifacts are found or a --require key is missing.
 

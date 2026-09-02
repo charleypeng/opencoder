@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.1.0] - 2026-09-02
 
 ### Added
 
@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(ci): Download the Windows `.exe`/`.msi` installers alongside their signatures when assembling `latest.json`; Tauri v2 signs those self-contained installers directly and never produces `*.nsis.zip`/`*.msi.zip`, so the missing download silently dropped the `windows-x86_64` updater entry and failed the release. (ci)
 - fix(sessions): Remove the redundant standalone batch actions button and keep batch controls in the session context menu. (sessions)
 - fix(settings): Register custom providers with the OpenAI-compatible package and model metadata, refresh them into the shared catalog, and search providers hidden by the collapsed view. (settings)
 - fix(desktop): Use one overlay divider per workspace boundary so sidebar resizing and maximized tools never stack or leave a splitbar gap. (desktop)
