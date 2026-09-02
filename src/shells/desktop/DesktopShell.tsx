@@ -1290,11 +1290,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             fallback={
               <>
                 {/* TASK-M9-08: the main-pane switcher mixes view tabs with
-                  action buttons (search/changes/terminal/settings), so it
-                  is NOT a tablist (axe aria-required-children); the active
-                  view uses aria-current instead of aria-selected. */}
+                  action buttons (search/changes/terminal/settings). The
+                  controls remain keyboard/automation hooks while the visible
+                  workspace chrome lives in the title bar and right panel. */}
                 <Show when={!terminalDocked()}>
-                  <div class="flex shrink-0 items-center gap-1 border-b border-bg-sunken px-3 py-2">
+                  <div data-testid="main-pane-controls" class="hidden" aria-hidden="true">
                     {/* Segmented view switch: compact auto-width control (the
                     previous flex-1 tabs stretched into full-width pills). */}
                     <div class="flex gap-0.5 rounded-lg bg-bg-sunken/60 p-0.5">

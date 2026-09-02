@@ -194,7 +194,8 @@ const TitleBar: Component<TitleBarProps> = (props) => {
             class="h-4 w-4"
             aria-hidden="true"
           >
-            <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <path d="M15 4v16" />
           </svg>
         </button>
         <button
@@ -218,7 +219,7 @@ const TitleBar: Component<TitleBarProps> = (props) => {
             class="h-4 w-4"
             aria-hidden="true"
           >
-            <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+            <path d="M13 3h8v8M21 3l-9 9M11 21H3v-8M3 21l9-9" />
           </svg>
         </button>
       </Show>

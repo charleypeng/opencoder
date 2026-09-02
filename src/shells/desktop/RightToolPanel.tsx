@@ -208,7 +208,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
       data-collapsed={props.open ? "false" : "true"}
       data-maximized={maximized() ? "true" : "false"}
       style={{ width: maximized() ? "100%" : props.open ? `${width()}px` : "32px" }}
-      class={`relative flex min-h-0 min-w-0 flex-col border-l border-bg-sunken bg-bg-elevated transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
+      class={`relative flex min-h-0 min-w-0 flex-col border-l border-bg-sunken bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
         maximized() ? "flex-1" : "shrink-0"
       }`}
     >
@@ -321,7 +321,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                 class="h-4 w-4"
                 aria-hidden="true"
               >
-                <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+                <path d="M13 3h8v8M21 3l-9 9M11 21H3v-8M3 21l9-9" />
               </svg>
             </button>
             <button
@@ -349,7 +349,8 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
                 class="h-4 w-4"
                 aria-hidden="true"
               >
-                <path d="M4 12h16M9 7l-5 5 5 5M15 7l5 5-5 5" />
+                <rect x="4" y="4" width="16" height="16" rx="2" />
+                <path d="M15 4v16" />
               </svg>
             </button>
           </Show>

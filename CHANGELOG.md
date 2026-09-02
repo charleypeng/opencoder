@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - feat(desktop): Add an embedded right-side Browser preview with a safe system-browser fallback while preserving the Codex-style tool panel layout. (desktop)
+- feat(desktop): Remove redundant center-pane chrome, move right-tool controls into the title bar, and align the right-panel surface with the chat canvas. (desktop)
 
 ### Fixed
 

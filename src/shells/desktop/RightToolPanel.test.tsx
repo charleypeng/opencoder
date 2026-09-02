@@ -41,7 +41,9 @@ function renderPanel(overrides: Partial<Parameters<typeof RightToolPanel>[0]> = 
 describe("RightToolPanel", () => {
   it("renders review, files, and browser tools with review selected", () => {
     renderPanel();
-    expect(screen.getByTestId("right-tool-panel")).toHaveAttribute("data-collapsed", "false");
+    const panel = screen.getByTestId("right-tool-panel");
+    expect(panel).toHaveAttribute("data-collapsed", "false");
+    expect(panel).toHaveClass("bg-bg-base");
     expect(screen.getByTestId("right-tools-review-pane")).toBeInTheDocument();
     expect(screen.getByTestId("right-tools-review")).toHaveAttribute("aria-selected", "true");
 
@@ -72,6 +74,10 @@ describe("RightToolPanel", () => {
     expect(panel).toHaveAttribute("data-maximized", "true");
     expect(onMaximizedChange).toHaveBeenCalledWith(true);
     expect(screen.getByTestId("right-tools-maximize")).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByTestId("right-tools-maximize").querySelector("path")).toHaveAttribute(
+      "d",
+      "M13 3h8v8M21 3l-9 9M11 21H3v-8M3 21l9-9",
+    );
 
     fireEvent.click(screen.getByTestId("right-tools-maximize"));
     expect(panel).toHaveAttribute("data-maximized", "false");

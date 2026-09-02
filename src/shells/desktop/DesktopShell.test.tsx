@@ -1046,13 +1046,14 @@ describe("DesktopShell task panel (composer dock)", () => {
   });
 });
 
-describe("DesktopShell main view tabs (TASK-M4-03)", () => {
-  it("renders the Chat|Files tab bar with Chat selected and switches to the empty viewer", async () => {
+describe("DesktopShell main view actions (TASK-M4-03)", () => {
+  it("keeps legacy Chat|Files actions hidden while switching to the viewer", async () => {
     const alpha = server({ id: "srv-m4view", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
 
+    expect(screen.getByTestId("main-pane-controls")).toHaveClass("hidden");
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
     expect(screen.getByTestId("main-tab-files")).not.toHaveAttribute("aria-current");
     expect(screen.getByText("Select a session")).toBeInTheDocument();
