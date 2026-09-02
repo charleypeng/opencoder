@@ -2076,12 +2076,16 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
     expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "false");
     fireEvent.keyDown(window, { key: "b", metaKey: true });
     expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "true");
-    expect(screen.getByTestId("sidebar")).toHaveClass("hidden");
+    expect(screen.getByTestId("sidebar")).toHaveAttribute("aria-hidden", "true");
+    expect(screen.getByTestId("sidebar")).toHaveStyle({ width: "0px" });
+    expect(screen.getByTestId("sidebar")).toHaveClass("overflow-hidden", "opacity-0");
 
     // A second press (Ctrl on a non-mac test host) restores the sidebar.
     fireEvent.keyDown(window, { key: "B", ctrlKey: true });
     expect(screen.getByTestId("sidebar")).toHaveAttribute("data-collapsed", "false");
-    expect(screen.getByTestId("sidebar")).not.toHaveClass("hidden");
+    expect(screen.getByTestId("sidebar")).toHaveAttribute("aria-hidden", "false");
+    expect(screen.getByTestId("sidebar")).toHaveStyle({ width: "256px" });
+    expect(screen.getByTestId("sidebar")).toHaveClass("translate-x-0", "opacity-100");
   });
 
   it("resizes the sidebar with the splitbar and persists the width", () => {

@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(desktop): Animate sidebar collapse and expansion with a measured width, opacity, and content-slide transition instead of an abrupt display toggle. (desktop)
 - fix(desktop): Suppress the WebView reload and inspector context menu in release builds. (desktop)
 - fix(styles): Make the light workspace canvas white while retaining a contrasting gray sidebar and controls. (styles)
 - fix(settings): Give desktop settings navigation items a uniform full-width selection background. (settings)

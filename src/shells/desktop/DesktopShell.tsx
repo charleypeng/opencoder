@@ -1119,9 +1119,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
         <aside
           data-testid="sidebar"
           data-collapsed={sidebarCollapsed() ? "true" : "false"}
-          style={{ width: `${sidebarWidth()}px` }}
-          class={`shrink-0 flex-col border-r border-bg-sunken bg-bg-elevated ${
-            sidebarCollapsed() ? "hidden" : "flex"
+          aria-hidden={sidebarCollapsed() ? "true" : "false"}
+          inert={sidebarCollapsed()}
+          style={{ width: sidebarCollapsed() ? "0px" : `${sidebarWidth()}px` }}
+          class={`flex shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,border-color,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
+            sidebarCollapsed()
+              ? "pointer-events-none -translate-x-1 border-r border-transparent opacity-0"
+              : "translate-x-0 border-r border-bg-sunken opacity-100"
           }`}
         >
           <header class="flex items-center justify-between gap-2 border-b border-bg-sunken px-4 py-3">
