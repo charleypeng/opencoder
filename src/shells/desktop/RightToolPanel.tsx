@@ -104,22 +104,6 @@ function BrowserIcon() {
   );
 }
 
-function PanelIcon() {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.6"
-      class="h-4 w-4"
-      aria-hidden="true"
-    >
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M15 4v16" />
-    </svg>
-  );
-}
-
 const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   const t = useT();
   const [internalView, setInternalView] = createSignal<RightToolView>("review");
@@ -213,30 +197,15 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   }
 
   return (
-    <section
-      data-testid="right-tool-panel"
-      data-collapsed={props.open ? "false" : "true"}
-      data-maximized={maximized() ? "true" : "false"}
-      style={{ width: maximized() ? "100%" : props.open ? `${width()}px` : "32px" }}
-      class={`relative flex min-h-0 min-w-0 flex-col border-l border-bg-sunken bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
-        maximized() ? "flex-1" : "shrink-0"
-      }`}
-    >
-      <Show
-        when={props.open}
-        fallback={
-          <button
-            type="button"
-            data-testid="right-tools-expand"
-            aria-label={t("desktop:openTools")}
-            title={t("desktop:openTools")}
-            aria-expanded="false"
-            class="flex h-10 w-8 shrink-0 items-center justify-center text-fg-secondary outline-none transition-colors hover:bg-bg-sunken/70 hover:text-fg-primary"
-            onClick={() => props.onOpenChange(true)}
-          >
-            <PanelIcon />
-          </button>
-        }
+    <Show when={props.open}>
+      <section
+        data-testid="right-tool-panel"
+        data-collapsed="false"
+        data-maximized={maximized() ? "true" : "false"}
+        style={{ width: maximized() ? "100%" : `${width()}px` }}
+        class={`relative flex min-h-0 min-w-0 flex-col border-l border-bg-sunken bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
+          maximized() ? "flex-1" : "shrink-0"
+        }`}
       >
         <div
           data-testid="right-tools-resize-handle"
@@ -440,8 +409,8 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
             </div>
           </Show>
         </div>
-      </Show>
-    </section>
+      </section>
+    </Show>
   );
 };
 

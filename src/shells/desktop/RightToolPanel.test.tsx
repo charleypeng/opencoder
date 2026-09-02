@@ -55,16 +55,16 @@ describe("RightToolPanel", () => {
     expect(screen.getByTestId("right-tools-browser-pane")).toBeInTheDocument();
   });
 
-  it("collapses and restores the tool panel", () => {
+  it("notifies the shell when the tool panel is collapsed", () => {
     const { onOpenChange } = renderPanel();
     fireEvent.click(screen.getByTestId("right-tools-collapse"));
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 
-    const { onOpenChange: collapsedOnOpenChange } = renderPanel({ open: false });
-    const collapsedPanel = screen.getAllByTestId("right-tool-panel").slice(-1)[0];
-    expect(collapsedPanel).toHaveAttribute("data-collapsed", "true");
-    fireEvent.click(screen.getAllByTestId("right-tools-expand").slice(-1)[0]);
-    expect(collapsedOnOpenChange).toHaveBeenLastCalledWith(true);
+  it("does not render a rail when collapsed", () => {
+    renderPanel({ open: false });
+    expect(screen.queryByTestId("right-tool-panel")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("right-tools-expand")).not.toBeInTheDocument();
   });
 
   it("maximizes and restores through the panel action", () => {
