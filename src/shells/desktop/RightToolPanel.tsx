@@ -203,25 +203,27 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
         data-collapsed="false"
         data-maximized={maximized() ? "true" : "false"}
         style={{ width: maximized() ? "100%" : `${width()}px` }}
-        class={`relative flex min-h-0 min-w-0 flex-col border-l border-bg-sunken bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
-          maximized() ? "flex-1" : "shrink-0"
+        class={`relative flex min-h-0 min-w-0 flex-col bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
+          maximized() ? "flex-1" : "shrink-0 border-l border-bg-sunken"
         }`}
       >
-        <div
-          data-testid="right-tools-resize-handle"
-          role="separator"
-          aria-label={t("desktop:resizeTools")}
-          aria-orientation="vertical"
-          aria-valuemin={RIGHT_PANEL_MIN_WIDTH}
-          aria-valuemax={RIGHT_PANEL_MAX_WIDTH}
-          aria-valuenow={width()}
-          tabIndex={0}
-          class="group absolute inset-y-0 left-0 z-10 flex w-1 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
-          onPointerDown={onResizeStart}
-          onKeyDown={onResizeKeyDown}
-        >
-          <span class="w-px bg-bg-sunken transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
-        </div>
+        <Show when={!maximized()}>
+          <div
+            data-testid="right-tools-resize-handle"
+            role="separator"
+            aria-label={t("desktop:resizeTools")}
+            aria-orientation="vertical"
+            aria-valuemin={RIGHT_PANEL_MIN_WIDTH}
+            aria-valuemax={RIGHT_PANEL_MAX_WIDTH}
+            aria-valuenow={width()}
+            tabIndex={0}
+            class="group absolute inset-y-0 left-0 z-10 flex w-1 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
+            onPointerDown={onResizeStart}
+            onKeyDown={onResizeKeyDown}
+          >
+            <span class="w-px bg-transparent transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />
+          </div>
+        </Show>
         <header class="flex h-11 shrink-0 items-center gap-1 border-b border-bg-sunken px-2">
           <div
             role="tablist"

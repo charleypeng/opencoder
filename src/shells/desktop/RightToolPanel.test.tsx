@@ -72,6 +72,8 @@ describe("RightToolPanel", () => {
     const panel = screen.getByTestId("right-tool-panel");
     fireEvent.click(screen.getByTestId("right-tools-maximize"));
     expect(panel).toHaveAttribute("data-maximized", "true");
+    expect(panel).not.toHaveClass("border-l");
+    expect(screen.queryByTestId("right-tools-resize-handle")).not.toBeInTheDocument();
     expect(onMaximizedChange).toHaveBeenCalledWith(true);
     expect(screen.getByTestId("right-tools-maximize")).toHaveAttribute("aria-pressed", "true");
     expect(screen.getByTestId("right-tools-maximize").querySelector("path")).toHaveAttribute(
@@ -81,6 +83,8 @@ describe("RightToolPanel", () => {
 
     fireEvent.click(screen.getByTestId("right-tools-maximize"));
     expect(panel).toHaveAttribute("data-maximized", "false");
+    expect(panel).toHaveClass("border-l");
+    expect(screen.getByTestId("right-tools-resize-handle")).toBeInTheDocument();
     expect(onMaximizedChange).toHaveBeenLastCalledWith(false);
   });
 
