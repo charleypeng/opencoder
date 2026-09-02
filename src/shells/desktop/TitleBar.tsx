@@ -113,9 +113,7 @@ const TitleBar: Component<TitleBarProps> = (props) => {
             stroke-width="1.6"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class={`h-4 w-4 transition-transform duration-(--dur-fast) ${
-              props.sidebarCollapsed ? "rotate-180" : ""
-            }`}
+            class="h-4 w-4"
             aria-hidden="true"
           >
             <rect x="4" y="4" width="16" height="16" rx="2" />

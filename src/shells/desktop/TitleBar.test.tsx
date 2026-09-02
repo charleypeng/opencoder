@@ -247,11 +247,12 @@ describe("TitleBar sidebar toggle", () => {
     expect(onToggleSidebar).toHaveBeenCalledTimes(1);
   });
 
-  it("reflects the collapsed state with a restrained visual cue", () => {
+  it("reflects the collapsed state without rotating the control icon", () => {
     render(() => <TitleBar sidebarCollapsed onToggleSidebar={vi.fn()} />);
     const button = screen.getByTestId("titlebar-sidebar-toggle");
     expect(button).toHaveAttribute("aria-pressed", "true");
     expect(button).toHaveAttribute("data-collapsed", "true");
-    expect(button.querySelector("svg")).toHaveClass("rotate-180");
+    expect(button.querySelector("svg")).toHaveClass("h-4", "w-4");
+    expect(button.querySelector("svg")).not.toHaveClass("rotate-180");
   });
 });

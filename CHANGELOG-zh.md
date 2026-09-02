@@ -21,6 +21,7 @@
 
 ### 修复
 
+- fix(desktop)：保持标题栏侧栏按钮图标静止，切换侧栏时不再旋转。(desktop)
 - fix(desktop)：用克制的宽度、透明度和内容滑动过渡实现侧栏折叠与展开，替代突兀的显示切换。(desktop)
 - fix(desktop)：发布版本中屏蔽 WebView 的 Reload 和 Inspect Element 右键菜单。(desktop)
 - fix(styles)：让白天模式的工作区主画布为白色，同时保留有对比度的灰色侧栏和控件背景。(styles)
