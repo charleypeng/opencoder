@@ -8,6 +8,8 @@
 
 import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
+import { createMessageService } from "../../../services/message.js";
+import { getApiClient } from "../../../services/client.js";
 import type { Part } from "../../../stores/messages.js";
 import { resolveToolCard } from "./tools/registry.js";
 import { durationLabel, StatusIcon, ToolIcon } from "./tools/shared.js";
@@ -58,7 +60,36 @@ function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
 const ToolPart: Component<ToolPartProps> = (props) => {
   const t = useT();
   const [expanded, setExpanded] = createSignal(false);
+  const [loadedPart, setLoadedPart] = createSignal<ToolPartData>();
+  let disposed = false;
   const status = () => props.part.state.status;
+
+  onCleanup(() => {
+    disposed = true;
+  });
+
+  async function loadDetails(): Promise<void> {
+    try {
+      const message = await createMessageService(getApiClient()).get(
+        props.part.sessionID,
+        props.part.messageID,
+      );
+      const part = message.parts.find(
+        (candidate) =>
+          candidate.type === "tool" &&
+          (candidate.id === props.part.id || candidate.callID === props.part.callID),
+      );
+      if (!disposed && part?.type === "tool") setLoadedPart(part as ToolPartData);
+    } catch {
+      // The local event payload remains the fallback when the detail request fails.
+    }
+  }
+
+  function toggleExpanded(): void {
+    const next = !expanded();
+    setExpanded(next);
+    if (next && loadedPart() === undefined) void loadDetails();
+  }
 
   // Live elapsed clock: ticks only while running; the interval is cleaned
   // up on every status change and on dispose, so it never outlives the part.
@@ -71,7 +102,8 @@ const ToolPart: Component<ToolPartProps> = (props) => {
   });
 
   const duration = createMemo(() => durationLabel(props.part.state, now()));
-  const card = createMemo(() => resolveToolCard(props.part.tool));
+  const detailPart = createMemo(() => loadedPart() ?? props.part);
+  const card = createMemo(() => resolveToolCard(detailPart().tool));
 
   return (
     <div
@@ -84,7 +116,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         data-testid="tool-toggle"
         aria-expanded={expanded()}
         class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
-        onClick={() => setExpanded((value) => !value)}
+        onClick={toggleExpanded}
       >
         <span
           aria-hidden
@@ -113,13 +145,13 @@ const ToolPart: Component<ToolPartProps> = (props) => {
       {/* IA-28: expanded content with monospace font for JSON input/output */}
       <Show when={expanded()}>
         <div class="space-y-2 border-t border-bg-sunken px-2 py-2">
-          <ToolCardView card={card()} part={props.part} />
-          <Show when={status() === "error"}>
+          <ToolCardView card={card()} part={detailPart()} />
+          <Show when={detailPart().state.status === "error"}>
             <div
               data-testid="tool-error"
               class="whitespace-pre-wrap break-words rounded-sm bg-danger/10 px-2 py-1.5 font-code text-xs leading-relaxed text-danger"
             >
-              {toolErrorText(props.part)}
+              {toolErrorText(detailPart())}
             </div>
           </Show>
         </div>

@@ -9,6 +9,7 @@
 
 ### 修复
 
+- fix(messages)：打开工具卡时获取消息接口中的完整 parts，确保流式工具数据不完整时 bash 和 edit 仍能显示详情。(messages)
 - fix(messages)：移除已完成运行结果中冗余的重要命令摘要。(messages)
 - fix(messages)：将活动轨迹中的嵌套工具输出折叠收敛为明确的单一可点击行。(messages)
 - fix(messages)：允许已展开活动轨迹内的工具卡继续展开输出，并移除聊天消息中冗余的 AI 标签。(messages)

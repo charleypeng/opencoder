@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Fetch the authoritative message parts when opening a tool card so bash and edit details remain available even if the streamed part is incomplete. (messages)
 - fix(messages): Remove the redundant important-command summary from completed run outcomes. (messages)
 - fix(messages): Make nested tool output disclosures a single unambiguous clickable row inside activity traces. (messages)
 - fix(messages): Allow tool cards within expanded activity traces to reveal their output, and remove redundant AI badges from chat messages. (messages)
