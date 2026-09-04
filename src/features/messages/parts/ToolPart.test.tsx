@@ -10,6 +10,13 @@ import { createSignal } from "solid-js";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import ToolPart, { type ToolPartData, type ToolStatus } from "./ToolPart";
 
+const { messageGetMock } = vi.hoisted(() => ({ messageGetMock: vi.fn() }));
+
+vi.mock("../../../services/message.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../services/message.js")>();
+  return { ...actual, createMessageService: vi.fn(() => ({ get: messageGetMock })) };
+});
+
 function toolPart(tool: string, state: Record<string, unknown>): ToolPartData {
   return {
     id: "prt_tool",
@@ -114,6 +121,7 @@ function renderExpanded(part: ToolPartData) {
 
 afterEach(() => {
   vi.useRealTimers();
+  messageGetMock.mockReset();
   Object.defineProperty(navigator, "clipboard", { value: undefined, configurable: true });
 });
 
@@ -185,6 +193,41 @@ describe("ToolPart", () => {
     expect(diff.textContent).toMatch(/-\s+return false;/);
     expect(diff.textContent).toMatch(/\+\s+return true;/);
     expect(within(diff).getByTestId("tool-copy")).toBeInTheDocument();
+  });
+
+  it("refreshes missing edit details from the message endpoint when expanded", async () => {
+    messageGetMock.mockResolvedValue({
+      info: {},
+      parts: [
+        {
+          ...editCompleted,
+          state: {
+            ...editCompleted.state,
+            input: {
+              filePath: "src/auth/login.ts",
+              oldString: "remote old title",
+              newString: "remote new title",
+            },
+          },
+        },
+      ],
+    });
+    const incomplete = toolPart("edit", {
+      status: "completed",
+      input: { filePath: "src/auth/login.ts" },
+      output: "Edit applied successfully.",
+      title: "edit",
+      metadata: {},
+      time: { start: 1000, end: 2000 },
+    });
+
+    render(() => <ToolPart part={incomplete} />);
+    fireEvent.click(screen.getByTestId("tool-toggle"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("tool-diff")).toHaveTextContent("remote new title"),
+    );
+    expect(messageGetMock).toHaveBeenCalledWith("sess_1", "msg_1");
   });
 
   it("renders read and write code blocks with their file paths", () => {
