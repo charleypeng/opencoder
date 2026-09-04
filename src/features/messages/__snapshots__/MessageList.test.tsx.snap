@@ -183,20 +183,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
                         />
                         <div
-                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
-                        >
-                          <span
-                            class="truncate font-medium text-fg-primary"
-                          >
-                            bash
-                          </span>
-                          <span
-                            class="min-w-0 truncate text-fg-faint"
-                          >
-                            auth/
-                          </span>
-                        </div>
-                        <div
                           class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
                           data-status="completed"
                           data-testid="tool-part"

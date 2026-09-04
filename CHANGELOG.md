@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Make nested tool output disclosures a single unambiguous clickable row inside activity traces. (messages)
 - fix(messages): Allow tool cards within expanded activity traces to reveal their output, and remove redundant AI badges from chat messages. (messages)
 - fix(messages): Remove redundant patch event cards from the chat transcript while retaining their diff data for run summaries. (messages)
 - fix(messages): Reveal one selected file diff at a time from completed-run summaries, keeping multi-file output scannable. (messages)

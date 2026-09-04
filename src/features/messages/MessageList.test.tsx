@@ -204,7 +204,7 @@ describe("MessageList", () => {
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
     expect(within(completed).getByTestId("tool-terminal")).toBeInTheDocument();
     expect(within(completed).getByText(/ls src/)).toBeInTheDocument();
-    expect(within(completed).getByText(/auth/)).toBeInTheDocument();
+    expect(within(completed).getByTestId("tool-terminal")).toHaveTextContent(/auth/);
   });
 
   it("renders every supported part from the all-parts fixture", async () => {
