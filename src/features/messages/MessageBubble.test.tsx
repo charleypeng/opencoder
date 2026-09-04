@@ -214,10 +214,9 @@ describe("MessageBubble", () => {
     expect(file).toHaveTextContent("login-flow.png");
     expect(file).toHaveTextContent("Content unavailable");
 
-    const patch = bubble.querySelector('[data-testid="patch-part"]');
-    expect(patch).not.toBeNull();
-    expect(patch).toHaveTextContent("Patch");
-    expect(patch?.querySelectorAll('[data-testid="patch-file"]')).toHaveLength(2);
+    // Patch event cards duplicate the run's changed-file summary and its
+    // on-demand diff, so they stay in the store but do not occupy chat space.
+    expect(bubble.querySelector('[data-testid="patch-part"]')).toBeNull();
 
     const snapshot = bubble.querySelector('[data-testid="snapshot-part"]');
     expect(snapshot).not.toBeNull();
