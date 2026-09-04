@@ -57,7 +57,7 @@ const OverflowMarquee: Component<{ text: string; testId?: string }> = (props) =>
       data-testid={props.testId}
       data-overflow={overflowPx() > 0 ? "true" : "false"}
       title={props.text}
-      class="session-title-marquee-viewport block min-w-0 flex-1 overflow-hidden text-[10px]"
+      class="session-title-marquee-viewport block min-w-0 flex-1 overflow-hidden text-xs"
     >
       <span
         class="session-title-marquee-content inline-block whitespace-nowrap"

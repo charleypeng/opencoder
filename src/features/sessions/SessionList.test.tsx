@@ -1,5 +1,5 @@
 // L2 tests for the session list (TASK-M2-04/05): time-grouped rendering with
-// headers and relative times, title fallback to slug, status badges per
+// headers, title fallback to slug, status badges per
 // state (busy spinner / idle dot / error red dot, retry counts as busy),
 // live badge updates through the store (SSE), case-insensitive local search
 // with the no-match empty state, active-session highlight, row selection
@@ -38,7 +38,7 @@ const SERVER = "srv-list";
 
 // Wednesday Aug 5 2026 14:00 local (the Monday of that week is Aug 3).
 const NOW = new Date(2026, 7, 5, 14, 0, 0, 0).getTime();
-const TODAY = new Date(2026, 7, 5, 9, 0, 0).getTime(); // "5h ago"
+const TODAY = new Date(2026, 7, 5, 9, 0, 0).getTime();
 const YESTERDAY = new Date(2026, 7, 4, 9, 0, 0).getTime();
 const THIS_WEEK = new Date(2026, 7, 3, 9, 0, 0).getTime(); // Monday
 const EARLIER = new Date(2026, 7, 2, 9, 0, 0).getTime(); // last Sunday
@@ -104,7 +104,7 @@ async function pickMenuAction(testId: string) {
 }
 
 describe("SessionList", () => {
-  it("renders time-grouped sessions with headers and relative times", () => {
+  it("renders time-grouped sessions with single-line titles", () => {
     applySessionList(SERVER, [
       session("earlier", EARLIER),
       session("week", THIS_WEEK),
@@ -123,7 +123,10 @@ describe("SessionList", () => {
     for (const id of ["today", "yesterday", "week", "earlier"]) {
       expect(screen.getByTestId(`session-item-${id}`)).toBeInTheDocument();
     }
-    expect(screen.getByText("5h ago")).toBeInTheDocument();
+    const row = screen.getByTestId("session-item-today");
+    expect(within(row).getByTestId("session-title")).toHaveClass("text-xs");
+    expect(screen.getByTestId("new-session-button")).toHaveClass("text-xs");
+    expect(row.querySelector(".font-code")).toBeNull();
   });
 
   it("falls back to the slug when the session has no title", () => {

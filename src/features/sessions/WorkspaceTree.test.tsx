@@ -135,6 +135,10 @@ describe("WorkspaceTree", () => {
     expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument();
     expect(screen.getByTestId("workspace-session-s2")).toBeInTheDocument();
     expect(screen.getByTestId("workspace-session-s3")).toBeInTheDocument();
+    const sessionRow = screen.getByTestId("workspace-session-s1");
+    expect(within(sessionRow).getByTestId("workspace-session-title")).toHaveClass("text-xs");
+    expect(screen.getByTestId("workspace-new-session")).toHaveClass("text-xs");
+    expect(sessionRow.querySelector(".font-code")).toBeNull();
   });
 
   it("completes empty folders from projects with no sessions", async () => {

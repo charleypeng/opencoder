@@ -89,12 +89,12 @@
   /* density (desktop compact 0.92, mobile 1.06) */
   --density: 1;
 
-  /* UI scale (desktop): the whole-interface scale factor applied on the
+  /* UI scale (desktop): the whole-interface physical factor applied on the
      html font-size (src/styles/index.css). The store
-     (src/stores/uiScale.ts) overrides it live; 1.1 ships a
-     bigger-than-baseline desktop UI and the Appearance slider picks
-     0.9–1.6. Mobile stays 1 (native glass bar coordination). */
-  --ui-scale: 1.1;
+     (src/stores/uiScale.ts) overrides it live; 1.2 is the visual 100%
+     baseline and the Appearance slider picks a relative 0.9–1.6. Mobile
+     stays 1 (native glass bar coordination). */
+  --ui-scale: 1.2;
 
   /* fonts: system stack for UI, mono for code */
   --font-ui:

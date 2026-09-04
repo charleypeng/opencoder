@@ -38,7 +38,6 @@ import {
   setActiveSession,
   upsertSession,
 } from "../../stores/session.js";
-import { formatRelativeTime } from "../servers/relativeTime.js";
 import { groupSessionsByTime, type SessionTimeGroup } from "./timeGroups.js";
 import { buildSessionTree, topLevelRoots, type SessionTreeNode } from "./sessionTree.js";
 import { forkSession, createSession } from "./sessionActions.js";
@@ -112,7 +111,6 @@ function SessionRow(props: {
   session: Session;
   status: SessionStatusEntry | undefined;
   active: boolean;
-  nowMs: number;
   /** Tree depth of this row (0 = a top-level root). */
   depth: number;
   /** Whether the session has children in the store (chevron shows). */
@@ -212,9 +210,6 @@ function SessionRow(props: {
         </Show>
         <span class="min-w-0 flex-1">
           <OverflowMarquee text={titleOf(props.session)} testId="session-title" />
-          <span class="block truncate font-code text-xs text-fg-secondary">
-            {formatRelativeTime(props.session.time.updated, props.nowMs)}
-          </span>
         </span>
         <StatusBadge status={props.status} />
       </button>
@@ -242,7 +237,6 @@ function SessionRow(props: {
 function SessionTreeNodeView(props: {
   node: SessionTreeNode;
   state: ServerSessionState;
-  nowMs: number;
   collapsed: ReadonlySet<string>;
   onToggle: (session: Session) => void;
   onSelect: (sessionId: string) => void;
@@ -259,7 +253,6 @@ function SessionTreeNodeView(props: {
         session={props.node.session}
         status={props.state.statuses[props.node.session.id]}
         active={props.state.activeSessionId === props.node.session.id}
-        nowMs={props.nowMs}
         depth={props.node.depth}
         hasChildren={hasChildren()}
         expanded={expanded()}
@@ -274,7 +267,6 @@ function SessionTreeNodeView(props: {
             <SessionTreeNodeView
               node={child}
               state={props.state}
-              nowMs={props.nowMs}
               collapsed={props.collapsed}
               onToggle={props.onToggle}
               onSelect={props.onSelect}
@@ -562,7 +554,6 @@ const SessionList: Component<SessionListProps> = (props) => {
                     <SessionTreeNodeView
                       node={node}
                       state={state()}
-                      nowMs={now()}
                       collapsed={collapsed()}
                       onToggle={toggleNode}
                       onSelect={select}

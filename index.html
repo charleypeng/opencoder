@@ -58,8 +58,8 @@
             if (color) doc.style.setProperty("--accent", color);
           }
           // UI-scale pre-read: mirrors src/stores/uiScale.ts. Desktop
-          // applies the persisted factor (default 1.1, clamped to
-          // 0.9-1.6) through the --ui-scale variable (html font-size);
+          // maps the persisted relative factor (default 1.0, clamped to
+          // 0.9-1.6) to the 1.2 physical baseline through --ui-scale;
           // mobile stays 1 so the native Liquid Glass tab bar
           // coordination (safe-area reserves) never scales with the web
           // content. Set before first paint so the app never size-jumps.
@@ -71,9 +71,22 @@
               window.innerWidth <= 1024) ||
             ("ontouchstart" in window && window.innerWidth > 0 && window.innerWidth <= 768);
           var scale = parseFloat(localStorage.getItem("oc-ui-scale") || "");
-          if (!isFinite(scale)) scale = 1.1;
-          scale = Math.min(1.6, Math.max(0.9, Math.round(scale * 100) / 100));
-          doc.style.setProperty("--ui-scale", isMobile ? "1" : String(scale));
+          var UI_SCALE_BASE = 1.2;
+          var UI_SCALE_VERSION = "2";
+          if (!isFinite(scale)) {
+            scale = 1;
+          } else {
+            scale = Math.min(1.6, Math.max(0.9, Math.round(scale * 100) / 100));
+            if (localStorage.getItem("oc-ui-scale-version") !== UI_SCALE_VERSION) {
+              scale = Math.min(1.6, Math.max(0.9, Math.round((scale / UI_SCALE_BASE) * 100) / 100));
+              localStorage.setItem("oc-ui-scale", String(scale));
+              localStorage.setItem("oc-ui-scale-version", UI_SCALE_VERSION);
+            }
+          }
+          doc.style.setProperty(
+            "--ui-scale",
+            isMobile ? "1" : String(Math.round(scale * UI_SCALE_BASE * 100) / 100),
+          );
         } catch (e) {
           // A failing pre-read must never block startup.
         }

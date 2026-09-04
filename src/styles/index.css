@@ -203,7 +203,7 @@
   }
 
   /* UI scale (desktop): the whole interface scales through the --ui-scale
-     token (default 1.1, adjusted in Appearance settings) applied to the
+     token (physical default 1.2 for the 100% settings baseline) applied to the
      ROOT FONT-SIZE — every rem-based Tailwind utility (spacing, buttons,
      icons) and the rem type tokens (tokens.css) grow proportionally,
      while the layout viewport and fixed-position popups (menus, dialogs)

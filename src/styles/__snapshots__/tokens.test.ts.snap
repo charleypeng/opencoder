@@ -32,7 +32,7 @@ exports[`design tokens (L2 snapshot) > matches the token snapshot for dark and l
     "--dur-fast: 120ms",
     "--dur-med: 220ms",
     "--density: 1",
-    "--ui-scale: 1.1",
+    "--ui-scale: 1.2",
     "--font-ui: system-ui, -apple-system, "SF Pro Text", "Segoe UI Variable", "Segoe UI", Inter, Roboto,
     "Helvetica Neue", Arial, sans-serif",
     "--font-code: "JetBrains Mono", "SF Mono", SFMono-Regular, ui-monospace, Menlo, Consolas, monospace",
