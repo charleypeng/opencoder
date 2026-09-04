@@ -38,6 +38,18 @@ type DiffState =
   | { kind: "error"; error: ApiError }
   | { kind: "ready"; diffs: SnapshotFileDiff[] };
 
+function matchesPatchFile(patchFile: string, diffFile: string | undefined): boolean {
+  if (diffFile === undefined) return false;
+  const normalize = (path: string) => path.replace(/^[ab]\//, "").replace(/\\/g, "/");
+  const patchPath = normalize(patchFile);
+  const diffPath = normalize(diffFile);
+  return (
+    patchPath === diffPath ||
+    patchPath.endsWith(`/${diffPath}`) ||
+    diffPath.endsWith(`/${patchPath}`)
+  );
+}
+
 const PatchPart: Component<PatchPartProps> = (props) => {
   const t = useT();
   const shortHash = createMemo(() => props.part.hash.slice(0, 7));
@@ -84,13 +96,15 @@ const PatchPart: Component<PatchPartProps> = (props) => {
   }
 
   /** The expanded file's diff entry (undefined = not in this message's
-   *  diff payload — e.g. the row path is stale). */
+   *  diff payload). Patch events can carry absolute paths while the diff
+   *  endpoint returns workspace-relative paths, so match both forms. */
   const expandedEntry = createMemo<DiffFileEntry | undefined>(() => {
     const file = expandedFile();
     if (file === null || diffState().kind !== "ready") return undefined;
-    return (diffState() as { kind: "ready"; diffs: SnapshotFileDiff[] }).diffs.find(
-      (entry) => entry.file === file,
+    const entry = (diffState() as { kind: "ready"; diffs: SnapshotFileDiff[] }).diffs.find(
+      (candidate) => matchesPatchFile(file, candidate.file),
     );
+    return entry === undefined ? undefined : { ...entry, file };
   });
 
   return (

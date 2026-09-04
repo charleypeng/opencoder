@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Render patch diffs when patch events use absolute paths, add visible attachment-button hover feedback, and remove the redundant streaming progress line. (messages)
 - fix(ui): Rebase the desktop UI scale so 100% matches the former 120% visual size, and simplify session rows to title-only labels. (ui)
 - fix(sessions): Refine the open-workspace folder outline, reduce session-title scale, and speed overflow-title scanning. (sessions)
 - fix(sessions): Show open workspace folders, reveal truncated session titles on hover or focus, prevent IME Enter commits from sending early, and restore reverted user text to the composer. (sessions)
