@@ -1,6 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
-import type { SnapshotFileDiff } from "../../services/vcs.js";
+import { getApiClient } from "../../services/client.js";
+import { createVcsService, type SnapshotFileDiff } from "../../services/vcs.js";
 import type { Part } from "../../stores/messages.js";
 import { useT } from "../../i18n/index.js";
 import DiffFileGroup, { type DiffFileEntry } from "../vcs/DiffFileGroup.js";
@@ -10,10 +11,26 @@ import { deriveRunOutcome } from "./activity/agentRun.js";
 export interface RunOutcomeProps {
   parts: Array<Part | undefined>;
   diffs?: SnapshotFileDiff[];
+  /** Session owning the completed run, used to retrieve line-level diffs. */
+  sessionID?: string;
   messageID: string;
   onViewDiff?: (messageID: string) => void;
   /** Opens the run's diff in the workspace review tool. */
   onViewDiffInTools?: (messageID: string) => void;
+}
+
+type DiffState = "idle" | "loading" | "ready" | "error";
+
+function matchesRunFile(left: string, right: string | undefined): boolean {
+  if (right === undefined) return false;
+  const normalize = (path: string) => path.replace(/^[ab]\//, "").replace(/\\/g, "/");
+  const leftPath = normalize(left);
+  const rightPath = normalize(right);
+  return (
+    leftPath === rightPath ||
+    leftPath.endsWith(`/${rightPath}`) ||
+    rightPath.endsWith(`/${leftPath}`)
+  );
 }
 
 const RunOutcome: Component<RunOutcomeProps> = (props) => {
@@ -21,15 +38,28 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
   const [filesExpanded, setFilesExpanded] = createSignal(false);
   const [commandsExpanded, setCommandsExpanded] = createSignal(false);
   const [expandedFolds, setExpandedFolds] = createSignal<Set<string>>(new Set());
+  const [diffState, setDiffState] = createSignal<DiffState>("idle");
+  const [loadedDiffs, setLoadedDiffs] = createSignal<SnapshotFileDiff[]>([]);
   const outcome = createMemo(() => deriveRunOutcome(props.parts, props.diffs));
   const visible = createMemo(() => outcome().files.length > 0 || outcome().commands.length > 0);
+  const diffMessageIDs = createMemo(() => {
+    const ids = new Set<string>([props.messageID]);
+    for (const part of props.parts) {
+      if (part?.type === "patch") ids.add(part.messageID);
+    }
+    return [...ids];
+  });
   const fileDiffs = createMemo<DiffFileEntry[]>(() => {
-    if ((props.diffs?.length ?? 0) > 0) return props.diffs as DiffFileEntry[];
-    return outcome().files.map((file) => ({
-      file: file.path,
-      additions: file.additions ?? 0,
-      deletions: file.deletions ?? 0,
-    }));
+    const available = [...loadedDiffs(), ...(props.diffs ?? [])];
+    return outcome().files.map((file) => {
+      const match =
+        available.find(
+          (candidate) => candidate.patch !== undefined && matchesRunFile(file.path, candidate.file),
+        ) ?? available.find((candidate) => matchesRunFile(file.path, candidate.file));
+      return match === undefined
+        ? { file: file.path, additions: file.additions ?? 0, deletions: file.deletions ?? 0 }
+        : { ...match, file: file.path };
+    });
   });
   const viewDiff = () => props.onViewDiffInTools ?? props.onViewDiff;
 
@@ -38,6 +68,34 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
       const next = new Set(previous);
       if (next.has(key)) next.delete(key);
       else next.add(key);
+      return next;
+    });
+  }
+
+  function loadDiffs(): void {
+    if (props.sessionID === undefined || diffState() !== "idle") return;
+    setDiffState("loading");
+    void Promise.allSettled(
+      diffMessageIDs().map((messageID) =>
+        createVcsService(getApiClient()).sessionDiff(props.sessionID as string, messageID),
+      ),
+    ).then((results) => {
+      const diffs = results.flatMap((result) =>
+        result.status === "fulfilled" ? result.value : [],
+      );
+      if (diffs.length > 0) {
+        setLoadedDiffs(diffs);
+        setDiffState("ready");
+      } else {
+        setDiffState("error");
+      }
+    });
+  }
+
+  function toggleFiles(): void {
+    setFilesExpanded((expanded) => {
+      const next = !expanded;
+      if (next) loadDiffs();
       return next;
     });
   }
@@ -53,7 +111,7 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                 data-testid="run-files-toggle"
                 aria-expanded={filesExpanded()}
                 class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-fg-secondary outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
-                onClick={() => setFilesExpanded((value) => !value)}
+                onClick={toggleFiles}
               >
                 <span
                   aria-hidden="true"
@@ -87,16 +145,34 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                 data-testid="run-files"
                 class="mt-1 overflow-hidden rounded-md border border-bg-sunken"
               >
-                <For each={fileDiffs()}>
-                  {(file) => (
-                    <DiffFileGroup
-                      entry={file}
-                      mode={"unified" satisfies DiffMode}
-                      expanded={expandedFolds}
-                      toggleFold={toggleFold}
-                    />
-                  )}
-                </For>
+                <Show
+                  when={diffState() !== "loading"}
+                  fallback={
+                    <p data-testid="run-diff-loading" class="px-3 py-2 text-fg-secondary">
+                      {t("messages:patchDiffLoading")}
+                    </p>
+                  }
+                >
+                  <Show
+                    when={diffState() !== "error"}
+                    fallback={
+                      <p data-testid="run-diff-error" class="px-3 py-2 text-danger">
+                        {t("messages:patchDiffError")}
+                      </p>
+                    }
+                  >
+                    <For each={fileDiffs()}>
+                      {(file) => (
+                        <DiffFileGroup
+                          entry={file}
+                          mode={"unified" satisfies DiffMode}
+                          expanded={expandedFolds}
+                          toggleFold={toggleFold}
+                        />
+                      )}
+                    </For>
+                  </Show>
+                </Show>
               </div>
             </Show>
           </div>

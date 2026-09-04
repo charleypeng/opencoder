@@ -296,6 +296,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
             <RunOutcome
               parts={runParts()}
               diffs={props.runDiffs}
+              sessionID={props.sessionId}
               messageID={props.runParentMessageID ?? props.messageID}
               onViewDiff={props.onViewDiff}
               onViewDiffInTools={props.onViewDiffInTools}
