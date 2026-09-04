@@ -82,12 +82,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               data-testid="message-msg_m2"
               tabindex="0"
             >
-              <span
-                class="ai-label"
-                data-testid="ai-label"
-              >
-                AI
-              </span>
               <div
                 class="w-full max-w-3xl"
               >
@@ -393,12 +387,6 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               data-testid="message-msg_m4"
               tabindex="0"
             >
-              <span
-                class="ai-label"
-                data-testid="ai-label"
-              >
-                AI
-              </span>
               <div
                 class="w-full max-w-3xl"
               >

@@ -306,7 +306,6 @@
     "openChildSession": "打开子会话",
     "model": "模型",
     "command": "命令",
-    "aiLabel": "AI",
     "streamingUpdate": "有新内容",
     "fileContentUnavailable": "内容不可用",
     "waitSpinner": "处理中…",

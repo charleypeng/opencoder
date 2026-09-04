@@ -16,7 +16,6 @@ import { Dynamic } from "solid-js/web";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import type { SnapshotFileDiff } from "../../services/vcs.js";
-import { useT } from "../../i18n/index.js";
 import MessageActions from "./MessageActions.js";
 import RunOutcome from "./RunOutcome.js";
 import CompactionPart from "./parts/CompactionPart.js";
@@ -178,7 +177,6 @@ function PartView(props: {
 }
 
 const MessageBubble: Component<MessageBubbleProps> = (props) => {
-  const t = useT();
   // Streamed messages may arrive (as part stubs) before their message.updated
   // info; assistant is the safe fallback for an in-flight generation.
   const info = () => messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
@@ -247,14 +245,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
         onFork={props.onFork}
         onRevert={props.onRevert}
       >
-        {/* IA-05: persistent AI label on assistant messages (IBM-Carbon
-          AI label requirement) — small accent-tinted badge, content-first
-          chrome that stays out of the way of the message body. */}
-        <Show when={!user()}>
-          <span class="ai-label" data-testid="ai-label">
-            {t("messages:aiLabel")}
-          </span>
-        </Show>
         {/* Assistant messages render chrome-free directly on the transcript
           (content-first, docs/ui-design.md §1): only the user side keeps a
           bubble. Part rows carry their own subtle chrome, so wrapping the

@@ -306,7 +306,6 @@
     "openChildSession": "Open child session",
     "model": "Model",
     "command": "Command",
-    "aiLabel": "AI",
     "streamingUpdate": "New content available",
     "fileContentUnavailable": "Content unavailable",
     "waitSpinner": "Working…",

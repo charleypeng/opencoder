@@ -103,6 +103,11 @@ describe("ProcessFold", () => {
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("planning the change");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
 
+    const toolToggle = screen.getByTestId("tool-toggle");
+    fireEvent.click(toolToggle);
+    expect(toolToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("tool-terminal")).toBeInTheDocument();
+
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
