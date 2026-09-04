@@ -78,6 +78,8 @@ describe("RunOutcome", () => {
     fireEvent.click(screen.getByTestId("run-files-toggle"));
     fireEvent.click(screen.getByTestId("run-commands-toggle"));
     expect(screen.getByText("src/chat.tsx")).toBeInTheDocument();
+    expect(screen.queryByTestId("diff-unified")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("run-diff-file"));
     expect(screen.getByTestId("diff-unified")).toHaveTextContent("new chat");
     expect(screen.getByText("pnpm test")).toBeInTheDocument();
   });
@@ -146,8 +148,46 @@ describe("RunOutcome", () => {
 
     fireEvent.click(screen.getByTestId("run-files-toggle"));
     expect(screen.getByTestId("run-diff-loading")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId("diff-unified")).toHaveTextContent("new title"));
+    await waitFor(() => expect(screen.getByTestId("run-diff-file")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("run-diff-file"));
+    expect(screen.getByTestId("diff-unified")).toHaveTextContent("new title");
     expect(screen.queryByTestId("diff-file-no-content")).not.toBeInTheDocument();
+  });
+
+  it("reveals only the selected file's diff when a run changes multiple files", () => {
+    render(() => (
+      <RunOutcome
+        parts={[tool("edit", { filePath: "src/first.ts" }, "first")]}
+        diffs={[
+          {
+            file: "src/first.ts",
+            patch: "@@ -1 +1 @@\n-old first\n+new first",
+            additions: 1,
+            deletions: 1,
+          },
+          {
+            file: "src/second.ts",
+            patch: "@@ -1 +1 @@\n-old second\n+new second",
+            additions: 1,
+            deletions: 1,
+          },
+        ]}
+        messageID="user-1"
+      />
+    ));
+
+    fireEvent.click(screen.getByTestId("run-files-toggle"));
+    const files = screen.getAllByTestId("run-diff-file");
+    expect(files).toHaveLength(2);
+    expect(screen.queryByTestId("diff-unified")).not.toBeInTheDocument();
+
+    fireEvent.click(files[1]);
+    expect(screen.getByTestId("diff-unified")).toHaveTextContent("new second");
+    expect(screen.getAllByTestId("diff-file")).toHaveLength(1);
+
+    fireEvent.click(files[0]);
+    expect(screen.getByTestId("diff-unified")).toHaveTextContent("new first");
+    expect(screen.getAllByTestId("diff-file")).toHaveLength(1);
   });
 
   it("renders nothing when the run changed no files and ran no commands", () => {

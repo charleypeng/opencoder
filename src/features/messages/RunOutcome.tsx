@@ -38,6 +38,7 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
   const [filesExpanded, setFilesExpanded] = createSignal(false);
   const [commandsExpanded, setCommandsExpanded] = createSignal(false);
   const [expandedFolds, setExpandedFolds] = createSignal<Set<string>>(new Set());
+  const [selectedFile, setSelectedFile] = createSignal<string | undefined>(undefined);
   const [diffState, setDiffState] = createSignal<DiffState>("idle");
   const [loadedDiffs, setLoadedDiffs] = createSignal<SnapshotFileDiff[]>([]);
   const outcome = createMemo(() => deriveRunOutcome(props.parts, props.diffs));
@@ -96,6 +97,7 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
     setFilesExpanded((expanded) => {
       const next = !expanded;
       if (next) loadDiffs();
+      else setSelectedFile(undefined);
       return next;
     });
   }
@@ -161,16 +163,51 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                       </p>
                     }
                   >
-                    <For each={fileDiffs()}>
-                      {(file) => (
-                        <DiffFileGroup
-                          entry={file}
-                          mode={"unified" satisfies DiffMode}
-                          expanded={expandedFolds}
-                          toggleFold={toggleFold}
-                        />
-                      )}
-                    </For>
+                    <ul class="divide-y divide-bg-sunken">
+                      <For each={fileDiffs()}>
+                        {(file, index) => {
+                          const key = () => file.file ?? `file-${index()}`;
+                          const expanded = () => selectedFile() === key();
+                          return (
+                            <li>
+                              <button
+                                type="button"
+                                data-testid="run-diff-file"
+                                aria-expanded={expanded()}
+                                class="flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
+                                onClick={() =>
+                                  setSelectedFile((selected) =>
+                                    selected === key() ? undefined : key(),
+                                  )
+                                }
+                              >
+                                <span class="min-w-0 flex-1 truncate font-code text-xs text-fg-secondary">
+                                  {file.file}
+                                </span>
+                                <span class="flex shrink-0 items-center gap-1 font-code text-xs tabular-nums">
+                                  <span class="text-success">+{file.additions}</span>
+                                  <span class="text-danger">-{file.deletions}</span>
+                                </span>
+                                <span
+                                  aria-hidden="true"
+                                  class={`text-fg-faint transition-transform ${expanded() ? "rotate-90" : ""}`}
+                                >
+                                  ▸
+                                </span>
+                              </button>
+                              <Show when={expanded()}>
+                                <DiffFileGroup
+                                  entry={file}
+                                  mode={"unified" satisfies DiffMode}
+                                  expanded={expandedFolds}
+                                  toggleFold={toggleFold}
+                                />
+                              </Show>
+                            </li>
+                          );
+                        }}
+                      </For>
+                    </ul>
                   </Show>
                 </Show>
               </div>

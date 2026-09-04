@@ -8,8 +8,8 @@ describe("marqueeOverflowPx", () => {
     expect(marqueeOverflowPx(160, 220)).toBe(59);
   });
 
-  it("moves titles 30% faster than the original timing", () => {
-    expect(marqueeDurationSeconds(0)).toBeCloseTo(6 / 1.3);
-    expect(marqueeDurationSeconds(280)).toBeCloseTo(10 / 1.3);
+  it("moves titles 20% faster than the previous accelerated timing", () => {
+    expect(marqueeDurationSeconds(0)).toBeCloseTo(6 / 1.56);
+    expect(marqueeDurationSeconds(280)).toBeCloseTo(10 / 1.56);
   });
 });

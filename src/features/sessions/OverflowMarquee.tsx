@@ -2,7 +2,7 @@ import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type { Component } from "solid-js";
 
 const OVERFLOW_EPSILON_PX = 1;
-const MARQUEE_SPEED_MULTIPLIER = 1.3;
+const MARQUEE_SPEED_MULTIPLIER = 1.56;
 const MIN_DURATION_SECONDS = 6 / MARQUEE_SPEED_MULTIPLIER;
 const PIXELS_PER_SECOND = 28 * MARQUEE_SPEED_MULTIPLIER;
 
@@ -11,7 +11,7 @@ export function marqueeOverflowPx(clientWidth: number, scrollWidth: number): num
   return Math.max(0, scrollWidth - clientWidth - OVERFLOW_EPSILON_PX);
 }
 
-/** Calculates the marquee duration after applying the 30% speed increase. */
+/** Calculates the marquee duration after applying the 56% speed increase. */
 export function marqueeDurationSeconds(overflowPx: number): number {
   return Math.max(MIN_DURATION_SECONDS, overflowPx / PIXELS_PER_SECOND);
 }
