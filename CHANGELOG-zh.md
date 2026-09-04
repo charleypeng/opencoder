@@ -9,6 +9,8 @@
 
 ### 修复
 
+- fix(messages)：完成运行的多文件摘要改为一次只展开用户选中的一个 diff，避免内容同时堆叠。(messages)
+- fix(sessions)：将溢出会话标题的走马灯速度在现有基础上再提高 20%。(sessions)
 - fix(messages)：展开运行摘要时获取行级补丁内容，并合并绝对补丁路径与相对 diff 路径。(messages)
 - fix(desktop)：展开已完成任务时直接显示内联 diff，将完整审查显示在右侧工作区面板，并移除右侧分隔条的固定宽度限制。(desktop)
 - fix(messages)：补丁事件使用绝对路径时也显示 diff，为附件按钮增加明显的悬停反馈，并移除冗余的流式进度线。(messages)

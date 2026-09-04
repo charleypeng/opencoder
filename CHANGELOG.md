@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Reveal one selected file diff at a time from completed-run summaries, keeping multi-file output scannable. (messages)
+- fix(sessions): Increase the overflow session-title marquee speed by a further 20%. (sessions)
 - fix(messages): Retrieve line-level patch content for expanded run summaries and merge absolute patch paths with relative diff paths. (messages)
 - fix(desktop): Show a completed run's diff inline on expansion, open its full review in the right workspace panel, and remove the right-panel splitter's fixed width bounds. (desktop)
 - fix(messages): Render patch diffs when patch events use absolute paths, add visible attachment-button hover feedback, and remove the redundant streaming progress line. (messages)
