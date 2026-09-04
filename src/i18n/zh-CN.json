@@ -279,8 +279,6 @@
     "activityDurationMinutes": "{{minutes}} 分 {{seconds}} 秒",
     "runChangedFiles_one": "{{count}} 个已更改文件",
     "runChangedFiles_other": "{{count}} 个已更改文件",
-    "runCommands_one": "{{count}} 条重要命令",
-    "runCommands_other": "{{count}} 条重要命令",
     "retrying": "重试中…",
     "retryAttempt": "正在重试（第 {{attempt}} 次）",
     "retryCountdown": "{{seconds}} 秒后重试",

@@ -47,7 +47,7 @@ beforeEach(() => {
 });
 
 describe("RunOutcome", () => {
-  it("shows compact file and command summaries that expand on demand", () => {
+  it("shows a compact file summary that expands on demand", () => {
     render(() => (
       <RunOutcome
         parts={[
@@ -71,17 +71,15 @@ describe("RunOutcome", () => {
     expect(screen.getByTestId("run-files-toggle")).toHaveTextContent("1 changed file");
     expect(screen.getByTestId("run-files-toggle")).toHaveTextContent("+12");
     expect(screen.getByTestId("run-files-toggle")).toHaveTextContent("−3");
-    expect(screen.getByTestId("run-commands-toggle")).toHaveTextContent("1 command");
     expect(screen.queryByText("src/chat.tsx")).not.toBeInTheDocument();
     expect(screen.queryByText("pnpm test")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("run-files-toggle"));
-    fireEvent.click(screen.getByTestId("run-commands-toggle"));
     expect(screen.getByText("src/chat.tsx")).toBeInTheDocument();
     expect(screen.queryByTestId("diff-unified")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("run-diff-file"));
     expect(screen.getByTestId("diff-unified")).toHaveTextContent("new chat");
-    expect(screen.getByText("pnpm test")).toBeInTheDocument();
+    expect(screen.queryByText("pnpm test")).not.toBeInTheDocument();
   });
 
   it("opens the run diff from the originating user message", () => {
@@ -190,8 +188,10 @@ describe("RunOutcome", () => {
     expect(screen.getAllByTestId("diff-file")).toHaveLength(1);
   });
 
-  it("renders nothing when the run changed no files and ran no commands", () => {
-    render(() => <RunOutcome parts={[]} messageID="user-1" />);
+  it("renders nothing when the run has no changed files", () => {
+    render(() => (
+      <RunOutcome parts={[tool("bash", { command: "pnpm test" }, "test")]} messageID="user-1" />
+    ));
     expect(screen.queryByTestId("run-outcome")).not.toBeInTheDocument();
   });
 });
