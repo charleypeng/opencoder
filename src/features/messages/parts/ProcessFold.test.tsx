@@ -26,6 +26,7 @@ function toolPart(
   tool: string,
   status: "completed" | "error" | "running" | "pending",
   id: string,
+  input: Record<string, unknown> = {},
 ): Part {
   const base = {
     id,
@@ -41,7 +42,7 @@ function toolPart(
         ...base,
         state: {
           status,
-          input: {},
+          input: input as never,
           output: "ok",
           title: tool,
           metadata: {},
@@ -49,7 +50,10 @@ function toolPart(
         },
       };
     case "error":
-      return { ...base, state: { status, input: {}, error: "boom", time: { start: 1, end: 2 } } };
+      return {
+        ...base,
+        state: { status, input: input as never, error: "boom", time: { start: 1, end: 2 } },
+      };
     case "running":
       return { ...base, state: { status, input: {}, time: { start: 1 } } };
     case "pending":
@@ -111,6 +115,27 @@ describe("ProcessFold", () => {
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("opens the second-level edit card from its single tool row", () => {
+    render(() => (
+      <ProcessFold
+        parts={[
+          toolPart("edit", "completed", "p1", {
+            filePath: "README.md",
+            oldString: "old title",
+            newString: "new title",
+          }),
+        ]}
+      />
+    ));
+
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    const tool = screen.getByTestId("tool-part");
+    expect(tool).toHaveTextContent("edit");
+
+    fireEvent.click(screen.getByTestId("tool-toggle"));
+    expect(screen.getByTestId("tool-diff")).toHaveTextContent("new title");
   });
 
   it("summarizes failed and in-progress calls", () => {

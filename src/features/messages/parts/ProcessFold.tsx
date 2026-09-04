@@ -303,13 +303,21 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
                     aria-hidden="true"
                     class={`absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full ${statusClass(entry)}`}
                   />
-                  <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
-                    <span class="truncate font-medium text-fg-primary">{entryTitle(t, entry)}</span>
-                    <Show when={entry.preview !== undefined}>
-                      <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
-                    </Show>
-                  </div>
-                  {renderEntryPart(entry)}
+                  {entry.part.type === "tool" ? (
+                    <ToolPart part={entry.part as ToolPartData} />
+                  ) : (
+                    <>
+                      <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
+                        <span class="truncate font-medium text-fg-primary">
+                          {entryTitle(t, entry)}
+                        </span>
+                        <Show when={entry.preview !== undefined}>
+                          <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
+                        </Show>
+                      </div>
+                      {renderEntryPart(entry)}
+                    </>
+                  )}
                 </div>
               )}
             </For>
