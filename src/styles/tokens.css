@@ -54,10 +54,6 @@
   --warning: #fbbf24;
   --danger: #f87171;
 
-  /* IA-05: AI label visual identity (IBM-Carbon AI label requirement) */
-  --ai-label-bg: color-mix(in srgb, var(--accent) 12%, transparent);
-  --ai-label-text: var(--accent);
-
   /* glass material (mobile / floating elements) */
   --glass-bg: rgba(22, 26, 34, 0.62);
   --glass-border: rgba(255, 255, 255, 0.09);
@@ -124,10 +120,6 @@
   --success: #047857;
   --warning: #b45309;
   --danger: #dc2626;
-
-  /* IA-05: AI label stays accent-tinted in light theme */
-  --ai-label-bg: color-mix(in srgb, var(--accent) 10%, transparent);
-  --ai-label-text: var(--accent);
 
   --glass-bg: rgba(255, 255, 255, 0.62);
   --glass-border: rgba(15, 17, 21, 0.1);

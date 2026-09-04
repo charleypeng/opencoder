@@ -146,8 +146,6 @@
   --color-success: var(--success);
   --color-warning: var(--warning);
   --color-danger: var(--danger);
-  --color-ai-label-bg: var(--ai-label-bg);
-  --color-ai-label-text: var(--ai-label-text);
 
   --radius-sm: var(--r-sm);
   --radius-md: var(--r-md);
@@ -267,27 +265,6 @@
 }
 
 /*
- * IA-05: AI assistant label badge (IBM-Carbon AI label requirement).
- * Persistent, small, accent-tinted badge shown alongside assistant messages.
- */
-.ai-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25em;
-  padding: 0.1em 0.45em;
-  border-radius: var(--r-sm);
-  background: var(--ai-label-bg);
-  color: var(--ai-label-text);
-  font-size: 0.7em;
-  font-weight: 600;
-  line-height: 1;
-  letter-spacing: 0.03em;
-  text-transform: uppercase;
-  vertical-align: middle;
-  user-select: none;
-}
-
-/*
  * M3-01 tool card affordance: the running shimmer sweep across the tool
  * card header. Pure CSS so the WebView does no per-frame work, and it
  * collapses to nothing under prefers-reduced-motion.
@@ -349,6 +326,11 @@
 .process-fold-body > div {
   min-height: 0;
   overflow: hidden;
+}
+
+/* Nested tool cards can disclose output after the trace itself opens. */
+.process-fold-body[data-expanded="true"] > div {
+  overflow: visible;
 }
 
 /*

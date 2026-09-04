@@ -507,7 +507,7 @@ describe("MessageList", () => {
 
     const run = await waitFor(() => screen.getByTestId("message-msg_final_run"));
     expect(screen.queryByTestId("message-msg_step_run")).not.toBeInTheDocument();
-    expect(screen.getAllByTestId("ai-label")).toHaveLength(1);
+    expect(screen.queryByTestId("ai-label")).not.toBeInTheDocument();
     expect(run).toHaveTextContent("The chat flow is improved.");
     expect(within(run).getByTestId("process-fold-toggle")).toHaveAttribute(
       "aria-expanded",

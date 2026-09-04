@@ -299,6 +299,25 @@ describe("MessageBubble", () => {
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
   });
 
+  it("does not render an AI badge for assistant messages", () => {
+    applyTextDelta(SERVER, SESSION, {
+      messageID: "msg_assistant",
+      partID: "prt_assistant",
+      field: "text",
+      delta: "Assistant response",
+    });
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_assistant"
+        partIds={["prt_assistant"]}
+      />
+    ));
+
+    expect(screen.queryByTestId("ai-label")).not.toBeInTheDocument();
+  });
+
   it("combines earlier assistant progress with the final answer and run outcome", async () => {
     upsertMessage(SERVER, SESSION, userMessage("msg_user"));
     upsertMessage(SERVER, SESSION, assistantMessage("msg_step", "msg_user", 2000));

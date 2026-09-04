@@ -9,6 +9,7 @@
 
 ### 修复
 
+- fix(messages)：允许已展开活动轨迹内的工具卡继续展开输出，并移除聊天消息中冗余的 AI 标签。(messages)
 - fix(messages)：从聊天记录中移除冗余的补丁事件卡片，同时保留其数据供运行摘要显示 diff。(messages)
 - fix(messages)：完成运行的多文件摘要改为一次只展开用户选中的一个 diff，避免内容同时堆叠。(messages)
 - fix(sessions)：将溢出会话标题的走马灯速度在现有基础上再提高 20%。(sessions)

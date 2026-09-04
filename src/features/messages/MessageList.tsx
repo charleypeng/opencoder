@@ -543,21 +543,13 @@ const MessageList: Component<MessageListProps> = (props) => {
                           <Show
                             when={row().kind !== "working"}
                             fallback={
-                              <div
-                                data-testid="agent-working"
-                                class="flex flex-col items-start gap-1"
-                              >
-                                <span class="ai-label" data-testid="ai-label">
-                                  {t("messages:aiLabel")}
-                                </span>
-                                <div class="w-full max-w-3xl">
-                                  <ProcessFold
-                                    parts={[]}
-                                    runKey={row().key}
-                                    active
-                                    startedAt={row().startedAt}
-                                  />
-                                </div>
+                              <div data-testid="agent-working" class="w-full max-w-3xl">
+                                <ProcessFold
+                                  parts={[]}
+                                  runKey={row().key}
+                                  active
+                                  startedAt={row().startedAt}
+                                />
                               </div>
                             }
                           >
