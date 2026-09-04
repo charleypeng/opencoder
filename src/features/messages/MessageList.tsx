@@ -50,6 +50,8 @@ export interface MessageListProps {
   sessionId: string;
   /** Opens the M4 diff view filtered to one message (wired by M4-07). */
   onViewDiff?: (messageID: string) => void;
+  /** Opens a completed run's diff in the workspace review tool. */
+  onViewDiffInTools?: (messageID: string) => void;
   /** Forks the session from a message point (wired by M6-03). */
   onFork?: (messageID: string) => void;
   /** Reverts the session to a message point (wired by M6-04 — the caller
@@ -575,6 +577,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                               typing={row().typing}
                               mobile={props.mobile}
                               onViewDiff={props.onViewDiff}
+                              onViewDiffInTools={props.onViewDiffInTools}
                               onFork={props.onFork}
                               onRevert={props.onRevert}
                               onOpenChild={props.onOpenChild}

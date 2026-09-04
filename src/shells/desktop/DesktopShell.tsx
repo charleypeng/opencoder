@@ -467,6 +467,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [internalRightToolsMaximized, setInternalRightToolsMaximized] = createSignal(false);
   const rightToolsMaximized = () => props.rightToolsMaximized ?? internalRightToolsMaximized();
   const [rightToolsView, setRightToolsView] = createSignal<RightToolView>("review");
+  const [rightReviewDiff, setRightReviewDiff] = createSignal<{
+    sessionId: string;
+    messageId: string;
+  }>();
 
   function setRightToolsOpen(open: boolean): void {
     if (open === rightToolsOpen()) return;
@@ -504,6 +508,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     setRightToolsView("files");
     setRightToolsOpen(true);
     setMainView("chat");
+  }
+
+  function openRunDiffInTools(messageId: string): void {
+    const sessionId = activeSessionId();
+    if (sessionId === null) return;
+    setRightReviewDiff({ sessionId, messageId });
+    setRightToolsMaximized(false);
+    setRightToolsView("review");
+    setRightToolsOpen(true);
   }
   // Default-workspace onboarding (feat(default-workspace)): opened on first
   // entry of a server with no workspace history (see onMount).
@@ -1567,6 +1580,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       serverId={activeServerId()}
                       sessionId={activeSessionId() as string}
                       onViewDiff={openDiff}
+                      onViewDiffInTools={openRunDiffInTools}
                       onFork={(messageID) => {
                         const id = activeSessionId();
                         if (id !== null) void handleFork(id, messageID);
@@ -1751,10 +1765,16 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           open={rightToolsOpen()}
           maximized={rightToolsMaximized()}
           view={rightToolsView()}
-          onViewChange={setRightToolsView}
+          onViewChange={(view) => {
+            setRightToolsView(view);
+            if (view === "review") setRightReviewDiff(undefined);
+          }}
           showHeaderControls={false}
           onOpenChange={setRightToolsOpen}
           onMaximizedChange={setRightToolsMaximized}
+          reviewSessionId={rightReviewDiff()?.sessionId}
+          reviewMessageId={rightReviewDiff()?.messageId}
+          onClearReviewDiff={() => setRightReviewDiff(undefined)}
           onOpenFile={(path) => {
             openTab(activeServerId(), path);
             focusRightFiles();

@@ -7,6 +7,7 @@
 import { createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
 import FileViewer from "../../features/files/FileViewer";
+import DiffView from "../../features/vcs/DiffView";
 import VcsPanel from "../../features/vcs/VcsPanel";
 import { useT } from "../../i18n/index.js";
 import { openUrl } from "@tauri-apps/plugin-opener";
@@ -34,10 +35,13 @@ export interface RightToolPanelProps {
   showHeaderControls?: boolean;
   /** Notifies the shell when a file should open in the Files tool. */
   onOpenFile?: (path: string) => void;
+  /** Session and message whose completed-run diff is shown in Review. */
+  reviewSessionId?: string;
+  reviewMessageId?: string;
+  /** Returns Review to the workspace-wide change list. */
+  onClearReviewDiff?: () => void;
 }
 
-const RIGHT_PANEL_MIN_WIDTH = 208;
-const RIGHT_PANEL_MAX_WIDTH = 440;
 const RIGHT_PANEL_DEFAULT_WIDTH = 256;
 const RIGHT_PANEL_WIDTH_KEY = "oc-right-tools-width";
 
@@ -47,7 +51,7 @@ function readPanelWidth(): number {
     if (raw !== null) {
       const value = Number(raw);
       if (Number.isFinite(value)) {
-        return Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, value));
+        return Math.max(0, value);
       }
     }
   } catch {
@@ -118,11 +122,12 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
 
   function selectView(next: RightToolView): void {
     if (props.view === undefined) setInternalView(next);
+    if (next === "review") props.onClearReviewDiff?.();
     props.onViewChange?.(next);
   }
 
   function updateWidth(next: number): void {
-    const value = Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, next));
+    const value = Math.max(0, next);
     setWidth(value);
     try {
       localStorage.setItem(RIGHT_PANEL_WIDTH_KEY, String(value));
@@ -164,10 +169,10 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
       updateWidth(width() - step);
     } else if (event.key === "Home") {
       event.preventDefault();
-      updateWidth(RIGHT_PANEL_MIN_WIDTH);
+      updateWidth(0);
     } else if (event.key === "End") {
       event.preventDefault();
-      updateWidth(RIGHT_PANEL_MAX_WIDTH);
+      updateWidth(window.innerWidth);
     }
   }
 
@@ -213,8 +218,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
             role="separator"
             aria-label={t("desktop:resizeTools")}
             aria-orientation="vertical"
-            aria-valuemin={RIGHT_PANEL_MIN_WIDTH}
-            aria-valuemax={RIGHT_PANEL_MAX_WIDTH}
+            aria-valuemin={0}
             aria-valuenow={width()}
             tabIndex={0}
             class="group absolute inset-y-0 left-0 z-10 flex w-1 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
@@ -339,7 +343,18 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
 
         <div class="min-h-0 flex-1 overflow-hidden">
           <Show when={view() === "review"}>
-            <VcsPanel serverId={props.serverId} />
+            <Show
+              when={props.reviewSessionId !== undefined && props.reviewMessageId !== undefined}
+              fallback={<VcsPanel serverId={props.serverId} />}
+            >
+              <div data-testid="right-tools-review-diff" class="h-full min-h-0">
+                <DiffView
+                  serverId={props.serverId}
+                  sessionId={props.reviewSessionId as string}
+                  messageId={props.reviewMessageId as string}
+                />
+              </div>
+            </Show>
           </Show>
           <Show when={view() === "files"}>
             <div data-testid="right-tools-files-pane" class="h-full min-h-0">
