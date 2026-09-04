@@ -15,8 +15,10 @@ import type { Component } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
+import type { SnapshotFileDiff } from "../../services/vcs.js";
 import { useT } from "../../i18n/index.js";
 import MessageActions from "./MessageActions.js";
+import RunOutcome from "./RunOutcome.js";
 import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
 import PatchPart from "./parts/PatchPart.js";
@@ -34,6 +36,19 @@ export interface MessageBubbleProps {
   messageID: string;
   /** Ordered part ids of this message (from the store's messageParts). */
   partIds: string[];
+  /** Process and progress parts aggregated across one user-task run. */
+  activityPartIds?: string[];
+  /** Every part in the run, used to derive changed files and commands. */
+  runPartIds?: string[];
+  /** Stable task-level disclosure key. */
+  runKey?: string;
+  /** Task-level generation state and timestamps. */
+  runActive?: boolean;
+  runStartedAt?: number;
+  runCompletedAt?: number;
+  /** User message that originated the run and its authoritative diff summary. */
+  runParentMessageID?: string;
+  runDiffs?: SnapshotFileDiff[];
   /** Shows the breathing caret on the message's last text part. */
   typing?: boolean;
   /** Session-level streaming flag (busy + recent deltas) used by the trace
@@ -87,9 +102,8 @@ function isRenderable(part: Part | undefined): part is RenderablePart {
 }
 
 // Process parts and attention events are observable steps of one agent run.
-// The chat refactor collects them into one Activity Trace rendered BELOW the
-// answer instead of interspersed between text parts, so the final answer reads
-// first and the process is one optional disclosure.
+// They render as one Activity Trace before the final answer, matching the
+// chronology without interspersing cards through the answer body.
 // Todo/task tools still go to the TaskPanel and never reach the fold.
 type ProcessPart = Extract<
   Part,
@@ -174,16 +188,21 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
   const created = () => info()?.time.created;
 
   // At least one supported part renders; otherwise the bubble is skipped.
-  const hasRenderable = createMemo(() =>
-    props.partIds.some((id) =>
-      isRenderable(messages[props.serverId]?.[props.sessionId]?.parts[id]),
-    ),
+  const hasRenderable = createMemo(
+    () =>
+      props.runActive === true ||
+      props.partIds.some((id) =>
+        isRenderable(messages[props.serverId]?.[props.sessionId]?.parts[id]),
+      ) ||
+      (props.activityPartIds ?? []).some((id) =>
+        isRenderable(messages[props.serverId]?.[props.sessionId]?.parts[id]),
+      ),
   );
 
-  // Chat refactor: the message's parts are split into the ANSWER parts
+  // The message's parts are split into the ANSWER parts
   // (text/file/patch/snapshot/retry/compaction, rendered in original order)
   // and the PROCESS parts (reasoning/tool calls/attention events, collected into one trace
-  // below the answer). Each memo reads the store per part id, so streamed
+  // before the answer). Each memo reads the store per part id, so streamed
   // deltas keep the fine-grained updates (only the touched part re-renders).
   const contentPartIds = createMemo(() =>
     props.partIds.filter((id) => {
@@ -191,13 +210,19 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
       return part !== undefined && isRenderable(part) && !isProcessPart(part);
     }),
   );
-  const processPartIds = createMemo(() =>
-    props.partIds.filter((id) =>
+  const processPartIds = createMemo(() => {
+    if (props.activityPartIds !== undefined) return props.activityPartIds;
+    return props.partIds.filter((id) =>
       isProcessPart(messages[props.serverId]?.[props.sessionId]?.parts[id]),
-    ),
-  );
+    );
+  });
   const processParts = createMemo(() =>
     processPartIds().map((id) => messages[props.serverId]?.[props.sessionId]?.parts[id]),
+  );
+  const runParts = createMemo(() =>
+    (props.runPartIds ?? props.partIds).map(
+      (id) => messages[props.serverId]?.[props.sessionId]?.parts[id],
+    ),
   );
 
   // The streaming part is the LAST text part of the message (the caret only
@@ -242,6 +267,16 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
               : "w-full max-w-3xl"
           }
         >
+          <Show when={processParts().length > 0 || props.runActive === true}>
+            <ProcessFold
+              parts={processParts()}
+              runKey={props.runKey ?? `${props.serverId}:${props.sessionId}:${props.messageID}`}
+              active={props.runActive}
+              startedAt={props.runStartedAt}
+              completedAt={props.runCompletedAt}
+              streaming={props.streaming === true}
+            />
+          </Show>
           <For each={contentPartIds()}>
             {(partId) => {
               const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
@@ -255,13 +290,12 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
               );
             }}
           </For>
-          {/* Chat refactor: all process parts (reasoning + tool calls) render
-              below the answer in one collapsed fold with a status summary. */}
-          <Show when={processParts().length > 0}>
-            <ProcessFold
-              parts={processParts()}
-              runKey={`${props.serverId}:${props.sessionId}:${props.messageID}`}
-              streaming={props.streaming === true}
+          <Show when={!user() && props.runActive !== true}>
+            <RunOutcome
+              parts={runParts()}
+              diffs={props.runDiffs}
+              messageID={props.runParentMessageID ?? props.messageID}
+              onViewDiff={props.onViewDiff}
             />
           </Show>
         </div>

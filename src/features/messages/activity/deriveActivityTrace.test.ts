@@ -43,6 +43,17 @@ function tool(status: "pending" | "running" | "completed" | "error"): Part {
   };
 }
 
+function progressText(): Part {
+  return {
+    id: "text-progress",
+    sessionID: "session-1",
+    messageID: "message-1",
+    type: "text",
+    text: "I found the renderer and am checking its event flow.",
+    time: { start: 105, end: 108 },
+  };
+}
+
 describe("deriveActivityTrace", () => {
   it("maps observable parts to ordered phases and statuses", () => {
     const entries = deriveActivityTrace(
@@ -102,5 +113,35 @@ describe("deriveActivityTrace", () => {
     const entries = deriveActivityTrace([undefined, unsupported, reasoning("one")]);
     expect(entries).toHaveLength(1);
     expect(entries[0]?.sourcePartId).toBe("reasoning-1");
+  });
+
+  it("keeps observable progress text as an expandable timeline update", () => {
+    expect(deriveActivityTrace([progressText()])).toMatchObject([
+      {
+        id: "text-progress",
+        kind: "note",
+        phase: "understand",
+        status: "complete",
+        preview: "I found the renderer and am checking its event flow.",
+      },
+    ]);
+  });
+
+  it("collapses running and completed updates for one tool call into one entry", () => {
+    const running = tool("running") as Extract<Part, { type: "tool" }>;
+    const completed = tool("completed") as Extract<Part, { type: "tool" }>;
+    completed.id = "tool-completed-later";
+    completed.callID = running.callID;
+
+    const entries = deriveActivityTrace([running, progressText(), completed], 150);
+
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toMatchObject({
+      id: "tool-completed-later",
+      kind: "command",
+      status: "complete",
+      duration: 30,
+    });
+    expect(entries[1]).toMatchObject({ kind: "note" });
   });
 });

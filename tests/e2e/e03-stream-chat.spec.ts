@@ -39,6 +39,7 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
 
   // Optimistic user bubble renders before the 204 round trip resolves.
   await expect(page.getByTestId("message-list")).toContainText("Explain the codebase");
+  await expect(page.getByTestId("agent-working")).toContainText("Waiting for model response");
   await sentPromise;
 
   // Release the stream: happy-chat creates ses_abc123 and streams
@@ -52,9 +53,8 @@ test("E03 new session, send prompt, streamed text+tool render, completion", asyn
   await expect(page.getByTestId("message-list")).toContainText(
     "Found 3 files. I will summarize them for you.",
   );
-  // Tool calls render inside the process fold below the answer (chat
-  // refactor): expand the streamed message's fold (if it is not already
-  // auto-expanded while streaming) to reveal the tool card.
+  // Tool calls render inside the task-level process fold before the final
+  // answer. The fold stays collapsed until the user asks to inspect it.
   const foldToggle = page.getByTestId("message-msg_asst_001").getByTestId("process-fold-toggle");
   await expect(foldToggle).toBeVisible();
   if ((await foldToggle.getAttribute("aria-expanded")) !== "true") {

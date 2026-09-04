@@ -5,7 +5,8 @@
 
 import type { Part } from "../../../stores/messages.js";
 
-export type ActivityKind = "summary" | "tool" | "command" | "compaction" | "retry" | "file-change";
+export type ActivityKind =
+  "summary" | "note" | "tool" | "command" | "compaction" | "retry" | "file-change";
 
 export type ActivityPhase = "understand" | "decide" | "act" | "verify" | "attention";
 
@@ -78,6 +79,23 @@ function toEntry(
   now: number,
   runKey: string,
 ): ActivityEntry | undefined {
+  if (part.type === "text") {
+    const start = part.time?.start ?? index;
+    const end = part.time?.end;
+    return {
+      id: part.id,
+      runKey,
+      sourcePartId: part.id,
+      timestamp: start,
+      kind: "note",
+      phase: "understand",
+      status: "complete",
+      preview: firstLine(part.text),
+      duration: end === undefined ? undefined : Math.max(0, end - start),
+      part,
+    };
+  }
+
   if (part.type === "reasoning") {
     const timestamp = part.time.start;
     const end = part.time.end;
@@ -149,9 +167,23 @@ export function deriveActivityTrace(
   now = Date.now(),
   runKey = "run",
 ): ActivityEntry[] {
-  return parts.flatMap((part, index) => {
-    if (part === undefined) return [];
+  const latestTools = new Map<string, Extract<Part, { type: "tool" }>>();
+  for (const part of parts) {
+    if (part?.type === "tool") latestTools.set(part.callID, part);
+  }
+
+  const seenCalls = new Set<string>();
+  const entries: ActivityEntry[] = [];
+  parts.forEach((source, index) => {
+    if (source === undefined) return;
+    let part = source;
+    if (source.type === "tool") {
+      if (seenCalls.has(source.callID)) return;
+      seenCalls.add(source.callID);
+      part = latestTools.get(source.callID) ?? source;
+    }
     const entry = toEntry(part, index, now, runKey);
-    return entry === undefined ? [] : [entry];
+    if (entry !== undefined) entries.push(entry);
   });
+  return entries;
 }

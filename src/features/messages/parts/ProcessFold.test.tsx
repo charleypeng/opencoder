@@ -4,7 +4,7 @@
 // running, reasoning volume); clicking expands it with a grid-row animation.
 // Streaming marks the trace as active but does not force it open.
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
 import ProcessFold from "./ProcessFold";
@@ -57,8 +57,20 @@ function toolPart(
   }
 }
 
+function progressText(): Part {
+  return {
+    id: "prt_progress",
+    sessionID: "sess_1",
+    messageID: "msg_1",
+    type: "text",
+    text: "I found the message renderer and am checking its event flow.",
+    time: { start: 3, end: 4 },
+  };
+}
+
 describe("ProcessFold", () => {
   beforeEach(() => clearActivityViewState());
+  afterEach(() => vi.useRealTimers());
 
   it("renders collapsed by default with a tool-call summary", () => {
     render(() => (
@@ -165,5 +177,51 @@ describe("ProcessFold", () => {
     // The toggle still works afterwards.
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("shows an immediate, ticking wait state before the first event arrives", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(3000);
+    render(() => <ProcessFold parts={[]} active startedAt={1000} runKey="waiting-run" />);
+
+    const fold = screen.getByTestId("process-fold");
+    expect(fold).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("process-fold-toggle")).toBeDisabled();
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Working for 2s");
+    expect(screen.getByTestId("process-fold-current")).toHaveTextContent(
+      "Waiting for model response",
+    );
+
+    vi.advanceTimersByTime(2000);
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Working for 4s");
+  });
+
+  it("renders progress updates inside the disclosure", () => {
+    render(() => <ProcessFold parts={[progressText()]} />);
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+
+    expect(screen.getByTestId("activity-entry")).toHaveAttribute("data-kind", "note");
+    expect(screen.getByText("Update")).toBeInTheDocument();
+    expect(screen.getByTestId("text-part")).toHaveTextContent(
+      "I found the message renderer and am checking its event flow.",
+    );
+  });
+
+  it("reports the total completed run duration", () => {
+    render(() => (
+      <ProcessFold parts={[reasoningPart("done")]} startedAt={1000} completedAt={61000} />
+    ));
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Worked for 1m 0s");
+  });
+
+  it("counts one tool call across running and completed lifecycle updates", () => {
+    const running = toolPart("bash", "running", "running") as Extract<Part, { type: "tool" }>;
+    const completed = toolPart("bash", "completed", "completed") as Extract<Part, { type: "tool" }>;
+    completed.callID = running.callID;
+    render(() => <ProcessFold parts={[running, completed]} />);
+
+    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent(
+      "1 tool call · 1 succeeded",
+    );
   });
 });

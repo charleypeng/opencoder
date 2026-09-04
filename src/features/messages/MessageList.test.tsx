@@ -19,6 +19,8 @@ import {
   applyTextDelta,
   getServerMessages,
   resetServer as resetMessages,
+  trackPendingLocalMessage,
+  upsertMessage,
 } from "../../stores/messages";
 import {
   applySessionList,
@@ -191,11 +193,12 @@ describe("MessageList", () => {
     // Tool cards live inside the process fold below the answer; expand it
     // first (chat refactor).
     fireEvent.click(within(assistant).getByTestId("process-fold-toggle"));
-    const running = within(assistant).getAllByTestId("tool-part")[0];
-    const completed = within(assistant).getAllByTestId("tool-part")[1];
-    expect(running).toHaveAttribute("data-status", "running");
+    // The running/completed payloads share a callID, so the trace presents
+    // one lifecycle row using the latest state.
+    const tools = within(assistant).getAllByTestId("tool-part");
+    expect(tools).toHaveLength(1);
+    const completed = tools[0];
     expect(completed).toHaveAttribute("data-status", "completed");
-    expect(within(running).getByTestId("tool-status-label")).toHaveTextContent("Running bash");
     expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("bash completed");
 
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
@@ -217,7 +220,8 @@ describe("MessageList", () => {
     // the answer (chat refactor); the tool cards stay mounted inside it.
     expect(screen.getByTestId("process-fold")).toBeInTheDocument();
     expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getAllByTestId("tool-part")).toHaveLength(9);
+    // Nine tool parts contain one running/completed pair for the same call.
+    expect(screen.getAllByTestId("tool-part")).toHaveLength(8);
     // Step boundary parts are not rendered (chat refactor).
     expect(screen.queryAllByTestId("step-start-part")).toHaveLength(0);
     expect(screen.queryAllByTestId("step-finish-part")).toHaveLength(0);
@@ -375,6 +379,152 @@ describe("MessageList", () => {
     expect(screen.queryByTestId("streaming-progress")).not.toBeInTheDocument();
   });
 
+  it("shows an immediate in-transcript work state before the first model event", async () => {
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
+
+    setSessionStatus(SERVER, SESSION, { type: "busy" });
+    const waiting = screen.getByTestId("agent-working");
+    expect(waiting).toHaveTextContent("Working for 0s");
+    expect(waiting).toHaveTextContent("Waiting for model response");
+    expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
+
+    setSessionStatus(SERVER, SESSION, { type: "idle" });
+    expect(screen.queryByTestId("agent-working")).not.toBeInTheDocument();
+  });
+
+  it("shows the work state from the optimistic send before busy SSE arrives", async () => {
+    renderList();
+    await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
+
+    trackPendingLocalMessage(SERVER, SESSION, "local-1");
+    upsertMessage(SERVER, SESSION, {
+      id: "local-1",
+      sessionID: SESSION,
+      role: "user",
+      time: { created: 1000 },
+      agent: "build",
+      model: { providerID: "openai", modelID: "gpt-5" },
+    });
+    applyTextDelta(SERVER, SESSION, {
+      messageID: "local-1",
+      partID: "local-part-1",
+      field: "text",
+      delta: "Start working",
+    });
+
+    expect(screen.getByTestId("agent-working")).toHaveTextContent("Waiting for model response");
+  });
+
+  it("renders consecutive assistant steps as one task-level run", async () => {
+    const runHistory: SessionMessage[] = [
+      {
+        info: {
+          id: "msg_user_run",
+          sessionID: SESSION,
+          role: "user",
+          time: { created: 1000 },
+          agent: "build",
+          model: { providerID: "openai", modelID: "gpt-5" },
+          summary: {
+            diffs: [{ file: "src/chat.tsx", additions: 7, deletions: 2, status: "modified" }],
+          },
+        },
+        parts: [
+          {
+            id: "prt_user_run",
+            sessionID: SESSION,
+            messageID: "msg_user_run",
+            type: "text",
+            text: "Improve the chat",
+          },
+        ],
+      },
+      {
+        info: {
+          id: "msg_step_run",
+          sessionID: SESSION,
+          role: "assistant",
+          time: { created: 2000, completed: 3000 },
+          parentID: "msg_user_run",
+          modelID: "gpt-5",
+          providerID: "openai",
+          mode: "primary",
+          agent: "build",
+          path: { cwd: "/project", root: "/project" },
+          cost: 0,
+          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        },
+        parts: [
+          {
+            id: "prt_step_run",
+            sessionID: SESSION,
+            messageID: "msg_step_run",
+            type: "text",
+            text: "I am inspecting the message flow.",
+          },
+          {
+            id: "prt_command_run",
+            sessionID: SESSION,
+            messageID: "msg_step_run",
+            type: "tool",
+            callID: "call_test",
+            tool: "bash",
+            state: {
+              status: "completed",
+              input: { command: "pnpm test" } as never,
+              output: "ok",
+              title: "bash",
+              metadata: {},
+              time: { start: 2200, end: 2600 },
+            },
+          },
+        ],
+      },
+      {
+        info: {
+          id: "msg_final_run",
+          sessionID: SESSION,
+          role: "assistant",
+          time: { created: 4000, completed: 5000 },
+          parentID: "msg_user_run",
+          modelID: "gpt-5",
+          providerID: "openai",
+          mode: "primary",
+          agent: "build",
+          path: { cwd: "/project", root: "/project" },
+          cost: 0,
+          tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+        },
+        parts: [
+          {
+            id: "prt_final_run",
+            sessionID: SESSION,
+            messageID: "msg_final_run",
+            type: "text",
+            text: "The chat flow is improved.",
+          },
+        ],
+      },
+    ];
+    mockClient(runHistory);
+    renderList();
+
+    const run = await waitFor(() => screen.getByTestId("message-msg_final_run"));
+    expect(screen.queryByTestId("message-msg_step_run")).not.toBeInTheDocument();
+    expect(screen.getAllByTestId("ai-label")).toHaveLength(1);
+    expect(run).toHaveTextContent("The chat flow is improved.");
+    expect(within(run).getByTestId("process-fold-toggle")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(within(run).getByTestId("run-files-toggle")).toHaveTextContent("1 changed file");
+    expect(within(run).getByTestId("run-commands-toggle")).toHaveTextContent("1 command");
+
+    fireEvent.click(within(run).getByTestId("process-fold-toggle"));
+    expect(run).toHaveTextContent("I am inspecting the message flow.");
+  });
+
   it("shows the breathing typing caret on the streaming message while deltas flow", async () => {
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
@@ -430,6 +580,22 @@ describe("MessageList", () => {
     container
       .querySelectorAll<HTMLElement>("[id^='dropdownmenu-cl-']")
       .forEach((el) => el.removeAttribute("id"));
+    container
+      .querySelectorAll<HTMLElement>("[data-testid='process-fold-toggle']")
+      .forEach((el) => el.removeAttribute("aria-controls"));
+    container
+      .querySelectorAll<HTMLElement>("[data-testid='process-fold-body']")
+      .forEach((el) => el.removeAttribute("id"));
+    // Conditional Solid children can leave indentation-only text nodes.
+    // Remove them so snapshots capture UI structure instead of formatter
+    // whitespace (and never introduce trailing-space lines).
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const whitespaceNodes: Text[] = [];
+    while (walker.nextNode()) {
+      const node = walker.currentNode as Text;
+      if (node.textContent?.trim() === "") whitespaceNodes.push(node);
+    }
+    whitespaceNodes.forEach((node) => node.remove());
     expect(container).toMatchSnapshot();
     timeSpy.mockRestore();
     nowSpy.mockRestore();

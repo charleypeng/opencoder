@@ -78,9 +78,11 @@ export async function sendPrompt(
       type: "text",
       text: message,
     };
+    // Register before the reactive store insert so the transcript can show
+    // an immediate work state without waiting for session.status over SSE.
+    trackPendingLocalMessage(serverId, sessionId, localMessageId);
     upsertMessage(serverId, sessionId, optimistic);
     applyPartDelta(serverId, sessionId, part);
-    trackPendingLocalMessage(serverId, sessionId, localMessageId);
     pushPrompt(serverId, message);
   }
 
@@ -99,8 +101,8 @@ export async function sendPrompt(
   } catch (err) {
     // Roll the optimistic message back; on success the SSE echo would
     // have reconciled it. The pending marker is dropped either way.
-    removePartsForMessage(serverId, sessionId, localMessageId);
     untrackPendingLocalMessage(serverId, sessionId);
+    removePartsForMessage(serverId, sessionId, localMessageId);
     return ApiError.fromUnknown(err);
   }
 }

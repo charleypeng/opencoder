@@ -34,6 +34,23 @@ function userMessage(id: string): Message {
   } as Message;
 }
 
+function assistantMessage(id: string, parentID: string, created = 2000): Message {
+  return {
+    id,
+    sessionID: SESSION,
+    role: "assistant",
+    time: { created, completed: created + 1000 },
+    parentID,
+    modelID: "gpt-5",
+    providerID: "openai",
+    mode: "primary",
+    agent: "build",
+    path: { cwd: "/project", root: "/project" },
+    cost: 0,
+    tokens: { input: 0, output: 0, reasoning: 0, cache: { read: 0, write: 0 } },
+  };
+}
+
 function seedMessage(messageID: string, partIds: string[], texts: string[]): void {
   upsertMessage(SERVER, SESSION, userMessage(messageID));
   partIds.forEach((id, index) => {
@@ -227,7 +244,7 @@ describe("MessageBubble", () => {
     expect(compaction).toHaveTextContent("Context compacted");
   });
 
-  it("renders process parts (reasoning + tool) below the answer in one fold", async () => {
+  it("renders process parts before the final answer in one fold", async () => {
     upsertMessage(SERVER, SESSION, userMessage("msg_order"));
     applyPartDelta(SERVER, SESSION, {
       id: "prt_text",
@@ -274,13 +291,82 @@ describe("MessageBubble", () => {
     const fold = bubble.querySelector('[data-testid="process-fold"]');
     expect(text).not.toBeNull();
     expect(fold).not.toBeNull();
-    // The answer renders BEFORE the process fold (never interspersed).
-    expect(text?.compareDocumentPosition(fold as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    // The process precedes the final answer, matching the run chronology.
+    expect(fold?.compareDocumentPosition(text as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     // Collapsed by default; expanding reveals the reasoning and tool parts.
     expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("intermediate reasoning");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
+  });
+
+  it("combines earlier assistant progress with the final answer and run outcome", async () => {
+    upsertMessage(SERVER, SESSION, userMessage("msg_user"));
+    upsertMessage(SERVER, SESSION, assistantMessage("msg_step", "msg_user", 2000));
+    upsertMessage(SERVER, SESSION, assistantMessage("msg_final", "msg_user", 4000));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_progress",
+      sessionID: SESSION,
+      messageID: "msg_step",
+      type: "text",
+      text: "I found the relevant message components.",
+      time: { start: 2100, end: 2200 },
+    } as unknown as Part);
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_edit",
+      sessionID: SESSION,
+      messageID: "msg_step",
+      type: "tool",
+      callID: "call_edit",
+      tool: "edit",
+      state: {
+        status: "completed",
+        input: { filePath: "src/chat.tsx" },
+        output: "ok",
+        title: "edit",
+        metadata: {},
+        time: { start: 2300, end: 2500 },
+      },
+    } as unknown as Part);
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_final",
+      sessionID: SESSION,
+      messageID: "msg_final",
+      type: "text",
+      text: "The chat flow is now complete.",
+      time: { start: 4100, end: 4500 },
+    } as Part);
+
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_final"
+        partIds={["prt_final"]}
+        activityPartIds={["prt_progress", "prt_edit"]}
+        runPartIds={["prt_progress", "prt_edit", "prt_final"]}
+        runKey="run:msg_user"
+        runStartedAt={2000}
+        runCompletedAt={5000}
+        runParentMessageID="msg_user"
+        runDiffs={[{ file: "src/chat.tsx", additions: 9, deletions: 2, status: "modified" }]}
+      />
+    ));
+
+    const bubble = screen.getByTestId("message-msg_final");
+    expect(bubble).toHaveTextContent("The chat flow is now complete.");
+    const fold = screen.getByTestId("process-fold");
+    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
+    const answer = screen
+      .getByText("The chat flow is now complete.")
+      .closest("[data-testid='text-part']");
+    const outcome = screen.getByTestId("run-outcome");
+    expect(fold.compareDocumentPosition(answer as Node)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    expect(answer?.compareDocumentPosition(outcome)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    expect(bubble).toHaveTextContent("I found the relevant message components.");
+    expect(screen.getByTestId("run-files-toggle")).toHaveTextContent("1 changed file");
   });
 
   it("keeps the caret in place across text deltas", async () => {

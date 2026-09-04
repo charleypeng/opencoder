@@ -15,9 +15,9 @@
 // hasMore flips false and no further requests are made.
 //
 // Rendering (TASK-M2-09 streaming pipeline):
-// - messages are grouped by id through the store's `messageParts` map, which
-//   is replaced only when part membership changes — streaming text deltas
-//   never re-run the grouping memo;
+// - message parts first retain their normalized message grouping, then
+//   consecutive assistant messages sharing one parent user message are
+//   presented as one task-level run;
 // - the transcript is virtualized (createVirtualList): only the rows that
 //   intersect the viewport (plus overscan) are mounted, so long transcripts
 //   render a constant handful of bubbles;
@@ -35,9 +35,11 @@ import { Key } from "@solid-primitives/keyed";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { useT } from "../../i18n/index.js";
 import { ApiError } from "../../services/errors.js";
-import { messages } from "../../stores/messages.js";
+import { hasPendingLocalMessage, messages } from "../../stores/messages.js";
 import { sessions } from "../../stores/session.js";
 import MessageBubble from "./MessageBubble.js";
+import ProcessFold from "./parts/ProcessFold.js";
+import { deriveAgentRows, type AgentRow, type MessagePartGroup } from "./activity/agentRun.js";
 import { createVirtualList } from "./useVirtualList.js";
 import { usePaginatedMessages } from "./usePaginatedMessages.js";
 import { useStreamingIndicator } from "./useStreamingIndicator.js";
@@ -64,11 +66,6 @@ export interface MessageListProps {
   mobile?: boolean;
 }
 
-interface MessageGroup {
-  messageID: string;
-  partIds: string[];
-}
-
 /** Default height of a message row before measurement, in px. */
 const ROW_ESTIMATE_PX = 96;
 
@@ -79,12 +76,10 @@ const EARLIER_TRIGGER_PX = 40;
 // objects are REUSED (same reference) as long as nothing about them changed,
 // so For's identity diff keeps the corresponding DOM/bubble instances alive —
 // a regroup or scroll only re-creates the rows that actually changed.
-interface MessageRow {
+interface MessageRow extends AgentRow {
   index: number;
   start: number;
   height: number;
-  messageID: string;
-  partIds: string[];
   typing: boolean;
   /** True when this message sits AFTER the session's revert point (M6-04). */
   reverted: boolean;
@@ -124,20 +119,52 @@ const MessageList: Component<MessageListProps> = (props) => {
     () => props.serverId,
     () => props.sessionId,
   );
-
   // Message groups: derived from the store's messageParts map, which is
   // replaced only when part membership changes. A text delta never
   // re-evaluates this memo, so streaming tokens leave the grouping alone
   // (the M2-06 implementation re-grouped the whole transcript per delta).
-  const groups = createMemo<MessageGroup[]>(() => {
+  const sourceGroups = createMemo<MessagePartGroup[]>(() => {
     const map = messages[props.serverId]?.[props.sessionId]?.messageParts;
     if (map === undefined) return [];
-    const out: MessageGroup[] = [];
+    const out: MessagePartGroup[] = [];
     for (const [messageID, partIds] of Object.entries(map)) {
       if (partIds.length === 0) continue;
       out.push({ messageID, partIds });
     }
     return out;
+  });
+
+  const awaiting = createMemo(() => {
+    // sourceGroups is the reactive bridge for the module-local pending
+    // marker: sendPrompt registers it before inserting the optimistic row.
+    void sourceGroups();
+    return streaming.busy() || hasPendingLocalMessage(props.serverId, props.sessionId);
+  });
+  const [busySince, setBusySince] = createSignal<number | undefined>();
+  let busyKey = "";
+
+  createEffect(() => {
+    const key = `${props.serverId}:${props.sessionId}`;
+    if (awaiting()) {
+      if (busyKey !== key) {
+        busyKey = key;
+        setBusySince(Date.now());
+      } else {
+        setBusySince((value) => value ?? Date.now());
+      }
+    } else {
+      busyKey = "";
+      setBusySince(undefined);
+    }
+  });
+
+  const groups = createMemo<AgentRow[]>(() => {
+    const entry = messages[props.serverId]?.[props.sessionId];
+    return deriveAgentRows(sourceGroups(), entry?.infos ?? {}, entry?.parts ?? {}, {
+      busy: awaiting(),
+      busySince: busySince(),
+      sessionId: props.sessionId,
+    });
   });
 
   const list = createVirtualList(
@@ -148,7 +175,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     // rows start at the estimate: the re-anchor delta is exactly the height
     // of the inserted rows (index-keyed measurements would attribute stale
     // heights to the new indices and make the delta hundreds of px off).
-    (index) => groups()[index]?.messageID ?? `row-${index}`,
+    (index) => groups()[index]?.key ?? `row-${index}`,
     {
       estimate: ROW_ESTIMATE_PX,
     },
@@ -210,8 +237,16 @@ const MessageList: Component<MessageListProps> = (props) => {
         prev !== undefined &&
         prev.start === v.start &&
         prev.height === v.height &&
+        prev.kind === group.kind &&
+        prev.key === group.key &&
         prev.messageID === group.messageID &&
         prev.partIds === group.partIds &&
+        prev.activityPartIds === group.activityPartIds &&
+        prev.allPartIds === group.allPartIds &&
+        prev.parentMessageID === group.parentMessageID &&
+        prev.startedAt === group.startedAt &&
+        prev.completedAt === group.completedAt &&
+        prev.active === group.active &&
         prev.typing === typing &&
         prev.reverted === reverted
       ) {
@@ -219,11 +254,10 @@ const MessageList: Component<MessageListProps> = (props) => {
         continue;
       }
       const row: MessageRow = {
+        ...group,
         index: v.index,
         start: v.start,
         height: v.height,
-        messageID: group.messageID,
-        partIds: group.partIds,
         typing,
         reverted,
       };
@@ -412,6 +446,13 @@ const MessageList: Component<MessageListProps> = (props) => {
     list.scrollTo(target, "smooth");
   }
 
+  function runDiffs(row: MessageRow) {
+    const parent = row.parentMessageID;
+    if (parent === undefined) return undefined;
+    const info = messages[props.serverId]?.[props.sessionId]?.infos[parent];
+    return info?.role === "user" ? info.summary?.diffs : undefined;
+  }
+
   return (
     <div data-testid="message-list" class="flex min-h-0 min-w-0 flex-1 flex-col">
       {/* M2-09: thin indeterminate progress bar while the session generates. */}
@@ -492,10 +533,10 @@ const MessageList: Component<MessageListProps> = (props) => {
                       loop (the overlap/flicker bug: rows rendered on top of
                       each other while streaming or scrolling). Keeping the
                       DOM alive stops the loop. */}
-                  <Key each={rows()} by={(row) => row.messageID}>
+                  <Key each={rows()} by={(row) => row.key}>
                     {(row) => (
                       <div
-                        ref={(el) => list.measureRow(row().messageID, el)}
+                        ref={(el) => list.measureRow(row().key, el)}
                         data-virtual-row={row().index}
                         data-reverted={row().reverted ? "true" : "false"}
                         class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
@@ -504,18 +545,48 @@ const MessageList: Component<MessageListProps> = (props) => {
                         style={{ top: `${row().start}px` }}
                       >
                         <div class="mx-auto w-full max-w-6xl">
-                          <MessageBubble
-                            serverId={props.serverId}
-                            sessionId={props.sessionId}
-                            messageID={row().messageID}
-                            partIds={row().partIds}
-                            typing={row().typing}
-                            mobile={props.mobile}
-                            onViewDiff={props.onViewDiff}
-                            onFork={props.onFork}
-                            onRevert={props.onRevert}
-                            onOpenChild={props.onOpenChild}
-                          />
+                          <Show
+                            when={row().kind !== "working"}
+                            fallback={
+                              <div
+                                data-testid="agent-working"
+                                class="flex flex-col items-start gap-1"
+                              >
+                                <span class="ai-label" data-testid="ai-label">
+                                  {t("messages:aiLabel")}
+                                </span>
+                                <div class="w-full max-w-3xl">
+                                  <ProcessFold
+                                    parts={[]}
+                                    runKey={row().key}
+                                    active
+                                    startedAt={row().startedAt}
+                                  />
+                                </div>
+                              </div>
+                            }
+                          >
+                            <MessageBubble
+                              serverId={props.serverId}
+                              sessionId={props.sessionId}
+                              messageID={row().messageID}
+                              partIds={row().partIds}
+                              activityPartIds={row().activityPartIds}
+                              runPartIds={row().allPartIds}
+                              runKey={row().key}
+                              runActive={row().active}
+                              runStartedAt={row().startedAt}
+                              runCompletedAt={row().completedAt}
+                              runParentMessageID={row().parentMessageID}
+                              runDiffs={runDiffs(row())}
+                              typing={row().typing}
+                              mobile={props.mobile}
+                              onViewDiff={props.onViewDiff}
+                              onFork={props.onFork}
+                              onRevert={props.onRevert}
+                              onOpenChild={props.onOpenChild}
+                            />
+                          </Show>
                         </div>
                       </div>
                     )}

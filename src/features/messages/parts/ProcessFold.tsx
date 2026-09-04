@@ -1,10 +1,18 @@
-// Activity Trace (CHAT-TRACE-03/04): keeps observable agent work below the
-// answer in one compact disclosure. The trace is collapsed by default even
+// Activity Trace (CHAT-TRACE-03/04): keeps observable agent work before the
+// final answer in one compact disclosure. The trace is collapsed by default even
 // while streaming; its active rail communicates progress without taking
 // over the conversation. Existing tool/detail renderers remain the source of
 // truth for command output, edits, reads and other operation details.
 
-import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  For,
+  onCleanup,
+  Show,
+} from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
@@ -13,6 +21,7 @@ import { readActivityExpanded, writeActivityExpanded } from "../activity/activit
 import CompactionPart, { type CompactionPartData } from "./CompactionPart.js";
 import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart.js";
 import RetryPart, { type RetryPartData } from "./RetryPart.js";
+import TextPart, { type TextPartData } from "./TextPart.js";
 import ToolPart, { type ToolPartData } from "./ToolPart.js";
 
 export interface ProcessFoldProps {
@@ -20,7 +29,12 @@ export interface ProcessFoldProps {
   parts: Array<Part | undefined>;
   /** Stable assistant-message key used to keep runs isolated. */
   runKey?: string;
-  /** Kept for call-site compatibility; streaming never forces disclosure. */
+  /** Marks this run active without forcing its disclosure open. */
+  active?: boolean;
+  /** Run timestamps used for the task-level elapsed label. */
+  startedAt?: number;
+  completedAt?: number;
+  /** Kept for callers that still expose the recent-delta streaming flag. */
   streaming?: boolean;
 }
 
@@ -39,10 +53,23 @@ function formatCompact(n: number): string {
   return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}k`;
 }
 
+function formatElapsed(t: ReturnType<typeof useT>, milliseconds: number): string {
+  const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000));
+  if (totalSeconds < 60) {
+    return t("messages:activityDurationSeconds", { seconds: totalSeconds });
+  }
+  return t("messages:activityDurationMinutes", {
+    minutes: Math.floor(totalSeconds / 60),
+    seconds: totalSeconds % 60,
+  });
+}
+
 function entryTitle(t: ReturnType<typeof useT>, entry: ActivityEntry): string {
   switch (entry.kind) {
     case "summary":
       return t("messages:activityThinking");
+    case "note":
+      return t("messages:activityUpdate");
     case "compaction":
       return t("messages:compacted");
     case "retry":
@@ -77,6 +104,8 @@ function traceStatusClass(status: "active" | "error" | "complete"): string {
 
 function renderEntryPart(entry: ActivityEntry) {
   switch (entry.part.type) {
+    case "text":
+      return <TextPart part={entry.part as TextPartData} />;
     case "reasoning":
       return <ReasoningPart part={entry.part as ReasoningPartData} />;
     case "tool":
@@ -94,17 +123,17 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
   const t = useT();
   const traceKey = () => props.runKey ?? "run";
   const [expanded, setExpanded] = createSignal(readActivityExpanded(traceKey()));
+  const [now, setNow] = createSignal(Date.now());
   const bodyId = createUniqueId();
 
   function toggleExpanded(): void {
+    if (trace().length === 0) return;
     const next = !expanded();
     setExpanded(next);
     writeActivityExpanded(traceKey(), next);
   }
 
-  const trace = createMemo(() =>
-    deriveActivityTrace(props.parts, Date.now(), props.runKey ?? "run"),
-  );
+  const trace = createMemo(() => deriveActivityTrace(props.parts, now(), props.runKey ?? "run"));
   const stats = createMemo<ProcessStats>(() => {
     const out: ProcessStats = {
       tools: 0,
@@ -137,15 +166,31 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     return out;
   });
 
-  const active = createMemo(() => trace().some((entry) => entry.status === "active"));
+  const active = createMemo(
+    () =>
+      props.active === true ||
+      props.streaming === true ||
+      trace().some((entry) => entry.status === "active"),
+  );
   const failed = createMemo(() => trace().some((entry) => entry.status === "failed"));
+  const hasDetails = createMemo(() => trace().length > 0);
+
+  createEffect(() => {
+    if (!active()) return;
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 1000);
+    onCleanup(() => clearInterval(timer));
+  });
   const current = createMemo(() => {
     const entries = trace();
     for (let index = entries.length - 1; index >= 0; index -= 1) {
       const entry = entries[index];
-      if (entry !== undefined && (entry.status === "active" || entry.preview !== undefined)) {
-        return entry;
-      }
+      if (entry?.status === "active") return entry;
+    }
+    if (!active() && !failed()) return undefined;
+    for (let index = entries.length - 1; index >= 0; index -= 1) {
+      const entry = entries[index];
+      if (entry?.preview !== undefined) return entry;
     }
     return undefined;
   });
@@ -169,6 +214,27 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     return bits.join(" · ");
   });
 
+  const statusLabel = createMemo(() => {
+    if (failed()) return t("messages:activityNeedsAttention");
+    const startedAt = props.startedAt;
+    if (active()) {
+      if (startedAt === undefined) return t("messages:activityWorking");
+      return t("messages:activityWorkingFor", {
+        duration: formatElapsed(t, now() - startedAt),
+      });
+    }
+    if (startedAt !== undefined && props.completedAt !== undefined) {
+      return t("messages:activityWorkedFor", {
+        duration: formatElapsed(t, props.completedAt - startedAt),
+      });
+    }
+    return t("messages:activityCompleted");
+  });
+
+  const currentPreview = createMemo(
+    () => current()?.preview ?? (active() ? t("messages:activityWaitingForModel") : undefined),
+  );
+
   const traceStatus = createMemo(() => {
     if (failed()) return "error";
     if (active()) return "active";
@@ -187,7 +253,8 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
         data-testid="process-fold-toggle"
         aria-expanded={expanded()}
         aria-controls={bodyId}
-        class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+        disabled={!hasDetails()}
+        class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft disabled:cursor-default"
         onClick={toggleExpanded}
       >
         <span
@@ -195,64 +262,60 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
           aria-hidden="true"
           class={`h-1.5 w-1.5 shrink-0 rounded-full ${traceStatusClass(traceStatus())}`}
         />
-        <span
-          aria-hidden="true"
-          class={`inline-block shrink-0 text-fg-faint transition-transform ${expanded() ? "rotate-90" : ""}`}
-        >
-          ▸
+        <span class="inline-block w-2 shrink-0 text-fg-faint" aria-hidden="true">
+          {hasDetails() ? (
+            <span class={`inline-block transition-transform ${expanded() ? "rotate-90" : ""}`}>
+              ▸
+            </span>
+          ) : null}
         </span>
-        <span class="shrink-0 font-medium text-fg-secondary">
-          {active()
-            ? t("messages:activityWorking")
-            : failed()
-              ? t("messages:activityNeedsAttention")
-              : t("messages:activityCompleted")}
+        <span data-testid="process-fold-status" class="shrink-0 font-medium text-fg-secondary">
+          {statusLabel()}
         </span>
-        <Show when={current()?.preview !== undefined}>
+        <Show when={currentPreview() !== undefined}>
           <span data-testid="process-fold-current" class="min-w-0 truncate text-fg-faint">
-            {current()?.preview}
+            {currentPreview()}
           </span>
         </Show>
         <span data-testid="process-fold-summary" class="min-w-0 truncate text-fg-faint">
           {summary()}
         </span>
-        <span class="ml-auto shrink-0 text-fg-faint" aria-hidden="true">
-          {expanded() ? "" : "›"}
-        </span>
       </button>
-      <div
-        id={bodyId}
-        data-testid="process-fold-body"
-        data-expanded={expanded()}
-        aria-hidden={expanded() ? "false" : "true"}
-        class="process-fold-body"
-      >
-        <div class="activity-trace-timeline">
-          <For each={trace()}>
-            {(entry) => (
-              <div
-                data-testid="activity-entry"
-                data-kind={entry.kind}
-                data-phase={entry.phase}
-                data-status={entry.status}
-                class="activity-trace-entry relative pl-4"
-              >
-                <span
-                  aria-hidden="true"
-                  class={`absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full ${statusClass(entry)}`}
-                />
-                <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
-                  <span class="truncate font-medium text-fg-primary">{entryTitle(t, entry)}</span>
-                  <Show when={entry.preview !== undefined}>
-                    <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
-                  </Show>
+      <Show when={hasDetails()}>
+        <div
+          id={bodyId}
+          data-testid="process-fold-body"
+          data-expanded={expanded()}
+          aria-hidden={expanded() ? "false" : "true"}
+          class="process-fold-body"
+        >
+          <div class="activity-trace-timeline">
+            <For each={trace()}>
+              {(entry) => (
+                <div
+                  data-testid="activity-entry"
+                  data-kind={entry.kind}
+                  data-phase={entry.phase}
+                  data-status={entry.status}
+                  class="activity-trace-entry relative pl-4"
+                >
+                  <span
+                    aria-hidden="true"
+                    class={`absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full ${statusClass(entry)}`}
+                  />
+                  <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
+                    <span class="truncate font-medium text-fg-primary">{entryTitle(t, entry)}</span>
+                    <Show when={entry.preview !== undefined}>
+                      <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
+                    </Show>
+                  </div>
+                  {renderEntryPart(entry)}
                 </div>
-                {renderEntryPart(entry)}
-              </div>
-            )}
-          </For>
+              )}
+            </For>
+          </div>
         </div>
-      </div>
+      </Show>
     </div>
   );
 };

@@ -101,6 +101,11 @@ export function trackPendingLocalMessage(
   pendingLocalMessages.set(pendingKey(serverId, sessionId), localMessageId);
 }
 
+/** True while an optimistic user message still awaits its server echo. */
+export function hasPendingLocalMessage(serverId: string, sessionId: string): boolean {
+  return pendingLocalMessages.has(pendingKey(serverId, sessionId));
+}
+
 /** Drops a session's pending marker (rollback, session switch, unmount). */
 export function untrackPendingLocalMessage(serverId: string, sessionId: string): void {
   const key = pendingKey(serverId, sessionId);
