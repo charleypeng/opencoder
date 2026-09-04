@@ -180,12 +180,16 @@ describe("WorkspaceTree", () => {
     renderTree();
     const row = await screen.findByTestId("workspace-folder-/dev/opencoder");
     expect(within(row).getByTestId("workspace-folder-icon")).toHaveAttribute("data-state", "open");
+    expect(within(row).getByTestId("workspace-folder-open-outline")).toBeInTheDocument();
+    expect(within(row).queryByTestId("workspace-folder-closed-outline")).toBeNull();
 
     fireEvent.click(row);
     expect(within(row).getByTestId("workspace-folder-icon")).toHaveAttribute(
       "data-state",
       "closed",
     );
+    expect(within(row).getByTestId("workspace-folder-closed-outline")).toBeInTheDocument();
+    expect(within(row).queryByTestId("workspace-folder-open-outline")).toBeNull();
   });
 
   it("selects a session and switches the directory context", async () => {

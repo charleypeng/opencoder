@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(sessions): Refine the open-workspace folder outline, reduce session-title scale, and speed overflow-title scanning. (sessions)
 - fix(sessions): Show open workspace folders, reveal truncated session titles on hover or focus, prevent IME Enter commits from sending early, and restore reverted user text to the composer. (sessions)
 
 ## [1.2.0] - 2026-09-04
