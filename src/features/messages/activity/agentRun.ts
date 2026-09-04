@@ -200,6 +200,17 @@ function latestToolStates(
   return latest;
 }
 
+function matchesRunFile(left: string, right: string): boolean {
+  const normalize = (path: string) => path.replace(/^[ab]\//, "").replace(/\\/g, "/");
+  const leftPath = normalize(left);
+  const rightPath = normalize(right);
+  return (
+    leftPath === rightPath ||
+    leftPath.endsWith(`/${rightPath}`) ||
+    rightPath.endsWith(`/${leftPath}`)
+  );
+}
+
 /** Extracts a compact, observable outcome from one completed agent run. */
 export function deriveRunOutcome(
   parts: Array<Part | undefined>,
@@ -208,6 +219,7 @@ export function deriveRunOutcome(
   const files = new Map<string, RunChangedFile>();
   const commands: string[] = [];
   const commandSet = new Set<string>();
+  const hasFile = (path: string) => [...files.keys()].some((known) => matchesRunFile(known, path));
 
   for (const diff of diffs) {
     if (diff.file === undefined || diff.file.trim() === "") continue;
@@ -223,7 +235,7 @@ export function deriveRunOutcome(
   for (const part of parts) {
     if (part?.type === "patch") {
       for (const path of part.files) {
-        if (path.trim() !== "" && !files.has(path)) files.set(path, { path });
+        if (path.trim() !== "" && !hasFile(path)) files.set(path, { path });
       }
       continue;
     }
@@ -239,7 +251,7 @@ export function deriveRunOutcome(
     }
     if (part.state.status !== "completed" || !FILE_TOOLS.test(part.tool)) continue;
     const path = inputString(input, ["filePath", "file_path", "path", "filename"]);
-    if (path !== undefined && !files.has(path)) files.set(path, { path });
+    if (path !== undefined && !hasFile(path)) files.set(path, { path });
   }
 
   const values = [...files.values()];

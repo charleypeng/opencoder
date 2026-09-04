@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Retrieve line-level patch content for expanded run summaries and merge absolute patch paths with relative diff paths. (messages)
 - fix(desktop): Show a completed run's diff inline on expansion, open its full review in the right workspace panel, and remove the right-panel splitter's fixed width bounds. (desktop)
 - fix(messages): Render patch diffs when patch events use absolute paths, add visible attachment-button hover feedback, and remove the redundant streaming progress line. (messages)
 - fix(ui): Rebase the desktop UI scale so 100% matches the former 120% visual size, and simplify session rows to title-only labels. (ui)

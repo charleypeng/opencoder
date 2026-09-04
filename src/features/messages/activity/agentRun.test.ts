@@ -224,4 +224,24 @@ describe("deriveRunOutcome", () => {
 
     expect(deriveRunOutcome([running, completed], []).commands).toEqual(["pnpm verify"]);
   });
+
+  it("deduplicates absolute patch paths against relative diff paths", () => {
+    const patch: Part = {
+      id: "patch",
+      sessionID: "session-1",
+      messageID: "step",
+      type: "patch",
+      hash: "abc",
+      files: ["/Volumes/Doc/dev/codewalk/README.md"],
+    };
+
+    const outcome = deriveRunOutcome(
+      [patch],
+      [{ file: "README.md", additions: 1, deletions: 1, status: "modified" }],
+    );
+
+    expect(outcome.files).toEqual([
+      { path: "README.md", additions: 1, deletions: 1, status: "modified" },
+    ]);
+  });
 });

@@ -1,7 +1,15 @@
-import { describe, expect, it } from "vitest";
-import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { ApiClient, type Transport } from "../../services/client.js";
 import type { Part } from "../../stores/messages.js";
 import RunOutcome from "./RunOutcome.js";
+
+const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
+
+vi.mock("../../services/client.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../services/client.js")>();
+  return { ...actual, getApiClient: getApiClientMock };
+});
 
 function tool(tool: string, input: Record<string, unknown>, callID: string): Part {
   return {
@@ -21,6 +29,22 @@ function tool(tool: string, input: Record<string, unknown>, callID: string): Par
     },
   } as Part;
 }
+
+function patch(files: string[], messageID = "assistant-1"): Part {
+  return {
+    id: "patch-1",
+    sessionID: "session-1",
+    messageID,
+    type: "patch",
+    hash: "abc",
+    files,
+  } as Part;
+}
+
+beforeEach(() => {
+  getApiClientMock.mockReset();
+  getApiClientMock.mockReturnValue(new ApiClient({ request: vi.fn() }));
+});
 
 describe("RunOutcome", () => {
   it("shows compact file and command summaries that expand on demand", () => {
@@ -91,6 +115,39 @@ describe("RunOutcome", () => {
 
     fireEvent.click(screen.getByTestId("run-view-diff"));
     expect(opened).toBe("user-42");
+  });
+
+  it("loads patch content for the completed run instead of treating summary stats as empty", async () => {
+    const request = vi.fn(async () => ({
+      status: 200,
+      headers: {},
+      body: [
+        {
+          file: "README.md",
+          patch: "@@ -1 +1 @@\n-old title\n+new title",
+          additions: 1,
+          deletions: 1,
+          status: "modified",
+        },
+      ],
+      bodyText: undefined,
+    }));
+    getApiClientMock.mockReturnValue(
+      new ApiClient({ request: request as unknown as Transport["request"] }),
+    );
+    render(() => (
+      <RunOutcome
+        parts={[patch(["/Volumes/Doc/dev/codewalk/README.md"])]}
+        diffs={[{ file: "README.md", additions: 1, deletions: 1, status: "modified" }]}
+        sessionID="session-1"
+        messageID="user-1"
+      />
+    ));
+
+    fireEvent.click(screen.getByTestId("run-files-toggle"));
+    expect(screen.getByTestId("run-diff-loading")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("diff-unified")).toHaveTextContent("new title"));
+    expect(screen.queryByTestId("diff-file-no-content")).not.toBeInTheDocument();
   });
 
   it("renders nothing when the run changed no files and ran no commands", () => {
