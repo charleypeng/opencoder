@@ -853,3 +853,33 @@
     linear-gradient(var(--accent), var(--accent)) right bottom / 1.5px 11px no-repeat;
   opacity: 0.5;
 }
+
+/* Long session names keep the sidebar compact, but hover or keyboard focus
+ * reveals the full title without a tooltip-only interaction. */
+.session-title-marquee-viewport[data-overflow="true"] .session-title-marquee-content {
+  animation: session-title-marquee var(--session-title-marquee-duration) linear infinite alternate;
+  animation-play-state: paused;
+}
+
+.group:hover .session-title-marquee-viewport[data-overflow="true"] .session-title-marquee-content,
+.group:focus-within
+  .session-title-marquee-viewport[data-overflow="true"]
+  .session-title-marquee-content {
+  animation-play-state: running;
+  will-change: transform;
+}
+
+@keyframes session-title-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--session-title-marquee-distance));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-title-marquee-viewport[data-overflow="true"] .session-title-marquee-content {
+    animation: none;
+  }
+}

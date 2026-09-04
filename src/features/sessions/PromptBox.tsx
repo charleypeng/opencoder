@@ -321,6 +321,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   const [attachments, setAttachments] = createSignal<Attachment[]>([]);
   const [sending, setSending] = createSignal(false);
   const [inlineError, setInlineError] = createSignal<ApiError | null>(null);
+  let composing = false;
   // Rejected-drop message (e.g. an oversized file) shown next to the chips.
   const [attachError, setAttachError] = createSignal<string | null>(null);
   // One-time inline note next to the chips when a known command was
@@ -795,6 +796,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   }
 
   function onKeyDown(event: KeyboardEvent) {
+    // Enter commits active IME composition before it is available to the
+    // textarea. Shortcut handling must never consume that commit as send.
+    if (composing || event.isComposing || event.keyCode === 229) return;
     // The `/` command menu owns arrow/enter/escape keys while open; the @
     // menu below can never be open at the same time (refreshSlashMenu
     // defers to it), so the two checks are exclusive in practice.
@@ -1424,6 +1428,12 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 aria-label={t("messages:message")}
                 onInput={onInput}
                 onKeyDown={onKeyDown}
+                onCompositionStart={() => {
+                  composing = true;
+                }}
+                onCompositionEnd={() => {
+                  composing = false;
+                }}
                 onPaste={onPaste}
                 onBlur={() => {
                   closeAtMenu();

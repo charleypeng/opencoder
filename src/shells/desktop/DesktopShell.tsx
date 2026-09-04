@@ -93,7 +93,7 @@ import {
   setActiveSession,
   takeRestoreCandidate,
 } from "../../stores/session";
-import { resetServer as resetMessages } from "../../stores/messages";
+import { messages, resetServer as resetMessages } from "../../stores/messages";
 import { resetServer as resetTodos } from "../../stores/todos";
 import { openTab, resetServer as resetViewer } from "../../stores/viewer";
 import { subscribeToServerEvents, type SubscribeToServerEventsResult } from "../../stores/events";
@@ -678,12 +678,23 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   async function confirmRevert(): Promise<void> {
     const target = revertTarget();
     if (target === null) return;
+    const entry = messages[activeServerId()]?.[target.sessionId];
+    const original = entry?.infos[target.messageID];
+    const messageText =
+      original?.role === "user"
+        ? (entry?.messageParts[target.messageID] ?? [])
+            .map((partId) => entry?.parts[partId])
+            .filter((part) => part?.type === "text")
+            .map((part) => part?.text ?? "")
+            .join("")
+        : "";
     await revertSession(
       activeServerId(),
       target.sessionId,
       target.messageID,
       createSessionService(getApiClient()),
     );
+    if (messageText !== "") prefillComposer(messageText);
   }
 
   /** Unreverts the session in one click; a failure surfaces in the banner. */

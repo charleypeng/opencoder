@@ -47,6 +47,7 @@ import RenameSessionDialog from "./RenameSessionDialog.js";
 import ShareSessionDialog from "./ShareSessionDialog.js";
 import SummarizeDialog from "./SummarizeDialog.js";
 import InitDialog from "./InitDialog.js";
+import OverflowMarquee from "./OverflowMarquee.js";
 
 export interface SessionListProps {
   /** The server whose sessions are shown. */
@@ -210,7 +211,7 @@ function SessionRow(props: {
           </span>
         </Show>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-sm">{titleOf(props.session)}</span>
+          <OverflowMarquee text={titleOf(props.session)} testId="session-title" />
           <span class="block truncate font-code text-xs text-fg-secondary">
             {formatRelativeTime(props.session.time.updated, props.nowMs)}
           </span>
