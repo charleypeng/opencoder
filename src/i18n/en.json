@@ -279,8 +279,6 @@
     "activityDurationMinutes": "{{minutes}}m {{seconds}}s",
     "runChangedFiles_one": "{{count}} changed file",
     "runChangedFiles_other": "{{count}} changed files",
-    "runCommands_one": "{{count}} command",
-    "runCommands_other": "{{count}} commands",
     "retrying": "Retrying…",
     "retryAttempt": "Retrying (attempt {{attempt}})",
     "retryCountdown": "next attempt in {{seconds}}s",

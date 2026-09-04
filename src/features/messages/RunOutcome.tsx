@@ -36,13 +36,12 @@ function matchesRunFile(left: string, right: string | undefined): boolean {
 const RunOutcome: Component<RunOutcomeProps> = (props) => {
   const t = useT();
   const [filesExpanded, setFilesExpanded] = createSignal(false);
-  const [commandsExpanded, setCommandsExpanded] = createSignal(false);
   const [expandedFolds, setExpandedFolds] = createSignal<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = createSignal<string | undefined>(undefined);
   const [diffState, setDiffState] = createSignal<DiffState>("idle");
   const [loadedDiffs, setLoadedDiffs] = createSignal<SnapshotFileDiff[]>([]);
   const outcome = createMemo(() => deriveRunOutcome(props.parts, props.diffs));
-  const visible = createMemo(() => outcome().files.length > 0 || outcome().commands.length > 0);
+  const visible = createMemo(() => outcome().files.length > 0);
   const diffMessageIDs = createMemo(() => {
     const ids = new Set<string>([props.messageID]);
     for (const part of props.parts) {
@@ -211,42 +210,6 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                   </Show>
                 </Show>
               </div>
-            </Show>
-          </div>
-        </Show>
-
-        <Show when={outcome().commands.length > 0}>
-          <div>
-            <button
-              type="button"
-              data-testid="run-commands-toggle"
-              aria-expanded={commandsExpanded()}
-              class="flex w-full min-w-0 items-center gap-2 rounded-md px-1.5 py-1.5 text-left text-fg-secondary outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
-              onClick={() => setCommandsExpanded((value) => !value)}
-            >
-              <span
-                aria-hidden="true"
-                class={`inline-block shrink-0 text-fg-faint transition-transform ${commandsExpanded() ? "rotate-90" : ""}`}
-              >
-                ▸
-              </span>
-              <span class="font-medium text-fg-secondary">
-                {t("messages:runCommands", { count: outcome().commands.length })}
-              </span>
-            </button>
-            <Show when={commandsExpanded()}>
-              <ul data-testid="run-commands" class="space-y-1 py-1 pl-6 pr-2">
-                <For each={outcome().commands}>
-                  {(command) => (
-                    <li class="flex min-w-0 gap-2 font-code text-fg-secondary">
-                      <span aria-hidden="true" class="shrink-0 text-success">
-                        $
-                      </span>
-                      <span class="min-w-0 truncate">{command}</span>
-                    </li>
-                  )}
-                </For>
-              </ul>
             </Show>
           </div>
         </Show>

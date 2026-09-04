@@ -514,7 +514,6 @@ describe("MessageList", () => {
       "false",
     );
     expect(within(run).getByTestId("run-files-toggle")).toHaveTextContent("1 changed file");
-    expect(within(run).getByTestId("run-commands-toggle")).toHaveTextContent("1 command");
 
     fireEvent.click(within(run).getByTestId("process-fold-toggle"));
     expect(run).toHaveTextContent("I am inspecting the message flow.");
