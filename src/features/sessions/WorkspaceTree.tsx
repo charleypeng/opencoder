@@ -38,7 +38,6 @@ import {
   setActiveSession,
   type SessionStatusEntry,
 } from "../../stores/session.js";
-import { formatRelativeTime } from "../servers/relativeTime.js";
 import { readDefaultWorkspace } from "../servers/defaultWorkspace.js";
 import { pushRecentProject } from "./recentProjects.js";
 import { createSession, ensureSessionInDirectory, forkSession } from "./sessionActions.js";
@@ -292,7 +291,6 @@ function SessionRow(props: {
   session: Session;
   status: SessionStatusEntry | undefined;
   active: boolean;
-  nowMs: number;
   forked: boolean;
   parentTitle?: string;
   selectionMode?: boolean;
@@ -382,9 +380,6 @@ function SessionRow(props: {
         </Show>
         <span class="min-w-0 flex-1">
           <OverflowMarquee text={title()} testId="workspace-session-title" />
-          <span class="block truncate font-code text-xs text-fg-secondary">
-            {formatRelativeTime(props.session.time.updated, props.nowMs)}
-          </span>
         </span>
       </button>
       <button
@@ -476,7 +471,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
 
   const sessionState = createMemo(() => getServerSessionState(props.serverId));
   const projectState = createMemo(() => getServerProjectState(props.serverId));
-  const now = () => Date.now();
 
   // Snapshot mutations.
   function applyLocalList(list: Session[]): void {
@@ -1106,7 +1100,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     session={session}
                     status={sessionState().statuses[session.id]}
                     active={sessionState().activeSessionId === session.id}
-                    nowMs={now()}
                     forked={session.parentID !== undefined}
                     parentTitle={parentTitleOf(session)}
                     selectionMode={selectionMode()}
@@ -1156,7 +1149,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                           session={session}
                           status={sessionState().statuses[session.id]}
                           active={sessionState().activeSessionId === session.id}
-                          nowMs={now()}
                           forked={session.parentID !== undefined}
                           parentTitle={parentTitleOf(session)}
                           selectionMode={selectionMode()}
@@ -1213,7 +1205,6 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                       session={session}
                       status={sessionState().statuses[session.id]}
                       active={sessionState().activeSessionId === session.id}
-                      nowMs={now()}
                       forked={session.parentID !== undefined}
                       parentTitle={parentTitleOf(session)}
                       selectionMode={selectionMode()}

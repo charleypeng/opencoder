@@ -1,4 +1,5 @@
-// L1 tests for the UI scale store: the default (bigger-by-default 1.1),
+// L1 tests for the UI scale store: the default (the old 120% visual size
+// rebased to the new 100% setting),
 // clamping + step snapping, persistence, the immediate application to the
 // --ui-scale CSS variable, and the mobile exemption (mobile always writes
 // 1 so the native glass tab bar coordination never scales).
@@ -7,9 +8,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { refreshPlatform } from "../platform/index.js";
 import {
   DEFAULT_UI_SCALE,
+  UI_SCALE_BASE,
   UI_SCALE_KEY,
   UI_SCALE_MAX,
   UI_SCALE_MIN,
+  UI_SCALE_VERSION_KEY,
   applyUiScale,
   clampScale,
   setUiScale,
@@ -50,17 +53,18 @@ afterEach(() => {
 });
 
 describe("uiScale store", () => {
-  it("defaults to 1.1 (bigger-by-default desktop baseline) without a stored value", () => {
+  it("uses the former 120% visual size at the 100% desktop setting", () => {
     expect(uiScale()).toBe(DEFAULT_UI_SCALE);
     applyUiScale();
-    expect(scaleVar()).toBe("1.1");
+    expect(scaleVar()).toBe(String(UI_SCALE_BASE));
   });
 
   it("sets the scale, applies it to the CSS variable immediately and persists it", () => {
     setUiScale(1.4);
     expect(uiScale()).toBe(1.4);
-    expect(scaleVar()).toBe("1.4");
+    expect(scaleVar()).toBe("1.68");
     expect(localStorage.getItem(UI_SCALE_KEY)).toBe("1.4");
+    expect(localStorage.getItem(UI_SCALE_VERSION_KEY)).toBe("2");
   });
 
   it("clamps out-of-range values and snaps to the 0.05 step", () => {
@@ -70,16 +74,28 @@ describe("uiScale store", () => {
     expect(clampScale(Number.NaN)).toBe(DEFAULT_UI_SCALE);
     setUiScale(5);
     expect(uiScale()).toBe(UI_SCALE_MAX);
-    expect(scaleVar()).toBe("1.6");
+    expect(scaleVar()).toBe("1.92");
   });
 
-  it("reads a persisted value on startup (through the signal initializer)", async () => {
+  it("reads a current persisted value on startup (through the signal initializer)", async () => {
     localStorage.setItem(UI_SCALE_KEY, "1.25");
+    localStorage.setItem(UI_SCALE_VERSION_KEY, "2");
     vi.resetModules();
     const fresh = await import("./uiScale.js");
     expect(fresh.uiScale()).toBe(1.25);
     fresh.applyUiScale();
-    expect(scaleVar()).toBe("1.25");
+    expect(scaleVar()).toBe("1.5");
+  });
+
+  it("migrates a legacy 120% setting to the new 100% baseline", async () => {
+    localStorage.setItem(UI_SCALE_KEY, "1.2");
+    vi.resetModules();
+    const fresh = await import("./uiScale.js");
+    expect(fresh.uiScale()).toBe(1);
+    fresh.applyUiScale();
+    expect(scaleVar()).toBe("1.2");
+    expect(localStorage.getItem(UI_SCALE_KEY)).toBe("1");
+    expect(localStorage.getItem(UI_SCALE_VERSION_KEY)).toBe("2");
   });
 
   it("falls back to the default for a malformed persisted value", async () => {

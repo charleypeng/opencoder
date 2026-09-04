@@ -147,8 +147,8 @@ describe("AppearanceSection UI scale (desktop-only)", () => {
 
     const slider = screen.getByTestId("ui-scale-slider") as HTMLInputElement;
     expect(slider).toBeInTheDocument();
-    expect(slider.value).toBe("1.1");
-    expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("110%");
+    expect(slider.value).toBe("1");
+    expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("100%");
   });
 
   it("previews the scale while dragging and commits it on release", () => {
@@ -164,12 +164,12 @@ describe("AppearanceSection UI scale (desktop-only)", () => {
     // Nothing applied yet: the CSS variable was never written with the
     // dragged value (the section test has no bootstrap apply, so the
     // meaningful assertion is "the drag did not apply 1.4").
-    expect(document.documentElement.style.getPropertyValue("--ui-scale")).not.toBe("1.4");
+    expect(document.documentElement.style.getPropertyValue("--ui-scale")).not.toBe("1.68");
     expect(localStorage.getItem("oc-ui-scale")).toBeNull();
 
     // Release (change): the draft commits and persists.
     fireEvent.change(slider, { target: { value: "1.4" } });
-    expect(document.documentElement.style.getPropertyValue("--ui-scale")).toBe("1.4");
+    expect(document.documentElement.style.getPropertyValue("--ui-scale")).toBe("1.68");
     expect(localStorage.getItem("oc-ui-scale")).toBe("1.4");
     expect(screen.getByTestId("ui-scale-value")).toHaveTextContent("140%");
   });
