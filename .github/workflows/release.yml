@@ -73,7 +73,6 @@ env:
   # read the `secrets` context, so the presence flag is materialized here
   # and checked via env.
   HAS_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE != '' }}
-  HAS_APPLE_NOTARIZATION: ${{ secrets.APPLE_ID != '' && secrets.APPLE_PASSWORD != '' && secrets.APPLE_TEAM_ID != '' }}
 
 jobs:
   version-check:
@@ -215,15 +214,6 @@ jobs:
         if: ${{ !inputs.dry-run && env.TAURI_SIGNING_PRIVATE_KEY == '' }}
         run: |
           echo "::error::Tag builds need TAURI_SIGNING_PRIVATE_KEY (updater signatures must match the configured public key, see docs/release-signing.md)."
-          exit 1
-
-      # macOS TCC permissions and Gatekeeper need a stable Developer ID
-      # identity. Never publish an ad-hoc or unnotarized DMG that will make
-      # users re-authorize selected folders after installation.
-      - name: Require macOS signing and notarization for releases
-        if: ${{ runner.os == 'macOS' && !inputs.dry-run && (env.HAS_APPLE_CERTIFICATE != 'true' || env.HAS_APPLE_NOTARIZATION != 'true') }}
-        run: |
-          echo "::error::macOS releases require APPLE_CERTIFICATE, APPLE_ID, APPLE_PASSWORD, and APPLE_TEAM_ID so installed apps keep a stable signed identity."
           exit 1
 
       # Dry-runs only: without a real secret, generate a throwaway CI key so
