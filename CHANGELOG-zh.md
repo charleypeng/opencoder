@@ -9,6 +9,7 @@
 
 ### 修复
 
+- fix(messages)：从聊天记录中移除冗余的补丁事件卡片，同时保留其数据供运行摘要显示 diff。(messages)
 - fix(messages)：完成运行的多文件摘要改为一次只展开用户选中的一个 diff，避免内容同时堆叠。(messages)
 - fix(sessions)：将溢出会话标题的走马灯速度在现有基础上再提高 20%。(sessions)
 - fix(messages)：展开运行摘要时获取行级补丁内容，并合并绝对补丁路径与相对 diff 路径。(messages)

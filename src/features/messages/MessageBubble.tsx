@@ -21,7 +21,6 @@ import MessageActions from "./MessageActions.js";
 import RunOutcome from "./RunOutcome.js";
 import CompactionPart from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
-import PatchPart from "./parts/PatchPart.js";
 import RetryPart from "./parts/RetryPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
 import TextPart from "./parts/TextPart.js";
@@ -150,8 +149,6 @@ function PartView(props: {
         return TextPart as Component<PartProps>;
       case "file":
         return FilePart as Component<PartProps>;
-      case "patch":
-        return PatchPart as Component<PartProps>;
       case "snapshot":
         return SnapshotPart as Component<PartProps>;
       case "retry":
