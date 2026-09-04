@@ -5,7 +5,7 @@
 // graceful skipping of unsupported part types, loading / empty / error +
 // retry states, the streaming fallback for parts without message info,
 // auto-scroll pause with the "New messages" jump button, the M2-09 streaming
-// pipeline (virtualization of long transcripts, the thin top progress bar,
+// pipeline (virtualization of long transcripts,
 // the breathing typing caret driven by the streaming indicator), a
 // fixture snapshot, and the TASK-M3-06 delete failure path through the real
 // list -> bubble -> actions chain (row kept, inline error in the dialog).
@@ -367,15 +367,10 @@ describe("MessageList", () => {
     expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(30);
   });
 
-  it("shows the streaming progress bar at the top while the session is busy", async () => {
+  it("keeps the top edge free of a redundant progress bar while the session is busy", async () => {
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
-    expect(screen.queryByTestId("streaming-progress")).not.toBeInTheDocument();
-
     setSessionStatus(SERVER, SESSION, { type: "busy" });
-    expect(screen.getByTestId("streaming-progress")).toBeInTheDocument();
-
-    setSessionStatus(SERVER, SESSION, { type: "idle" });
     expect(screen.queryByTestId("streaming-progress")).not.toBeInTheDocument();
   });
 

@@ -266,23 +266,6 @@
   }
 }
 
-.streaming-progress-bar {
-  height: 2px;
-  width: 100%;
-  background: linear-gradient(90deg, transparent 0%, var(--accent) 50%, transparent 100%);
-  background-size: 200% 100%;
-  animation: streaming-slide 1.2s linear infinite;
-}
-
-@keyframes streaming-slide {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
-
 /*
  * IA-05: AI assistant label badge (IBM-Carbon AI label requirement).
  * Persistent, small, accent-tinted badge shown alongside assistant messages.
@@ -757,12 +740,6 @@
   .typing-cursor {
     animation: none;
     opacity: 0.6;
-  }
-
-  .streaming-progress-bar {
-    animation: none;
-    background: var(--accent);
-    opacity: 0.5;
   }
 
   .tool-shimmer {

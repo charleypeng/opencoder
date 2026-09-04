@@ -23,9 +23,8 @@
 //   render a constant handful of bubbles;
 // - each message renders through MessageBubble, which subscribes to its own
 //   info/parts individually — a delta updates exactly one part row;
-// - while the session is generating, a thin indeterminate progress bar sits
-//   at the top of the chat area (single source: session busy status), and
-//   the breathing typing caret follows the streaming message's last token;
+// - while the session is generating, the breathing typing caret follows the
+//   streaming message's last token;
 // - auto-scroll pins the bottom while the user is near it; scrolling up
 //   pauses the follow and a "New messages" button jumps back.
 
@@ -455,12 +454,6 @@ const MessageList: Component<MessageListProps> = (props) => {
 
   return (
     <div data-testid="message-list" class="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* M2-09: thin indeterminate progress bar while the session generates. */}
-      <Show when={streaming.busy()}>
-        <div data-testid="streaming-progress" class="h-0.5 shrink-0" aria-hidden="true">
-          <div class="streaming-progress-bar" />
-        </div>
-      </Show>
       {/* M3-05: thin spinner above the chat area while an older history
           page loads. It lives OUTSIDE the scroll container so appearing /
           disappearing never shifts the transcript. */}

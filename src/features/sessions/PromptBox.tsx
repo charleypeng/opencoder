@@ -7,9 +7,7 @@
 // store) the input is locked with a "Generating…" placeholder and the Send
 // button is replaced by a Stop button — Esc does the same — which calls
 // POST /session/{id}/abort (TASK-M2-10; a local aborting lock prevents
-// double clicks; an abort failure surfaces as the inline banner). The thin
-// streaming progress bar lives at the top of the chat area in MessageList
-// (TASK-M2-09, single source: session busy status).
+// double clicks; an abort failure surfaces as the inline banner).
 //
 // TASK-M3-08 (attachments & @ file references): clipboard images/videos and
 // dropped/picked files become removable attachment chips above the
@@ -1403,7 +1401,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                   title={t("messages:addFiles")}
                   disabled={disabled()}
                   onClick={() => fileInputRef?.click()}
-                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-colors hover:bg-bg-base hover:text-fg-default disabled:cursor-not-allowed disabled:opacity-40"
+                  class="flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-fg-faint transition-[background-color,box-shadow,color] hover:bg-bg-elevated hover:text-fg-default hover:shadow-sm focus:bg-bg-elevated focus:text-fg-default focus:shadow-sm disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <PlusIcon />
                 </button>

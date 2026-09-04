@@ -273,9 +273,7 @@ describe("PromptBox", () => {
   });
 
   it("locks the input while the session is busy or retry", () => {
-    // TASK-M2-09: the thin streaming progress bar moved to the top of the
-    // chat area (MessageList, "streaming-progress"); the input lock below is
-    // what PromptBox itself owns.
+    // The input lock below is owned by PromptBox.
     setSessionStatus(SERVER, SESSION, { type: "busy" });
     const { unmount } = render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
 
@@ -426,6 +424,7 @@ describe("PromptBox", () => {
 
     const attach = screen.getByTestId("prompt-attach");
     expect(attach.querySelector("path")).toHaveAttribute("d", "M12 5v14M5 12h14");
+    expect(attach).toHaveClass("hover:bg-bg-elevated", "hover:shadow-sm");
     expect(screen.queryByTestId("prompt-pick-image")).not.toBeInTheDocument();
     expect(screen.getByTestId("prompt-file-input")).toHaveAttribute("type", "file");
   });

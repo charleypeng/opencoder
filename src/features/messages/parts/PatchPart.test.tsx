@@ -126,6 +126,21 @@ describe("PatchPart", () => {
     expect(requestMock.mock.calls.length).toBe(before);
   });
 
+  it("matches an absolute patch path with the relative diff path from the server", async () => {
+    requestMockFor(() => diffPayload());
+    render(() => <PatchPart part={patchPart(["/Volumes/workspace/src/auth/login.ts"])} />);
+
+    fireEvent.click(screen.getByTestId("patch-file"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("diff-file-header")).toHaveTextContent(
+        "/Volumes/workspace/src/auth/login.ts",
+      ),
+    );
+    expect(screen.queryByTestId("patch-diff-empty")).toBeNull();
+    expect(screen.getByTestId("diff-unified")).toHaveTextContent("export function login");
+  });
+
   it("shows a loading state while the diff fetch is pending", async () => {
     let resolveFetch: ((value: unknown) => void) | undefined;
     requestMockFor(() => new Promise((resolve) => (resolveFetch = resolve)));
