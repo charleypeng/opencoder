@@ -14,6 +14,13 @@ vi.mock("@tauri-apps/plugin-opener", () => ({ openUrl: openUrlMock }));
 vi.mock("../../features/vcs/VcsPanel", () => ({
   default: () => <div data-testid="right-tools-review-pane">Review content</div>,
 }));
+vi.mock("../../features/vcs/DiffView", () => ({
+  default: (props: { sessionId: string; messageId: string }) => (
+    <div data-testid="session-diff-view">
+      {props.sessionId}:{props.messageId}
+    </div>
+  ),
+}));
 vi.mock("../../features/files/FileViewer", () => ({
   default: () => <div data-testid="file-viewer-mock">File content</div>,
 }));
@@ -101,6 +108,28 @@ describe("RightToolPanel", () => {
 
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(handle).toHaveAttribute("aria-valuenow", "280");
+
+    fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
+    fireEvent.pointerMove(window, { clientX: -400 });
+    expect(handle).toHaveAttribute("aria-valuenow", "780");
+    expect(handle).not.toHaveAttribute("aria-valuemax");
+
+    fireEvent.keyDown(handle, { key: "Home" });
+    expect(handle).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  it("shows a selected run diff in the review tool and clears it on review selection", () => {
+    const onClearReviewDiff = vi.fn();
+    renderPanel({
+      reviewSessionId: "ses-1",
+      reviewMessageId: "msg-1",
+      onClearReviewDiff,
+    });
+
+    expect(screen.getByTestId("right-tools-review-diff")).toBeInTheDocument();
+    expect(screen.getByTestId("session-diff-view")).toHaveTextContent("ses-1:msg-1");
+    fireEvent.click(screen.getByTestId("right-tools-review"));
+    expect(onClearReviewDiff).toHaveBeenCalledOnce();
   });
 
   it("normalizes a URL for the embedded browser and supports an external fallback", async () => {

@@ -57,6 +57,8 @@ export interface MessageBubbleProps {
   /** Opens the M4 diff view for this message (wired by M4-07); while
    *  absent the message menu's "View diff" item stays disabled. */
   onViewDiff?: (messageID: string) => void;
+  /** Opens a completed run's diff in the workspace review tool. */
+  onViewDiffInTools?: (messageID: string) => void;
   /** Forks the session from this message (wired by M6-03); while absent
    *  the message menu's "Fork from here" item stays disabled. */
   onFork?: (messageID: string) => void;
@@ -296,6 +298,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
               diffs={props.runDiffs}
               messageID={props.runParentMessageID ?? props.messageID}
               onViewDiff={props.onViewDiff}
+              onViewDiffInTools={props.onViewDiffInTools}
             />
           </Show>
         </div>

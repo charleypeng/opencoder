@@ -36,6 +36,7 @@ describe("RunOutcome", () => {
             additions: 12,
             deletions: 3,
             status: "modified",
+            patch: "@@ -1,1 +1,1 @@\n-old chat\n+new chat",
           },
         ]}
         messageID="user-1"
@@ -53,6 +54,7 @@ describe("RunOutcome", () => {
     fireEvent.click(screen.getByTestId("run-files-toggle"));
     fireEvent.click(screen.getByTestId("run-commands-toggle"));
     expect(screen.getByText("src/chat.tsx")).toBeInTheDocument();
+    expect(screen.getByTestId("diff-unified")).toHaveTextContent("new chat");
     expect(screen.getByText("pnpm test")).toBeInTheDocument();
   });
 
@@ -63,6 +65,25 @@ describe("RunOutcome", () => {
         parts={[tool("write", { path: "src/new.ts" }, "write")]}
         messageID="user-42"
         onViewDiff={(messageID) => {
+          opened = messageID;
+        }}
+      />
+    ));
+
+    fireEvent.click(screen.getByTestId("run-view-diff"));
+    expect(opened).toBe("user-42");
+  });
+
+  it("prefers the workspace review handler when one is available", () => {
+    let opened = "";
+    render(() => (
+      <RunOutcome
+        parts={[tool("write", { path: "src/new.ts" }, "write")]}
+        messageID="user-42"
+        onViewDiff={() => {
+          throw new Error("The main diff view should not open");
+        }}
+        onViewDiffInTools={(messageID) => {
           opened = messageID;
         }}
       />
