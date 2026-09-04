@@ -55,6 +55,8 @@ tauri-plugin-dialog = "2"
 window-vibrancy = "0.8.0"
 tauri-plugin-updater = "2.10.1"
 tauri-plugin-process = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-persisted-scope = "2.0.0"
 
 [dev-dependencies]
 tauri = { version = "2", features = ["test"] }

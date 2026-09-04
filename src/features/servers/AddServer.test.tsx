@@ -283,6 +283,9 @@ describe("AddServer save flow", () => {
       entry: { name: "Local OpenCode", url: "http://127.0.0.1:4096", mode: "local" },
     });
     expect(invokeMock).toHaveBeenCalledWith("start_local_server", { serverId: "srv-local" });
+    expect(invokeMock).toHaveBeenCalledWith("start_health_monitoring", {
+      serverId: "srv-local",
+    });
   });
 });
 

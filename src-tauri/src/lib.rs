@@ -63,7 +63,10 @@ pub fn run() {
     // frontend tries the OS folder picker first and falls back to the
     // in-app directory browser when the native dialog is unavailable.
     #[cfg(desktop)]
-    let builder = builder.plugin(tauri_plugin_dialog::init());
+    let builder = builder
+        .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_persisted_scope::init())
+        .plugin(tauri_plugin_dialog::init());
     #[cfg(desktop)]
     let builder = builder.plugin(tauri_plugin_global_shortcut::Builder::new().build());
     // The barcode-scanner crate is `#![cfg(mobile)]` — on desktop it compiles

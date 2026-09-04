@@ -331,6 +331,7 @@ describe("DirectoryPickerDialog", () => {
     expect(openNativeDirectoryMock).toHaveBeenCalledWith({
       directory: true,
       multiple: false,
+      recursive: true,
       defaultPath: "/Volumes",
     });
     expect(client.post).toHaveBeenCalledWith("/session", { body: { title: undefined } });

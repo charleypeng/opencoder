@@ -300,6 +300,7 @@ const DirectoryPickerDialog: Component<DirectoryPickerDialogProps> = (props) => 
         const picked = await openNativeDirectory({
           directory: true,
           multiple: false,
+          recursive: true,
           ...(props.initialDirectory ? { defaultPath: props.initialDirectory } : {}),
         });
         if (picked === null) {

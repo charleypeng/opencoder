@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat(messages): Replace the streaming process fold with a collapsed Activity Trace for observable operation states, attention events, and restrained active progress motion. (messages)
 - fix(desktop): Match the default right workspace-tools width to the 256px session sidebar while preserving pointer and keyboard resizing. (desktop)
 
+### Fixed
+
+- fix(servers): Start local OpenCode from Finder-safe executable paths on the configured loopback port, initialize health monitoring immediately, and persist selected folder scopes to prevent repeated macOS authorization prompts. (servers)
+
 ## [1.1.0] - 2026-09-02
 
 ### Added

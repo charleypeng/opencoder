@@ -17,6 +17,7 @@ import {
   addServer,
   discoverOAuth,
   probeServer,
+  startHealthMonitoring,
   startLocalServer,
   stopLocalServer,
   updateServer,
@@ -254,6 +255,12 @@ function AddServer(props: AddServerProps) {
       if (localMode()) {
         setLocalStarting(true);
         await startLocalServer(server.id);
+        try {
+          await startHealthMonitoring(server.id);
+        } catch {
+          // The local process is already running; startup recreates polling
+          // on the next app launch if this best-effort call is unavailable.
+        }
       }
       // The saved entry is shared onward without the password.
       const publicEntry: ServerEntry = {

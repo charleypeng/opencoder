@@ -1,16 +1,23 @@
 //! Lifecycle management for locally hosted `opencode serve` processes.
 //!
-//! A locally managed server is started through the same shell command users
-//! run manually (`bash -lc "exec opencode serve"`). The manager keeps the
-//! child handle for normal shutdown and starts a tiny copy of the application
-//! as a watchdog. The watchdog owns a pipe whose other end lives in the app;
-//! if the app crashes, the pipe closes and the watchdog terminates the server.
+//! A locally managed server is started from the user's installed `opencode`
+//! executable. The manager keeps the child handle for normal shutdown and
+//! starts a tiny copy of the application as a watchdog. The watchdog owns a
+//! pipe whose other end lives in the app; if the app crashes, the pipe closes
+//! and the watchdog terminates the server.
 
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::io::Read;
+use std::path::{Path, PathBuf};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::Mutex;
 use std::time::Duration;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+
+const LOCAL_SERVER_PORT: &str = "4096";
 
 /// A locally managed process and its crash-cleanup watchdog.
 struct ManagedProcess {
@@ -53,13 +60,24 @@ impl LocalServerManager {
             processes.remove(server_id);
         }
 
-        let mut command = Command::new("bash");
+        let executable = resolve_opencode_executable()?;
+        let working_directory = default_working_directory();
+        std::fs::create_dir_all(&working_directory)
+            .map_err(|err| format!("failed to prepare local server directory: {err}"))?;
+
+        let mut command = Command::new(executable);
         command
-            .args(["-lc", "exec opencode serve"])
+            .args([
+                "serve",
+                "--hostname",
+                "127.0.0.1",
+                "--port",
+                LOCAL_SERVER_PORT,
+            ])
             .stdin(Stdio::null())
             .stdout(Stdio::null())
             .stderr(Stdio::null())
-            .current_dir(default_working_directory());
+            .current_dir(working_directory);
         #[cfg(unix)]
         {
             use std::os::unix::process::CommandExt;
@@ -68,9 +86,9 @@ impl LocalServerManager {
         let mut child = command
             .spawn()
             .map_err(|err| format!("failed to start opencode serve: {err}"))?;
-        // A missing `opencode` executable makes the shell exit immediately;
+        // A server process that exits immediately cannot become healthy;
         // surface that failure to the Add Server flow instead of persisting a
-        // server that can never become healthy.
+        // server that can never connect.
         std::thread::sleep(Duration::from_millis(50));
         match child.try_wait() {
             Ok(Some(status)) => {
@@ -210,16 +228,98 @@ pub fn run_watchdog_if_requested() -> bool {
     true
 }
 
-fn default_working_directory() -> std::path::PathBuf {
+fn resolve_opencode_executable() -> Result<PathBuf, String> {
+    let home = {
+        #[cfg(windows)]
+        {
+            std::env::var_os("USERPROFILE").map(PathBuf::from)
+        }
+        #[cfg(not(windows))]
+        {
+            std::env::var_os("HOME").map(PathBuf::from)
+        }
+    };
+    let candidates = opencode_candidates(home.as_deref(), std::env::var_os("PATH").as_deref());
+    candidates
+        .into_iter()
+        .find(|candidate| is_executable(candidate))
+        .ok_or_else(|| {
+            "could not find the `opencode` executable; install OpenCode or add it to PATH"
+                .to_string()
+        })
+}
+
+fn opencode_candidates(home: Option<&Path>, path: Option<&OsStr>) -> Vec<PathBuf> {
+    let mut candidates = Vec::new();
+    for directory in path.into_iter().flat_map(std::env::split_paths) {
+        for name in executable_names() {
+            candidates.push(directory.join(name));
+        }
+    }
+    if let Some(home) = home {
+        for directory in [
+            ".opencode/bin",
+            ".local/bin",
+            ".bun/bin",
+            ".volta/bin",
+            ".local/share/pnpm",
+            ".cargo/bin",
+        ] {
+            for name in executable_names() {
+                candidates.push(home.join(directory).join(name));
+            }
+        }
+    }
+    #[cfg(target_os = "macos")]
+    for directory in ["/opt/homebrew/bin", "/usr/local/bin", "/usr/bin"] {
+        for name in executable_names() {
+            candidates.push(Path::new(directory).join(name));
+        }
+    }
+    #[cfg(target_os = "linux")]
+    for directory in ["/usr/local/bin", "/usr/bin"] {
+        for name in executable_names() {
+            candidates.push(Path::new(directory).join(name));
+        }
+    }
+    candidates
+}
+
+fn executable_names() -> &'static [&'static str] {
+    #[cfg(windows)]
+    {
+        &["opencode.exe"]
+    }
+    #[cfg(not(windows))]
+    {
+        &["opencode"]
+    }
+}
+
+fn is_executable(path: &Path) -> bool {
+    #[cfg(unix)]
+    {
+        path.is_file()
+            && std::fs::metadata(path)
+                .map(|metadata| metadata.permissions().mode() & 0o111 != 0)
+                .unwrap_or(false)
+    }
+    #[cfg(not(unix))]
+    {
+        path.is_file()
+    }
+}
+
+fn default_working_directory() -> PathBuf {
     #[cfg(windows)]
     if let Some(path) = std::env::var_os("USERPROFILE") {
-        return path.into();
+        return PathBuf::from(path).join(".opencoder").join("local-server");
     }
     #[cfg(not(windows))]
     if let Some(path) = std::env::var_os("HOME") {
-        return path.into();
+        return PathBuf::from(path).join(".opencoder").join("local-server");
     }
-    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+    std::env::temp_dir().join("opencoder").join("local-server")
 }
 
 fn stop_process(process: &mut ManagedProcess) {
@@ -265,10 +365,30 @@ fn terminate_process(pid: u32) {
 
 #[cfg(test)]
 mod tests {
-    use super::run_watchdog_if_requested;
+    use super::{opencode_candidates, run_watchdog_if_requested, LOCAL_SERVER_PORT};
+    use std::ffi::OsStr;
+    use std::path::Path;
 
     #[test]
     fn watchdog_mode_is_inactive_for_normal_processes() {
         assert!(!run_watchdog_if_requested());
+    }
+
+    #[test]
+    fn searches_finder_safe_and_user_install_locations() {
+        let home = Path::new("/Users/tester");
+        let candidates = opencode_candidates(Some(home), Some(OsStr::new("/usr/bin")));
+
+        assert_eq!(
+            candidates.first(),
+            Some(&Path::new("/usr/bin/opencode").to_path_buf())
+        );
+        assert!(candidates.contains(&home.join(".opencode/bin/opencode")));
+        assert!(candidates.contains(&Path::new("/opt/homebrew/bin/opencode").to_path_buf()));
+    }
+
+    #[test]
+    fn local_server_port_matches_the_local_connection_form() {
+        assert_eq!(LOCAL_SERVER_PORT, "4096");
     }
 }
