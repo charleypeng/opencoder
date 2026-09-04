@@ -16,6 +16,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - fix(servers): Start local OpenCode from Finder-safe executable paths on the configured loopback port, initialize health monitoring immediately, and persist selected folder scopes to prevent repeated macOS authorization prompts. (servers)
 
+### Security
+
+- fix(ci): Require Developer ID signing and notarization before publishing macOS installers so folder permissions remain associated with a stable app identity. (ci)
+
 ## [1.1.0] - 2026-09-02
 
 ### Added
