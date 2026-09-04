@@ -1,6 +1,6 @@
 [package]
 name = "opencoder"
-version = "1.2.0"
+version = "1.2.1"
 description = "Tauri 2 + SolidJS desktop client for OpenCode"
 authors = ["opencoder contributors"]
 edition = "2021"
