@@ -194,10 +194,16 @@ function FolderRow(props: {
         <Show
           when={props.expanded}
           fallback={
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+            <path
+              data-testid="workspace-folder-closed-outline"
+              d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"
+            />
           }
         >
-          <path d="m6 14 1.5-2.9A2 2 0 0 1 9.3 10H20a2 2 0 0 1 1.8 2.9l-1.4 2.8a2 2 0 0 1-1.8 1.3H4a2 2 0 0 1-1.8-2.9l1.3-2.6A2 2 0 0 1 5.3 10H6z" />
+          <g data-testid="workspace-folder-open-outline">
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v3" />
+            <path d="M3 12h18l-3 7H6z" />
+          </g>
         </Show>
       </svg>
       <span class="min-w-0 flex-1 truncate" title={props.folder.directory}>

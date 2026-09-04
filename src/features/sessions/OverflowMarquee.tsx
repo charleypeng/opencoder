@@ -2,17 +2,23 @@ import { createEffect, createSignal, onCleanup, onMount } from "solid-js";
 import type { Component } from "solid-js";
 
 const OVERFLOW_EPSILON_PX = 1;
-const MIN_DURATION_SECONDS = 6;
-const PIXELS_PER_SECOND = 28;
+const MARQUEE_SPEED_MULTIPLIER = 1.3;
+const MIN_DURATION_SECONDS = 6 / MARQUEE_SPEED_MULTIPLIER;
+const PIXELS_PER_SECOND = 28 * MARQUEE_SPEED_MULTIPLIER;
 
 /** Whether a label needs the hover/focus marquee rather than static text. */
 export function marqueeOverflowPx(clientWidth: number, scrollWidth: number): number {
   return Math.max(0, scrollWidth - clientWidth - OVERFLOW_EPSILON_PX);
 }
 
+/** Calculates the marquee duration after applying the 30% speed increase. */
+export function marqueeDurationSeconds(overflowPx: number): number {
+  return Math.max(MIN_DURATION_SECONDS, overflowPx / PIXELS_PER_SECOND);
+}
+
 /**
  * Keeps session titles compact until they overflow, then reveals the complete
- * label with a slow, interruptible marquee on hover or keyboard focus.
+ * label with an interruptible marquee on hover or keyboard focus.
  */
 const OverflowMarquee: Component<{ text: string; testId?: string }> = (props) => {
   const [overflowPx, setOverflowPx] = createSignal(0);
@@ -43,7 +49,7 @@ const OverflowMarquee: Component<{ text: string; testId?: string }> = (props) =>
     });
   });
 
-  const duration = () => Math.max(MIN_DURATION_SECONDS, overflowPx() / PIXELS_PER_SECOND);
+  const duration = () => marqueeDurationSeconds(overflowPx());
 
   return (
     <span
@@ -51,7 +57,7 @@ const OverflowMarquee: Component<{ text: string; testId?: string }> = (props) =>
       data-testid={props.testId}
       data-overflow={overflowPx() > 0 ? "true" : "false"}
       title={props.text}
-      class="session-title-marquee-viewport block min-w-0 flex-1 overflow-hidden"
+      class="session-title-marquee-viewport block min-w-0 flex-1 overflow-hidden text-[10px]"
     >
       <span
         class="session-title-marquee-content inline-block whitespace-nowrap"
