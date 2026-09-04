@@ -176,6 +176,18 @@ describe("WorkspaceTree", () => {
     expect(screen.queryByTestId("workspace-session-s1")).toBeNull();
   });
 
+  it("switches the workspace folder icon between open and closed states", async () => {
+    renderTree();
+    const row = await screen.findByTestId("workspace-folder-/dev/opencoder");
+    expect(within(row).getByTestId("workspace-folder-icon")).toHaveAttribute("data-state", "open");
+
+    fireEvent.click(row);
+    expect(within(row).getByTestId("workspace-folder-icon")).toHaveAttribute(
+      "data-state",
+      "closed",
+    );
+  });
+
   it("selects a session and switches the directory context", async () => {
     const { onSelect } = renderTree();
     await waitFor(() => expect(screen.getByTestId("workspace-session-s3")).toBeInTheDocument());

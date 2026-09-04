@@ -55,6 +55,7 @@ import RenameSessionDialog from "./RenameSessionDialog.js";
 import ShareSessionDialog from "./ShareSessionDialog.js";
 import SummarizeDialog from "./SummarizeDialog.js";
 import InitDialog from "./InitDialog.js";
+import OverflowMarquee from "./OverflowMarquee.js";
 
 export interface WorkspaceTreeProps {
   /** The server whose workspace tree is shown. */
@@ -179,6 +180,8 @@ function FolderRow(props: {
         />
       </Show>
       <svg
+        data-testid="workspace-folder-icon"
+        data-state={props.expanded ? "open" : "closed"}
         aria-hidden="true"
         viewBox="0 0 24 24"
         fill="none"
@@ -188,7 +191,14 @@ function FolderRow(props: {
         stroke-linejoin="round"
         class="h-4 w-4 shrink-0 text-fg-secondary"
       >
-        <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+        <Show
+          when={props.expanded}
+          fallback={
+            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
+          }
+        >
+          <path d="m6 14 1.5-2.9A2 2 0 0 1 9.3 10H20a2 2 0 0 1 1.8 2.9l-1.4 2.8a2 2 0 0 1-1.8 1.3H4a2 2 0 0 1-1.8-2.9l1.3-2.6A2 2 0 0 1 5.3 10H6z" />
+        </Show>
       </svg>
       <span class="min-w-0 flex-1 truncate" title={props.folder.directory}>
         {props.folder.name}
@@ -365,7 +375,7 @@ function SessionRow(props: {
           </span>
         </Show>
         <span class="min-w-0 flex-1">
-          <span class="block truncate text-sm">{title()}</span>
+          <OverflowMarquee text={title()} testId="workspace-session-title" />
           <span class="block truncate font-code text-xs text-fg-secondary">
             {formatRelativeTime(props.session.time.updated, props.nowMs)}
           </span>

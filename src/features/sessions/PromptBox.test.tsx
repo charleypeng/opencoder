@@ -251,6 +251,27 @@ describe("PromptBox", () => {
     expect(input().value).toBe("cmd enter");
   });
 
+  it("does not send a remapped bare Enter while an IME composition is active", async () => {
+    saveShortcutCombo("sendMessage", {
+      key: "enter",
+      ctrl: false,
+      meta: false,
+      shift: false,
+      alt: false,
+    });
+    render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
+
+    fireEvent.input(input(), { target: { value: "draft" } });
+    fireEvent.compositionStart(input());
+    fireEvent.keyDown(input(), { key: "Enter" });
+    expect(client.post).not.toHaveBeenCalled();
+    expect(input().value).toBe("draft");
+
+    fireEvent.compositionEnd(input());
+    fireEvent.keyDown(input(), { key: "Enter" });
+    await waitFor(() => expect(client.post).toHaveBeenCalledTimes(1));
+  });
+
   it("locks the input while the session is busy or retry", () => {
     // TASK-M2-09: the thin streaming progress bar moved to the top of the
     // chat area (MessageList, "streaming-progress"); the input lock below is

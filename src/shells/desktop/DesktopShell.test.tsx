@@ -1776,6 +1776,19 @@ describe("DesktopShell message revert (TASK-M6-04)", () => {
     expect(revertedOf("msg_r3")).toHaveAttribute("data-reverted", "true");
   });
 
+  it("returns a reverted user message to the composer after the server confirms", async () => {
+    const alpha = server({ id: "srv-m6rev-prefill", name: "Alpha" });
+    mockHttpRoutes([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+    await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());
+    await openRevertChat("srv-m6rev-prefill");
+
+    await pickMessageAction("msg_r1", "message-action-revert");
+    fireEvent.click(await screen.findByTestId("revert-message-confirm"));
+
+    await waitFor(() => expect(screen.getByTestId("prompt-input")).toHaveValue("first"));
+  });
+
   it("unrevert restores the session in one click", async () => {
     const alpha = server({ id: "srv-m6rev3", name: "Alpha" });
     mockHttpRoutes([alpha]);
