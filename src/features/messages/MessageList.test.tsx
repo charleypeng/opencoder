@@ -387,7 +387,7 @@ describe("MessageList", () => {
 
     setSessionStatus(SERVER, SESSION, { type: "busy" });
     const waiting = screen.getByTestId("agent-working");
-    expect(waiting).toHaveTextContent("Working for 0s");
+    expect(waiting).toHaveTextContent("Processing for 0s");
     expect(waiting).toHaveTextContent("Waiting for model response");
     expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
 

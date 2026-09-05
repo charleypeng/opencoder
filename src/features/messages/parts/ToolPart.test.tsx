@@ -126,7 +126,7 @@ afterEach(() => {
 });
 
 describe("ToolPart", () => {
-  it("renders a status icon, label and running shimmer per state", () => {
+  it("renders a status icon and label per state without a running progress bar", () => {
     for (const [status, part] of [
       ["pending", bashPending],
       ["running", bashRunning],
@@ -140,11 +140,7 @@ describe("ToolPart", () => {
         status === "error" ? "Ran npm test" : "Ran ls src",
       );
       expect(screen.getByTestId("tool-status-label")).toHaveTextContent(STATUS_LABELS[status]);
-      if (status === "running") {
-        expect(screen.getByTestId("tool-shimmer")).toBeInTheDocument();
-      } else {
-        expect(screen.queryByTestId("tool-shimmer")).not.toBeInTheDocument();
-      }
+      expect(screen.queryByTestId("tool-shimmer")).not.toBeInTheDocument();
       unmount();
     }
   });
@@ -216,6 +212,22 @@ describe("ToolPart", () => {
     expect(screen.getByTestId("tool-terminal")).toHaveTextContent("exit 1");
   });
 
+  it("distinguishes a completed command with no output", () => {
+    const noOutput = toolPart("bash", {
+      status: "completed",
+      input: { command: "mkdir cache" },
+      output: "",
+      title: "bash",
+      metadata: {},
+      time: { start: 1000, end: 2000 },
+    });
+
+    renderExpanded(noOutput);
+    expect(screen.getByTestId("tool-no-output")).toHaveTextContent(
+      "Command completed with no output.",
+    );
+  });
+
   it("renders the edit inline diff preview with additions and removals", () => {
     renderExpanded(editCompleted);
     const diff = screen.getByTestId("tool-diff");
@@ -258,6 +270,42 @@ describe("ToolPart", () => {
       expect(screen.getByTestId("tool-diff")).toHaveTextContent("remote new title"),
     );
     expect(messageGetMock).toHaveBeenCalledWith("sess_1", "msg_1");
+  });
+
+  it("uses detail responses only to fill missing fields", async () => {
+    messageGetMock.mockResolvedValue({
+      info: {},
+      parts: [editCompleted],
+    });
+    const incomplete = toolPart("edit", {
+      status: "completed",
+      input: { filePath: "src/auth/login.ts" },
+      output: "Edit applied successfully.",
+      title: "edit",
+      metadata: {},
+      time: { start: 1000, end: 2000 },
+    });
+    const live = toolPart("edit", {
+      status: "completed",
+      input: {
+        filePath: "src/auth/login.ts",
+        oldString: "live old title",
+        newString: "live new title",
+      },
+      output: "Edit applied successfully.",
+      title: "edit",
+      metadata: {},
+      time: { start: 1000, end: 3000 },
+    });
+    const [part, setPart] = createSignal(incomplete);
+
+    render(() => <ToolPart part={part()} />);
+    fireEvent.click(screen.getByTestId("tool-toggle"));
+    await waitFor(() => expect(screen.getByTestId("tool-diff")).toHaveTextContent("return true"));
+
+    setPart(live);
+    expect(screen.getByTestId("tool-diff")).toHaveTextContent("live new title");
+    expect(screen.getByTestId("tool-duration")).toHaveTextContent("2s");
   });
 
   it("renders read and write code blocks with their file paths", () => {
@@ -350,7 +398,7 @@ describe("ToolPart", () => {
       setPart(bashRunning);
       expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "running");
       expect(screen.getByTestId("tool-status-label")).toHaveTextContent("Running bash");
-      expect(screen.getByTestId("tool-shimmer")).toBeInTheDocument();
+      expect(screen.queryByTestId("tool-shimmer")).not.toBeInTheDocument();
 
       vi.advanceTimersByTime(1250);
       expect(screen.getByTestId("tool-duration")).toHaveTextContent("1.3s");
@@ -395,6 +443,11 @@ describe.each(SNAPSHOT_PARTS)("ToolPart snapshot: %s", (_name, part) => {
   it("matches the expanded card", () => {
     const { container } = render(() => <ToolPart part={part} />);
     fireEvent.click(screen.getByTestId("tool-toggle"));
+    container.querySelectorAll<HTMLElement>("*").forEach((element) => {
+      element.childNodes.forEach((node) => {
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim() === "") node.remove();
+      });
+    });
     expect(container).toMatchSnapshot();
   });
 });

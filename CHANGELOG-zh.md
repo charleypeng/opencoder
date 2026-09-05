@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 变更
+
+- feat(messages)：将智能体回复改为按顺序阅读的平面内容流，思考和工具详情可按需展开，最终回答始终可见。(messages)
+
+### 修复
+
+- fix(messages)：在虚拟化后保留每次运行的详情展开状态，且仅用获取到的工具字段补全缺失的流式数据。(messages)
+
 ## [1.2.3] - 2026-09-06
 
 ### 修复

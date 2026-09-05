@@ -21,7 +21,7 @@ const GrepCard: ToolCard = (props) => {
         </span>
       </div>
       <Show when={matches().length > 0}>
-        <pre class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">
+        <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">
           {matches().join("\n")}
         </pre>
       </Show>

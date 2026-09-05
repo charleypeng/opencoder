@@ -546,7 +546,7 @@ const MessageList: Component<MessageListProps> = (props) => {
                               <div data-testid="agent-working" class="w-full max-w-3xl">
                                 <ProcessFold
                                   parts={[]}
-                                  runKey={row().key}
+                                  runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
                                   active
                                   startedAt={row().startedAt}
                                 />

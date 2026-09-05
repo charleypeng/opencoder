@@ -1,9 +1,3 @@
-// L2 tests for the process fold (chat refactor): reasoning + tool calls of
-// one message are grouped into a single fold below the answer. The fold is
-// collapsed by default with a status summary (call count, succeeded/failed/
-// running, reasoning volume); clicking expands it with a grid-row animation.
-// Streaming marks the trace as active but does not force it open.
-
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSignal } from "solid-js";
 import { fireEvent, render, screen } from "@solidjs/testing-library";
@@ -11,7 +5,7 @@ import ProcessFold from "./ProcessFold";
 import type { Part } from "../../../stores/messages";
 import { clearActivityViewState } from "../activity/activityViewState";
 
-function reasoningPart(text: string, id = "prt_r", end: number | null = 2): Part {
+function reasoningPart(text: string, id = "prt_reasoning", end: number | null = 2): Part {
   return {
     id,
     sessionID: "sess_1",
@@ -25,8 +19,8 @@ function reasoningPart(text: string, id = "prt_r", end: number | null = 2): Part
 function toolPart(
   tool: string,
   status: "completed" | "error" | "running" | "pending",
-  id: string,
-  input: Record<string, unknown> = {},
+  id = "prt_tool",
+  input: Record<string, unknown> = { command: "git status --short" },
 ): Part {
   const base = {
     id,
@@ -36,38 +30,37 @@ function toolPart(
     callID: `call_${id}`,
     tool,
   };
-  switch (status) {
-    case "completed":
-      return {
-        ...base,
-        state: {
-          status,
-          input: input as never,
-          output: "ok",
-          title: tool,
-          metadata: {},
-          time: { start: 1, end: 2 },
-        },
-      };
-    case "error":
-      return {
-        ...base,
-        state: { status, input: input as never, error: "boom", time: { start: 1, end: 2 } },
-      };
-    case "running":
-      return { ...base, state: { status, input: {}, time: { start: 1 } } };
-    case "pending":
-      return { ...base, state: { status, input: {}, raw: "{}" } };
+  if (status === "completed") {
+    return {
+      ...base,
+      state: {
+        status,
+        input: input as never,
+        output: "clean",
+        title: tool,
+        metadata: {},
+        time: { start: 1, end: 2 },
+      },
+    };
   }
+  if (status === "error") {
+    return {
+      ...base,
+      state: { status, input: input as never, error: "boom", time: { start: 1, end: 2 } },
+    };
+  }
+  if (status === "running")
+    return { ...base, state: { status, input: input as never, time: { start: 1 } } };
+  return { ...base, state: { status, input: input as never, raw: "{}" } };
 }
 
-function progressText(): Part {
+function progressText(text = "I found the message renderer and am checking its event flow."): Part {
   return {
     id: "prt_progress",
     sessionID: "sess_1",
     messageID: "msg_1",
     type: "text",
-    text: "I found the message renderer and am checking its event flow.",
+    text,
     time: { start: 3, end: 4 },
   };
 }
@@ -76,206 +69,114 @@ describe("ProcessFold", () => {
   beforeEach(() => clearActivityViewState());
   afterEach(() => vi.useRealTimers());
 
-  it("renders collapsed by default with a tool-call summary", () => {
+  it("keeps completed history compact until the user opens it", () => {
     render(() => (
-      <ProcessFold
-        parts={[toolPart("bash", "completed", "p1"), toolPart("grep", "completed", "p2")]}
-      />
+      <ProcessFold parts={[progressText(), toolPart("bash", "completed")]} runKey="history" />
     ));
+
     const toggle = screen.getByTestId("process-fold-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("data-expanded", "false");
-    // The body is hidden from screen readers and interaction while collapsed.
     expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
-    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent(
-      "2 tool calls · 2 succeeded",
-    );
+
+    fireEvent.click(toggle);
+    expect(screen.getByTestId("text-part")).toHaveTextContent("I found the message renderer");
+    expect(screen.getByTestId("tool-summary")).toHaveTextContent("Ran git status --short");
   });
 
-  it("expands on click to show reasoning and tool parts, collapses again", () => {
+  it("opens a live run while keeping thoughts and tool details independently collapsed", () => {
     render(() => (
       <ProcessFold
-        parts={[reasoningPart("planning the change"), toolPart("bash", "completed", "p1")]}
+        active
+        runKey="live"
+        parts={[
+          progressText(),
+          reasoningPart("planning the change", "prt_reasoning", null),
+          toolPart("bash", "completed"),
+        ]}
       />
     ));
-    const toggle = screen.getByTestId("process-fold-toggle");
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    const body = screen.getByTestId("process-fold-body");
-    expect(body).toHaveAttribute("data-expanded", "true");
-    expect(body).toHaveAttribute("aria-hidden", "false");
+
+    expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTestId("text-part")).toHaveTextContent("I found the message renderer");
     expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
+    expect(screen.getByTestId("tool-toggle")).toHaveAttribute("aria-expanded", "false");
+
     fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("planning the change");
-    expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
-
-    const toolToggle = screen.getByTestId("tool-toggle");
-    fireEvent.click(toolToggle);
-    expect(toolToggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("tool-terminal")).toBeInTheDocument();
-
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("process-fold-body")).toHaveAttribute("aria-hidden", "true");
-  });
-
-  it("opens the second-level edit card from its single tool row", () => {
-    render(() => (
-      <ProcessFold
-        parts={[
-          toolPart("edit", "completed", "p1", {
-            filePath: "README.md",
-            oldString: "old title",
-            newString: "new title",
-          }),
-        ]}
-      />
-    ));
-
-    fireEvent.click(screen.getByTestId("process-fold-toggle"));
-    const tool = screen.getByTestId("tool-part");
-    expect(tool).toHaveTextContent("edit");
 
     fireEvent.click(screen.getByTestId("tool-toggle"));
-    expect(screen.getByTestId("tool-diff")).toHaveTextContent("new title");
+    expect(screen.getByTestId("tool-summary")).toHaveTextContent("Ran command");
+    expect(screen.getByTestId("tool-terminal")).toHaveTextContent("$ git status --short");
   });
 
-  it("summarizes failed and in-progress calls", () => {
+  it("renders progress, thought, and tool rows in their source order", () => {
     render(() => (
       <ProcessFold
+        active
         parts={[
-          toolPart("bash", "completed", "p1"),
-          toolPart("read", "error", "p2"),
-          toolPart("grep", "running", "p3"),
+          progressText("first update"),
+          reasoningPart("considering options"),
+          toolPart("bash", "completed"),
         ]}
       />
     ));
-    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent(
-      "3 tool calls · 1 succeeded · 1 failed · 1 running",
-    );
+
+    const progress = screen.getByText("first update");
+    const thought = screen.getByTestId("activity-entry-toggle");
+    const tool = screen.getByTestId("tool-part");
+    expect(
+      progress.compareDocumentPosition(thought) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(thought.compareDocumentPosition(tool) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("shows reasoning volume when there are no tool calls", () => {
-    render(() => <ProcessFold parts={[reasoningPart("a".repeat(1500))]} />);
-    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent("1.5k chars of reasoning");
-    expect(screen.getByText("Thinking")).toBeInTheDocument();
+  it("restores thought and tool disclosures after an unmount", () => {
+    const props = {
+      active: true,
+      runKey: "server:session:live",
+      parts: [reasoningPart("thinking"), toolPart("bash", "completed")],
+    };
+    const first = render(() => <ProcessFold {...props} />);
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
+    fireEvent.click(screen.getByTestId("tool-toggle"));
+    first.unmount();
+
+    render(() => <ProcessFold {...props} />);
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking");
+    expect(screen.getByTestId("tool-toggle")).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("renders nothing for absent parts", () => {
-    render(() => <ProcessFold parts={[undefined, undefined]} />);
-    expect(screen.queryByTestId("reasoning-part")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("tool-part")).not.toBeInTheDocument();
-    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent("");
-  });
-
-  it("stays collapsed while streaming until the user opens it", async () => {
-    const [streaming, setStreaming] = createSignal(true);
+  it("does not reset a manual top-level choice while streaming state changes", async () => {
+    const [active, setActive] = createSignal(true);
     render(() => (
-      <ProcessFold
-        parts={[reasoningPart("thinking live", "prt_r", null)]}
-        streaming={streaming()}
-      />
+      <ProcessFold parts={[reasoningPart("thinking", "prt_reasoning", null)]} active={active()} />
     ));
     const toggle = screen.getByTestId("process-fold-toggle");
-    await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
-
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
-    expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking live");
-    setStreaming(false);
-    await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
-  });
-
-  it("keeps a manual toggle effective across streaming flips", async () => {
-    const [streaming, setStreaming] = createSignal(true);
-    render(() => <ProcessFold parts={[reasoningPart("thinking")]} streaming={streaming()} />);
-    const toggle = screen.getByTestId("process-fold-toggle");
-    await Promise.resolve();
     expect(toggle).toHaveAttribute("aria-expanded", "false");
 
-    // Manual disclosure is the only ordinary expansion path.
-    fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-
-    // Stream flips do not steal the user's disclosure choice.
-    setStreaming(false);
+    setActive(false);
     await Promise.resolve();
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
-
-    // The toggle still works afterwards.
-    fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("keeps active activity details collapsed until their row is selected", () => {
-    render(() => (
-      <ProcessFold
-        parts={[reasoningPart("A long activity preview that must remain readable", "prt_r", null)]}
-        streaming
-      />
-    ));
-
-    const preview = screen.getByTestId("process-fold-current");
-    expect(preview).toHaveTextContent("A long activity preview that must remain readable");
-    expect(preview).toHaveClass("truncate");
-
-    fireEvent.click(screen.getByTestId("process-fold-toggle"));
-    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
-    expect(screen.getByTestId("reasoning-body")).toHaveTextContent(
-      "A long activity preview that must remain readable",
-    );
-  });
-
-  it("shows an immediate, ticking wait state before the first event arrives", () => {
+  it("shows a ticking waiting status before the first event", () => {
     vi.useFakeTimers();
     vi.setSystemTime(3000);
     render(() => <ProcessFold parts={[]} active startedAt={1000} runKey="waiting-run" />);
 
-    const fold = screen.getByTestId("process-fold");
-    expect(fold).toHaveAttribute("data-active", "true");
     expect(screen.getByTestId("process-fold-toggle")).toBeDisabled();
-    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Working for 2s");
-    expect(screen.getByTestId("process-fold-current")).toHaveTextContent(
-      "Waiting for model response",
-    );
-
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Processing for 2s");
     vi.advanceTimersByTime(2000);
-    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Working for 4s");
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Processing for 4s");
   });
 
-  it("renders progress updates inside the disclosure", () => {
-    render(() => <ProcessFold parts={[progressText()]} />);
-    fireEvent.click(screen.getByTestId("process-fold-toggle"));
-
-    expect(screen.getByTestId("activity-entry")).toHaveAttribute("data-kind", "note");
-    expect(screen.getByText("Update")).toBeInTheDocument();
-    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
-    expect(screen.getByTestId("text-part")).toHaveTextContent(
-      "I found the message renderer and am checking its event flow.",
-    );
-  });
-
-  it("reports the total completed run duration", () => {
+  it("reports the completed run duration without reopening it", () => {
     render(() => (
       <ProcessFold parts={[reasoningPart("done")]} startedAt={1000} completedAt={61000} />
     ));
-    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Worked for 1m 0s");
-  });
-
-  it("counts one tool call across running and completed lifecycle updates", () => {
-    const running = toolPart("bash", "running", "running") as Extract<Part, { type: "tool" }>;
-    const completed = toolPart("bash", "completed", "completed") as Extract<Part, { type: "tool" }>;
-    completed.callID = running.callID;
-    render(() => <ProcessFold parts={[running, completed]} />);
-
-    expect(screen.getByTestId("process-fold-summary")).toHaveTextContent(
-      "1 tool call · 1 succeeded",
-    );
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Took 1m 0s");
+    expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
   });
 });

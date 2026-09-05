@@ -1,12 +1,16 @@
-// Tool call card (TASK-M3-01, full): renders a ToolPart through the full
-// four-state machine (pending / running / completed / error) with per-tool
-// renderers from tools/ (bash terminal, edit diff, read/write code blocks,
-// glob/grep result lists, generic JSON fallback). Shared chrome: status
-// icon, per-tool icon, running shimmer sweep, live elapsed time while
-// running, a collapsible raw-input disclosure, and the error message for
-// failed calls. Icons are inline SVGs / CSS spinners — no emoji.
+// Tool call disclosure renders pending, running, completed, and error states
+// as a compact inline row. Expanding reveals the existing per-tool details
+// without making long commands or output dominate the conversation.
 
-import { createEffect, createMemo, createSignal, onCleanup, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  createUniqueId,
+  onCleanup,
+  Show,
+  untrack,
+} from "solid-js";
 import type { Component, JSX } from "solid-js";
 import { createMessageService } from "../../../services/message.js";
 import { getApiClient } from "../../../services/client.js";
@@ -15,12 +19,18 @@ import { resolveToolCard } from "./tools/registry.js";
 import { durationLabel, inputString, StatusIcon, ToolIcon } from "./tools/shared.js";
 import { useT } from "../../../i18n/index.js";
 import type { ToolCard } from "./tools/shared.js";
+import {
+  readActivityEntryExpanded,
+  writeActivityEntryExpanded,
+} from "../activity/activityViewState.js";
 
 export type ToolPartData = Extract<Part, { type: "tool" }>;
 export type ToolStatus = ToolPartData["state"]["status"];
 
 export interface ToolPartProps {
   part: ToolPartData;
+  /** Stable run-and-part key for restoring disclosure after virtualization. */
+  disclosureKey?: string;
 }
 
 // IA-19: Status text formula = action verb + object + scope.
@@ -30,15 +40,6 @@ const statusLabelKey: Record<ToolStatus, string> = {
   running: "messages:statusRunning",
   completed: "messages:statusCompleted",
   error: "messages:statusFailed",
-};
-
-// IA-20: State-based background tints for visual distinction.
-// Each state has a distinct, WCAG AA-compliant background color.
-const statusBgClass: Record<ToolStatus, string> = {
-  pending: "",
-  running: "border-l-2 border-l-accent",
-  completed: "",
-  error: "border-l-2 border-l-danger",
 };
 
 const ELAPSED_TICK_MS = 250;
@@ -91,6 +92,29 @@ function toolSummaryTarget(part: ToolPartData): string {
   return title !== undefined && title.toLowerCase() !== part.tool.toLowerCase() ? title : part.tool;
 }
 
+function mergeToolDetails(part: ToolPartData, loaded: ToolPartData | undefined): ToolPartData {
+  if (part.state.status !== "completed" || loaded?.state.status !== "completed") return part;
+  return {
+    ...part,
+    state: {
+      ...part.state,
+      // A detail response can fill omitted edit/read parameters, but live SSE
+      // state remains authoritative for output, status, timing and metadata.
+      input: { ...loaded.state.input, ...part.state.input },
+    },
+  };
+}
+
+function needsDetails(part: ToolPartData): boolean {
+  if (part.state.status !== "completed") return false;
+  if (toolSummaryAction(part.tool) !== "edit") return false;
+  const input = part.state.input as Record<string, unknown>;
+  return (
+    (typeof input.oldString !== "string" && typeof input.old_string !== "string") ||
+    (typeof input.newString !== "string" && typeof input.new_string !== "string")
+  );
+}
+
 function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
   // Memoized so the registry lookup stays inside a tracked scope.
   const view = createMemo<JSX.Element>(() => {
@@ -102,16 +126,27 @@ function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
 
 const ToolPart: Component<ToolPartProps> = (props) => {
   const t = useT();
-  const [expanded, setExpanded] = createSignal(false);
+  const [expanded, setExpanded] = createSignal(
+    untrack(() =>
+      props.disclosureKey === undefined
+        ? false
+        : readActivityEntryExpanded(props.disclosureKey, props.part.id),
+    ),
+  );
   const [loadedPart, setLoadedPart] = createSignal<ToolPartData>();
+  const [detailState, setDetailState] = createSignal<"idle" | "loading" | "failed">("idle");
+  const detailId = createUniqueId();
   let disposed = false;
   const status = () => props.part.state.status;
+  const isExpanded = () => expanded();
 
   onCleanup(() => {
     disposed = true;
   });
 
   async function loadDetails(): Promise<void> {
+    if (!needsDetails(props.part) || detailState() === "loading") return;
+    setDetailState("loading");
     try {
       const message = await createMessageService(getApiClient()).get(
         props.part.sessionID,
@@ -122,15 +157,24 @@ const ToolPart: Component<ToolPartProps> = (props) => {
           candidate.type === "tool" &&
           (candidate.id === props.part.id || candidate.callID === props.part.callID),
       );
-      if (!disposed && part?.type === "tool") setLoadedPart(part as ToolPartData);
+      if (disposed) return;
+      if (part?.type === "tool") {
+        setLoadedPart(part as ToolPartData);
+        setDetailState("idle");
+      } else {
+        setDetailState("failed");
+      }
     } catch {
-      // The local event payload remains the fallback when the detail request fails.
+      if (!disposed) setDetailState("failed");
     }
   }
 
   function toggleExpanded(): void {
-    const next = !expanded();
+    const next = !isExpanded();
     setExpanded(next);
+    if (props.disclosureKey !== undefined) {
+      writeActivityEntryExpanded(props.disclosureKey, props.part.id, next);
+    }
     if (next && loadedPart() === undefined) void loadDetails();
   }
 
@@ -145,31 +189,29 @@ const ToolPart: Component<ToolPartProps> = (props) => {
   });
 
   const duration = createMemo(() => durationLabel(props.part.state, now()));
-  const detailPart = createMemo(() => loadedPart() ?? props.part);
+  const detailPart = createMemo(() => mergeToolDetails(props.part, loadedPart()));
   const card = createMemo(() => resolveToolCard(detailPart().tool));
   const summary = createMemo(() => {
     const action = toolSummaryAction(props.part.tool);
+    if (isExpanded() && action === "run") return t("messages:toolSummaryCommand");
     const target = toolSummaryTarget(props.part);
     return t(`messages:toolSummary${action[0].toUpperCase()}${action.slice(1)}`, { target });
   });
 
   return (
-    <div
-      data-testid="tool-part"
-      data-status={status()}
-      class={`my-1 min-w-0 rounded-md bg-bg-sunken/50${statusBgClass[status()] !== "" ? " " + statusBgClass[status()] : ""}`}
-    >
+    <div data-testid="tool-part" data-status={status()} class="reply-tool my-1 min-w-0">
       <button
         type="button"
         data-testid="tool-toggle"
-        aria-expanded={expanded()}
-        class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+        aria-expanded={isExpanded()}
+        aria-controls={detailId}
+        class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
         onClick={toggleExpanded}
       >
         <span
           aria-hidden
           class={`mt-px inline-block shrink-0 text-fg-faint transition-transform ${
-            expanded() ? "rotate-90" : ""
+            isExpanded() ? "rotate-90" : ""
           }`}
         >
           ▸
@@ -178,27 +220,30 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         <ToolIcon tool={props.part.tool} />
         <span
           data-testid="tool-summary"
-          class={`min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary ${
-            expanded() ? "break-words" : "truncate"
-          }`}
+          class={`min-w-0 flex-1 font-code text-fg-primary ${isExpanded() ? "" : "truncate"}`}
         >
           {summary()}
         </span>
         <Show when={duration() !== undefined}>
-          <span data-testid="tool-duration" class="mt-px shrink-0 font-code text-fg-faint">
+          <span data-testid="tool-duration" class="shrink-0 font-code text-xs text-fg-faint">
             {duration()}
           </span>
         </Show>
         <span data-testid="tool-status-label" class="sr-only">
           {t(statusLabelKey[status()], { tool: props.part.tool })}
         </span>
-        <Show when={status() === "running"}>
-          <span data-testid="tool-shimmer" class="tool-shimmer" aria-hidden />
-        </Show>
       </button>
-      {/* IA-28: expanded content with monospace font for JSON input/output */}
-      <Show when={expanded()}>
-        <div class="space-y-2 border-t border-bg-sunken px-2 py-2">
+      <Show when={isExpanded()}>
+        <div id={detailId} data-testid="tool-detail" class="reply-tool-detail mt-1 space-y-2">
+          {detailState() === "loading" ? (
+            <span data-testid="tool-detail-loading" class="text-xs text-fg-faint">
+              {t("messages:toolDetailLoading")}
+            </span>
+          ) : detailState() === "failed" ? (
+            <span data-testid="tool-detail-error" class="text-xs text-danger">
+              {t("messages:toolDetailError")}
+            </span>
+          ) : null}
           <ToolCardView card={card()} part={detailPart()} />
           <Show when={detailPart().state.status === "error"}>
             <div

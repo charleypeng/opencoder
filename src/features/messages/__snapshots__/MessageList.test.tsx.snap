@@ -86,25 +86,20 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                 class="w-full max-w-3xl"
               >
                 <div
-                  class="activity-trace my-1 rounded-md bg-bg-sunken/50"
+                  class="reply-activity my-3"
                   data-active="false"
                   data-status="complete"
                   data-testid="process-fold"
                 >
                   <button
                     aria-expanded="true"
-                    class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft disabled:cursor-default"
+                    class="reply-activity-header flex min-h-8 w-full items-center gap-1.5 border-b border-bg-sunken py-1 text-left text-sm outline-none focus:bg-accent-soft disabled:cursor-default"
                     data-testid="process-fold-toggle"
                     type="button"
                   >
                     <span
                       aria-hidden="true"
-                      class="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
-                      data-testid="activity-trace-status"
-                    />
-                    <span
-                      aria-hidden="true"
-                      class="inline-block w-2 shrink-0 text-fg-faint"
+                      class="inline-block w-3 shrink-0 text-fg-faint"
                     >
                       <span
                         class="inline-block transition-transform rotate-90"
@@ -113,41 +108,31 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                       </span>
                     </span>
                     <span
-                      class="shrink-0 font-medium text-fg-secondary"
+                      class="shrink-0 text-fg-secondary"
                       data-testid="process-fold-status"
                     >
-                      Worked for 15s
-                    </span>
-                    <span
-                      class="min-w-0 truncate text-fg-faint"
-                      data-testid="process-fold-summary"
-                    >
-                      1 tool call · 1 succeeded · 69 chars of reasoning
+                      Took 15s
                     </span>
                   </button>
                   <div
                     aria-hidden="false"
-                    class="process-fold-body"
+                    class="reply-activity-body"
                     data-expanded="true"
                     data-testid="process-fold-body"
                   >
                     <div
-                      class="activity-trace-timeline"
+                      class="reply-activity-items space-y-3 pt-3"
                     >
                       <div
-                        class="activity-trace-entry relative pl-4"
+                        class="reply-activity-entry min-w-0 "
                         data-kind="summary"
                         data-phase="decide"
                         data-status="complete"
                         data-testid="activity-entry"
                       >
-                        <span
-                          aria-hidden="true"
-                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
-                        />
                         <button
                           aria-expanded="false"
-                          class="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[11px] text-fg-secondary outline-none focus:bg-accent-soft"
+                          class="reply-activity-thought flex w-full min-w-0 items-center gap-1.5 text-left text-sm text-fg-secondary outline-none focus:bg-accent-soft"
                           data-testid="activity-entry-toggle"
                           type="button"
                         >
@@ -170,30 +155,27 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                         </button>
                       </div>
                       <div
-                        class="activity-trace-entry relative pl-4"
+                        class="reply-activity-entry min-w-0 "
                         data-kind="command"
                         data-phase="verify"
                         data-status="complete"
                         data-testid="activity-entry"
                       >
-                        <span
-                          aria-hidden="true"
-                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
-                        />
                         <div
-                          class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
+                          class="reply-tool my-1 min-w-0"
                           data-status="completed"
                           data-testid="tool-part"
                         >
                           <button
-                            aria-expanded="false"
-                            class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                            aria-controls="cl-31"
+                            aria-expanded="true"
+                            class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
                             type="button"
                           >
                             <span
                               aria-hidden=""
-                              class="mt-px inline-block shrink-0 text-fg-faint transition-transform "
+                              class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
                             >
                               ▸
                             </span>
@@ -229,13 +211,13 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               />
                             </svg>
                             <span
-                              class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary truncate"
+                              class="min-w-0 flex-1 font-code text-fg-primary "
                               data-testid="tool-summary"
                             >
-                              Ran ls src
+                              Ran command
                             </span>
                             <span
-                              class="mt-px shrink-0 font-code text-fg-faint"
+                              class="shrink-0 font-code text-xs text-fg-faint"
                               data-testid="tool-duration"
                             >
                               3s
@@ -247,6 +229,55 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               bash completed
                             </span>
                           </button>
+                          <div
+                            class="reply-tool-detail mt-1 space-y-2"
+                            data-testid="tool-detail"
+                            id="cl-31"
+                          >
+                            <div
+                              class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
+                              data-testid="tool-terminal"
+                            >
+                              <div
+                                class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
+                              >
+                                <span
+                                  class="truncate text-fg-faint"
+                                >
+                                  Terminal
+                                </span>
+                                <button
+                                  class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                                  data-testid="tool-copy"
+                                  type="button"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                              <div
+                                class="space-y-1 px-2 py-1.5"
+                              >
+                                <div
+                                  class="text-fg-primary"
+                                >
+                                  <span
+                                    class="select-none text-success"
+                                  >
+                                    $ 
+                                  </span>
+                                  ls src
+                                </div>
+                                <pre
+                                  class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                >
+                                  auth/
+components/
+services/
+
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -221,6 +221,8 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
       (id) => messages[props.serverId]?.[props.sessionId]?.parts[id],
     ),
   );
+  const activityRunKey = () =>
+    `${props.serverId}:${props.sessionId}:${props.runKey ?? props.messageID}`;
 
   // The streaming part is the LAST text part of the message (the caret only
   // mounts there).
@@ -259,7 +261,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
           <Show when={processParts().length > 0 || props.runActive === true}>
             <ProcessFold
               parts={processParts()}
-              runKey={props.runKey ?? `${props.serverId}:${props.sessionId}:${props.messageID}`}
+              runKey={activityRunKey()}
               active={props.runActive}
               startedAt={props.runStartedAt}
               completedAt={props.runCompletedAt}

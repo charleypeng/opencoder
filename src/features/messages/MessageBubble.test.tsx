@@ -233,10 +233,6 @@ describe("MessageBubble", () => {
     expect(bubble.querySelector('[data-testid="subtask-part"]')).toBeNull();
     expect(bubble.querySelector('[data-testid="agent-part"]')).toBeNull();
 
-    fireEvent.click(screen.getByTestId("process-fold-toggle"));
-    for (const toggle of screen.getAllByTestId("activity-entry-toggle")) {
-      fireEvent.click(toggle);
-    }
     const retry = bubble.querySelector('[data-testid="retry-part"]');
     expect(retry).not.toBeNull();
     expect(retry).toHaveTextContent("Retrying (attempt 2)");
@@ -462,7 +458,7 @@ describe("MessageBubble", () => {
     );
   });
 
-  it("keeps the process fold collapsed while streaming", async () => {
+  it("opens an active process fold while streaming", async () => {
     const [streaming, setStreaming] = createSignal(true);
     upsertMessage(SERVER, SESSION, userMessage("msg_r"));
     applyPartDelta(SERVER, SESSION, {
@@ -479,24 +475,24 @@ describe("MessageBubble", () => {
         sessionId={SESSION}
         messageID="msg_r"
         partIds={["prt_r"]}
+        runActive
         streaming={streaming()}
       />
     ));
 
-    // Streaming exposes an active status without forcing the trace open.
+    // A new active run opens its process area, while thoughts remain folded.
     await waitFor(() =>
-      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false"),
+      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "true"),
     );
     expect(screen.getByTestId("process-fold")).toHaveAttribute("data-active", "true");
 
     // The caller can update streaming without changing disclosure state.
     setStreaming(false);
     await waitFor(() =>
-      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false"),
+      expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "true"),
     );
 
     // The user can inspect the trace on demand.
-    fireEvent.click(screen.getByTestId("process-fold-toggle"));
     fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
@@ -518,18 +514,18 @@ describe("MessageBubble", () => {
         sessionId={SESSION}
         messageID="msg_r"
         partIds={["prt_r"]}
+        runActive
         streaming={streaming()}
       />
     ));
 
-    // The trace starts collapsed and the user can open it manually.
+    // The active trace starts open and the user can collapse it manually.
     const toggle = screen.getByTestId("process-fold-toggle");
-    await waitFor(() => expect(toggle).toHaveAttribute("aria-expanded", "false"));
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     // message.part.updated replaces the part object; the manual choice
-    // (expanded) must survive the swap instead of being reset.
+    // (collapsed) must survive the swap instead of being reset.
     applyPartDelta(SERVER, SESSION, {
       id: "prt_r",
       sessionID: SESSION,
@@ -538,15 +534,15 @@ describe("MessageBubble", () => {
       text: "thinking in progress, still thinking",
       time: { start: 1 },
     } as never);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
 
-    // Stream ends: fold stays expanded because the user opened it.
+    // Stream ends: fold stays collapsed because the user chose it.
     setStreaming(false);
-    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
 
     // And the toggle still works after part replacement.
     fireEvent.click(toggle);
-    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
   });
 });
 
