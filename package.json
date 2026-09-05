@@ -1,6 +1,6 @@
 {
   "name": "opencoder",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "private": true,
   "description": "Tauri 2 + SolidJS desktop client for OpenCode",
   "type": "module",

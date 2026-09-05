@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-05
+
 ### Fixed
 
 - fix(sessions): Keep the native folder picker behind explicit onboarding, add-workspace, settings, and change-directory actions, so workspace and session navigation never request folder access. (sessions)
