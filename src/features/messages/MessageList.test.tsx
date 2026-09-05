@@ -181,6 +181,7 @@ describe("MessageList", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(within(assistant).getByTestId("activity-entry-toggle"));
     expect(within(assistant).getByTestId("reasoning-body")).toHaveTextContent(
       "The client needs a login form",
     );
@@ -230,6 +231,10 @@ describe("MessageList", () => {
     // Subtask/agent parts are owned by TaskPanel, not the transcript.
     expect(screen.queryByTestId("subtask-part")).not.toBeInTheDocument();
     expect(screen.queryByTestId("agent-part")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    for (const toggle of screen.getAllByTestId("activity-entry-toggle")) {
+      fireEvent.click(toggle);
+    }
     expect(screen.getByTestId("retry-part")).toHaveTextContent("Retrying (attempt 2)");
     expect(screen.getByTestId("compaction-part")).toHaveTextContent("Context compacted");
   });

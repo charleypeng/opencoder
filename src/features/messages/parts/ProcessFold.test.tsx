@@ -104,6 +104,8 @@ describe("ProcessFold", () => {
     const body = screen.getByTestId("process-fold-body");
     expect(body).toHaveAttribute("data-expanded", "true");
     expect(body).toHaveAttribute("aria-hidden", "false");
+    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("planning the change");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
 
@@ -181,6 +183,7 @@ describe("ProcessFold", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("thinking live");
     setStreaming(false);
     await Promise.resolve();
@@ -209,7 +212,7 @@ describe("ProcessFold", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
-  it("wraps the active preview instead of truncating it inside the trace", () => {
+  it("keeps active activity details collapsed until their row is selected", () => {
     render(() => (
       <ProcessFold
         parts={[reasoningPart("A long activity preview that must remain readable", "prt_r", null)]}
@@ -219,7 +222,14 @@ describe("ProcessFold", () => {
 
     const preview = screen.getByTestId("process-fold-current");
     expect(preview).toHaveTextContent("A long activity preview that must remain readable");
-    expect(preview).not.toHaveClass("truncate");
+    expect(preview).toHaveClass("truncate");
+
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    expect(screen.queryByTestId("reasoning-body")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
+    expect(screen.getByTestId("reasoning-body")).toHaveTextContent(
+      "A long activity preview that must remain readable",
+    );
   });
 
   it("shows an immediate, ticking wait state before the first event arrives", () => {
@@ -245,6 +255,7 @@ describe("ProcessFold", () => {
 
     expect(screen.getByTestId("activity-entry")).toHaveAttribute("data-kind", "note");
     expect(screen.getByText("Update")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("text-part")).toHaveTextContent(
       "I found the message renderer and am checking its event flow.",
     );

@@ -119,10 +119,44 @@ function renderEntryPart(entry: ActivityEntry) {
   }
 }
 
+function ActivityEntryDisclosure(props: {
+  entry: ActivityEntry;
+  t: ReturnType<typeof useT>;
+  expanded: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <>
+      <button
+        type="button"
+        data-testid="activity-entry-toggle"
+        aria-expanded={props.expanded}
+        class="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[11px] text-fg-secondary outline-none focus:bg-accent-soft"
+        onClick={() => props.onToggle()}
+      >
+        <span
+          aria-hidden="true"
+          class={`inline-block shrink-0 text-fg-faint transition-transform ${
+            props.expanded ? "rotate-90" : ""
+          }`}
+        >
+          ▸
+        </span>
+        <span class="shrink-0 font-medium text-fg-primary">{entryTitle(props.t, props.entry)}</span>
+        <Show when={props.entry.preview !== undefined}>
+          <span class="min-w-0 flex-1 truncate text-fg-faint">{props.entry.preview}</span>
+        </Show>
+      </button>
+      <Show when={props.expanded}>{renderEntryPart(props.entry)}</Show>
+    </>
+  );
+}
+
 const ProcessFold: Component<ProcessFoldProps> = (props) => {
   const t = useT();
   const traceKey = () => props.runKey ?? "run";
   const [expanded, setExpanded] = createSignal(readActivityExpanded(traceKey()));
+  const [expandedEntryIds, setExpandedEntryIds] = createSignal<Set<string>>(new Set());
   const [now, setNow] = createSignal(Date.now());
   const bodyId = createUniqueId();
 
@@ -131,6 +165,15 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     const next = !expanded();
     setExpanded(next);
     writeActivityExpanded(traceKey(), next);
+  }
+
+  function toggleEntry(entryId: string): void {
+    setExpandedEntryIds((current) => {
+      const next = new Set(current);
+      if (next.has(entryId)) next.delete(entryId);
+      else next.add(entryId);
+      return next;
+    });
   }
 
   const trace = createMemo(() => deriveActivityTrace(props.parts, now(), props.runKey ?? "run"));
@@ -273,14 +316,11 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
           {statusLabel()}
         </span>
         <Show when={currentPreview() !== undefined}>
-          <span
-            data-testid="process-fold-current"
-            class="min-w-0 flex-1 break-words leading-relaxed text-fg-faint"
-          >
+          <span data-testid="process-fold-current" class="min-w-0 flex-1 truncate text-fg-faint">
             {currentPreview()}
           </span>
         </Show>
-        <span data-testid="process-fold-summary" class="min-w-0 break-words text-fg-faint">
+        <span data-testid="process-fold-summary" class="min-w-0 truncate text-fg-faint">
           {summary()}
         </span>
       </button>
@@ -309,17 +349,12 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
                   {entry.part.type === "tool" ? (
                     <ToolPart part={entry.part as ToolPartData} />
                   ) : (
-                    <>
-                      <div class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary">
-                        <span class="truncate font-medium text-fg-primary">
-                          {entryTitle(t, entry)}
-                        </span>
-                        <Show when={entry.preview !== undefined}>
-                          <span class="min-w-0 truncate text-fg-faint">{entry.preview}</span>
-                        </Show>
-                      </div>
-                      {renderEntryPart(entry)}
-                    </>
+                    <ActivityEntryDisclosure
+                      entry={entry}
+                      t={t}
+                      expanded={expandedEntryIds().has(entry.id)}
+                      onToggle={() => toggleEntry(entry.id)}
+                    />
                   )}
                 </div>
               )}

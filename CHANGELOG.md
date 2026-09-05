@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- fix(messages): Show each tool call's action and input target in a wrapping summary, preserving successful status icons without clipping long activity text. (messages)
+- fix(messages): Keep process entries and tool summaries compact by default, revealing full reasoning, updates, commands, and output only when their individual row is opened. (messages)
 
 ## [1.2.2] - 2026-09-05
 

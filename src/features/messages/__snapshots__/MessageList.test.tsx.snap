@@ -92,7 +92,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                   data-testid="process-fold"
                 >
                   <button
-                    aria-expanded="false"
+                    aria-expanded="true"
                     class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft disabled:cursor-default"
                     data-testid="process-fold-toggle"
                     type="button"
@@ -107,7 +107,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                       class="inline-block w-2 shrink-0 text-fg-faint"
                     >
                       <span
-                        class="inline-block transition-transform "
+                        class="inline-block transition-transform rotate-90"
                       >
                         ▸
                       </span>
@@ -119,16 +119,16 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                       Worked for 15s
                     </span>
                     <span
-                      class="min-w-0 break-words text-fg-faint"
+                      class="min-w-0 truncate text-fg-faint"
                       data-testid="process-fold-summary"
                     >
                       1 tool call · 1 succeeded · 69 chars of reasoning
                     </span>
                   </button>
                   <div
-                    aria-hidden="true"
+                    aria-hidden="false"
                     class="process-fold-body"
-                    data-expanded="false"
+                    data-expanded="true"
                     data-testid="process-fold-body"
                   >
                     <div
@@ -145,31 +145,29 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           aria-hidden="true"
                           class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
                         />
-                        <div
-                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
+                        <button
+                          aria-expanded="false"
+                          class="flex w-full min-w-0 items-center gap-2 px-1 text-left text-[11px] text-fg-secondary outline-none focus:bg-accent-soft"
+                          data-testid="activity-entry-toggle"
+                          type="button"
                         >
                           <span
-                            class="truncate font-medium text-fg-primary"
+                            aria-hidden="true"
+                            class="inline-block shrink-0 text-fg-faint transition-transform "
+                          >
+                            ▸
+                          </span>
+                          <span
+                            class="shrink-0 font-medium text-fg-primary"
                           >
                             Thinking
                           </span>
                           <span
-                            class="min-w-0 truncate text-fg-faint"
+                            class="min-w-0 flex-1 truncate text-fg-faint"
                           >
                             The client needs a login form, a session store, and an auth API call.
                           </span>
-                        </div>
-                        <div
-                          class="my-1 rounded-md bg-bg-sunken/50 px-2 py-2"
-                          data-testid="reasoning-part"
-                        >
-                          <div
-                            class="whitespace-pre-wrap break-words text-xs leading-relaxed text-fg-secondary"
-                            data-testid="reasoning-body"
-                          >
-                            The client needs a login form, a session store, and an auth API call.
-                          </div>
-                        </div>
+                        </button>
                       </div>
                       <div
                         class="activity-trace-entry relative pl-4"
@@ -231,7 +229,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               />
                             </svg>
                             <span
-                              class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+                              class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary truncate"
                               data-testid="tool-summary"
                             >
                               Ran ls src

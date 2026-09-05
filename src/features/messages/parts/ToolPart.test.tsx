@@ -181,6 +181,9 @@ describe("ToolPart", () => {
     expect(screen.getByTestId("tool-summary")).toHaveTextContent("Read src/auth/session.ts");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
     expect(screen.getByTestId("tool-toggle")).not.toHaveClass("overflow-hidden");
+    expect(screen.getByTestId("tool-summary")).toHaveClass("truncate");
+
+    fireEvent.click(screen.getByTestId("tool-toggle"));
     expect(screen.getByTestId("tool-summary")).not.toHaveClass("truncate");
   });
 

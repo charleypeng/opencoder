@@ -178,7 +178,9 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         <ToolIcon tool={props.part.tool} />
         <span
           data-testid="tool-summary"
-          class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+          class={`min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary ${
+            expanded() ? "break-words" : "truncate"
+          }`}
         >
           {summary()}
         </span>

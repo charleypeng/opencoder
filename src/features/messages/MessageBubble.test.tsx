@@ -233,6 +233,10 @@ describe("MessageBubble", () => {
     expect(bubble.querySelector('[data-testid="subtask-part"]')).toBeNull();
     expect(bubble.querySelector('[data-testid="agent-part"]')).toBeNull();
 
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    for (const toggle of screen.getAllByTestId("activity-entry-toggle")) {
+      fireEvent.click(toggle);
+    }
     const retry = bubble.querySelector('[data-testid="retry-part"]');
     expect(retry).not.toBeNull();
     expect(retry).toHaveTextContent("Retrying (attempt 2)");
@@ -295,6 +299,7 @@ describe("MessageBubble", () => {
     // Collapsed by default; expanding reveals the reasoning and tool parts.
     expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("intermediate reasoning");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
   });
@@ -429,6 +434,7 @@ describe("MessageBubble", () => {
     const toggle = screen.getByTestId("process-fold-toggle");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
 
     // A streamed delta appends without collapsing the fold.
@@ -491,6 +497,7 @@ describe("MessageBubble", () => {
 
     // The user can inspect the trace on demand.
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
 

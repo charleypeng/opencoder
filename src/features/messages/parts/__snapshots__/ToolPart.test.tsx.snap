@@ -51,7 +51,7 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Ran ls src
@@ -170,7 +170,7 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Edited src/auth/login.ts
@@ -283,7 +283,7 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Searched src/**/*.ts
@@ -389,7 +389,7 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Searched TODO
@@ -496,7 +496,7 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Read src/auth/session.ts
@@ -611,7 +611,7 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        class="min-w-0 flex-1 font-code font-medium leading-relaxed text-fg-primary break-words"
         data-testid="tool-summary"
       >
         Wrote src/auth/api.ts
