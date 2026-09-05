@@ -463,9 +463,8 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   const [shareTarget, setShareTarget] = createSignal<Session | null>(null);
   const [summarizeTarget, setSummarizeTarget] = createSignal<Session | null>(null);
   const [initTarget, setInitTarget] = createSignal<Session | null>(null);
-  // Open-folder picker: the directory it should start from (default root),
-  // plus the open flag — "add directory" opens at the root (no directory),
-  // so the open state must live separately from the start directory.
+  // Working-directory picker: the directory it should start from (default
+  // root), plus the open flag. Only explicit add/change actions open it.
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [pickerDir, setPickerDir] = createSignal<string | undefined>(undefined);
 
@@ -916,6 +915,11 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
             <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
           </svg>
         ),
+        onSelect: () => props.onViewFolder(session.directory),
+      },
+      {
+        id: "change-directory",
+        label: t("sessions:changeWorkingDirectory"),
         onSelect: () => {
           setPickerDir(session.directory);
           setPickerOpen(true);
@@ -1259,9 +1263,9 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
         </div>
       </Show>
 
-      {/* Open-folder picker: positioned at the target directory (defaults
-          to the filesystem root when no directory is given). Adding a
-          directory also records it in the persisted workspace list. */}
+      {/* Explicit working-directory picker: positioned at the target
+          directory (defaults to the filesystem root when no directory is
+          given). Adding a directory also records it in the persisted list. */}
       <Show when={pickerOpen()}>
         <DirectoryPickerDialog
           serverId={props.serverId}

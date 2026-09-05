@@ -193,6 +193,8 @@
     "defaultBadge": "默认",
     "defaultWorkspaceTitle": "选择默认工作区",
     "defaultWorkspaceHint": "这是你第一次使用此服务器。请选择它默认打开的工作目录——之后可在「设置 → 服务器」中随时修改。",
+    "defaultWorkspaceChoose": "选择文件夹",
+    "changeWorkingDirectory": "更换工作目录…",
     "subtasks": "子任务",
     "noSubtasks": "暂无子任务",
     "subtasksHint": "助手委派子任务时，子代理会话会显示在这里。",

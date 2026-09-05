@@ -1006,9 +1006,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     setActiveServer(props.server.id);
     void refresh();
     // Default-workspace onboarding (feat(default-workspace)): the first
-    // entry of a server with no workspace history prompts for its default
-    // workspace. Marking it shown here means a skipped prompt is remembered
-    // (no nagging on every entry); Settings → Servers can change the choice.
+    // entry of a server with no workspace history gets an in-app prompt for
+    // its default workspace. Marking it shown here remembers a skip before
+    // any native picker can be opened, preventing repeated system prompts.
     if (!hasWorkspaceHistory(props.server.id) && !wasDefaultWorkspacePrompted(props.server.id)) {
       markDefaultWorkspacePrompted(props.server.id);
       setDefaultWorkspaceOpen(true);

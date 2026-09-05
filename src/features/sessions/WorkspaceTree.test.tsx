@@ -298,6 +298,31 @@ describe("WorkspaceTree", () => {
     expect(onViewFolder).toHaveBeenCalledWith("/dev/opencoder");
   });
 
+  it("opens a session's folder in the right panel without opening the picker", async () => {
+    const { onViewFolder } = renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    fireEvent.click(
+      within(screen.getByTestId("workspace-session-s1")).getByTestId("workspace-session-menu"),
+    );
+
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-open-folder"));
+
+    expect(onViewFolder).toHaveBeenCalledWith("/dev/opencoder");
+    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+  });
+
+  it("opens the picker only from the explicit change-working-directory action", async () => {
+    renderTree();
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+    fireEvent.click(
+      within(screen.getByTestId("workspace-session-s1")).getByTestId("workspace-session-menu"),
+    );
+
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-change-directory"));
+
+    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+  });
+
   it("shows a busy status dot on folders with running sessions", async () => {
     applySessionList(SERVER, ROOTS);
     setSessionStatus(SERVER, "s1", { type: "busy" });

@@ -128,7 +128,7 @@ describe("DirectoryPickerDialog", () => {
     expect(screen.queryByTestId("directory-picker-item-README.md")).toBeNull();
   });
 
-  it("opens already positioned at the initialDirectory (open-folder flow)", async () => {
+  it("opens already positioned at the initialDirectory (change-directory flow)", async () => {
     const client = mockClient();
     renderPicker({ initialDirectory: "/Volumes/data" });
 

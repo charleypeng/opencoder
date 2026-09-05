@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 修复
+
+- fix(sessions)：将系统文件夹选择器限制在明确的首次引导、添加工作区、设置和更换工作目录操作中，工作区与会话导航不再请求文件夹访问权限。(sessions)
+
 ## [1.2.1] - 2026-09-04
 
 ### 修复

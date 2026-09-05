@@ -30,21 +30,17 @@ export interface DirectoryPickerDialogProps {
   onClose: () => void;
   /**
    * The directory the browser starts from (defaults to the filesystem
-   * root). Folder/session "open folder" actions pass the target directory
-   * here so the dialog opens already positioned there.
+   * root). Explicit directory-change actions pass the target directory here
+   * so the dialog opens already positioned there.
    */
   initialDirectory?: string;
   /** Called with the added directory right before close (add flow) — the
    *  default-workspace flows use it to persist the choice. */
   onAdded?: (directory: string) => void;
-  /** Overrides the title (default-workspace onboarding shows its own). */
+  /** Overrides the title. */
   title?: string;
   /** Overrides the one-line hint below the title. */
   hint?: string;
-  /** Shows a "Skip" button (first-entry onboarding may defer the choice). */
-  showSkip?: boolean;
-  /** Called when the user skips (defaults to onClose). */
-  onSkip?: () => void;
 }
 
 /** The filesystem root the browser starts from. */
@@ -90,7 +86,7 @@ function FolderIcon() {
 function InAppDirectoryPicker(props: DirectoryPickerDialogProps) {
   const t = useT();
   /** The directory being browsed (its own subfolders are listed). Starts
-   *  from the initialDirectory prop when given (open-folder flow), else
+   *  from the initialDirectory prop when given (change-directory flow), else
    *  the filesystem root. */
   const [dir, setDir] = createSignal(props.initialDirectory ?? ROOT);
   const [entries, setEntries] = createSignal<FileNode[]>([]);
@@ -232,16 +228,6 @@ function InAppDirectoryPicker(props: DirectoryPickerDialogProps) {
           </Show>
 
           <div class="flex items-center justify-end gap-2 pt-1">
-            <Show when={props.showSkip}>
-              <button
-                type="button"
-                data-testid="directory-picker-skip"
-                onClick={() => (props.onSkip ?? props.onClose)()}
-                class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
-              >
-                {t("sessions:skip")}
-              </button>
-            </Show>
             <Dialog.CloseButton
               data-testid="directory-picker-cancel"
               class="rounded-md border border-bg-sunken bg-bg-sunken px-4 py-2 text-sm text-fg-secondary outline-none hover:text-fg-primary"
