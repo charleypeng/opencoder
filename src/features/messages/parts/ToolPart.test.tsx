@@ -136,7 +136,9 @@ describe("ToolPart", () => {
       const { unmount } = render(() => <ToolPart part={part} />);
       const card = screen.getByTestId("tool-part");
       expect(card).toHaveAttribute("data-status", status);
-      expect(screen.getByText("bash")).toBeInTheDocument();
+      expect(screen.getByTestId("tool-summary")).toHaveTextContent(
+        status === "error" ? "Ran npm test" : "Ran ls src",
+      );
       expect(screen.getByTestId("tool-status-label")).toHaveTextContent(STATUS_LABELS[status]);
       if (status === "running") {
         expect(screen.getByTestId("tool-shimmer")).toBeInTheDocument();
@@ -171,6 +173,31 @@ describe("ToolPart", () => {
     expect(terminal).toHaveTextContent("auth/");
     expect(terminal).toHaveTextContent("components/");
     expect(within(terminal).getByTestId("tool-copy")).toBeInTheDocument();
+  });
+
+  it("summarizes completed operations from their input while retaining the success state", () => {
+    render(() => <ToolPart part={readCompleted} />);
+
+    expect(screen.getByTestId("tool-summary")).toHaveTextContent("Read src/auth/session.ts");
+    expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
+    expect(screen.getByTestId("tool-toggle")).not.toHaveClass("overflow-hidden");
+    expect(screen.getByTestId("tool-summary")).not.toHaveClass("truncate");
+  });
+
+  it("summarizes questions from their first question heading", () => {
+    const questionCompleted = toolPart("question", {
+      status: "completed",
+      input: { questions: [{ header: "Continue with the migration?" }] },
+      output: "answered",
+      title: "question",
+      metadata: {},
+      time: { start: 1000, end: 2000 },
+    });
+
+    render(() => <ToolPart part={questionCompleted} />);
+    expect(screen.getByTestId("tool-summary")).toHaveTextContent(
+      "Asked Continue with the migration?",
+    );
   });
 
   it("shows the bash exit code from tool metadata", () => {
@@ -265,7 +292,7 @@ describe("ToolPart", () => {
   it("falls back to the generic card for unknown tools", () => {
     renderExpanded(unknownCompleted);
     expect(screen.getByTestId("tool-generic")).toHaveTextContent("<title>Example</title>");
-    expect(screen.getByText("webFetch")).toBeInTheDocument();
+    expect(screen.getByTestId("tool-summary")).toHaveTextContent("Used webFetch");
   });
 
   it("shows the error message for failed calls", () => {

@@ -209,6 +209,19 @@ describe("ProcessFold", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
   });
 
+  it("wraps the active preview instead of truncating it inside the trace", () => {
+    render(() => (
+      <ProcessFold
+        parts={[reasoningPart("A long activity preview that must remain readable", "prt_r", null)]}
+        streaming
+      />
+    ));
+
+    const preview = screen.getByTestId("process-fold-current");
+    expect(preview).toHaveTextContent("A long activity preview that must remain readable");
+    expect(preview).not.toHaveClass("truncate");
+  });
+
   it("shows an immediate, ticking wait state before the first event arrives", () => {
     vi.useFakeTimers();
     vi.setSystemTime(3000);

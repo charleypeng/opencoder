@@ -273,11 +273,14 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
           {statusLabel()}
         </span>
         <Show when={currentPreview() !== undefined}>
-          <span data-testid="process-fold-current" class="min-w-0 truncate text-fg-faint">
+          <span
+            data-testid="process-fold-current"
+            class="min-w-0 flex-1 break-words leading-relaxed text-fg-faint"
+          >
             {currentPreview()}
           </span>
         </Show>
-        <span data-testid="process-fold-summary" class="min-w-0 truncate text-fg-faint">
+        <span data-testid="process-fold-summary" class="min-w-0 break-words text-fg-faint">
           {summary()}
         </span>
       </button>

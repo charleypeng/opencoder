@@ -199,12 +199,14 @@ describe("MessageList", () => {
     expect(tools).toHaveLength(1);
     const completed = tools[0];
     expect(completed).toHaveAttribute("data-status", "completed");
+    expect(within(completed).getByTestId("tool-summary")).toHaveTextContent("Ran ls src");
     expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("bash completed");
 
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
-    expect(within(completed).getByTestId("tool-terminal")).toBeInTheDocument();
-    expect(within(completed).getByText(/ls src/)).toBeInTheDocument();
-    expect(within(completed).getByTestId("tool-terminal")).toHaveTextContent(/auth/);
+    const terminal = within(completed).getByTestId("tool-terminal");
+    expect(terminal).toBeInTheDocument();
+    expect(terminal).toHaveTextContent(/ls src/);
+    expect(terminal).toHaveTextContent(/auth/);
   });
 
   it("renders every supported part from the all-parts fixture", async () => {

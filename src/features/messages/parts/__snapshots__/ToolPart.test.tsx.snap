@@ -3,19 +3,19 @@
 exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -51,18 +51,19 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        bash
+        Ran ls src
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         3s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         bash completed
@@ -124,19 +125,19 @@ components/
 exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -169,18 +170,19 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        edit
+        Edited src/auth/login.ts
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         1s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         edit completed
@@ -236,19 +238,19 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -281,18 +283,19 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        glob
+        Searched src/**/*.ts
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         1s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         glob completed
@@ -336,19 +339,19 @@ src/auth/session.ts
 exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -386,18 +389,19 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        grep
+        Searched TODO
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         1s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         grep completed
@@ -440,19 +444,19 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -492,18 +496,19 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        read
+        Read src/auth/session.ts
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         1s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         read completed
@@ -551,19 +556,19 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
 exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
 <div>
   <div
-    class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+    class="my-1 min-w-0 rounded-md bg-bg-sunken/50"
     data-status="completed"
     data-testid="tool-part"
   >
     <button
       aria-expanded="true"
-      class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+      class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
       data-testid="tool-toggle"
       type="button"
     >
       <span
         aria-hidden=""
-        class="inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+        class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
       >
         ▸
       </span>
@@ -606,18 +611,19 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
         />
       </svg>
       <span
-        class="truncate font-code font-medium text-fg-primary"
+        class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        data-testid="tool-summary"
       >
-        write
+        Wrote src/auth/api.ts
       </span>
       <span
-        class="shrink-0 font-code text-fg-faint"
+        class="mt-px shrink-0 font-code text-fg-faint"
         data-testid="tool-duration"
       >
         1s
       </span>
       <span
-        class="ml-auto shrink-0 text-fg-faint"
+        class="sr-only"
         data-testid="tool-status-label"
       >
         write completed

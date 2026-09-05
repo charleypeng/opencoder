@@ -12,7 +12,7 @@ import { createMessageService } from "../../../services/message.js";
 import { getApiClient } from "../../../services/client.js";
 import type { Part } from "../../../stores/messages.js";
 import { resolveToolCard } from "./tools/registry.js";
-import { durationLabel, StatusIcon, ToolIcon } from "./tools/shared.js";
+import { durationLabel, inputString, StatusIcon, ToolIcon } from "./tools/shared.js";
 import { useT } from "../../../i18n/index.js";
 import type { ToolCard } from "./tools/shared.js";
 
@@ -46,6 +46,49 @@ const ELAPSED_TICK_MS = 250;
 /** Error-state text, narrowed for the section render. */
 function toolErrorText(part: ToolPartData): string {
   return part.state.status === "error" ? part.state.error : "";
+}
+
+type ToolSummaryAction = "run" | "read" | "edit" | "write" | "search" | "ask" | "use";
+
+function toolSummaryAction(tool: string): ToolSummaryAction {
+  if (/^(bash|shell|exec|terminal|command|run)$/i.test(tool)) return "run";
+  if (tool === "read") return "read";
+  if (tool === "edit") return "edit";
+  if (tool === "write") return "write";
+  if (/^(glob|grep)$/i.test(tool)) return "search";
+  if (tool === "question") return "ask";
+  return "use";
+}
+
+function questionTarget(input: Record<string, unknown>): string | undefined {
+  const questions = input.questions;
+  if (!Array.isArray(questions)) return undefined;
+  const first = questions[0];
+  if (first === null || typeof first !== "object") return undefined;
+  const question = first as Record<string, unknown>;
+  return inputString(question, ["header", "question", "label"]);
+}
+
+function toolSummaryTarget(part: ToolPartData): string {
+  const input = part.state.input as Record<string, unknown>;
+  const action = toolSummaryAction(part.tool);
+  const fromInput =
+    action === "run"
+      ? inputString(input, ["command", "cmd"])
+      : action === "read" || action === "edit" || action === "write"
+        ? inputString(input, ["filePath", "file_path", "path"])
+        : action === "search"
+          ? inputString(input, ["pattern", "query"])
+          : action === "ask"
+            ? questionTarget(input)
+            : undefined;
+  if (fromInput !== undefined && fromInput.trim() !== "") return fromInput;
+
+  const title =
+    part.state.status === "running" || part.state.status === "completed"
+      ? part.state.title
+      : undefined;
+  return title !== undefined && title.toLowerCase() !== part.tool.toLowerCase() ? title : part.tool;
 }
 
 function ToolCardView(props: { card: ToolCard; part: ToolPartData }) {
@@ -104,23 +147,28 @@ const ToolPart: Component<ToolPartProps> = (props) => {
   const duration = createMemo(() => durationLabel(props.part.state, now()));
   const detailPart = createMemo(() => loadedPart() ?? props.part);
   const card = createMemo(() => resolveToolCard(detailPart().tool));
+  const summary = createMemo(() => {
+    const action = toolSummaryAction(props.part.tool);
+    const target = toolSummaryTarget(props.part);
+    return t(`messages:toolSummary${action[0].toUpperCase()}${action.slice(1)}`, { target });
+  });
 
   return (
     <div
       data-testid="tool-part"
       data-status={status()}
-      class={`my-1 overflow-hidden rounded-md bg-bg-sunken/50${statusBgClass[status()] !== "" ? " " + statusBgClass[status()] : ""}`}
+      class={`my-1 min-w-0 rounded-md bg-bg-sunken/50${statusBgClass[status()] !== "" ? " " + statusBgClass[status()] : ""}`}
     >
       <button
         type="button"
         data-testid="tool-toggle"
         aria-expanded={expanded()}
-        class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+        class="relative flex min-w-0 w-full items-start gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
         onClick={toggleExpanded}
       >
         <span
           aria-hidden
-          class={`inline-block shrink-0 text-fg-faint transition-transform ${
+          class={`mt-px inline-block shrink-0 text-fg-faint transition-transform ${
             expanded() ? "rotate-90" : ""
           }`}
         >
@@ -128,14 +176,18 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         </span>
         <StatusIcon status={status()} />
         <ToolIcon tool={props.part.tool} />
-        <span class="truncate font-code font-medium text-fg-primary">{props.part.tool}</span>
+        <span
+          data-testid="tool-summary"
+          class="min-w-0 flex-1 break-words font-code font-medium leading-relaxed text-fg-primary"
+        >
+          {summary()}
+        </span>
         <Show when={duration() !== undefined}>
-          <span data-testid="tool-duration" class="shrink-0 font-code text-fg-faint">
+          <span data-testid="tool-duration" class="mt-px shrink-0 font-code text-fg-faint">
             {duration()}
           </span>
         </Show>
-        {/* IA-19: status text = action verb + tool name for context */}
-        <span data-testid="tool-status-label" class="ml-auto shrink-0 text-fg-faint">
+        <span data-testid="tool-status-label" class="sr-only">
           {t(statusLabelKey[status()], { tool: props.part.tool })}
         </span>
         <Show when={status() === "running"}>
