@@ -289,6 +289,7 @@
     "activityWorkingFor": "Processing for {{duration}}",
     "activityWorkedFor": "Took {{duration}}",
     "activityWaitingForModel": "Waiting for model response",
+    "activityStopped": "Stopped",
     "activityWaitingForApproval": "Waiting for your approval",
     "activityWaitingForAnswer": "Waiting for your answer",
     "activityRunningCount_one": "Running {{count}} tool",
