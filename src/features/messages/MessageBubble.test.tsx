@@ -349,6 +349,33 @@ describe("MessageBubble", () => {
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
   });
 
+  it("reports a MessageAbortedError run as stopped, not completed", () => {
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_abort_r",
+      sessionID: SESSION,
+      messageID: "msg_abort",
+      type: "reasoning",
+      text: "partial reasoning",
+      time: { start: 1, end: 2 },
+    } as never);
+    upsertMessage(SERVER, SESSION, {
+      ...assistantMessage("msg_abort", "msg_user"),
+      time: { created: 2000 },
+      error: { name: "MessageAbortedError", data: { message: "aborted by user" } },
+    } as Message);
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_abort"
+        partIds={["prt_abort_r"]}
+      />
+    ));
+    const fold = screen.getByTestId("process-fold");
+    expect(fold).toHaveAttribute("data-status", "stopped");
+    expect(fold).toHaveAttribute("data-active", "false");
+  });
+
   it("does not render an AI badge for assistant messages", () => {
     applyTextDelta(SERVER, SESSION, {
       messageID: "msg_assistant",

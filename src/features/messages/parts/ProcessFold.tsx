@@ -232,7 +232,9 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     if (failed()) {
       const entries = trace();
       const latest = entries[entries.length - 1];
-      return latest?.kind === "retry"
+      // "Retrying" describes ongoing work; a finished run whose last entry
+      // is a retry keeps the attention label instead.
+      return active() && latest?.kind === "retry"
         ? t("messages:retrying")
         : t("messages:activityNeedsAttention");
     }

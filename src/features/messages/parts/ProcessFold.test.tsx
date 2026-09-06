@@ -206,9 +206,13 @@ describe("ProcessFold", () => {
     expect(screen.getByTestId("process-fold")).toHaveAttribute("data-status", "stopped");
   });
 
-  it("labels a latest-activity retry as retrying, not attention", () => {
-    render(() => <ProcessFold parts={[retryPart()]} runKey="retry-header" />);
-    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Retrying");
+  it("labels an active retry as retrying and a finished one as attention", () => {
+    const live = render(() => <ProcessFold active parts={[retryPart()]} runKey="retry-live" />);
+    expect(live.getByTestId("process-fold-status")).toHaveTextContent("Retrying");
+    live.unmount();
+
+    const done = render(() => <ProcessFold parts={[retryPart()]} runKey="retry-done" />);
+    expect(done.getByTestId("process-fold-status")).toHaveTextContent("attention");
   });
 
   it("stops the sweep when the run finishes", async () => {
