@@ -89,7 +89,10 @@ exports[`SubtaskPart snapshot > matches the fixture's subtask part 1`] = `
         </span>
       </span>
     </button>
-    
+    <div
+      aria-hidden="true"
+      class="chat-disclosure"
+    />
   </div>
 </div>
 `;

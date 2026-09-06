@@ -222,6 +222,8 @@
     "noMessagesHint": "Send a prompt to start the conversation.",
     "compacted": "Context compacted",
     "compactionContinued": "Continuing with a shorter context.",
+    "expandUserMessage": "Show full message",
+    "collapseUserMessage": "Show less",
     "contextOverflowed": "Context overflowed",
     "loadingMessages": "Loading messages…",
     "newMessagesJump": "New messages ↓",

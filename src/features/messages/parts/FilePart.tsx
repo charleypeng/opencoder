@@ -12,6 +12,7 @@
 
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
 
@@ -166,7 +167,7 @@ const FilePart: Component<FilePartProps> = (props) => {
           </span>
         </Show>
       </button>
-      <Show when={hasContent() && expanded()}>
+      <AnimatedDisclosure open={hasContent() && expanded()}>
         <div data-testid="file-preview" class="border-t border-bg-sunken px-2 py-2">
           <Show when={kind() === "image" && mediaSrc() !== undefined}>
             <img
@@ -194,7 +195,7 @@ const FilePart: Component<FilePartProps> = (props) => {
             </pre>
           </Show>
         </div>
-      </Show>
+      </AnimatedDisclosure>
     </div>
   );
 };

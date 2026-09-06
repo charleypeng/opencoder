@@ -47,7 +47,10 @@ exports[`CompactionPart snapshot > matches the fixture's compaction part 1`] = `
         ▸
       </span>
     </button>
-    
+    <div
+      aria-hidden="true"
+      class="chat-disclosure"
+    />
   </div>
 </div>
 `;

@@ -9,6 +9,7 @@ import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 
 export type CompactionPartData = Extract<Part, { type: "compaction" }>;
 
@@ -79,7 +80,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
           </span>
         </button>
       </Show>
-      <Show when={hasDetail() && expanded()}>
+      <AnimatedDisclosure open={hasDetail() && expanded()}>
         <div
           data-testid="compaction-detail"
           class="flex flex-col gap-0.5 border-t border-bg-sunken px-2 py-1.5 text-fg-faint"
@@ -96,7 +97,7 @@ const CompactionPart: Component<CompactionPartProps> = (props) => {
             </span>
           </Show>
         </div>
-      </Show>
+      </AnimatedDisclosure>
     </div>
   );
 };

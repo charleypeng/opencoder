@@ -443,11 +443,15 @@ describe.each(SNAPSHOT_PARTS)("ToolPart snapshot: %s", (_name, part) => {
   it("matches the expanded card", () => {
     const { container } = render(() => <ToolPart part={part} />);
     fireEvent.click(screen.getByTestId("tool-toggle"));
+    const blankTextNodes: Node[] = [];
     container.querySelectorAll<HTMLElement>("*").forEach((element) => {
       element.childNodes.forEach((node) => {
-        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim() === "") node.remove();
+        if (node.nodeType === Node.TEXT_NODE && node.textContent?.trim() === "") {
+          blankTextNodes.push(node);
+        }
       });
     });
+    blankTextNodes.forEach((node) => node.parentNode?.removeChild(node));
     expect(container).toMatchSnapshot();
   });
 });

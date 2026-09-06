@@ -9,6 +9,7 @@
 
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
 import { AgentChip } from "./AgentPart.js";
@@ -70,7 +71,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
           <AgentChip name={props.part.agent} />
         </span>
       </button>
-      <Show when={expanded()}>
+      <AnimatedDisclosure open={expanded()}>
         <div data-testid="subtask-body" class="border-t border-bg-sunken px-2 py-2 text-xs">
           <p
             data-testid="subtask-description"
@@ -109,7 +110,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
             </button>
           </Show>
         </div>
-      </Show>
+      </AnimatedDisclosure>
     </div>
   );
 };

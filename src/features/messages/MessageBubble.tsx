@@ -11,7 +11,7 @@
 // rendered at the end of its LAST text part (see TextPart streaming prop).
 
 import { createMemo, For, Show } from "solid-js";
-import type { Component } from "solid-js";
+import type { Component, ParentProps } from "solid-js";
 import { Dynamic } from "solid-js/web";
 import { useT } from "../../i18n/index.js";
 import { messages } from "../../stores/messages.js";
@@ -26,6 +26,9 @@ import RetryPart from "./parts/RetryPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
 import TextPart from "./parts/TextPart.js";
 import ProcessFold from "./parts/ProcessFold.js";
+import UserMessageContent from "./UserMessageContent.js";
+
+const PlainContent = (props: ParentProps) => <>{props.children}</>;
 
 export interface MessageBubbleProps {
   /** The server whose session is shown. */
@@ -288,19 +291,24 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                   streaming={props.streaming === true}
                 />
               </Show>
-              <For each={contentPartIds()}>
-                {(partId) => {
-                  const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
-                  return (
-                    <PartView
-                      part={part()}
-                      streaming={props.typing === true && lastTextPartId() === partId}
-                      onRevert={props.onRevert}
-                      onOpenChild={props.onOpenChild}
-                    />
-                  );
-                }}
-              </For>
+              <Dynamic
+                component={user() ? UserMessageContent : PlainContent}
+                messageKey={`user:${props.serverId}:${props.sessionId}:${props.messageID}`}
+              >
+                <For each={contentPartIds()}>
+                  {(partId) => {
+                    const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
+                    return (
+                      <PartView
+                        part={part()}
+                        streaming={props.typing === true && lastTextPartId() === partId}
+                        onRevert={props.onRevert}
+                        onOpenChild={props.onOpenChild}
+                      />
+                    );
+                  }}
+                </For>
+              </Dynamic>
               <Show when={!user() && props.runActive !== true}>
                 <RunOutcome
                   parts={runParts()}

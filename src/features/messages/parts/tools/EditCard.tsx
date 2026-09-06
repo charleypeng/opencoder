@@ -72,10 +72,7 @@ const EditCard: ToolCard = (props) => {
                       ? "bg-danger/15 text-danger"
                       : "text-fg-secondary"
                 }`}
-              >
-                {row.kind === "add" ? "+ " : row.kind === "del" ? "- " : "  "}
-                {row.text}
-              </div>
+              >{`${row.kind === "add" ? "+ " : row.kind === "del" ? "- " : "  "}${row.text}`}</div>
             )}
           </For>
         </div>

@@ -5,6 +5,12 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 变更
+
+- feat(messages): 为运行状态添加克制的扫光和聊天折叠过渡，并按当前宽度与缩放后的实际高度，将长用户消息收为可展开的预览。 (messages)
+
 ## [1.2.1] - 2026-09-04
 
 ### 修复

@@ -71,51 +71,55 @@ exports[`ToolPart snapshot: bash > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-25"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
-        data-testid="tool-terminal"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-25"
       >
         <div
-          class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
-        >
-          <span
-            class="truncate text-fg-faint"
-          >
-            Terminal
-          </span>
-          <button
-            class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-            data-testid="tool-copy"
-            type="button"
-          >
-            Copy
-          </button>
-        </div>
-        <div
-          class="space-y-1 px-2 py-1.5"
+          class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
+          data-testid="tool-terminal"
         >
           <div
-            class="text-fg-primary"
+            class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
           >
             <span
-              class="select-none text-success"
+              class="truncate text-fg-faint"
             >
-              $ 
+              Terminal
             </span>
-            ls src
+            <button
+              class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-testid="tool-copy"
+              type="button"
+            >
+              Copy
+            </button>
           </div>
-          <pre
-            class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+          <div
+            class="space-y-1 px-2 py-1.5"
           >
-            auth/
+            <div
+              class="text-fg-primary"
+            >
+              <span
+                class="select-none text-success"
+              >
+                $ 
+              </span>
+              ls src
+            </div>
+            <pre
+              class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+            >
+              auth/
 components/
 
-          </pre>
-          
+            </pre>
+          </div>
         </div>
       </div>
     </div>
@@ -191,44 +195,47 @@ exports[`ToolPart snapshot: edit > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-26"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="space-y-1"
-        data-testid="tool-diff"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-26"
       >
         <div
-          class="flex items-center justify-between gap-2"
-        >
-          <span
-            class="truncate font-code text-xs text-fg-secondary"
-          >
-            src/auth/login.ts
-          </span>
-          <button
-            class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-            data-testid="tool-copy"
-            type="button"
-          >
-            Copy
-          </button>
-        </div>
-        <div
-          class="max-h-80 overflow-y-auto rounded-sm bg-bg-sunken px-2 py-1 font-code text-xs leading-relaxed"
+          class="space-y-1"
+          data-testid="tool-diff"
         >
           <div
-            class="whitespace-pre-wrap break-words px-1 bg-danger/15 text-danger"
+            class="flex items-center justify-between gap-2"
           >
-            - 
-              return false;
+            <span
+              class="truncate font-code text-xs text-fg-secondary"
+            >
+              src/auth/login.ts
+            </span>
+            <button
+              class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-testid="tool-copy"
+              type="button"
+            >
+              Copy
+            </button>
           </div>
           <div
-            class="whitespace-pre-wrap break-words px-1 bg-success/15 text-success"
+            class="max-h-80 overflow-y-auto rounded-sm bg-bg-sunken px-2 py-1 font-code text-xs leading-relaxed"
           >
-            + 
-              return true;
+            <div
+              class="whitespace-pre-wrap break-words px-1 bg-danger/15 text-danger"
+            >
+              -   return false;
+            </div>
+            <div
+              class="whitespace-pre-wrap break-words px-1 bg-success/15 text-success"
+            >
+              +   return true;
+            </div>
           </div>
         </div>
       </div>
@@ -305,34 +312,39 @@ exports[`ToolPart snapshot: glob > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-29"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="space-y-1"
-        data-testid="tool-list"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-29"
       >
         <div
-          class="flex items-center justify-between gap-2"
+          class="space-y-1"
+          data-testid="tool-list"
         >
-          <span
-            class="truncate font-code text-xs text-fg-secondary"
+          <div
+            class="flex items-center justify-between gap-2"
           >
-            src/**/*.ts
-          </span>
-          <span
-            class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
+            <span
+              class="truncate font-code text-xs text-fg-secondary"
+            >
+              src/**/*.ts
+            </span>
+            <span
+              class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
+            >
+              2 files
+            </span>
+          </div>
+          <pre
+            class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
           >
-            2 files
-          </span>
-        </div>
-        <pre
-          class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-        >
-          src/auth/login.ts
+            src/auth/login.ts
 src/auth/session.ts
-        </pre>
+          </pre>
+        </div>
       </div>
     </div>
   </div>
@@ -412,33 +424,38 @@ exports[`ToolPart snapshot: grep > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-30"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="space-y-1"
-        data-testid="tool-list"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-30"
       >
         <div
-          class="flex items-center justify-between gap-2"
+          class="space-y-1"
+          data-testid="tool-list"
         >
-          <span
-            class="truncate font-code text-xs text-fg-secondary"
+          <div
+            class="flex items-center justify-between gap-2"
           >
-            TODO
-          </span>
-          <span
-            class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
+            <span
+              class="truncate font-code text-xs text-fg-secondary"
+            >
+              TODO
+            </span>
+            <span
+              class="shrink-0 rounded-sm bg-accent-soft px-1.5 py-0.5 text-[10px] text-accent"
+            >
+              1 match
+            </span>
+          </div>
+          <pre
+            class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
           >
-            1 match
-          </span>
+            src/auth/login.ts:12: // TODO: rate limit
+          </pre>
         </div>
-        <pre
-          class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-        >
-          src/auth/login.ts:12: // TODO: rate limit
-        </pre>
       </div>
     </div>
   </div>
@@ -520,38 +537,43 @@ exports[`ToolPart snapshot: read > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-27"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="space-y-1"
-        data-testid="tool-code"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-27"
       >
         <div
-          class="flex items-center justify-between gap-2"
+          class="space-y-1"
+          data-testid="tool-code"
         >
-          <span
-            class="truncate font-code text-xs text-fg-secondary"
+          <div
+            class="flex items-center justify-between gap-2"
           >
-            src/auth/session.ts
-          </span>
-          <button
-            class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-            data-testid="tool-copy"
-            type="button"
+            <span
+              class="truncate font-code text-xs text-fg-secondary"
+            >
+              src/auth/session.ts
+            </span>
+            <button
+              class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-testid="tool-copy"
+              type="button"
+            >
+              Copy
+            </button>
+          </div>
+          <pre
+            class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
           >
-            Copy
-          </button>
-        </div>
-        <pre
-          class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-        >
-          export const session = {
+            export const session = {
   id: 'ses_1',
 };
 
-        </pre>
+          </pre>
+        </div>
       </div>
     </div>
   </div>
@@ -636,35 +658,40 @@ exports[`ToolPart snapshot: write > matches the expanded card 1`] = `
       </span>
     </button>
     <div
-      class="reply-tool-detail mt-1 space-y-2"
-      data-testid="tool-detail"
-      id="cl-28"
+      aria-hidden="false"
+      class="chat-disclosure"
     >
       <div
-        class="space-y-1"
-        data-testid="tool-code"
+        class="reply-tool-detail mt-1 space-y-2"
+        data-testid="tool-detail"
+        id="cl-28"
       >
         <div
-          class="flex items-center justify-between gap-2"
+          class="space-y-1"
+          data-testid="tool-code"
         >
-          <span
-            class="truncate font-code text-xs text-fg-secondary"
+          <div
+            class="flex items-center justify-between gap-2"
           >
-            src/auth/api.ts
-          </span>
-          <button
-            class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-            data-testid="tool-copy"
-            type="button"
+            <span
+              class="truncate font-code text-xs text-fg-secondary"
+            >
+              src/auth/api.ts
+            </span>
+            <button
+              class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+              data-testid="tool-copy"
+              type="button"
+            >
+              Copy
+            </button>
+          </div>
+          <pre
+            class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
           >
-            Copy
-          </button>
+            export const api = { login: () =&gt; {} };
+          </pre>
         </div>
-        <pre
-          class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary"
-        >
-          export const api = { login: () =&gt; {} };
-        </pre>
       </div>
     </div>
   </div>

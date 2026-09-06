@@ -14,6 +14,7 @@
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
 import { getApiClient } from "../../../services/client.js";
@@ -178,7 +179,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
                   ▸
                 </span>
               </button>
-              <Show when={expandedFile() === file}>
+              <AnimatedDisclosure open={expandedFile() === file}>
                 <div class="border-t border-bg-sunken">
                   <Show
                     when={diffState().kind !== "loading"}
@@ -220,7 +221,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
                     </Show>
                   </Show>
                 </div>
-              </Show>
+              </AnimatedDisclosure>
             </li>
           )}
         </For>

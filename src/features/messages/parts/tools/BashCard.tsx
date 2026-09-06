@@ -8,6 +8,15 @@ import { CopyButton, inputString, outputText } from "./shared.js";
 import type { ToolCard } from "./shared.js";
 import { useT } from "../../../../i18n/index.js";
 
+function BashOutput(props: { text: string }) {
+  return (
+    <pre
+      class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+      textContent={props.text}
+    />
+  );
+}
+
 const BashCard: ToolCard = (props) => {
   const t = useT();
   const command = () => inputString(props.part.state.input, ["command", "cmd"]);
@@ -36,11 +45,7 @@ const BashCard: ToolCard = (props) => {
             {command()}
           </div>
         </Show>
-        <Show when={output().length > 0}>
-          <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary">
-            {output()}
-          </pre>
-        </Show>
+        {output().length > 0 ? <BashOutput text={output()} /> : null}
         <Show when={props.part.state.status === "completed" && output().length === 0}>
           <span data-testid="tool-no-output" class="text-fg-faint">
             {t("messages:toolNoOutput")}

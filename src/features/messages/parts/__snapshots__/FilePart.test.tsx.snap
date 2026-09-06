@@ -57,7 +57,10 @@ exports[`FilePart snapshot > matches the fixture's file part (no inline content)
         Content unavailable
       </span>
     </button>
-    
+    <div
+      aria-hidden="true"
+      class="chat-disclosure"
+    />
   </div>
 </div>
 `;

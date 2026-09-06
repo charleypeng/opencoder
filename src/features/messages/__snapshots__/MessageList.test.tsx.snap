@@ -38,15 +38,25 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                 class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
               >
                 <div
-                  data-testid="text-part"
+                  class="user-message-content"
+                  data-collapsed="false"
+                  data-testid="user-message-content"
+                  id="cl-96"
+                  style="height: auto;"
                 >
-                  <div
-                    class="markdown-body text-sm leading-relaxed"
-                    data-testid="markdown-text"
-                  >
-                    <p>
-                      Add a login flow with password-based auth.
-                    </p>
+                  <div>
+                    <div
+                      data-testid="text-part"
+                    >
+                      <div
+                        class="markdown-body text-sm leading-relaxed"
+                        data-testid="markdown-text"
+                      >
+                        <p>
+                          Add a login flow with password-based auth.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -155,6 +165,10 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             The client needs a login form, a session store, and an auth API call.
                           </span>
                         </button>
+                        <div
+                          aria-hidden="true"
+                          class="chat-disclosure"
+                        />
                       </div>
                       <div
                         class="reply-activity-entry min-w-0 "
@@ -169,7 +183,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           data-testid="tool-part"
                         >
                           <button
-                            aria-controls="cl-31"
+                            aria-controls="cl-98"
                             aria-expanded="true"
                             class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
@@ -232,51 +246,56 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             </span>
                           </button>
                           <div
-                            class="reply-tool-detail mt-1 space-y-2"
-                            data-testid="tool-detail"
-                            id="cl-31"
+                            aria-hidden="false"
+                            class="chat-disclosure"
                           >
                             <div
-                              class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
-                              data-testid="tool-terminal"
+                              class="reply-tool-detail mt-1 space-y-2"
+                              data-testid="tool-detail"
+                              id="cl-98"
                             >
                               <div
-                                class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
-                              >
-                                <span
-                                  class="truncate text-fg-faint"
-                                >
-                                  Terminal
-                                </span>
-                                <button
-                                  class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                                  data-testid="tool-copy"
-                                  type="button"
-                                >
-                                  Copy
-                                </button>
-                              </div>
-                              <div
-                                class="space-y-1 px-2 py-1.5"
+                                class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
+                                data-testid="tool-terminal"
                               >
                                 <div
-                                  class="text-fg-primary"
+                                  class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
                                 >
                                   <span
-                                    class="select-none text-success"
+                                    class="truncate text-fg-faint"
                                   >
-                                    $ 
+                                    Terminal
                                   </span>
-                                  ls src
+                                  <button
+                                    class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                                    data-testid="tool-copy"
+                                    type="button"
+                                  >
+                                    Copy
+                                  </button>
                                 </div>
-                                <pre
-                                  class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                <div
+                                  class="space-y-1 px-2 py-1.5"
                                 >
-                                  auth/
+                                  <div
+                                    class="text-fg-primary"
+                                  >
+                                    <span
+                                      class="select-none text-success"
+                                    >
+                                      $ 
+                                    </span>
+                                    ls src
+                                  </div>
+                                  <pre
+                                    class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                  >
+                                    auth/
 components/
 services/
 
-                                </pre>
+                                  </pre>
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -336,15 +355,25 @@ services/
                 class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
               >
                 <div
-                  data-testid="text-part"
+                  class="user-message-content"
+                  data-collapsed="false"
+                  data-testid="user-message-content"
+                  id="cl-99"
+                  style="height: auto;"
                 >
-                  <div
-                    class="markdown-body text-sm leading-relaxed"
-                    data-testid="markdown-text"
-                  >
-                    <p>
-                      Also add a logout button to the sidebar.
-                    </p>
+                  <div>
+                    <div
+                      data-testid="text-part"
+                    >
+                      <div
+                        class="markdown-body text-sm leading-relaxed"
+                        data-testid="markdown-text"
+                      >
+                        <p>
+                          Also add a logout button to the sidebar.
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               </div>

@@ -271,7 +271,9 @@
   display: grid;
   grid-template-rows: 0fr;
   visibility: hidden;
+  opacity: 0;
   transition:
+    opacity var(--dur-med) ease,
     grid-template-rows var(--dur-med) var(--ease-spring),
     visibility 0s var(--dur-med);
 }
@@ -279,7 +281,9 @@
 .reply-activity-body[data-expanded="true"] {
   grid-template-rows: 1fr;
   visibility: visible;
+  opacity: 1;
   transition:
+    opacity var(--dur-med) ease,
     grid-template-rows var(--dur-med) var(--ease-spring),
     visibility 0s 0s;
 }
@@ -293,7 +297,60 @@
 
 /* Nested tool cards can disclose output after the trace itself opens. */
 .reply-activity-body[data-expanded="true"] > div {
-  overflow: visible;
+  overflow: hidden;
+}
+
+.chat-disclosure {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.user-message-content {
+  min-width: 0;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.user-message-content[data-collapsed="true"] {
+  mask-image: linear-gradient(to bottom, #000 75%, transparent);
+}
+
+/* A restrained highlight travels through live status text only. */
+.chat-status-shimmer {
+  color: var(--fg-secondary);
+  background-image: linear-gradient(
+    100deg,
+    var(--fg-secondary) 35%,
+    var(--fg-primary) 48%,
+    var(--fg-secondary) 61%
+  );
+  background-size: 240% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: chat-status-light 2.4s linear infinite;
+}
+
+@keyframes chat-status-light {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-status-shimmer {
+    animation: none;
+    background: none;
+    -webkit-text-fill-color: currentColor;
+  }
+  .reply-activity-body,
+  .reply-activity-body[data-expanded="true"] {
+    transition: none;
+  }
 }
 
 .reply-activity-progress .markdown-body {

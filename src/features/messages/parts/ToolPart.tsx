@@ -12,6 +12,7 @@ import {
   untrack,
 } from "solid-js";
 import type { Component, JSX } from "solid-js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 import { createMessageService } from "../../../services/message.js";
 import { getApiClient } from "../../../services/client.js";
 import type { Part } from "../../../stores/messages.js";
@@ -220,6 +221,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         <ToolIcon tool={props.part.tool} />
         <span
           data-testid="tool-summary"
+          classList={{ "chat-status-shimmer": status() === "running" || status() === "pending" }}
           class={`min-w-0 flex-1 font-code text-fg-secondary ${
             isExpanded() ? "whitespace-pre-wrap break-words" : "truncate"
           }`}
@@ -235,7 +237,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
           {t(statusLabelKey[status()], { tool: props.part.tool })}
         </span>
       </button>
-      <Show when={isExpanded()}>
+      <AnimatedDisclosure open={isExpanded()}>
         <div id={detailId} data-testid="tool-detail" class="reply-tool-detail mt-1 space-y-2">
           {detailState() === "loading" ? (
             <span data-testid="tool-detail-loading" class="text-xs text-fg-faint">
@@ -256,7 +258,7 @@ const ToolPart: Component<ToolPartProps> = (props) => {
             </div>
           </Show>
         </div>
-      </Show>
+      </AnimatedDisclosure>
     </div>
   );
 };

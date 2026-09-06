@@ -28,6 +28,7 @@ import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart.js";
 import RetryPart, { type RetryPartData } from "./RetryPart.js";
 import TextPart, { type TextPartData } from "./TextPart.js";
 import ToolPart, { type ToolPartData } from "./ToolPart.js";
+import AnimatedDisclosure from "../AnimatedDisclosure.js";
 
 export interface ProcessFoldProps {
   /** Observable parts belonging to one assistant run. */
@@ -76,6 +77,7 @@ function ThoughtDisclosure(props: {
   entry: ActivityEntry;
   t: ReturnType<typeof useT>;
   expanded: boolean;
+  active: boolean;
   onToggle: () => void;
 }) {
   return (
@@ -95,16 +97,19 @@ function ThoughtDisclosure(props: {
         >
           ▸
         </span>
-        <span class="max-w-[35%] truncate font-medium text-fg-secondary">
+        <span
+          class="max-w-[35%] truncate font-medium text-fg-secondary"
+          classList={{ "chat-status-shimmer": props.active && props.entry.status === "active" }}
+        >
           {entryTitle(props.t, props.entry)}
         </span>
         <Show when={props.entry.preview !== undefined}>
           <span class="min-w-0 flex-1 truncate text-fg-faint">{props.entry.preview}</span>
         </Show>
       </button>
-      <Show when={props.expanded}>
+      <AnimatedDisclosure open={props.expanded}>
         <ReasoningPart part={props.entry.part as ReasoningPartData} />
-      </Show>
+      </AnimatedDisclosure>
     </>
   );
 }
@@ -143,9 +148,8 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
 
   const active = createMemo(
     () =>
-      props.active === true ||
-      props.streaming === true ||
-      trace().some((entry) => entry.status === "active"),
+      props.active ??
+      (props.streaming === true || trace().some((entry) => entry.status === "active")),
   );
   const failed = createMemo(() => trace().some((entry) => entry.status === "failed"));
   const hasDetails = createMemo(() => trace().length > 0);
@@ -196,11 +200,18 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
             </span>
           ) : null}
         </span>
-        <span data-testid="process-fold-status" class="min-w-0 truncate text-fg-secondary">
+        <span
+          data-testid="process-fold-status"
+          class="min-w-0 truncate text-fg-secondary"
+          classList={{ "chat-status-shimmer": active() && !failed() }}
+        >
           {statusLabel()}
         </span>
         <Show when={!hasDetails() && active()}>
-          <span data-testid="process-fold-wait" class="min-w-0 truncate text-fg-faint">
+          <span
+            data-testid="process-fold-wait"
+            class="chat-status-shimmer min-w-0 truncate text-fg-secondary"
+          >
             {t("messages:activityWaitingForModel")}
           </span>
         </Show>
@@ -233,6 +244,7 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
                       entry={entry}
                       t={t}
                       expanded={entryExpanded(entry.id)}
+                      active={active()}
                       onToggle={() => toggleEntry(entry.id)}
                     />
                   </Show>

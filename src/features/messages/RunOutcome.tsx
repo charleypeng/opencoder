@@ -7,6 +7,7 @@ import { useT } from "../../i18n/index.js";
 import DiffFileGroup, { type DiffFileEntry } from "../vcs/DiffFileGroup.js";
 import { type DiffMode } from "../vcs/diffLines.js";
 import { deriveRunOutcome } from "./activity/agentRun.js";
+import AnimatedDisclosure from "./AnimatedDisclosure.js";
 
 export interface RunOutcomeProps {
   parts: Array<Part | undefined>;
@@ -141,7 +142,7 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                 </button>
               </Show>
             </div>
-            <Show when={filesExpanded()}>
+            <AnimatedDisclosure open={filesExpanded()}>
               <div
                 data-testid="run-files"
                 class="mt-1 overflow-hidden rounded-md border border-bg-sunken"
@@ -194,14 +195,14 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                                   ▸
                                 </span>
                               </button>
-                              <Show when={expanded()}>
+                              <AnimatedDisclosure open={expanded()}>
                                 <DiffFileGroup
                                   entry={file}
                                   mode={"unified" satisfies DiffMode}
                                   expanded={expandedFolds}
                                   toggleFold={toggleFold}
                                 />
-                              </Show>
+                              </AnimatedDisclosure>
                             </li>
                           );
                         }}
@@ -210,7 +211,7 @@ const RunOutcome: Component<RunOutcomeProps> = (props) => {
                   </Show>
                 </Show>
               </div>
-            </Show>
+            </AnimatedDisclosure>
           </div>
         </Show>
       </div>

@@ -222,6 +222,8 @@
     "noMessagesHint": "发送一条提示词开始对话。",
     "compacted": "上下文已压缩",
     "compactionContinued": "将在更短的上下文中继续。",
+    "expandUserMessage": "展开全文",
+    "collapseUserMessage": "收起",
     "contextOverflowed": "上下文已超出限制",
     "loadingMessages": "加载消息中…",
     "newMessagesJump": "新消息 ↓",
