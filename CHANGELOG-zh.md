@@ -5,7 +5,23 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.2.1] - 2026-09-04
+
+### 修复
+
+- fix(messages)：打开工具卡时获取消息接口中的完整 parts，确保流式工具数据不完整时 bash 和 edit 仍能显示详情。(messages)
+- fix(messages)：移除已完成运行结果中冗余的重要命令摘要。(messages)
+- fix(messages)：将活动轨迹中的嵌套工具输出折叠收敛为明确的单一可点击行。(messages)
+- fix(messages)：允许已展开活动轨迹内的工具卡继续展开输出，并移除聊天消息中冗余的 AI 标签。(messages)
+- fix(messages)：从聊天记录中移除冗余的补丁事件卡片，同时保留其数据供运行摘要显示 diff。(messages)
+- fix(messages)：完成运行的多文件摘要改为一次只展开用户选中的一个 diff，避免内容同时堆叠。(messages)
+- fix(sessions)：将溢出会话标题的走马灯速度在现有基础上再提高 20%。(sessions)
+- fix(messages)：展开运行摘要时获取行级补丁内容，并合并绝对补丁路径与相对 diff 路径。(messages)
+- fix(desktop)：展开已完成任务时直接显示内联 diff，将完整审查显示在右侧工作区面板，并移除右侧分隔条的固定宽度限制。(desktop)
+- fix(messages)：补丁事件使用绝对路径时也显示 diff，为附件按钮增加明显的悬停反馈，并移除冗余的流式进度线。(messages)
+- fix(ui)：将桌面界面缩放基准调整为 100% 等于原 120% 的视觉大小，并将会话行简化为仅显示标题。(ui)
+- fix(sessions)：优化打开工作区的文件夹描边，将会话标题缩小，并加快溢出标题的滚动浏览速度。(sessions)
+- fix(sessions)：展开的工作区显示打开文件夹图标，悬停或聚焦时显示被截断的会话标题，避免输入法 Enter 确认提前发送，并在回退后将用户消息恢复到输入框。(sessions)
 
 ### 变更
 
