@@ -270,8 +270,10 @@ const MessageList: Component<MessageListProps> = (props) => {
 
   // History fetch: re-runs on session/server change and on retry. A version
   // counter rejects stale responses so fast session switches can't apply
-  // the wrong history. Only the MOST RECENT page is fetched here — older
-  // pages load lazily via loadEarlier on top-reach (TASK-M3-05).
+  // the wrong history. Most sessions fetch the most recent page and load
+  // older pages on top-reach; a compaction marker additionally restores all
+  // older pages so a restart never makes pre-compaction conversation appear
+  // to have disappeared.
   createEffect(() => {
     // Reactive keys: the reads re-run this effect on session/server change.
     void props.serverId;
@@ -282,15 +284,25 @@ const MessageList: Component<MessageListProps> = (props) => {
     setError(null);
     setPaused(false);
     setHasNew(false);
+    lastGroupCount = 0;
+    lastDeltaStamp = 0;
+    lastFollowTarget = -1;
+    list.scrollTo(0);
     let cancelled = false;
     onCleanup(() => {
       cancelled = true;
     });
     void (async () => {
       try {
-        await pagination.loadInitial();
+        const initial = await pagination.loadInitial();
         if (cancelled || version !== fetchVersion) return;
         setLoading(false);
+        scheduleLayoutFollow();
+        if (initial.containsCompaction) {
+          void restoreCompactedHistory(version, () => cancelled).then(() => {
+            if (!cancelled && version === fetchVersion) scheduleLayoutFollow();
+          });
+        }
       } catch (err) {
         if (cancelled || version !== fetchVersion) return;
         setError(ApiError.fromUnknown(err));
@@ -308,29 +320,40 @@ const MessageList: Component<MessageListProps> = (props) => {
   // inserted rows' heights (real ones once they mount and measure, the
   // estimate otherwise) — never stale heights of the shifted rows.
   // Earlier-load failures stay silent: the next top-reach simply retries.
-  async function loadEarlier() {
-    if (pagination.loadingEarlier() || !pagination.hasMore()) return;
+  async function loadEarlier(): Promise<number> {
+    if (pagination.loadingEarlier() || !pagination.hasMore()) return 0;
     const el = scrollRef;
     const anchorTop = el?.scrollTop ?? list.scrollTop();
     const beforeTotal = contentHeight();
     prepending = true;
     try {
       const inserted = await pagination.loadEarlier();
-      if (inserted === 0) return;
+      if (inserted === 0) return 0;
       // Solid flushes effects on a microtask; wait one macrotask so the new
       // rows are mounted (and measured) before the height is read.
       await new Promise((resolve) => setTimeout(resolve, 0));
       // Skip the correction if the user scrolled while the page was in
       // flight: the saved anchor no longer matches the viewport, so applying
       // the delta would yank the list against the user's scroll (flicker).
-      if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return;
+      if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return inserted;
       list.measure();
       const delta = contentHeight() - beforeTotal;
       if (delta > 0) list.scrollTo(anchorTop + delta);
+      return inserted;
     } catch {
       // Handled by the caller's retry on the next scroll.
+      return 0;
     } finally {
       prepending = false;
+    }
+  }
+
+  async function restoreCompactedHistory(version: number, isCancelled: () => boolean) {
+    // Restoration is deliberately interruptible: once the user scrolls away
+    // from the live end, preserve that reading position instead of continuing
+    // to prepend pages beneath them.
+    while (!isCancelled() && version === fetchVersion && !paused() && pagination.hasMore()) {
+      if ((await loadEarlier()) === 0) return;
     }
   }
 
@@ -359,6 +382,7 @@ const MessageList: Component<MessageListProps> = (props) => {
   // tokens stream), and equal targets are skipped (no redundant scrollTo
   // that would flicker the scrollbar / re-render the virtual rows).
   let followRaf = 0;
+  let layoutRaf = 0;
   let lastFollowTarget = -1;
   function followBottom(): void {
     const el = scrollRef;
@@ -379,6 +403,21 @@ const MessageList: Component<MessageListProps> = (props) => {
       if (next !== current.scrollTop) list.scrollTo(next, "auto");
     });
   }
+
+  // The chat pane receives its final flex height after the session shell and
+  // asynchronous history both commit. A viewport observer plus one frame
+  // after history lands keeps the virtual range aligned without requiring a
+  // user scroll event to trigger its first measurement.
+  function scheduleLayoutFollow(): void {
+    if (layoutRaf !== 0) return;
+    layoutRaf = requestAnimationFrame(() => {
+      layoutRaf = 0;
+      list.measure();
+      lastFollowTarget = -1;
+      followBottom();
+    });
+  }
+
   createEffect(() => {
     const count = groups().length;
     const stamp = messages[props.serverId]?.[props.sessionId]?.lastDeltaAt ?? 0;
@@ -404,13 +443,22 @@ const MessageList: Component<MessageListProps> = (props) => {
   });
 
   // First layout pass: read the real viewport size (also on window resize).
-  const onResize = () => list.measure();
+  // A ResizeObserver covers panel/flex changes that do not emit window.resize.
+  const onResize = () => scheduleLayoutFollow();
+  let viewportObserver: ResizeObserver | undefined;
   onMount(() => {
     list.measure();
+    scheduleLayoutFollow();
+    if (scrollRef !== undefined && typeof ResizeObserver !== "undefined") {
+      viewportObserver = new ResizeObserver(onResize);
+      viewportObserver.observe(scrollRef);
+    }
     window.addEventListener("resize", onResize);
   });
   onCleanup(() => {
     window.removeEventListener("resize", onResize);
+    viewportObserver?.disconnect();
+    if (layoutRaf !== 0) cancelAnimationFrame(layoutRaf);
   });
 
   function handleScroll(event: Event) {
@@ -539,14 +587,14 @@ const MessageList: Component<MessageListProps> = (props) => {
                         }`}
                         style={{ top: `${row().start}px` }}
                       >
-                        <div class="mx-auto w-full max-w-6xl">
+                        <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
                           <Show
                             when={row().kind !== "working"}
                             fallback={
-                              <div data-testid="agent-working" class="w-full max-w-3xl">
+                              <div data-testid="agent-working" class="w-full">
                                 <ProcessFold
                                   parts={[]}
-                                  runKey={row().key}
+                                  runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
                                   active
                                   startedAt={row().startedAt}
                                 />

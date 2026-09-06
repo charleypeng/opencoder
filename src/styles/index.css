@@ -264,47 +264,10 @@
   }
 }
 
-/*
- * M3-01 tool card affordance: the running shimmer sweep across the tool
- * card header. Pure CSS so the WebView does no per-frame work, and it
- * collapses to nothing under prefers-reduced-motion.
- */
-
-.tool-shimmer {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: linear-gradient(
-    110deg,
-    transparent 30%,
-    color-mix(in srgb, var(--accent) 12%, transparent) 50%,
-    transparent 70%
-  );
-  background-size: 200% 100%;
-  animation: tool-shimmer-sweep 1.6s linear infinite;
-}
-
-@keyframes tool-shimmer-sweep {
-  from {
-    background-position: 200% 0;
-  }
-  to {
-    background-position: -200% 0;
-  }
-}
-
-/*
- * Chat refactor: the Activity Trace (reasoning + observable operations
- * grouped below the answer). Collapse/expand animates the grid ROW height
- * (0fr -> 1fr), so
- * both directions are smooth without measuring content; the transition uses
- * the standard duration/easing tokens, and --dur-med collapses to 0ms under
- * prefers-reduced-motion (tokens.css), making the swap instant there.
- * While collapsed the body is also visibility:hidden (delayed until the
- * collapse animation finishes) so the clipped parts are not focusable or
- * clickable — the aria-hidden attribute covers screen readers.
- */
-.process-fold-body {
+/* The reply activity area stays flat so the assistant's prose remains the
+ * visual focus. Grid-row disclosure preserves mounted child state while
+ * taking no space when the run is collapsed. */
+.reply-activity-body {
   display: grid;
   grid-template-rows: 0fr;
   visibility: hidden;
@@ -313,7 +276,7 @@
     visibility 0s var(--dur-med);
 }
 
-.process-fold-body[data-expanded="true"] {
+.reply-activity-body[data-expanded="true"] {
   grid-template-rows: 1fr;
   visibility: visible;
   transition:
@@ -323,87 +286,33 @@
 
 /* The inner wrapper clips the parts while the row is collapsed; min-height
  * 0 is required for the fr track to animate down to zero. */
-.process-fold-body > div {
+.reply-activity-body > div {
   min-height: 0;
   overflow: hidden;
 }
 
 /* Nested tool cards can disclose output after the trace itself opens. */
-.process-fold-body[data-expanded="true"] > div {
+.reply-activity-body[data-expanded="true"] > div {
   overflow: visible;
 }
 
-/*
- * CHAT-TRACE-03: one restrained progress rail for the active run. The light
- * uses only transform and opacity so streamed updates do not trigger layout
- * work; completed and failed traces remain visually still.
- */
-.activity-trace {
-  position: relative;
-  overflow: hidden;
+.reply-activity-progress .markdown-body {
+  color: var(--fg-secondary);
 }
 
-.activity-trace::before,
-.activity-trace::after {
-  position: absolute;
-  left: 0;
-  z-index: 1;
-  width: 2px;
-  pointer-events: none;
-  content: "";
+.reply-activity-thought,
+.reply-tool > button {
+  transition: background-color var(--dur-fast);
 }
 
-.activity-trace::before {
-  inset-block: 0;
-  background: color-mix(in srgb, var(--fg-faint) 28%, transparent);
-}
-
-.activity-trace::after {
-  top: -35%;
-  height: 35%;
-  opacity: 0;
-  background: var(--accent);
-}
-
-.activity-trace[data-active="true"]::after {
-  opacity: 0.8;
-  animation: activity-trace-light 1.35s linear infinite;
-}
-
-.activity-trace[data-status="complete"]::before {
-  background: color-mix(in srgb, var(--success) 55%, transparent);
-}
-
-.activity-trace[data-status="error"]::before {
-  background: color-mix(in srgb, var(--danger) 70%, transparent);
-}
-
-@keyframes activity-trace-light {
-  from {
-    transform: translateY(0);
-  }
-  to {
-    transform: translateY(380%);
-  }
-}
-
-.activity-trace-timeline {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.25rem 0.5rem 0.5rem 0.75rem;
-}
-
-.activity-trace-entry {
-  border-left: 1px solid color-mix(in srgb, var(--fg-faint) 18%, transparent);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .activity-trace[data-active="true"]::after {
-    animation: none;
-    opacity: 0.8;
-    transform: translateY(25%);
-  }
+.reply-tool-detail {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  border: 1px solid color-mix(in srgb, var(--fg-faint) 18%, transparent);
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--bg-sunken) 70%, transparent);
+  padding: 0.75rem;
 }
 
 /*
@@ -722,11 +631,6 @@
   .typing-cursor {
     animation: none;
     opacity: 0.6;
-  }
-
-  .tool-shimmer {
-    animation: none;
-    background: transparent;
   }
 
   .viewer-line-flash {

@@ -32,14 +32,19 @@ const BashCard: ToolCard = (props) => {
       <div class="space-y-1 px-2 py-1.5">
         <Show when={command() !== undefined}>
           <div class="text-fg-primary">
-            <span class="select-none text-success">$ </span>
+            <span class="select-none text-success">{"$\u00a0"}</span>
             {command()}
           </div>
         </Show>
         <Show when={output().length > 0}>
-          <pre class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary">
+          <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary">
             {output()}
           </pre>
+        </Show>
+        <Show when={props.part.state.status === "completed" && output().length === 0}>
+          <span data-testid="tool-no-output" class="text-fg-faint">
+            {t("messages:toolNoOutput")}
+          </span>
         </Show>
         <Show when={exitCode() !== undefined}>
           <div class="text-fg-faint">{t("messages:exitCode", { code: exitCode() })}</div>

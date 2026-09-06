@@ -145,7 +145,12 @@ import {
   shouldAutoCheck,
 } from "../../services/updates.js";
 import { serverUpdate, clearServerUpdate } from "../../stores/serverUpdate.js";
-import RightToolPanel, { type RightToolView } from "./RightToolPanel";
+import RightToolPanel, {
+  RIGHT_PANEL_DEFAULT_WIDTH,
+  persistRightToolPanelWidth,
+  readRightToolPanelWidth,
+  type RightToolView,
+} from "./RightToolPanel";
 
 export interface DesktopShellProps {
   /** The server opened from the home screen (initially active). */
@@ -461,9 +466,15 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [settingsOpen, setSettingsOpen] = createSignal(false);
   // Right-side tools (review / files / browser): visible beside the chat to
   // establish the desktop three-column layout. The panel owns its selected
-  // tool and width; this shell coordinates maximize with the chat.
+  // tool, while this shell coordinates visibility, width recovery and
+  // maximize with the chat.
   const [internalRightToolsOpen, setInternalRightToolsOpen] = createSignal(true);
   const rightToolsOpen = () => props.rightToolsOpen ?? internalRightToolsOpen();
+  const initialRightToolsWidth = readRightToolPanelWidth();
+  const [rightToolsWidth, setRightToolsWidth] = createSignal(initialRightToolsWidth);
+  const [lastRightToolsWidth, setLastRightToolsWidth] = createSignal(
+    initialRightToolsWidth > 0 ? initialRightToolsWidth : RIGHT_PANEL_DEFAULT_WIDTH,
+  );
   const [internalRightToolsMaximized, setInternalRightToolsMaximized] = createSignal(false);
   const rightToolsMaximized = () => props.rightToolsMaximized ?? internalRightToolsMaximized();
   const [rightToolsView, setRightToolsView] = createSignal<RightToolView>("review");
@@ -489,7 +500,18 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   }
 
   function toggleRightTools(): void {
+    if (rightToolsOpen() && rightToolsWidth() === 0) {
+      updateRightToolsWidth(lastRightToolsWidth());
+      return;
+    }
     setRightToolsOpen(!rightToolsOpen());
+  }
+
+  function updateRightToolsWidth(width: number): void {
+    const next = Math.max(0, width);
+    setRightToolsWidth(next);
+    if (next > 0) setLastRightToolsWidth(next);
+    persistRightToolPanelWidth(next);
   }
 
   function setRightToolsMaximized(maximized: boolean): void {
@@ -1006,9 +1028,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     setActiveServer(props.server.id);
     void refresh();
     // Default-workspace onboarding (feat(default-workspace)): the first
-    // entry of a server with no workspace history prompts for its default
-    // workspace. Marking it shown here means a skipped prompt is remembered
-    // (no nagging on every entry); Settings → Servers can change the choice.
+    // entry of a server with no workspace history gets an in-app prompt for
+    // its default workspace. Marking it shown here remembers a skip before
+    // any native picker can be opened, preventing repeated system prompts.
     if (!hasWorkspaceHistory(props.server.id) && !wasDefaultWorkspacePrompted(props.server.id)) {
       markDefaultWorkspacePrompted(props.server.id);
       setDefaultWorkspaceOpen(true);
@@ -1442,11 +1464,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       <button
                         type="button"
                         data-testid="right-tools-toggle"
-                        aria-pressed={rightToolsOpen() ? "true" : "false"}
+                        aria-pressed={rightToolsOpen() && rightToolsWidth() > 0 ? "true" : "false"}
                         aria-label={t("desktop:openTools")}
                         title={t("desktop:toolsHint")}
                         class={`shrink-0 rounded-md p-1 outline-none transition-colors ${
-                          rightToolsOpen()
+                          rightToolsOpen() && rightToolsWidth() > 0
                             ? "text-accent"
                             : "text-fg-secondary hover:text-fg-primary"
                         }`}
@@ -1612,7 +1634,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                         }
                       }}
                     >
-                      <div class="mx-auto w-full max-w-6xl">
+                      <div class="mx-auto w-full max-w-[58rem]">
                         <TaskPanel
                           serverId={activeServerId()}
                           sessionId={activeSessionId() as string}
@@ -1763,6 +1785,8 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             filesDirectory() ?? getServerProjectState(activeServerId()).current ?? undefined
           }
           open={rightToolsOpen()}
+          width={rightToolsWidth()}
+          onWidthChange={updateRightToolsWidth}
           maximized={rightToolsMaximized()}
           view={rightToolsView()}
           onViewChange={(view) => {

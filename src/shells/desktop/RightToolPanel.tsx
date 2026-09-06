@@ -1,8 +1,8 @@
 // Right-side workspace tools (TASK-UI-12): a Codex-inspired utility panel
 // that keeps review, file browsing, and the browser entry point beside the
 // chat without taking over the primary conversation flow. The panel owns its
-// selected tool and splitter width; the shell owns visibility/maximize so
-// the main pane can yield the full workspace when requested.
+// selected tool and standalone splitter persistence; the shell can control
+// the width so a manually hidden panel always has a recovery path.
 
 import { createSignal, onCleanup, Show } from "solid-js";
 import type { Component } from "solid-js";
@@ -21,6 +21,10 @@ export interface RightToolPanelProps {
   directory?: string;
   /** Whether the tool panel content is expanded. */
   open: boolean;
+  /** Optional shell-owned width, used to restore a manually zeroed panel. */
+  width?: number;
+  /** Receives splitter changes when the shell controls the panel width. */
+  onWidthChange?: (width: number) => void;
   /** Opens or collapses the tool panel. */
   onOpenChange: (open: boolean) => void;
   /** Hides the chat pane while the tools occupy the full workspace. */
@@ -42,10 +46,10 @@ export interface RightToolPanelProps {
   onClearReviewDiff?: () => void;
 }
 
-const RIGHT_PANEL_DEFAULT_WIDTH = 256;
+export const RIGHT_PANEL_DEFAULT_WIDTH = 256;
 const RIGHT_PANEL_WIDTH_KEY = "oc-right-tools-width";
 
-function readPanelWidth(): number {
+export function readRightToolPanelWidth(): number {
   try {
     const raw = localStorage.getItem(RIGHT_PANEL_WIDTH_KEY);
     if (raw !== null) {
@@ -58,6 +62,14 @@ function readPanelWidth(): number {
     // The panel remains usable when storage is unavailable.
   }
   return RIGHT_PANEL_DEFAULT_WIDTH;
+}
+
+export function persistRightToolPanelWidth(width: number): void {
+  try {
+    localStorage.setItem(RIGHT_PANEL_WIDTH_KEY, String(Math.max(0, width)));
+  } catch {
+    // Keep the live splitter working when persistence is unavailable.
+  }
 }
 
 function ReviewIcon() {
@@ -111,7 +123,7 @@ function BrowserIcon() {
 const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   const t = useT();
   const [internalView, setInternalView] = createSignal<RightToolView>("review");
-  const [width, setWidth] = createSignal(readPanelWidth());
+  const [internalWidth, setInternalWidth] = createSignal(readRightToolPanelWidth());
   const [internalMaximized, setInternalMaximized] = createSignal(false);
   const [browserUrl, setBrowserUrl] = createSignal("");
   const [browserTarget, setBrowserTarget] = createSignal("");
@@ -119,6 +131,7 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   let resizeStartWidth = RIGHT_PANEL_DEFAULT_WIDTH;
   const maximized = () => props.maximized ?? internalMaximized();
   const view = () => props.view ?? internalView();
+  const width = () => props.width ?? internalWidth();
 
   function selectView(next: RightToolView): void {
     if (props.view === undefined) setInternalView(next);
@@ -128,12 +141,11 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
 
   function updateWidth(next: number): void {
     const value = Math.max(0, next);
-    setWidth(value);
-    try {
-      localStorage.setItem(RIGHT_PANEL_WIDTH_KEY, String(value));
-    } catch {
-      // Keep the live splitter working when persistence is unavailable.
+    if (props.width === undefined) {
+      setInternalWidth(value);
+      persistRightToolPanelWidth(value);
     }
+    props.onWidthChange?.(value);
   }
 
   function stopResize(): void {
@@ -205,12 +217,13 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
     <Show when={props.open}>
       <section
         data-testid="right-tool-panel"
-        data-collapsed="false"
+        data-collapsed={width() === 0 ? "true" : "false"}
         data-maximized={maximized() ? "true" : "false"}
+        aria-hidden={width() === 0 ? "true" : undefined}
         style={{ width: maximized() ? "100%" : `${width()}px` }}
         class={`relative flex min-h-0 min-w-0 flex-col bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
-          maximized() ? "flex-1" : "shrink-0 border-l border-bg-sunken"
-        }`}
+          width() === 0 ? "overflow-hidden" : ""
+        } ${maximized() ? "flex-1" : "shrink-0 border-l border-bg-sunken"}`}
       >
         <Show when={!maximized()}>
           <div

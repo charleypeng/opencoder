@@ -56,12 +56,12 @@ const EditCard: ToolCard = (props) => {
       <Show
         when={rows().length > 0}
         fallback={
-          <pre class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs text-fg-secondary">
+          <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs text-fg-secondary">
             {output()}
           </pre>
         }
       >
-        <div class="max-h-40 overflow-y-auto rounded-sm bg-bg-sunken px-2 py-1 font-code text-xs leading-relaxed">
+        <div class="max-h-80 overflow-y-auto rounded-sm bg-bg-sunken px-2 py-1 font-code text-xs leading-relaxed">
           <For each={rows()}>
             {(row) => (
               <div

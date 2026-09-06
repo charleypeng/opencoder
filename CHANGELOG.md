@@ -23,6 +23,48 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix(sessions): Refine the open-workspace folder outline, reduce session-title scale, and speed overflow-title scanning. (sessions)
 - fix(sessions): Show open workspace folders, reveal truncated session titles on hover or focus, prevent IME Enter commits from sending early, and restore reverted user text to the composer. (sessions)
 
+### Changed
+
+- docs(messages): Specify reference-based process presentation, animated status text, full conversation icon coverage, and executable implementation tasks. (messages)
+- feat(messages): Render agent replies as a flat, ordered reading flow with expandable thoughts and tool details while keeping the final answer visible. (messages)
+
+### Fixed
+
+- fix(messages): Re-measure the virtual transcript after asynchronous layout and automatically restore all paged history when a compacted session is reopened. (messages)
+- fix(messages): Present context compaction as a neutral status and hide OpenCode's synthetic continuation and internal summary from the chat transcript. (messages)
+- fix(ui): Constrain desktop chat content to a shared readable column, keep activity metadata compact in narrow layouts, and restore zero-width workspace tools from the toolbar. (ui)
+- fix(messages): Preserve per-run detail disclosures across virtualization and use fetched tool fields only to fill missing streamed data. (messages)
+
+## [1.2.3] - 2026-09-06
+
+### Fixed
+
+- fix(messages): Keep process entries and tool summaries compact by default, revealing full reasoning, updates, commands, and output only when their individual row is opened. (messages)
+
+## [1.2.2] - 2026-09-05
+
+### Fixed
+
+- fix(sessions): Keep the native folder picker behind explicit onboarding, add-workspace, settings, and change-directory actions, so workspace and session navigation never request folder access. (sessions)
+
+## [1.2.1] - 2026-09-04
+
+### Fixed
+
+- fix(messages): Fetch the authoritative message parts when opening a tool card so bash and edit details remain available even if the streamed part is incomplete. (messages)
+- fix(messages): Remove the redundant important-command summary from completed run outcomes. (messages)
+- fix(messages): Make nested tool output disclosures a single unambiguous clickable row inside activity traces. (messages)
+- fix(messages): Allow tool cards within expanded activity traces to reveal their output, and remove redundant AI badges from chat messages. (messages)
+- fix(messages): Remove redundant patch event cards from the chat transcript while retaining their diff data for run summaries. (messages)
+- fix(messages): Reveal one selected file diff at a time from completed-run summaries, keeping multi-file output scannable. (messages)
+- fix(sessions): Increase the overflow session-title marquee speed by a further 20%. (sessions)
+- fix(messages): Retrieve line-level patch content for expanded run summaries and merge absolute patch paths with relative diff paths. (messages)
+- fix(desktop): Show a completed run's diff inline on expansion, open its full review in the right workspace panel, and remove the right-panel splitter's fixed width bounds. (desktop)
+- fix(messages): Render patch diffs when patch events use absolute paths, add visible attachment-button hover feedback, and remove the redundant streaming progress line. (messages)
+- fix(ui): Rebase the desktop UI scale so 100% matches the former 120% visual size, and simplify session rows to title-only labels. (ui)
+- fix(sessions): Refine the open-workspace folder outline, reduce session-title scale, and speed overflow-title scanning. (sessions)
+- fix(sessions): Show open workspace folders, reveal truncated session titles on hover or focus, prevent IME Enter commits from sending early, and restore reverted user text to the composer. (sessions)
+
 ## [1.2.0] - 2026-09-04
 
 ### Changed

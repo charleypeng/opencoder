@@ -16,7 +16,7 @@ export interface ReasoningPartProps {
 }
 
 const ReasoningPart: Component<ReasoningPartProps> = (props) => (
-  <div data-testid="reasoning-part" class="my-1 rounded-md bg-bg-sunken/50 px-2 py-2">
+  <div data-testid="reasoning-part" class="my-1 min-w-0 rounded-md bg-bg-sunken/50 px-2 py-2">
     <div
       data-testid="reasoning-body"
       class="whitespace-pre-wrap break-words text-xs leading-relaxed text-fg-secondary"

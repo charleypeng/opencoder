@@ -47,7 +47,7 @@ const SESSION = "ses_1";
 // ResizeObserver stub: the virtual list registers a callback per mounted
 // row; tests fire them manually to simulate a row's measured height
 // changing (as async code-fence hydration does in the real WebView).
-const observers: Array<{ cb: () => void }> = [];
+const observers: Array<{ cb: () => void; target?: Element }> = [];
 const originalResizeObserver = globalThis.ResizeObserver;
 
 beforeEach(() => {
@@ -55,10 +55,15 @@ beforeEach(() => {
   mockClient([]);
   observers.length = 0;
   globalThis.ResizeObserver = class {
+    private readonly entry: { cb: () => void; target?: Element };
+
     constructor(cb: () => void) {
-      observers.push({ cb });
+      this.entry = { cb };
+      observers.push(this.entry);
     }
-    observe() {}
+    observe(target: Element) {
+      this.entry.target = target;
+    }
     unobserve() {}
     disconnect() {}
   } as unknown as typeof ResizeObserver;
@@ -108,6 +113,23 @@ function syntheticHistory(count: number): SessionMessage[] {
     });
   }
   return out;
+}
+
+/** A long transcript whose latest page contains OpenCode's compaction marker. */
+function compactedHistory(count: number): SessionMessage[] {
+  const history = syntheticHistory(count);
+  const marker = history[count - 20];
+  marker.info = { ...marker.info, role: "user" } as SessionMessage["info"];
+  marker.parts = [
+    {
+      id: `prt_compaction_${count - 20}`,
+      sessionID: SESSION,
+      messageID: marker.info.id,
+      type: "compaction",
+      auto: true,
+    },
+  ];
+  return history;
 }
 
 /**
@@ -171,6 +193,12 @@ describe("MessageList", () => {
   it("keeps the process fold collapsed and expands it on click", async () => {
     await renderHistory();
 
+    const columns = screen.getAllByTestId("chat-reading-column");
+    expect(columns).not.toHaveLength(0);
+    for (const column of columns) {
+      expect(column).toHaveClass("max-w-[58rem]");
+    }
+
     const assistant = screen.getByTestId("message-msg_m2");
     const toggle = within(assistant).getByTestId("process-fold-toggle");
     expect(toggle).toHaveAttribute("aria-expanded", "false");
@@ -181,6 +209,7 @@ describe("MessageList", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(within(assistant).getByTestId("activity-entry-toggle"));
     expect(within(assistant).getByTestId("reasoning-body")).toHaveTextContent(
       "The client needs a login form",
     );
@@ -199,12 +228,14 @@ describe("MessageList", () => {
     expect(tools).toHaveLength(1);
     const completed = tools[0];
     expect(completed).toHaveAttribute("data-status", "completed");
+    expect(within(completed).getByTestId("tool-summary")).toHaveTextContent("Ran ls src");
     expect(within(completed).getByTestId("tool-status-label")).toHaveTextContent("bash completed");
 
     fireEvent.click(within(completed).getByTestId("tool-toggle"));
-    expect(within(completed).getByTestId("tool-terminal")).toBeInTheDocument();
-    expect(within(completed).getByText(/ls src/)).toBeInTheDocument();
-    expect(within(completed).getByTestId("tool-terminal")).toHaveTextContent(/auth/);
+    const terminal = within(completed).getByTestId("tool-terminal");
+    expect(terminal).toBeInTheDocument();
+    expect(terminal).toHaveTextContent(/ls src/);
+    expect(terminal).toHaveTextContent(/auth/);
   });
 
   it("renders every supported part from the all-parts fixture", async () => {
@@ -228,6 +259,10 @@ describe("MessageList", () => {
     // Subtask/agent parts are owned by TaskPanel, not the transcript.
     expect(screen.queryByTestId("subtask-part")).not.toBeInTheDocument();
     expect(screen.queryByTestId("agent-part")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("process-fold-toggle"));
+    for (const toggle of screen.getAllByTestId("activity-entry-toggle")) {
+      fireEvent.click(toggle);
+    }
     expect(screen.getByTestId("retry-part")).toHaveTextContent("Retrying (attempt 2)");
     expect(screen.getByTestId("compaction-part")).toHaveTextContent("Context compacted");
   });
@@ -367,6 +402,35 @@ describe("MessageList", () => {
     expect(document.querySelectorAll("[data-virtual-row]").length).toBeLessThan(30);
   });
 
+  it("re-measures a late-sized chat pane without requiring a user scroll", async () => {
+    mockClient(syntheticHistory(300));
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    let viewport = 0;
+    let scrollTop = 0;
+    Object.defineProperty(scroll, "clientHeight", {
+      configurable: true,
+      get: () => viewport,
+    });
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+
+    await waitFor(() => expect(screen.getByTestId("message-msg_s1")).toBeInTheDocument());
+    const viewportObserver = observers.find((observer) => observer.target === scroll);
+    expect(viewportObserver).toBeDefined();
+
+    viewport = 400;
+    viewportObserver?.cb();
+
+    await waitFor(() => expect(screen.getByTestId("message-msg_s300")).toBeInTheDocument());
+    expect(scrollTop).toBe(300 * 96 - 400);
+  });
+
   it("keeps the top edge free of a redundant progress bar while the session is busy", async () => {
     renderList();
     await waitFor(() => expect(screen.getByTestId("message-empty")).toBeInTheDocument());
@@ -380,7 +444,7 @@ describe("MessageList", () => {
 
     setSessionStatus(SERVER, SESSION, { type: "busy" });
     const waiting = screen.getByTestId("agent-working");
-    expect(waiting).toHaveTextContent("Working for 0s");
+    expect(waiting).toHaveTextContent("Processing for 0s");
     expect(waiting).toHaveTextContent("Waiting for model response");
     expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
 
@@ -629,6 +693,26 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     expect(Object.keys(store.messageParts)[0]).toBe("msg_l71");
     const pageKeys = Object.keys(store.messageParts);
     expect(pageKeys[pageKeys.length - 1]).toBe("msg_l120");
+  });
+
+  it("restores all earlier pages after reloading a compacted conversation", async () => {
+    const history = compactedHistory(120);
+    const client = paginatedClientFrom(history);
+    renderList();
+
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(120));
+    expect(client.get).toHaveBeenCalledTimes(3);
+    expect(client.get.mock.calls[0][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE });
+    expect(client.get.mock.calls[1][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_s71",
+    });
+    expect(client.get.mock.calls[2][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_s21",
+    });
+    expect(storeEntry().infos["msg_s1"]).toBeDefined();
+    expect(storeEntry().infos["msg_s120"]).toBeDefined();
   });
 
   it("loads older pages on top-reach with scroll preservation and no jump button", async () => {

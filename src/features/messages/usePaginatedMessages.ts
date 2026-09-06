@@ -26,8 +26,8 @@ export interface PaginatedMessages {
   hasMore: () => boolean;
   /** True while an earlier page is being fetched. */
   loadingEarlier: () => boolean;
-  /** Fetches the most recent page; throws ApiError on failure. */
-  loadInitial: () => Promise<void>;
+  /** Fetches the most recent page and reports whether it contains compaction. */
+  loadInitial: () => Promise<{ containsCompaction: boolean }>;
   /** Fetches the next older page; resolves with the number of new messages. */
   loadEarlier: () => Promise<number>;
 }
@@ -67,7 +67,7 @@ export function usePaginatedMessages(
     return items;
   }
 
-  async function loadInitial(): Promise<void> {
+  async function loadInitial(): Promise<{ containsCompaction: boolean }> {
     const current = version.current;
     const serverId = getServerId();
     const sessionId = getSessionId();
@@ -76,13 +76,18 @@ export function usePaginatedMessages(
       limit: HISTORY_PAGE_SIZE,
       dir: getActiveDirectory(),
     });
-    if (current !== version.current) return;
+    if (current !== version.current) return { containsCompaction: false };
     const merge = mergePages(knownIds(serverId, sessionId), page, HISTORY_PAGE_SIZE);
     // The batch only upserts, so a page that overlaps live-streamed
     // messages merges instead of duplicating.
     if (merge.added.length > 0) applyMessageBatch(serverId, sessionId, toBatchItems(page));
     cursor.current = merge.nextCursor;
     setHasMore(merge.hasMore);
+    return {
+      containsCompaction: page.some((message) =>
+        message.parts.some((part) => part.type === "compaction"),
+      ),
+    };
   }
 
   async function loadEarlier(): Promise<number> {

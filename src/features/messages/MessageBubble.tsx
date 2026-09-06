@@ -13,12 +13,14 @@
 import { createMemo, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import { Dynamic } from "solid-js/web";
+import { useT } from "../../i18n/index.js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
 import type { SnapshotFileDiff } from "../../services/vcs.js";
 import MessageActions from "./MessageActions.js";
 import RunOutcome from "./RunOutcome.js";
-import CompactionPart from "./parts/CompactionPart.js";
+import { isCompactionMarkerMessage } from "./controlMessages.js";
+import CompactionPart, { type CompactionPartData } from "./parts/CompactionPart.js";
 import FilePart from "./parts/FilePart.js";
 import RetryPart from "./parts/RetryPart.js";
 import SnapshotPart from "./parts/SnapshotPart.js";
@@ -177,12 +179,27 @@ function PartView(props: {
 }
 
 const MessageBubble: Component<MessageBubbleProps> = (props) => {
+  const t = useT();
   // Streamed messages may arrive (as part stubs) before their message.updated
   // info; assistant is the safe fallback for an in-flight generation.
   const info = () => messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
   const role = () => info()?.role ?? "assistant";
   const user = () => role() === "user";
   const created = () => info()?.time.created;
+  const compactionMarker = createMemo(() =>
+    isCompactionMarkerMessage(
+      info(),
+      props.partIds,
+      messages[props.serverId]?.[props.sessionId]?.parts ?? {},
+    ),
+  );
+  const compactionPart = createMemo<CompactionPartData | undefined>(() => {
+    if (!compactionMarker()) return undefined;
+    const part = props.partIds
+      .map((id) => messages[props.serverId]?.[props.sessionId]?.parts[id])
+      .find((candidate) => candidate?.type === "compaction");
+    return part?.type === "compaction" ? part : undefined;
+  });
 
   // At least one supported part renders; otherwise the bubble is skipped.
   const hasRenderable = createMemo(
@@ -221,6 +238,8 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
       (id) => messages[props.serverId]?.[props.sessionId]?.parts[id],
     ),
   );
+  const activityRunKey = () =>
+    `${props.serverId}:${props.sessionId}:${props.runKey ?? props.messageID}`;
 
   // The streaming part is the LAST text part of the message (the caret only
   // mounts there).
@@ -235,67 +254,93 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
 
   return (
     <Show when={hasRenderable()}>
-      <MessageActions
-        serverId={props.serverId}
-        sessionId={props.sessionId}
-        messageID={props.messageID}
-        partIds={props.partIds}
-        mobile={props.mobile}
-        onViewDiff={props.onViewDiff}
-        onFork={props.onFork}
-        onRevert={props.onRevert}
-      >
-        {/* Assistant messages render chrome-free directly on the transcript
-          (content-first, docs/ui-design.md §1): only the user side keeps a
-          bubble. Part rows carry their own subtle chrome, so wrapping the
-          assistant message in a card produced noisy box-in-box nesting. */}
-        <div
-          class={
-            user()
-              ? "max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
-              : "w-full max-w-3xl"
-          }
-        >
-          <Show when={processParts().length > 0 || props.runActive === true}>
-            <ProcessFold
-              parts={processParts()}
-              runKey={props.runKey ?? `${props.serverId}:${props.sessionId}:${props.messageID}`}
-              active={props.runActive}
-              startedAt={props.runStartedAt}
-              completedAt={props.runCompletedAt}
-              streaming={props.streaming === true}
-            />
-          </Show>
-          <For each={contentPartIds()}>
-            {(partId) => {
-              const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
-              return (
-                <PartView
-                  part={part()}
-                  streaming={props.typing === true && lastTextPartId() === partId}
-                  onRevert={props.onRevert}
-                  onOpenChild={props.onOpenChild}
+      <Show
+        when={compactionPart()}
+        fallback={
+          <MessageActions
+            serverId={props.serverId}
+            sessionId={props.sessionId}
+            messageID={props.messageID}
+            partIds={props.partIds}
+            mobile={props.mobile}
+            onViewDiff={props.onViewDiff}
+            onFork={props.onFork}
+            onRevert={props.onRevert}
+          >
+            {/* Assistant messages render chrome-free directly on the transcript
+              (content-first, docs/ui-design.md §1): only the user side keeps a
+              bubble. Part rows carry their own subtle chrome, so wrapping the
+              assistant message in a card produced noisy box-in-box nesting. */}
+            <div
+              class={
+                user()
+                  ? "max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+                  : "w-full max-w-none"
+              }
+            >
+              <Show when={processParts().length > 0 || props.runActive === true}>
+                <ProcessFold
+                  parts={processParts()}
+                  runKey={activityRunKey()}
+                  active={props.runActive}
+                  startedAt={props.runStartedAt}
+                  completedAt={props.runCompletedAt}
+                  streaming={props.streaming === true}
                 />
-              );
-            }}
-          </For>
-          <Show when={!user() && props.runActive !== true}>
-            <RunOutcome
-              parts={runParts()}
-              diffs={props.runDiffs}
-              sessionID={props.sessionId}
-              messageID={props.runParentMessageID ?? props.messageID}
-              onViewDiff={props.onViewDiff}
-              onViewDiffInTools={props.onViewDiffInTools}
-            />
-          </Show>
-        </div>
-        <Show when={created() !== undefined}>
-          <span data-testid="message-time" class="px-1 text-xs text-fg-faint">
-            {formatMessageTime(created() as number)}
-          </span>
-        </Show>
-      </MessageActions>
+              </Show>
+              <For each={contentPartIds()}>
+                {(partId) => {
+                  const part = () => messages[props.serverId]?.[props.sessionId]?.parts[partId];
+                  return (
+                    <PartView
+                      part={part()}
+                      streaming={props.typing === true && lastTextPartId() === partId}
+                      onRevert={props.onRevert}
+                      onOpenChild={props.onOpenChild}
+                    />
+                  );
+                }}
+              </For>
+              <Show when={!user() && props.runActive !== true}>
+                <RunOutcome
+                  parts={runParts()}
+                  diffs={props.runDiffs}
+                  sessionID={props.sessionId}
+                  messageID={props.runParentMessageID ?? props.messageID}
+                  onViewDiff={props.onViewDiff}
+                  onViewDiffInTools={props.onViewDiffInTools}
+                />
+              </Show>
+            </div>
+            <Show when={created() !== undefined}>
+              <span data-testid="message-time" class="px-1 text-xs text-fg-faint">
+                {formatMessageTime(created() as number)}
+              </span>
+            </Show>
+          </MessageActions>
+        }
+      >
+        {(part) => (
+          <div
+            data-testid={`message-${props.messageID}`}
+            data-role="system"
+            role="status"
+            class="my-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-xs text-fg-secondary"
+          >
+            <CompactionPart part={part()} />
+            <Show when={part().auto}>
+              <span data-testid="compaction-continued" class="text-fg-faint">
+                {t("messages:compactionContinued")}
+              </span>
+            </Show>
+            <Show when={created() !== undefined}>
+              <span data-testid="message-time" class="text-fg-faint">
+                {formatMessageTime(created() as number)}
+              </span>
+            </Show>
+          </div>
+        )}
+      </Show>
     </Show>
   );
 };

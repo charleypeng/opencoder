@@ -1,5 +1,6 @@
 import type { SnapshotFileDiff } from "../../../services/vcs.js";
 import type { Message, Part } from "../../../stores/messages.js";
+import { isHiddenControlMessage } from "../controlMessages.js";
 
 export interface MessagePartGroup {
   messageID: string;
@@ -111,6 +112,14 @@ export function deriveAgentRows(
 
   for (const group of groups) {
     const info = infos[group.messageID];
+    // Auto-compaction adds a user-shaped continuation and an assistant
+    // summary to drive the server's context handoff. Keep the continuation
+    // as the run parent, but do not give either internal record a chat row.
+    if (isHiddenControlMessage(info, group.partIds, parts)) {
+      flushRun();
+      if (info?.role === "user") latestUserMessageID = group.messageID;
+      continue;
+    }
     if (info?.role === "user") {
       flushRun();
       latestUserMessageID = group.messageID;

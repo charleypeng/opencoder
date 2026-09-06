@@ -626,12 +626,31 @@ afterEach(() => {
   resetTodos("srv-m8scope");
   resetAllShortcuts();
   localStorage.removeItem("oc-recent-files:srv-m4quick");
+  localStorage.removeItem("oc-right-tools-width");
   resetServerUpdate("srv-m8upd1");
   resetServerUpdate("srv-m8upd2");
   resetServerUpdate("srv-m8upd3");
   resetServerUpdate("srv-m8upd4");
 });
 describe("DesktopShell workspace", () => {
+  it("restores a manually zeroed right panel from the chat toolbar", () => {
+    const alpha = server({ id: "srv-tools-restore", name: "Alpha" });
+    localStorage.setItem("oc-right-tools-width", "0");
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    const panel = screen.getByTestId("right-tool-panel");
+    const toggle = screen.getByTestId("right-tools-toggle");
+    expect(panel).toHaveAttribute("data-collapsed", "true");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(toggle);
+    expect(panel).toHaveAttribute("data-collapsed", "false");
+    expect(panel).toHaveStyle({ width: "256px" });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("oc-right-tools-width")).toBe("256");
+  });
+
   it("mounts the shell, activates the server context and shows placeholders", () => {
     const alpha = server({ id: "srv-alpha", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
@@ -769,9 +788,13 @@ describe("DesktopShell default-workspace onboarding (feat(default-workspace))", 
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
 
-    // The onboarding picker opens over the (still mounted) shell.
-    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+    // The onboarding prompt opens over the (still mounted) shell, but does
+    // not mount the native directory picker until the user explicitly asks.
+    await waitFor(() =>
+      expect(screen.getByTestId("default-workspace-onboarding")).toBeInTheDocument(),
+    );
     expect(screen.getByText("Choose a default workspace")).toBeInTheDocument();
+    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
   });
 
   it("does not prompt when the server already has a default workspace", () => {
@@ -780,7 +803,7 @@ describe("DesktopShell default-workspace onboarding (feat(default-workspace))", 
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
 
-    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+    expect(screen.queryByTestId("default-workspace-onboarding")).toBeNull();
   });
 
   it("does not re-prompt after a skipped onboarding", async () => {
@@ -790,14 +813,17 @@ describe("DesktopShell default-workspace onboarding (feat(default-workspace))", 
     localStorage.removeItem("oc-default-workspace-prompted:srv-onboard3");
     invokeMock.mockResolvedValueOnce([alpha]);
     const { unmount } = render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
-    await waitFor(() => expect(screen.getByTestId("directory-picker-dialog")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(screen.getByTestId("default-workspace-onboarding")).toBeInTheDocument(),
+    );
+    fireEvent.click(screen.getByTestId("default-workspace-skip"));
     unmount();
 
     // Re-entering the same server: the prompt was marked shown, no dialog.
     const client = invokeMock.mockResolvedValueOnce([alpha]);
     void client;
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
-    expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+    expect(screen.queryByTestId("default-workspace-onboarding")).toBeNull();
   });
 });
 
@@ -2229,6 +2255,7 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
 
   it("⌘K opens the command palette; Esc closes it (TASK-M8-02)", async () => {
     const alpha = server({ id: "srv-m8palette", name: "Alpha" });
+    localStorage.setItem("oc-default-workspace-prompted:srv-m8palette", "1");
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
     await waitFor(() => expect(sseSubscribeMock).toHaveBeenCalled());

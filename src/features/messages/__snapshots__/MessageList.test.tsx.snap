@@ -24,7 +24,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 0px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -73,7 +74,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 96px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -83,119 +85,99 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               tabindex="0"
             >
               <div
-                class="w-full max-w-3xl"
+                class="w-full max-w-none"
               >
                 <div
-                  class="activity-trace my-1 rounded-md bg-bg-sunken/50"
+                  class="reply-activity my-3"
                   data-active="false"
                   data-status="complete"
                   data-testid="process-fold"
                 >
                   <button
-                    aria-expanded="false"
-                    class="flex min-h-10 w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft disabled:cursor-default"
+                    aria-expanded="true"
+                    class="reply-activity-header flex min-h-8 w-full items-center gap-1.5 border-b border-bg-sunken py-1 text-left text-sm outline-none focus:bg-accent-soft disabled:cursor-default"
                     data-testid="process-fold-toggle"
                     type="button"
                   >
                     <span
                       aria-hidden="true"
-                      class="h-1.5 w-1.5 shrink-0 rounded-full bg-success"
-                      data-testid="activity-trace-status"
-                    />
-                    <span
-                      aria-hidden="true"
-                      class="inline-block w-2 shrink-0 text-fg-faint"
+                      class="inline-block w-3 shrink-0 text-fg-faint"
                     >
                       <span
-                        class="inline-block transition-transform "
+                        class="inline-block transition-transform rotate-90"
                       >
                         ▸
                       </span>
                     </span>
                     <span
-                      class="shrink-0 font-medium text-fg-secondary"
+                      class="min-w-0 truncate text-fg-secondary"
                       data-testid="process-fold-status"
                     >
-                      Worked for 15s
-                    </span>
-                    <span
-                      class="min-w-0 truncate text-fg-faint"
-                      data-testid="process-fold-summary"
-                    >
-                      1 tool call · 1 succeeded · 69 chars of reasoning
+                      Took 15s
                     </span>
                   </button>
                   <div
-                    aria-hidden="true"
-                    class="process-fold-body"
-                    data-expanded="false"
+                    aria-hidden="false"
+                    class="reply-activity-body"
+                    data-expanded="true"
                     data-testid="process-fold-body"
                   >
                     <div
-                      class="activity-trace-timeline"
+                      class="reply-activity-items space-y-3 pt-3"
                     >
                       <div
-                        class="activity-trace-entry relative pl-4"
+                        class="reply-activity-entry min-w-0 "
                         data-kind="summary"
                         data-phase="decide"
                         data-status="complete"
                         data-testid="activity-entry"
                       >
-                        <span
-                          aria-hidden="true"
-                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
-                        />
-                        <div
-                          class="flex min-w-0 items-center gap-2 px-1 text-[11px] text-fg-secondary"
+                        <button
+                          aria-expanded="false"
+                          class="reply-activity-thought flex w-full min-w-0 items-center gap-1.5 text-left text-sm text-fg-secondary outline-none focus:bg-accent-soft"
+                          data-testid="activity-entry-toggle"
+                          type="button"
                         >
                           <span
-                            class="truncate font-medium text-fg-primary"
+                            aria-hidden="true"
+                            class="inline-block shrink-0 text-fg-faint transition-transform "
+                          >
+                            ▸
+                          </span>
+                          <span
+                            class="max-w-[35%] truncate font-medium text-fg-secondary"
                           >
                             Thinking
                           </span>
                           <span
-                            class="min-w-0 truncate text-fg-faint"
+                            class="min-w-0 flex-1 truncate text-fg-faint"
                           >
                             The client needs a login form, a session store, and an auth API call.
                           </span>
-                        </div>
-                        <div
-                          class="my-1 rounded-md bg-bg-sunken/50 px-2 py-2"
-                          data-testid="reasoning-part"
-                        >
-                          <div
-                            class="whitespace-pre-wrap break-words text-xs leading-relaxed text-fg-secondary"
-                            data-testid="reasoning-body"
-                          >
-                            The client needs a login form, a session store, and an auth API call.
-                          </div>
-                        </div>
+                        </button>
                       </div>
                       <div
-                        class="activity-trace-entry relative pl-4"
+                        class="reply-activity-entry min-w-0 "
                         data-kind="command"
                         data-phase="verify"
                         data-status="complete"
                         data-testid="activity-entry"
                       >
-                        <span
-                          aria-hidden="true"
-                          class="absolute left-0.5 top-3 h-1.5 w-1.5 rounded-full bg-success"
-                        />
                         <div
-                          class="my-1 overflow-hidden rounded-md bg-bg-sunken/50"
+                          class="reply-tool my-1 min-w-0"
                           data-status="completed"
                           data-testid="tool-part"
                         >
                           <button
-                            aria-expanded="false"
-                            class="relative flex w-full items-center gap-2 overflow-hidden px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft"
+                            aria-controls="cl-31"
+                            aria-expanded="true"
+                            class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
                             type="button"
                           >
                             <span
                               aria-hidden=""
-                              class="inline-block shrink-0 text-fg-faint transition-transform "
+                              class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
                             >
                               ▸
                             </span>
@@ -231,23 +213,73 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               />
                             </svg>
                             <span
-                              class="truncate font-code font-medium text-fg-primary"
+                              class="min-w-0 flex-1 font-code text-fg-secondary whitespace-pre-wrap break-words"
+                              data-testid="tool-summary"
                             >
-                              bash
+                              Ran command
                             </span>
                             <span
-                              class="shrink-0 font-code text-fg-faint"
+                              class="shrink-0 font-code text-xs text-fg-faint"
                               data-testid="tool-duration"
                             >
                               3s
                             </span>
                             <span
-                              class="ml-auto shrink-0 text-fg-faint"
+                              class="sr-only"
                               data-testid="tool-status-label"
                             >
                               bash completed
                             </span>
                           </button>
+                          <div
+                            class="reply-tool-detail mt-1 space-y-2"
+                            data-testid="tool-detail"
+                            id="cl-31"
+                          >
+                            <div
+                              class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
+                              data-testid="tool-terminal"
+                            >
+                              <div
+                                class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
+                              >
+                                <span
+                                  class="truncate text-fg-faint"
+                                >
+                                  Terminal
+                                </span>
+                                <button
+                                  class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                                  data-testid="tool-copy"
+                                  type="button"
+                                >
+                                  Copy
+                                </button>
+                              </div>
+                              <div
+                                class="space-y-1 px-2 py-1.5"
+                              >
+                                <div
+                                  class="text-fg-primary"
+                                >
+                                  <span
+                                    class="select-none text-success"
+                                  >
+                                    $ 
+                                  </span>
+                                  ls src
+                                </div>
+                                <pre
+                                  class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                >
+                                  auth/
+components/
+services/
+
+                                </pre>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -290,7 +322,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 192px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -339,7 +372,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 288px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -349,7 +383,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               tabindex="0"
             >
               <div
-                class="w-full max-w-3xl"
+                class="w-full max-w-none"
               >
                 <div
                   data-testid="text-part"

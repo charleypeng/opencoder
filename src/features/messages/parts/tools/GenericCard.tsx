@@ -18,7 +18,7 @@ const GenericCard: ToolCard = (props) => {
           <span class="truncate font-code text-xs text-fg-secondary">{t("messages:output")}</span>
           <CopyButton text={output()} />
         </div>
-        <pre class="max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">
+        <pre class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words rounded-sm bg-bg-sunken px-2 py-1.5 font-code text-xs leading-relaxed text-fg-secondary">
           {output()}
         </pre>
       </Show>
