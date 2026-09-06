@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- docs(messages): Specify reference-based process presentation, animated status text, full conversation icon coverage, and executable implementation tasks. (messages)
 - feat(messages): Render agent replies as a flat, ordered reading flow with expandable thoughts and tool details while keeping the final answer visible. (messages)
 
 ### Fixed
