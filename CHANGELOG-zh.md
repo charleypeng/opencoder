@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- feat(messages)：从可观察 part 派生每个 agent 运行的唯一确定性当前状态，活跃状态不再依赖陈旧的 part 时间。(messages)
+
+### 变更
+
+- feat(messages)：以权威运行状态判定活动，不再信任缺失结束时间的历史 reasoning part，且仅当用户未明确选择展开状态时在完成后自动收起过程区。(messages)
+
 ## [1.2.1] - 2026-09-04
 
 ### 修复

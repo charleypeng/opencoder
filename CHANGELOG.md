@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- feat(messages): Derive a single deterministic current-status for each agent run from observable parts, so active status no longer depends on stale part timing. (messages)
+
+### Changed
+
+- feat(messages): Treat run activity as authoritative instead of trusting historical reasoning parts that miss an end time, and auto-collapse finished runs only when the user made no explicit disclosure choice. (messages)
+
 ## [1.2.1] - 2026-09-04
 
 ### Fixed

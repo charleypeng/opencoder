@@ -9,6 +9,12 @@ export function readActivityExpanded(traceKey: string, fallback = false): boolea
   return expandedByTrace.get(traceKey) ?? fallback;
 }
 
+/** True once the user made an explicit choice, so completion auto-collapse
+ *  must leave the fold alone (PROCESS-REF-01). */
+export function hasActivityExpandedChoice(traceKey: string): boolean {
+  return expandedByTrace.has(traceKey);
+}
+
 export function writeActivityExpanded(traceKey: string, expanded: boolean): void {
   expandedByTrace.set(traceKey, expanded);
 }
