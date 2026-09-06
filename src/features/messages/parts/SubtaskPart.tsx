@@ -10,6 +10,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { ContentIcon } from "./icons.js";
 import { useT } from "../../../i18n/index.js";
 import { AgentChip } from "./AgentPart.js";
 
@@ -48,21 +49,7 @@ const SubtaskPart: Component<SubtaskPartProps> = (props) => {
         >
           ▸
         </span>
-        <svg
-          aria-hidden
-          class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <circle cx="5" cy="3" r="1.5" />
-          <circle cx="5" cy="13" r="1.5" />
-          <circle cx="11.5" cy="8" r="1.5" />
-          <path d="M5 4.5v7M5 11a4.5 4.5 0 0 1 4.5-3h0.5" />
-        </svg>
+        <ContentIcon kind="subtask" class="text-fg-faint" />
         <span data-testid="subtask-prompt" class="truncate font-medium text-fg-primary">
           {props.part.prompt}
         </span>

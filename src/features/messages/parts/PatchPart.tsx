@@ -15,6 +15,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { ContentIcon } from "./icons.js";
 import { useT } from "../../../i18n/index.js";
 import { getApiClient } from "../../../services/client.js";
 import { ApiError } from "../../../services/errors.js";
@@ -110,18 +111,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
   return (
     <div data-testid="patch-part" class="my-1 overflow-hidden rounded-md bg-bg-sunken/50">
       <div class="flex items-center gap-2 px-2 py-1.5 text-xs">
-        <svg
-          aria-hidden
-          class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5" />
-        </svg>
+        <ContentIcon kind="patch" class="text-fg-faint" />
         <span class="font-code font-medium text-fg-primary">{t("messages:patch")}</span>
         <span
           data-testid="patch-hash"

@@ -35,6 +35,7 @@ import ReasoningPart, { type ReasoningPartData } from "./ReasoningPart.js";
 import RetryPart, { type RetryPartData } from "./RetryPart.js";
 import TextPart, { type TextPartData } from "./TextPart.js";
 import ToolPart, { type ToolPartData } from "./ToolPart.js";
+import { ContentIcon } from "./icons.js";
 
 export interface ProcessFoldProps {
   /** Observable parts belonging to one assistant run. */
@@ -323,6 +324,7 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
                   class="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-fg-faint outline-none focus:bg-accent-soft"
                   onClick={toggleThoughtDetails}
                 >
+                  <ContentIcon kind="reasoning" />
                   <span
                     aria-hidden="true"
                     class={`inline-block shrink-0 transition-transform ${

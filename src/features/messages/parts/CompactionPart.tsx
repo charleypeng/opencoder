@@ -8,6 +8,7 @@
 import { createMemo, createSignal, Show } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
+import { ContentIcon } from "./icons.js";
 import { useT } from "../../../i18n/index.js";
 
 export type CompactionPartData = Extract<Part, { type: "compaction" }>;
@@ -17,23 +18,7 @@ export interface CompactionPartProps {
 }
 
 function CompressIcon() {
-  return (
-    <svg
-      aria-hidden
-      class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-      viewBox="0 0 16 16"
-      fill="none"
-      stroke="currentColor"
-      stroke-width="1.5"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-    >
-      <path d="M6.5 2.5v3h-3" />
-      <path d="M9.5 2.5v3h3" />
-      <path d="M6.5 13.5v-3h-3" />
-      <path d="M9.5 13.5v-3h3" />
-    </svg>
-  );
+  return <ContentIcon kind="compaction" class="text-fg-faint" />;
 }
 
 const CompactionPart: Component<CompactionPartProps> = (props) => {

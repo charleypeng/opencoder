@@ -7,32 +7,38 @@ exports[`SnapshotPart snapshot > matches the fixture's snapshot part 1`] = `
     data-testid="snapshot-part"
     title="Reverting to a snapshot lands in M6"
   >
-    <svg
-      aria-hidden=""
-      class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-      fill="none"
-      stroke="currentColor"
-      stroke-linecap="round"
-      stroke-linejoin="round"
-      stroke-width="1.5"
-      viewBox="0 0 16 16"
+    <span
+      aria-hidden="true"
+      class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
+      data-icon-kind="snapshot"
     >
-      <rect
-        height="9"
-        rx="1.5"
-        width="12"
-        x="2"
-        y="4.5"
-      />
-      <circle
-        cx="8"
-        cy="9"
-        r="2.5"
-      />
-      <path
-        d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7"
-      />
-    </svg>
+      <svg
+        class="h-3.5 w-3.5"
+        fill="none"
+        focusable="false"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
+      >
+        <rect
+          height="9"
+          rx="1.5"
+          width="12"
+          x="2"
+          y="4.5"
+        />
+        <circle
+          cx="8"
+          cy="9"
+          r="2.5"
+        />
+        <path
+          d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7"
+        />
+      </svg>
+    </span>
     <span
       class="font-medium"
     >

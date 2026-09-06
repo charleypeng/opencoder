@@ -12,6 +12,7 @@ import type { Component } from "solid-js";
 import { isRateLimitHint } from "../../../services/errors.js";
 import { useT } from "../../../i18n/index.js";
 import type { Part } from "../../../stores/messages.js";
+import { ContentIcon } from "./icons.js";
 
 export type RetryPartData = Extract<Part, { type: "retry" }>;
 
@@ -61,19 +62,7 @@ const RetryPart: Component<RetryPartProps> = (props) => {
       class="my-1 inline-flex w-fit flex-col gap-0.5 rounded-md bg-bg-sunken/40 px-2 py-1 text-xs text-fg-secondary"
     >
       <span class="flex flex-wrap items-center gap-1.5">
-        <svg
-          aria-hidden
-          class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          <path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9" />
-          <path d="M13.5 2.5V6h-3.5" />
-        </svg>
+        <ContentIcon kind="retry" class="text-fg-faint" />
         <span data-testid="retry-attempt" class="font-medium text-fg-primary">
           {t("messages:retryAttempt", { attempt: props.part.attempt })}
         </span>

@@ -11,9 +11,10 @@
 // knows about.
 
 import { createMemo, createSignal, Show } from "solid-js";
-import type { Component, JSX } from "solid-js";
+import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
 import { useT } from "../../../i18n/index.js";
+import { attachmentIconKind, ContentIcon } from "./icons.js";
 
 export type FilePartData = Extract<Part, { type: "file" }>;
 
@@ -29,35 +30,6 @@ function mimeKind(mime: string): MimeKind {
   if (mime.startsWith("text/")) return "text";
   return "other";
 }
-
-const MIME_ICON: Record<MimeKind, JSX.Element> = {
-  image: (
-    <>
-      <rect x="2.5" y="3" width="11" height="10" rx="1.5" />
-      <circle cx="6" cy="6.5" r="1" />
-      <path d="m3.5 11.5 3-2.5 2.5 2 2.5-2.5 1 1.5" />
-    </>
-  ),
-  video: (
-    <>
-      <rect x="2.5" y="4" width="9" height="8" rx="1.5" />
-      <path d="m11.5 6.5 3-1.5v7l-3-1.5" />
-      <path d="M6 7.5v1M5.5 13.5h5" />
-    </>
-  ),
-  text: (
-    <>
-      <rect x="3" y="1.5" width="10" height="13" rx="1.5" />
-      <path d="M6 5.5h4M6 8h4M6 10.5h2.5" />
-    </>
-  ),
-  other: (
-    <>
-      <path d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z" />
-      <path d="M3 5.5l5 2.7 5-2.7M8 8.2v5" />
-    </>
-  ),
-};
 
 function basename(url: string): string {
   const base = url.slice(url.lastIndexOf("/") + 1);
@@ -138,18 +110,10 @@ const FilePart: Component<FilePartProps> = (props) => {
         class="flex w-full items-center gap-2 px-2 py-1.5 text-left text-xs outline-none focus:bg-accent-soft disabled:cursor-default"
         onClick={() => setExpanded((value) => !value)}
       >
-        <svg
-          aria-hidden
-          class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.5"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-        >
-          {MIME_ICON[kind()]}
-        </svg>
+        <ContentIcon
+          kind={attachmentIconKind(props.part.mime, displayName())}
+          class="text-fg-faint"
+        />
         <span class="min-w-0 flex-1 truncate font-code font-medium text-fg-primary">
           {displayName()}
         </span>

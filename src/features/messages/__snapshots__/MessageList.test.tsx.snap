@@ -149,37 +149,36 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             >
                               ▸
                             </span>
-                            <svg
-                              aria-hidden=""
-                              class="h-3.5 w-3.5 shrink-0 text-success"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="2"
-                              viewBox="0 0 16 16"
+                            <span
+                              aria-hidden="true"
+                              class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
+                              data-icon-kind="terminal"
                             >
-                              <path
-                                d="M3 8.5l3.5 3.5L13 5"
-                              />
-                            </svg>
-                            <svg
-                              aria-hidden=""
-                              class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                              fill="none"
-                              stroke="currentColor"
-                              stroke-linecap="round"
-                              stroke-linejoin="round"
-                              stroke-width="1.5"
-                              viewBox="0 0 16 16"
-                            >
-                              <path
-                                d="M2.5 3.5 6.5 8l-4 4.5"
-                              />
-                              <path
-                                d="M8 12.5h5.5"
-                              />
-                            </svg>
+                              <svg
+                                class="h-3.5 w-3.5"
+                                fill="none"
+                                focusable="false"
+                                stroke="currentColor"
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="1.5"
+                                viewBox="0 0 16 16"
+                              >
+                                <rect
+                                  height="10"
+                                  rx="1.5"
+                                  width="12"
+                                  x="2"
+                                  y="3"
+                                />
+                                <path
+                                  d="m4.5 6 2 2-2 2"
+                                />
+                                <path
+                                  d="M8.5 10.5h3"
+                                />
+                              </svg>
+                            </span>
                             <span
                               class="min-w-0 flex-1 font-code text-fg-secondary whitespace-pre-wrap break-words"
                               data-testid="tool-summary"
@@ -261,6 +260,26 @@ services/
                           data-testid="thought-details-toggle"
                           type="button"
                         >
+                          <span
+                            aria-hidden="true"
+                            class="inline-flex h-4 w-4 shrink-0 items-center justify-center "
+                            data-icon-kind="reasoning"
+                          >
+                            <svg
+                              class="h-3.5 w-3.5"
+                              fill="none"
+                              focusable="false"
+                              stroke="currentColor"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="1.5"
+                              viewBox="0 0 16 16"
+                            >
+                              <path
+                                d="M4.5 3.5h7A2 2 0 0 1 13.5 5.5v3a2 2 0 0 1-2 2H8l-2.8 2.3V10.5h-.7a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2Z"
+                              />
+                            </svg>
+                          </span>
                           <span
                             aria-hidden="true"
                             class="inline-block shrink-0 transition-transform "

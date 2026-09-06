@@ -9,20 +9,26 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
     <div
       class="flex items-center gap-2 px-2 py-1.5 text-xs"
     >
-      <svg
-        aria-hidden=""
-        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-        fill="none"
-        stroke="currentColor"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-        stroke-width="1.5"
-        viewBox="0 0 16 16"
+      <span
+        aria-hidden="true"
+        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
+        data-icon-kind="patch"
       >
-        <path
-          d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5"
-        />
-      </svg>
+        <svg
+          class="h-3.5 w-3.5"
+          fill="none"
+          focusable="false"
+          stroke="currentColor"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          stroke-width="1.5"
+          viewBox="0 0 16 16"
+        >
+          <path
+            d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5"
+          />
+        </svg>
+      </span>
       <span
         class="font-code font-medium text-fg-primary"
       >
