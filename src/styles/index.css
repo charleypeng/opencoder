@@ -296,8 +296,17 @@
   overflow: visible;
 }
 
+/* PROCESS-REF-02: progress prose keeps the normal reading hierarchy — the
+ * same primary color and rhythm as the final answer, never demoted to
+ * secondary meta text. */
 .reply-activity-progress .markdown-body {
-  color: var(--fg-secondary);
+  color: var(--fg-primary);
+}
+
+/* The single tail status slot is small secondary text; the animated sweep
+ * targets .reply-tail-status-text only (PROCESS-REF-03). */
+.reply-tail-status {
+  max-width: 100%;
 }
 
 .reply-activity-thought,

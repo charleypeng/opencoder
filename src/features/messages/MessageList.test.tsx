@@ -209,7 +209,7 @@ describe("MessageList", () => {
 
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(within(assistant).getByTestId("activity-entry-toggle"));
+    fireEvent.click(within(assistant).getByTestId("thought-details-toggle"));
     expect(within(assistant).getByTestId("reasoning-body")).toHaveTextContent(
       "The client needs a login form",
     );
@@ -260,7 +260,7 @@ describe("MessageList", () => {
     expect(screen.queryByTestId("subtask-part")).not.toBeInTheDocument();
     expect(screen.queryByTestId("agent-part")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
-    for (const toggle of screen.getAllByTestId("activity-entry-toggle")) {
+    for (const toggle of screen.getAllByTestId("thought-details-toggle")) {
       fireEvent.click(toggle);
     }
     expect(screen.getByTestId("retry-part")).toHaveTextContent("Retrying (attempt 2)");

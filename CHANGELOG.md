@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - feat(messages): Derive a single deterministic current-status for each agent run from observable parts, so active status no longer depends on stale part timing. (messages)
+- feat(messages): Show one tail status slot per run that follows the rendered progress, aggregate historical reasoning behind a quiet "View thought details" disclosure, and restore progress prose to the primary reading color. (messages)
 
 ### Changed
 

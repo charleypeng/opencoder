@@ -127,39 +127,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                     >
                       <div
                         class="reply-activity-entry min-w-0 "
-                        data-kind="summary"
-                        data-phase="decide"
-                        data-status="complete"
-                        data-testid="activity-entry"
-                      >
-                        <button
-                          aria-expanded="false"
-                          class="reply-activity-thought flex w-full min-w-0 items-center gap-1.5 text-left text-sm text-fg-secondary outline-none focus:bg-accent-soft"
-                          data-testid="activity-entry-toggle"
-                          type="button"
-                        >
-                          <span
-                            aria-hidden="true"
-                            class="inline-block shrink-0 text-fg-faint transition-transform "
-                          >
-                            ▸
-                          </span>
-                          <span
-                            class="max-w-[35%] truncate font-medium text-fg-secondary"
-                          >
-                            Thinking
-                          </span>
-                          <span
-                            class="min-w-0 flex-1 truncate text-fg-faint"
-                          >
-                            The client needs a login form, a session store, and an auth API call.
-                          </span>
-                        </button>
-                      </div>
-                      <div
-                        class="reply-activity-entry min-w-0 "
                         data-kind="command"
-                        data-phase="verify"
                         data-status="complete"
                         data-testid="activity-entry"
                       >
@@ -169,7 +137,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           data-testid="tool-part"
                         >
                           <button
-                            aria-controls="cl-31"
+                            aria-controls="cl-46"
                             aria-expanded="true"
                             class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
@@ -234,7 +202,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           <div
                             class="reply-tool-detail mt-1 space-y-2"
                             data-testid="tool-detail"
-                            id="cl-31"
+                            id="cl-46"
                           >
                             <div
                               class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
@@ -282,6 +250,33 @@ services/
                           </div>
                         </div>
                       </div>
+                      <div
+                        class="reply-activity-entry min-w-0"
+                        data-testid="thought-details"
+                      >
+                        <button
+                          aria-controls="cl-45"
+                          aria-expanded="false"
+                          class="flex w-full min-w-0 items-center gap-1.5 py-0.5 text-left text-xs text-fg-faint outline-none focus:bg-accent-soft"
+                          data-testid="thought-details-toggle"
+                          type="button"
+                        >
+                          <span
+                            aria-hidden="true"
+                            class="inline-block shrink-0 transition-transform "
+                          >
+                            ▸
+                          </span>
+                          <span
+                            class="truncate"
+                          >
+                            View thought details
+                          </span>
+                        </button>
+                      </div>
+                      <div
+                        class="flex min-w-0 items-center"
+                      />
                     </div>
                   </div>
                 </div>
