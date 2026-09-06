@@ -68,7 +68,7 @@ exports[`SubtaskPart snapshot > matches the fixture's subtask part 1`] = `
         >
           <span
             aria-hidden="true"
-            class="inline-flex h-4 w-4 shrink-0 items-center justify-center h-3 w-3"
+            class="inline-flex h-4 w-4 shrink-0 items-center justify-center "
             data-icon-kind="agent"
           >
             <svg

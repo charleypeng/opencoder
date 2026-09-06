@@ -192,6 +192,25 @@ describe("ProcessFold", () => {
     );
   });
 
+  it("reports an authoritative stop instead of a completed duration", () => {
+    render(() => (
+      <ProcessFold
+        parts={[toolPart("bash", "completed")]}
+        startedAt={1000}
+        completedAt={61000}
+        stopped
+        runKey="stopped-run"
+      />
+    ));
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Stopped");
+    expect(screen.getByTestId("process-fold")).toHaveAttribute("data-status", "stopped");
+  });
+
+  it("labels a latest-activity retry as retrying, not attention", () => {
+    render(() => <ProcessFold parts={[retryPart()]} runKey="retry-header" />);
+    expect(screen.getByTestId("process-fold-status")).toHaveTextContent("Retrying");
+  });
+
   it("stops the sweep when the run finishes", async () => {
     const [active, setActive] = createSignal(true);
     render(() => (

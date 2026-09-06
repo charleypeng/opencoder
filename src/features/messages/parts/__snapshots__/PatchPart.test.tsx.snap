@@ -58,23 +58,22 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
           data-testid="patch-file"
           type="button"
         >
-          <svg
-            aria-hidden=""
-            class="h-3 w-3 shrink-0 text-fg-faint"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            viewBox="0 0 16 16"
+          <span
+            aria-hidden="true"
+            class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
+            data-icon-kind="file"
           >
-            <path
-              d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z"
+            <svg
+              class="h-3.5 w-3.5"
+              fill="none"
+              focusable="false"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              viewBox="0 0 16 16"
             />
-            <path
-              d="M3 5.5l5 2.7 5-2.7M8 8.2v5"
-            />
-          </svg>
+          </span>
           <span
             class="truncate font-code"
           >
@@ -96,23 +95,29 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
           data-testid="patch-file"
           type="button"
         >
-          <svg
-            aria-hidden=""
-            class="h-3 w-3 shrink-0 text-fg-faint"
-            fill="none"
-            stroke="currentColor"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="1.5"
-            viewBox="0 0 16 16"
+          <span
+            aria-hidden="true"
+            class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
+            data-icon-kind="file"
           >
-            <path
-              d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z"
-            />
-            <path
-              d="M3 5.5l5 2.7 5-2.7M8 8.2v5"
-            />
-          </svg>
+            <svg
+              class="h-3.5 w-3.5"
+              fill="none"
+              focusable="false"
+              stroke="currentColor"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="1.5"
+              viewBox="0 0 16 16"
+            >
+              <path
+                d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6Z"
+              />
+              <path
+                d="M9 2v4h4"
+              />
+            </svg>
+          </span>
           <span
             class="truncate font-code"
           >

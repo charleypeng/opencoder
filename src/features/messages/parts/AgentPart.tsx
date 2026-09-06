@@ -25,7 +25,7 @@ export function AgentChip(props: AgentChipProps) {
       data-testid="agent-chip"
       class="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/30 bg-accent-soft px-1.5 py-px text-[10px] font-medium text-accent"
     >
-      <ContentIcon kind="agent" class="h-3 w-3" />
+      <ContentIcon kind="agent" />
       <span data-testid="agent-chip-name">{props.name}</span>
     </span>
   );

@@ -105,6 +105,28 @@ describe("deriveProcessStatus", () => {
     expect(status).toEqual({ kind: "waiting-model" });
   });
 
+  it("counts only tools in the parallel-tool claim", () => {
+    // An active reasoning entry (missing end time) is progress, not a
+    // running tool; the count must stay truthful.
+    const status = deriveProcessStatus([reasoning("planning"), tool("running")], {
+      active: true,
+    });
+    expect(status).toEqual({ kind: "tool", running: 1, pending: 0, tool: "bash" });
+  });
+
+  it("clears the retry status once progress text follows", () => {
+    const text: Part = {
+      id: "text-1",
+      sessionID: "session-1",
+      messageID: "message-1",
+      type: "text",
+      text: "Recovery underway.",
+      time: { start: 140, end: 150 },
+    };
+    const status = deriveProcessStatus([retry(), text], { active: true });
+    expect(status).toEqual({ kind: "waiting-model" });
+  });
+
   it("reports a pending permission wait over synthetic activity", () => {
     const status = deriveProcessStatus([tool("running")], {
       active: true,

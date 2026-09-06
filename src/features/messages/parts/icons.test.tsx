@@ -108,9 +108,10 @@ describe("ContentIcon", () => {
     expect(svg?.getAttribute("stroke-width")).toBe("1.5");
   });
 
-  it("keeps the category icon stable across tool statuses", () => {
-    // The kind derives from the tool name only — the four-state machine never
-    // swaps the glyph (status is expressed by copy and duration instead).
+  it("normalizes case without widening the match", () => {
+    // The kind derives from the exact tool name only (case-insensitive), so
+    // the four-state machine structurally cannot swap the glyph, and a
+    // capitalized alias never falls out of its class.
     for (const tool of ["bash", "read", "edit", "write", "glob", "grep", "question"]) {
       expect(toolIconKind(tool.toUpperCase())).toBe(toolIconKind(tool));
     }

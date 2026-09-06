@@ -55,6 +55,9 @@ export interface ProcessFoldProps {
   /** A pending permission/question request for this session: the run is
    *  waiting on the user, so the status says so instead of "thinking". */
   waitingUser?: "permission" | "question";
+  /** Authoritative user abort (AssistantMessage.error MessageAbortedError):
+   *  the elapsed label reports "Stopped" instead of a completed duration. */
+  stopped?: boolean;
 }
 
 function formatElapsed(t: ReturnType<typeof useT>, milliseconds: number): string {
@@ -90,7 +93,9 @@ function tailStatusText(t: ReturnType<typeof useT>, status: ProcessStatus): stri
         tool: status.tool ?? t("messages:toolNameFallback"),
       });
     case "retry":
-      return t("messages:retrying");
+      return status.message === undefined
+        ? t("messages:retrying")
+        : `${t("messages:retrying")} ${status.message}`;
     case "idle":
       return "";
   }
@@ -152,7 +157,10 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
   const traceKey = () => props.runKey ?? "run";
   const [now, setNow] = createSignal(Date.now());
   const [viewVersion, setViewVersion] = createSignal(0);
-  const trace = createMemo(() => deriveActivityTrace(props.parts, now(), traceKey()));
+  // The trace only re-derives when parts change: Date.now() here is not a
+  // reactive read, so the 1s elapsed clock never rebuilds the entry rows
+  // (they would remount every tick and reset tool detail state).
+  const trace = createMemo(() => deriveActivityTrace(props.parts, Date.now(), traceKey()));
   // Reasoning originals leave the default reading flow; they live behind one
   // quiet disclosure so the run never shows a repeated thinking row.
   const reasoningEntries = createMemo(() => trace().filter((entry) => entry.kind === "summary"));
@@ -217,7 +225,17 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     onCleanup(() => clearInterval(timer));
   });
   const statusLabel = createMemo(() => {
-    if (failed()) return t("messages:activityNeedsAttention");
+    // §4: an authoritative user abort reports "Stopped", never a completed
+    // duration; a retry as the latest activity reports "Retrying" instead of
+    // the generic attention label.
+    if (props.stopped === true) return t("messages:activityStopped");
+    if (failed()) {
+      const entries = trace();
+      const latest = entries[entries.length - 1];
+      return latest?.kind === "retry"
+        ? t("messages:retrying")
+        : t("messages:activityNeedsAttention");
+    }
     const startedAt = props.startedAt;
     if (active()) {
       if (props.waitingUser === "question") return t("messages:activityWaitingForAnswer");
@@ -251,7 +269,9 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
     <div
       data-testid="process-fold"
       data-active={active() ? "true" : "false"}
-      data-status={failed() ? "error" : active() ? "active" : "complete"}
+      data-status={
+        props.stopped === true ? "stopped" : failed() ? "error" : active() ? "active" : "complete"
+      }
       class="reply-activity my-3"
     >
       <button

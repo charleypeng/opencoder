@@ -53,8 +53,8 @@ export function deriveProcessStatus(
   }
 
   // A retry only describes the present while it is the latest observable
-  // activity; once any tool, reasoning, or compaction follows it, the run
-  // has moved on.
+  // activity; once any tool, reasoning, compaction, or progress text follows
+  // it, the run has moved on.
   for (let index = entries.length - 1; index >= 0; index--) {
     const entry = entries[index];
     if (entry.kind === "retry") return { kind: "retry", message: entry.preview };
@@ -62,22 +62,27 @@ export function deriveProcessStatus(
       entry.kind === "tool" ||
       entry.kind === "command" ||
       entry.kind === "summary" ||
-      entry.kind === "compaction"
+      entry.kind === "compaction" ||
+      entry.kind === "note"
     ) {
       break;
     }
   }
 
-  const running = entries.filter((entry) => entry.kind !== "note" && entry.status === "active");
+  // Only tools count toward the parallel-tool claim: an active reasoning
+  // entry (missing end time) is progress, not a running tool.
+  const runningTools = entries.filter(
+    (entry) => (entry.kind === "tool" || entry.kind === "command") && entry.status === "active",
+  );
   const pendingTools = entries.filter(
     (entry) => entry.kind !== "note" && entry.status === "queued",
   );
-  const activeTool = running.find((entry) => entry.kind === "tool" || entry.kind === "command");
+  const activeTool = runningTools[0];
 
   if (activeTool !== undefined) {
     return {
       kind: "tool",
-      running: running.length,
+      running: runningTools.length,
       pending: pendingTools.length,
       tool: activeTool.title,
     };

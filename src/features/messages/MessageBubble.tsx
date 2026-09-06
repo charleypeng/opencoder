@@ -243,6 +243,17 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
   // PROCESS-REF-01 §4: while this session has a pending permission or
   // question request, the run is blocked on the user — surface that real
   // wait instead of guessing "waiting for model".
+  // An aborted run carries MessageAbortedError on the assistant message —
+  // the authoritative "stopped" signal (never rendered as success).
+  const stopped = createMemo(() => {
+    const info = messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
+    return (
+      info?.role === "assistant" &&
+      info.error !== undefined &&
+      info.error !== null &&
+      (info.error as { name?: string }).name === "MessageAbortedError"
+    );
+  });
   const waitingUser = createMemo<"permission" | "question" | undefined>(() => {
     const sessionId = props.sessionId;
     if (permissions[props.serverId]?.queue.some((request) => request.sessionID === sessionId)) {
@@ -303,6 +314,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                   streaming={props.streaming === true}
                   contentStreaming={props.typing === true}
                   waitingUser={waitingUser()}
+                  stopped={stopped()}
                 />
               </Show>
               <For each={contentPartIds()}>

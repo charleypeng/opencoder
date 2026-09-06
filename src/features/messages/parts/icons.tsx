@@ -8,7 +8,9 @@
 // Mapping evidence rule: a tool alias enters the classification table only
 // with repository evidence (mock fixtures or an existing classification
 // regex); candidates without evidence (webfetch, skill, MCP tools) fall
-// through to the generic tool glyph instead of being guessed.
+// through to the generic tool glyph instead of being guessed. The hidden
+// step-start/step-finish protocol parts keep their existing invisibility in
+// MessageBubble, so no icon row is produced for them at all.
 
 export type IconKind =
   // structured part kinds
@@ -278,7 +280,9 @@ export function ContentIcon(props: ContentIconProps) {
   );
 }
 
-/** Command tools: alias regex already used by the activity derivation. */
+/** Command tools: the alias family from the activity derivation's command
+ * classification, anchored so a tool like "run_tests" stays generic (the
+ * trace's unanchored form calls it a command; the icon stays conservative). */
 const COMMAND_TOOLS = /^(bash|shell|exec|terminal|command|run)$/i;
 /** Verified patch-editing aliases (agentRun.ts FILE_TOOLS minus write/create). */
 const EDIT_TOOLS = /^(edit|patch|apply_patch|multiedit|delete|move|rename)$/i;

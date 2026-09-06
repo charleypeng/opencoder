@@ -144,19 +144,7 @@ const PatchPart: Component<PatchPartProps> = (props) => {
                 class="flex w-full items-center gap-2 px-2 py-1 text-left text-xs text-fg-secondary outline-none hover:text-fg-primary focus:bg-accent-soft"
                 onClick={() => toggleFile(file)}
               >
-                <svg
-                  aria-hidden
-                  class="h-3 w-3 shrink-0 text-fg-faint"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.5"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <path d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z" />
-                  <path d="M3 5.5l5 2.7 5-2.7M8 8.2v5" />
-                </svg>
+                <ContentIcon kind="file" class="text-fg-faint" />
                 {/* IA-13/14: file paths in monospace for diff-style display */}
                 <span class="truncate font-code">{file}</span>
                 <span
