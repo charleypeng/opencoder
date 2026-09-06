@@ -344,36 +344,9 @@ describe("MessageBubble", () => {
     // Collapsed by default; expanding reveals the reasoning and tool parts.
     expect(screen.getByTestId("process-fold-toggle")).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByTestId("process-fold-toggle"));
-    fireEvent.click(screen.getByTestId("thought-details-toggle"));
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toHaveTextContent("intermediate reasoning");
     expect(screen.getByTestId("tool-part")).toHaveAttribute("data-status", "completed");
-  });
-
-  it("reports a MessageAbortedError run as stopped, not completed", () => {
-    applyPartDelta(SERVER, SESSION, {
-      id: "prt_abort_r",
-      sessionID: SESSION,
-      messageID: "msg_abort",
-      type: "reasoning",
-      text: "partial reasoning",
-      time: { start: 1, end: 2 },
-    } as never);
-    upsertMessage(SERVER, SESSION, {
-      ...assistantMessage("msg_abort", "msg_user"),
-      time: { created: 2000 },
-      error: { name: "MessageAbortedError", data: { message: "aborted by user" } },
-    } as Message);
-    render(() => (
-      <MessageBubble
-        serverId={SERVER}
-        sessionId={SESSION}
-        messageID="msg_abort"
-        partIds={["prt_abort_r"]}
-      />
-    ));
-    const fold = screen.getByTestId("process-fold");
-    expect(fold).toHaveAttribute("data-status", "stopped");
-    expect(fold).toHaveAttribute("data-active", "false");
   });
 
   it("does not render an AI badge for assistant messages", () => {
@@ -506,7 +479,7 @@ describe("MessageBubble", () => {
     const toggle = screen.getByTestId("process-fold-toggle");
     fireEvent.click(toggle);
     expect(toggle).toHaveAttribute("aria-expanded", "true");
-    fireEvent.click(screen.getByTestId("thought-details-toggle"));
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
 
     // A streamed delta appends without collapsing the fold.
@@ -569,7 +542,7 @@ describe("MessageBubble", () => {
     );
 
     // The user can inspect the trace on demand.
-    fireEvent.click(screen.getByTestId("thought-details-toggle"));
+    fireEvent.click(screen.getByTestId("activity-entry-toggle"));
     expect(screen.getByTestId("reasoning-body")).toBeInTheDocument();
   });
 

@@ -9,26 +9,20 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
     <div
       class="flex items-center gap-2 px-2 py-1.5 text-xs"
     >
-      <span
-        aria-hidden="true"
-        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
-        data-icon-kind="patch"
+      <svg
+        aria-hidden=""
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
       >
-        <svg
-          class="h-3.5 w-3.5"
-          fill="none"
-          focusable="false"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.5"
-          viewBox="0 0 16 16"
-        >
-          <path
-            d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5"
-          />
-        </svg>
-      </span>
+        <path
+          d="M5 3v10M3.5 4.5 5 3l1.5 1.5M11 3v10M12.5 11.5 11 13l-1.5-1.5"
+        />
+      </svg>
       <span
         class="font-code font-medium text-fg-primary"
       >
@@ -58,22 +52,23 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
           data-testid="patch-file"
           type="button"
         >
-          <span
-            aria-hidden="true"
-            class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
-            data-icon-kind="file"
+          <svg
+            aria-hidden=""
+            class="h-3 w-3 shrink-0 text-fg-faint"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            viewBox="0 0 16 16"
           >
-            <svg
-              class="h-3.5 w-3.5"
-              fill="none"
-              focusable="false"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              viewBox="0 0 16 16"
+            <path
+              d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z"
             />
-          </span>
+            <path
+              d="M3 5.5l5 2.7 5-2.7M8 8.2v5"
+            />
+          </svg>
           <span
             class="truncate font-code"
           >
@@ -95,29 +90,23 @@ exports[`PatchPart snapshot > matches the fixture's patch part 1`] = `
           data-testid="patch-file"
           type="button"
         >
-          <span
-            aria-hidden="true"
-            class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
-            data-icon-kind="file"
+          <svg
+            aria-hidden=""
+            class="h-3 w-3 shrink-0 text-fg-faint"
+            fill="none"
+            stroke="currentColor"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="1.5"
+            viewBox="0 0 16 16"
           >
-            <svg
-              class="h-3.5 w-3.5"
-              fill="none"
-              focusable="false"
-              stroke="currentColor"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="1.5"
-              viewBox="0 0 16 16"
-            >
-              <path
-                d="M9 2H4.5A1.5 1.5 0 0 0 3 3.5v9A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5V6Z"
-              />
-              <path
-                d="M9 2v4h4"
-              />
-            </svg>
-          </span>
+            <path
+              d="M3 5.5 8 2.8l5 2.7v5l-5 2.7-5-2.7Z"
+            />
+            <path
+              d="M3 5.5l5 2.7 5-2.7M8 8.2v5"
+            />
+          </svg>
           <span
             class="truncate font-code"
           >

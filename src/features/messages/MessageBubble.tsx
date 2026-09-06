@@ -16,8 +16,6 @@ import { Dynamic } from "solid-js/web";
 import { useT } from "../../i18n/index.js";
 import { messages } from "../../stores/messages.js";
 import type { Part } from "../../stores/messages.js";
-import { permissions } from "../../stores/permission.js";
-import { questions } from "../../stores/question.js";
 import type { SnapshotFileDiff } from "../../services/vcs.js";
 import MessageActions from "./MessageActions.js";
 import RunOutcome from "./RunOutcome.js";
@@ -240,30 +238,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
       (id) => messages[props.serverId]?.[props.sessionId]?.parts[id],
     ),
   );
-  // PROCESS-REF-01 §4: while this session has a pending permission or
-  // question request, the run is blocked on the user — surface that real
-  // wait instead of guessing "waiting for model".
-  // An aborted run carries MessageAbortedError on the assistant message —
-  // the authoritative "stopped" signal (never rendered as success).
-  const stopped = createMemo(() => {
-    const info = messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
-    return (
-      info?.role === "assistant" &&
-      info.error !== undefined &&
-      info.error !== null &&
-      (info.error as { name?: string }).name === "MessageAbortedError"
-    );
-  });
-  const waitingUser = createMemo<"permission" | "question" | undefined>(() => {
-    const sessionId = props.sessionId;
-    if (permissions[props.serverId]?.queue.some((request) => request.sessionID === sessionId)) {
-      return "permission";
-    }
-    if (questions[props.serverId]?.queue.some((request) => request.sessionID === sessionId)) {
-      return "question";
-    }
-    return undefined;
-  });
   const activityRunKey = () =>
     `${props.serverId}:${props.sessionId}:${props.runKey ?? props.messageID}`;
 
@@ -312,9 +286,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                   startedAt={props.runStartedAt}
                   completedAt={props.runCompletedAt}
                   streaming={props.streaming === true}
-                  contentStreaming={props.typing === true}
-                  waitingUser={waitingUser()}
-                  stopped={stopped()}
                 />
               </Show>
               <For each={contentPartIds()}>

@@ -5,25 +5,6 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
-
-### Added
-
-- feat(messages): Derive a single deterministic current-status for each agent run from observable parts, so active status no longer depends on stale part timing. (messages)
-- feat(messages): Show one tail status slot per run that follows the rendered progress, aggregate historical reasoning behind a quiet "View thought details" disclosure, and restore progress prose to the primary reading color. (messages)
-- feat(messages): Animate the active tail-status text with a CSS gradient sweep that keeps the text readable in every phase, stops on finish or attention, and degrades to solid text under reduced motion and forced colors. (messages)
-- feat(messages): Unify every conversation icon into one thin-stroke family — semantic glyphs for command, read, edit, write, search, question tools, MIME-aware attachment types with extension fallback, and structured part titles — replacing the per-tool, per-part, and cube fallback drawings. (messages)
-- test(messages): Add the E14 reference replay journey — light recording with sweep time-advance proof, dark and reduced-motion captures, honest permission-wait status, and collapsed history — plus E03/E04/E05/E06/E12 regression coverage. (messages)
-
-### Fixed
-
-- fix(messages): Keep the tail status honest on recovery — a retried run follows newer tool activity instead of staying on "Retrying", a failed run clears attention once later activity succeeds, and a pending permission or question request shows a real solid "waiting for you" state. (messages)
-- fix(messages): Report an authoritative user abort as "Stopped" instead of a completed duration, show "Retrying" in the header while a retry is the latest activity, count only real tools in the parallel-tool claim, and stop rebuilding activity rows on every elapsed tick. (messages)
-
-### Changed
-
-- feat(messages): Treat run activity as authoritative instead of trusting historical reasoning parts that miss an end time, and auto-collapse finished runs only when the user made no explicit disclosure choice. (messages)
-
 ## [1.2.1] - 2026-09-04
 
 ### Fixed

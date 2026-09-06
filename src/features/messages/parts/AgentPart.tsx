@@ -7,7 +7,6 @@
 
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
-import { ContentIcon } from "./icons.js";
 
 export type AgentPartData = Extract<Part, { type: "agent" }>;
 
@@ -19,13 +18,31 @@ export interface AgentChipProps {
   name: string;
 }
 
+function RobotIcon(props: { class?: string }) {
+  return (
+    <svg
+      aria-hidden
+      class={props.class ?? "h-3.5 w-3.5 shrink-0"}
+      viewBox="0 0 16 16"
+      fill="none"
+      stroke="currentColor"
+      stroke-width="1.5"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+    >
+      <rect x="2.5" y="5.5" width="11" height="7" rx="1.5" />
+      <path d="M8 2.5v3M4.8 8.3h.01M7.5 8.3h.01M10.2 8.3h.01" />
+    </svg>
+  );
+}
+
 export function AgentChip(props: AgentChipProps) {
   return (
     <span
       data-testid="agent-chip"
       class="inline-flex shrink-0 items-center gap-1 rounded-full border border-accent/30 bg-accent-soft px-1.5 py-px text-[10px] font-medium text-accent"
     >
-      <ContentIcon kind="agent" />
+      <RobotIcon class="h-3 w-3 shrink-0" />
       <span data-testid="agent-chip-name">{props.name}</span>
     </span>
   );
@@ -40,7 +57,7 @@ const AgentPart: Component<AgentPartProps> = (props) => {
       class="my-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-accent/30 bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent"
       title={source() !== undefined ? `Mentioned: ${source()}` : undefined}
     >
-      <ContentIcon kind="agent" />
+      <RobotIcon />
       <span data-testid="agent-name">{props.part.name}</span>
     </span>
   );

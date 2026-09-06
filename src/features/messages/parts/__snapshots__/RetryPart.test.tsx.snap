@@ -9,29 +9,23 @@ exports[`RetryPart snapshot > matches the fixture's retry part 1`] = `
     <span
       class="flex flex-wrap items-center gap-1.5"
     >
-      <span
-        aria-hidden="true"
-        class="inline-flex h-4 w-4 shrink-0 items-center justify-center text-fg-faint"
-        data-icon-kind="retry"
+      <svg
+        aria-hidden=""
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        fill="none"
+        stroke="currentColor"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        stroke-width="1.5"
+        viewBox="0 0 16 16"
       >
-        <svg
-          class="h-3.5 w-3.5"
-          fill="none"
-          focusable="false"
-          stroke="currentColor"
-          stroke-linecap="round"
-          stroke-linejoin="round"
-          stroke-width="1.5"
-          viewBox="0 0 16 16"
-        >
-          <path
-            d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"
-          />
-          <path
-            d="M13.5 2.5V6h-3.5"
-          />
-        </svg>
-      </span>
+        <path
+          d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9"
+        />
+        <path
+          d="M13.5 2.5V6h-3.5"
+        />
+      </svg>
       <span
         class="font-medium text-fg-primary"
         data-testid="retry-attempt"

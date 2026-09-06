@@ -296,81 +296,8 @@
   overflow: visible;
 }
 
-/* PROCESS-REF-02: progress prose keeps the normal reading hierarchy — the
- * same primary color and rhythm as the final answer, never demoted to
- * secondary meta text. */
 .reply-activity-progress .markdown-body {
-  color: var(--fg-primary);
-}
-
-/* The single tail status slot is small secondary text; the animated sweep
- * targets .reply-tail-status-text only (PROCESS-REF-03). */
-.reply-tail-status {
-  max-width: 100%;
-}
-
-/*
- * PROCESS-REF-03 gradient sweep: one soft light-dark band travels across the
- * glyphs of the active tail status. The base color is declared first so any
- * unsupported or degraded path keeps solid readable text; the transparent
- * fill only applies inside the background-clip support check. The band moves
- * rightwards: background-position decreasing from 100% to -100% slides the
- * oversized image (240% wide) to the right across the text.
- */
-.reply-tail-status-text {
   color: var(--fg-secondary);
-}
-
-@supports ((background-clip: text) or (-webkit-background-clip: text)) {
-  .reply-tail-status[data-animated="true"] .reply-tail-status-text {
-    /* Dark themes raise the band towards the primary text color; light
-     * themes deepen it instead — a pale band on white could not keep the
-     * 4.5:1 floor, a dark band stays well above it. */
-    --sweep-bright: color-mix(in srgb, var(--fg-secondary) 40%, var(--fg-primary));
-    background-image: linear-gradient(
-      90deg,
-      var(--fg-secondary) 0%,
-      var(--fg-secondary) 38%,
-      var(--sweep-bright) 50%,
-      var(--fg-secondary) 62%,
-      var(--fg-secondary) 100%
-    );
-    background-size: 240% 100%;
-    background-repeat: no-repeat;
-    background-position: 100% 50%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    -webkit-text-fill-color: transparent;
-    animation: status-sweep 2.2s linear infinite;
-  }
-
-  [data-theme="light"] .reply-tail-status[data-animated="true"] .reply-tail-status-text {
-    --sweep-bright: color-mix(in srgb, var(--fg-secondary) 55%, var(--fg-primary));
-  }
-
-  @keyframes status-sweep {
-    from {
-      background-position: 100% 50%;
-    }
-    to {
-      background-position: -100% 50%;
-    }
-  }
-}
-
-/* Degraded paths restore the solid fill: reduced motion, forced colors, and
- * any finished/attention status (data-animated="false" never opts in). */
-@media (prefers-reduced-motion: reduce), (forced-colors: active) {
-  .reply-tail-status[data-animated="true"] .reply-tail-status-text {
-    animation: none;
-    background-image: none;
-    background-position: 0% 50%;
-    background-size: 100% 100%;
-    background-clip: border-box;
-    -webkit-background-clip: border-box;
-    -webkit-text-fill-color: currentColor;
-    color: var(--fg-secondary);
-  }
 }
 
 .reply-activity-thought,

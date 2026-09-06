@@ -16,8 +16,7 @@ import { createMessageService } from "../../../services/message.js";
 import { getApiClient } from "../../../services/client.js";
 import type { Part } from "../../../stores/messages.js";
 import { resolveToolCard } from "./tools/registry.js";
-import { ContentIcon, toolIconKind } from "./icons.js";
-import { durationLabel, inputString } from "./tools/shared.js";
+import { durationLabel, inputString, StatusIcon, ToolIcon } from "./tools/shared.js";
 import { useT } from "../../../i18n/index.js";
 import type { ToolCard } from "./tools/shared.js";
 import {
@@ -217,7 +216,8 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         >
           ▸
         </span>
-        <ContentIcon kind={toolIconKind(props.part.tool)} class="text-fg-faint" />
+        <StatusIcon status={status()} />
+        <ToolIcon tool={props.part.tool} />
         <span
           data-testid="tool-summary"
           class={`min-w-0 flex-1 font-code text-fg-secondary ${

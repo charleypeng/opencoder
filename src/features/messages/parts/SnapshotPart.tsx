@@ -8,7 +8,6 @@
 import { createMemo } from "solid-js";
 import type { Component } from "solid-js";
 import type { Part } from "../../../stores/messages.js";
-import { ContentIcon } from "./icons.js";
 import { useT } from "../../../i18n/index.js";
 
 export type SnapshotPartData = Extract<Part, { type: "snapshot" }>;
@@ -51,7 +50,20 @@ const SnapshotPart: Component<SnapshotPartProps> = (props) => {
         }
       }}
     >
-      <ContentIcon kind="snapshot" class="text-fg-faint" />
+      <svg
+        aria-hidden
+        class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="1.5"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <rect x="2" y="4.5" width="12" height="9" rx="1.5" />
+        <circle cx="8" cy="9" r="2.5" />
+        <path d="M5.5 4.5 6.8 2.8h2.4l1.3 1.7" />
+      </svg>
       <span class="font-medium">{t("messages:snapshot")}</span>
       <span data-testid="snapshot-id" class="font-code text-[10px] text-fg-faint">
         {shortId()}
