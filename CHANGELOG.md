@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - feat(messages): Show one tail status slot per run that follows the rendered progress, aggregate historical reasoning behind a quiet "View thought details" disclosure, and restore progress prose to the primary reading color. (messages)
 - feat(messages): Animate the active tail-status text with a CSS gradient sweep that keeps the text readable in every phase, stops on finish or attention, and degrades to solid text under reduced motion and forced colors. (messages)
 - feat(messages): Unify every conversation icon into one thin-stroke family — semantic glyphs for command, read, edit, write, search, question tools, MIME-aware attachment types with extension fallback, and structured part titles — replacing the per-tool, per-part, and cube fallback drawings. (messages)
+- test(messages): Add the E14 reference replay journey — light recording with sweep time-advance proof, dark and reduced-motion captures, honest permission-wait status, and collapsed history — plus E03/E04/E05/E06/E12 regression coverage. (messages)
 
 ### Fixed
 
