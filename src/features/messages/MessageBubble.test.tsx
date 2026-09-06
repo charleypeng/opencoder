@@ -7,7 +7,7 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSignal } from "solid-js";
-import { render, screen, fireEvent, waitFor } from "@solidjs/testing-library";
+import { render, screen, fireEvent, waitFor, within } from "@solidjs/testing-library";
 import MessageBubble from "./MessageBubble";
 import {
   applyPartDelta,
@@ -113,6 +113,55 @@ describe("MessageBubble", () => {
     expect(bubble).toHaveAttribute("data-role", "assistant");
     expect(bubble).toHaveTextContent("streaming…");
     expect(screen.queryByTestId("message-time")).not.toBeInTheDocument();
+  });
+
+  it("lets assistant content fill the shared reading column", () => {
+    applyTextDelta(SERVER, SESSION, {
+      messageID: "msg_reading_width",
+      partID: "prt_reading_width",
+      field: "text",
+      delta: "A readable response",
+    });
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_reading_width"
+        partIds={["prt_reading_width"]}
+      />
+    ));
+
+    expect(
+      screen.getByTestId("message-msg_reading_width").querySelector(".max-w-none"),
+    ).not.toBeNull();
+  });
+
+  it("renders an automatic compaction marker as a neutral system status", () => {
+    upsertMessage(SERVER, SESSION, userMessage("msg_compaction"));
+    applyPartDelta(SERVER, SESSION, {
+      id: "prt_compaction",
+      sessionID: SESSION,
+      messageID: "msg_compaction",
+      type: "compaction",
+      auto: true,
+    });
+    render(() => (
+      <MessageBubble
+        serverId={SERVER}
+        sessionId={SESSION}
+        messageID="msg_compaction"
+        partIds={["prt_compaction"]}
+      />
+    ));
+
+    const notice = screen.getByTestId("message-msg_compaction");
+    expect(notice).toHaveAttribute("data-role", "system");
+    expect(notice).toHaveAttribute("role", "status");
+    expect(within(notice).getByTestId("compaction-part")).toHaveTextContent("Context compacted");
+    expect(within(notice).getByTestId("compaction-continued")).toHaveTextContent(
+      "Continuing with a shorter context.",
+    );
+    expect(notice.querySelector(".bg-accent-soft")).toBeNull();
   });
 
   it("re-renders only the mutated part row: sibling DOM nodes are untouched", async () => {

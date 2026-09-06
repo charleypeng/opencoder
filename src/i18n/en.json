@@ -221,6 +221,7 @@
     "noMessages": "No messages yet",
     "noMessagesHint": "Send a prompt to start the conversation.",
     "compacted": "Context compacted",
+    "compactionContinued": "Continuing with a shorter context.",
     "contextOverflowed": "Context overflowed",
     "loadingMessages": "Loading messages…",
     "newMessagesJump": "New messages ↓",

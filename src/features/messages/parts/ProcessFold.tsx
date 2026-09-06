@@ -95,7 +95,9 @@ function ThoughtDisclosure(props: {
         >
           ▸
         </span>
-        <span class="shrink-0 font-medium text-fg-primary">{entryTitle(props.t, props.entry)}</span>
+        <span class="max-w-[35%] truncate font-medium text-fg-secondary">
+          {entryTitle(props.t, props.entry)}
+        </span>
         <Show when={props.entry.preview !== undefined}>
           <span class="min-w-0 flex-1 truncate text-fg-faint">{props.entry.preview}</span>
         </Show>
@@ -194,7 +196,7 @@ const ProcessFold: Component<ProcessFoldProps> = (props) => {
             </span>
           ) : null}
         </span>
-        <span data-testid="process-fold-status" class="shrink-0 text-fg-secondary">
+        <span data-testid="process-fold-status" class="min-w-0 truncate text-fg-secondary">
           {statusLabel()}
         </span>
         <Show when={!hasDetails() && active()}>

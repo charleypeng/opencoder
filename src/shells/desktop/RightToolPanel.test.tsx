@@ -75,6 +75,19 @@ describe("RightToolPanel", () => {
     expect(screen.queryByTestId("right-tools-expand")).not.toBeInTheDocument();
   });
 
+  it("reports a zero-width controlled panel and delegates splitter recovery", () => {
+    const onWidthChange = vi.fn();
+    renderPanel({ width: 0, onWidthChange });
+
+    const panel = screen.getByTestId("right-tool-panel");
+    const handle = screen.getByTestId("right-tools-resize-handle");
+    expect(panel).toHaveAttribute("data-collapsed", "true");
+    expect(panel).toHaveStyle({ width: "0px" });
+
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(onWidthChange).toHaveBeenCalledWith(16);
+  });
+
   it("maximizes and restores through the panel action", () => {
     const { onMaximizedChange } = renderPanel();
     const panel = screen.getByTestId("right-tool-panel");

@@ -220,7 +220,9 @@ const ToolPart: Component<ToolPartProps> = (props) => {
         <ToolIcon tool={props.part.tool} />
         <span
           data-testid="tool-summary"
-          class={`min-w-0 flex-1 font-code text-fg-primary ${isExpanded() ? "" : "truncate"}`}
+          class={`min-w-0 flex-1 font-code text-fg-secondary ${
+            isExpanded() ? "whitespace-pre-wrap break-words" : "truncate"
+          }`}
         >
           {summary()}
         </span>

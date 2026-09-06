@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Message, Part } from "../../../stores/messages.js";
 import { deriveAgentRows, deriveRunOutcome } from "./agentRun.js";
 
-function userMessage(id: string, created: number): Message {
+function userMessage(id: string, created: number): Extract<Message, { role: "user" }> {
   return {
     id,
     sessionID: "session-1",
@@ -18,7 +18,7 @@ function assistantMessage(
   parentID: string,
   created: number,
   completed?: number,
-): Message {
+): Extract<Message, { role: "assistant" }> {
   return {
     id,
     sessionID: "session-1",
@@ -35,7 +35,7 @@ function assistantMessage(
   };
 }
 
-function text(id: string, messageID: string, value: string): Part {
+function text(id: string, messageID: string, value: string): Extract<Part, { type: "text" }> {
   return {
     id,
     sessionID: "session-1",
@@ -171,6 +171,57 @@ describe("deriveAgentRows", () => {
 
     expect(rows).toHaveLength(2);
     expect(rows[1]).toMatchObject({ kind: "assistant-run", active: true });
+  });
+
+  it("keeps the compaction notice but hides its internal summary and continuation", () => {
+    const infos: Record<string, Message> = {
+      marker: userMessage("marker", 1000),
+      summary: {
+        ...assistantMessage("summary", "marker", 1100, 1200),
+        mode: "compaction",
+        agent: "compaction",
+        summary: true,
+      },
+      continuation: userMessage("continuation", 1300),
+      answer: assistantMessage("answer", "continuation", 1400, 1800),
+    };
+    const parts: Record<string, Part> = {
+      markerPart: {
+        id: "markerPart",
+        sessionID: "session-1",
+        messageID: "marker",
+        type: "compaction",
+        auto: true,
+      },
+      summaryText: text("summaryText", "summary", "Internal compaction summary"),
+      continuationText: {
+        ...text("continuationText", "continuation", "Continue if you have next steps."),
+        synthetic: true,
+      },
+      answerText: text("answerText", "answer", "Continuing the original task."),
+    };
+
+    const rows = deriveAgentRows(
+      [
+        { messageID: "marker", partIds: ["markerPart"] },
+        { messageID: "summary", partIds: ["summaryText"] },
+        { messageID: "continuation", partIds: ["continuationText"] },
+        { messageID: "answer", partIds: ["answerText"] },
+      ],
+      infos,
+      parts,
+      { busy: false, busySince: 1000, sessionId: "session-1" },
+    );
+
+    expect(rows).toHaveLength(2);
+    expect(rows[0]).toMatchObject({ kind: "message", messageID: "marker" });
+    expect(rows[1]).toMatchObject({
+      kind: "assistant-run",
+      messageID: "answer",
+      parentMessageID: "continuation",
+      partIds: ["answerText"],
+      allPartIds: ["answerText"],
+    });
   });
 });
 

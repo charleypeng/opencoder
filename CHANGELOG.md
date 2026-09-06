@@ -14,6 +14,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(messages): Re-measure the virtual transcript after asynchronous layout and automatically restore all paged history when a compacted session is reopened. (messages)
+- fix(messages): Present context compaction as a neutral status and hide OpenCode's synthetic continuation and internal summary from the chat transcript. (messages)
+- fix(ui): Constrain desktop chat content to a shared readable column, keep activity metadata compact in narrow layouts, and restore zero-width workspace tools from the toolbar. (ui)
 - fix(messages): Preserve per-run detail disclosures across virtualization and use fetched tool fields only to fill missing streamed data. (messages)
 
 ## [1.2.3] - 2026-09-06

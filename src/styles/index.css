@@ -297,7 +297,7 @@
 }
 
 .reply-activity-progress .markdown-body {
-  color: var(--fg-primary);
+  color: var(--fg-secondary);
 }
 
 .reply-activity-thought,
@@ -306,6 +306,9 @@
 }
 
 .reply-tool-detail {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
   border: 1px solid color-mix(in srgb, var(--fg-faint) 18%, transparent);
   border-radius: var(--r-md);
   background: color-mix(in srgb, var(--bg-sunken) 70%, transparent);

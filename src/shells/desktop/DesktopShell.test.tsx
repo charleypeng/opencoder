@@ -626,12 +626,31 @@ afterEach(() => {
   resetTodos("srv-m8scope");
   resetAllShortcuts();
   localStorage.removeItem("oc-recent-files:srv-m4quick");
+  localStorage.removeItem("oc-right-tools-width");
   resetServerUpdate("srv-m8upd1");
   resetServerUpdate("srv-m8upd2");
   resetServerUpdate("srv-m8upd3");
   resetServerUpdate("srv-m8upd4");
 });
 describe("DesktopShell workspace", () => {
+  it("restores a manually zeroed right panel from the chat toolbar", () => {
+    const alpha = server({ id: "srv-tools-restore", name: "Alpha" });
+    localStorage.setItem("oc-right-tools-width", "0");
+    invokeMock.mockResolvedValueOnce([alpha]);
+    render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
+
+    const panel = screen.getByTestId("right-tool-panel");
+    const toggle = screen.getByTestId("right-tools-toggle");
+    expect(panel).toHaveAttribute("data-collapsed", "true");
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+
+    fireEvent.click(toggle);
+    expect(panel).toHaveAttribute("data-collapsed", "false");
+    expect(panel).toHaveStyle({ width: "256px" });
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+    expect(localStorage.getItem("oc-right-tools-width")).toBe("256");
+  });
+
   it("mounts the shell, activates the server context and shows placeholders", () => {
     const alpha = server({ id: "srv-alpha", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);

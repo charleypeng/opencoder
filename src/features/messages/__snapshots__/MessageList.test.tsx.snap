@@ -24,7 +24,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 0px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -73,7 +74,8 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
           style="top: 96px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -83,7 +85,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
               tabindex="0"
             >
               <div
-                class="w-full max-w-3xl"
+                class="w-full max-w-none"
               >
                 <div
                   class="reply-activity my-3"
@@ -108,7 +110,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                       </span>
                     </span>
                     <span
-                      class="shrink-0 text-fg-secondary"
+                      class="min-w-0 truncate text-fg-secondary"
                       data-testid="process-fold-status"
                     >
                       Took 15s
@@ -143,7 +145,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             ▸
                           </span>
                           <span
-                            class="shrink-0 font-medium text-fg-primary"
+                            class="max-w-[35%] truncate font-medium text-fg-secondary"
                           >
                             Thinking
                           </span>
@@ -211,7 +213,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                               />
                             </svg>
                             <span
-                              class="min-w-0 flex-1 font-code text-fg-primary "
+                              class="min-w-0 flex-1 font-code text-fg-secondary whitespace-pre-wrap break-words"
                               data-testid="tool-summary"
                             >
                               Ran command
@@ -320,7 +322,8 @@ services/
           style="top: 192px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -369,7 +372,8 @@ services/
           style="top: 288px;"
         >
           <div
-            class="mx-auto w-full max-w-6xl"
+            class="mx-auto w-full max-w-[58rem]"
+            data-testid="chat-reading-column"
           >
             <div
               aria-haspopup="menu"
@@ -379,7 +383,7 @@ services/
               tabindex="0"
             >
               <div
-                class="w-full max-w-3xl"
+                class="w-full max-w-none"
               >
                 <div
                   data-testid="text-part"
