@@ -302,9 +302,14 @@ const MessageList: Component<MessageListProps> = (props) => {
       try {
         const initial = await pagination.loadInitial();
         if (cancelled || version !== fetchVersion) return;
+        const initialPageHasNoVisibleRows = groups().length === 0 && pagination.hasMore();
+        if (initialPageHasNoVisibleRows) {
+          await restoreCompactedHistory(version, () => cancelled);
+          if (cancelled || version !== fetchVersion) return;
+        }
         setLoading(false);
         scheduleLayoutFollow();
-        if (initial.containsCompaction) {
+        if (initial.containsCompaction && !initialPageHasNoVisibleRows) {
           void restoreCompactedHistory(version, () => cancelled).then(() => {
             if (!cancelled && version === fetchVersion) scheduleLayoutFollow();
           });

@@ -137,6 +137,31 @@ function compactedHistory(count: number): SessionMessage[] {
   return history;
 }
 
+/** A transcript whose latest page is only OpenCode's hidden compaction control data. */
+function hiddenCompactionTailHistory(count: number): SessionMessage[] {
+  return syntheticHistory(count).map((message, index) => {
+    if (index < count - HISTORY_PAGE_SIZE) return message;
+    return {
+      info: {
+        ...message.info,
+        role: "assistant",
+        mode: "compaction",
+        agent: "compaction",
+        summary: true,
+      } as SessionMessage["info"],
+      parts: [
+        {
+          id: `prt_hidden_${index + 1}`,
+          sessionID: SESSION,
+          messageID: message.info.id,
+          type: "text",
+          text: `Hidden compaction summary ${index + 1}`,
+        },
+      ],
+    };
+  });
+}
+
 /**
  * TASK-M3-05: a client mock that serves a fixed chronological message list
  * with real pagination semantics (limit = most recent page, before = the
@@ -755,6 +780,30 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     });
     expect(storeEntry().infos["msg_s1"]).toBeDefined();
     expect(storeEntry().infos["msg_s120"]).toBeDefined();
+  });
+
+  it("continues loading when the initial page only contains hidden compaction controls", async () => {
+    const history = hiddenCompactionTailHistory(120);
+    const client = paginatedClientFrom(history);
+    renderList();
+
+    expect(screen.getByTestId("message-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId("message-msg_s70")).toBeInTheDocument());
+
+    expect(client.get).toHaveBeenCalledTimes(3);
+    expect(client.get.mock.calls[0][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE });
+    expect(client.get.mock.calls[1][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_s71",
+    });
+    expect(client.get.mock.calls[2][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_s21",
+    });
+    expect(storeEntry().infos["msg_s1"]).toBeDefined();
+    expect(storeEntry().infos["msg_s120"]).toBeDefined();
+    expect(screen.queryByText("Hidden compaction summary 120")).not.toBeInTheDocument();
   });
 
   it("loads older pages on top-reach with scroll preservation and no jump button", async () => {

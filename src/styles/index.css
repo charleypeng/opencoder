@@ -272,8 +272,10 @@
   grid-template-rows: 0fr;
   visibility: hidden;
   opacity: 0;
+  transform: translateY(-3px);
   transition:
     opacity var(--dur-med) ease,
+    transform var(--dur-med) var(--ease-spring),
     grid-template-rows var(--dur-med) var(--ease-spring),
     visibility 0s var(--dur-med);
 }
@@ -282,8 +284,10 @@
   grid-template-rows: 1fr;
   visibility: visible;
   opacity: 1;
+  transform: translateY(0);
   transition:
     opacity var(--dur-med) ease,
+    transform var(--dur-med) var(--ease-spring),
     grid-template-rows var(--dur-med) var(--ease-spring),
     visibility 0s 0s;
 }
@@ -304,6 +308,7 @@
   min-width: 0;
   overflow: hidden;
   overflow-wrap: anywhere;
+  transform-origin: top center;
 }
 
 .user-message-content {
@@ -350,6 +355,86 @@
   .reply-activity-body,
   .reply-activity-body[data-expanded="true"] {
     transition: none;
+    transform: none;
+  }
+  .reply-activity-entry {
+    animation: none;
+  }
+}
+
+.reply-activity-header {
+  position: relative;
+  border-radius: var(--r-sm);
+  transition:
+    background-color var(--dur-fast),
+    box-shadow var(--dur-fast),
+    color var(--dur-fast);
+}
+
+.reply-activity-header:hover {
+  background-color: color-mix(in srgb, var(--bg-sunken) 42%, transparent);
+}
+
+.reply-activity[data-active="true"] .reply-activity-header {
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--accent) 18%, transparent);
+}
+
+.reply-activity-items {
+  position: relative;
+  padding-left: 1.15rem;
+}
+
+.reply-activity-items::before {
+  content: "";
+  position: absolute;
+  left: 0.35rem;
+  top: 0.35rem;
+  bottom: 0.15rem;
+  width: 1px;
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--fg-faint) 18%, transparent),
+    color-mix(in srgb, var(--fg-faint) 8%, transparent)
+  );
+}
+
+.reply-activity-entry {
+  position: relative;
+  color: var(--fg-secondary);
+  animation: reply-activity-enter var(--dur-med) var(--ease-spring) both;
+}
+
+.reply-activity-entry::before {
+  content: "";
+  position: absolute;
+  left: -0.95rem;
+  top: 0.7rem;
+  width: 0.34rem;
+  height: 0.34rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--fg-faint) 70%, transparent);
+  box-shadow: 0 0 0 3px var(--bg-base);
+}
+
+.reply-activity-entry[data-status="active"]::before {
+  background: var(--accent);
+  box-shadow:
+    0 0 0 3px var(--bg-base),
+    0 0 18px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+.reply-activity-entry[data-status="failed"]::before {
+  background: var(--danger);
+}
+
+@keyframes reply-activity-enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 
@@ -359,7 +444,16 @@
 
 .reply-activity-thought,
 .reply-tool > button {
-  transition: background-color var(--dur-fast);
+  border-radius: var(--r-sm);
+  transition:
+    background-color var(--dur-fast),
+    color var(--dur-fast),
+    box-shadow var(--dur-fast);
+}
+
+.reply-activity-thought:hover,
+.reply-tool > button:hover {
+  background-color: color-mix(in srgb, var(--bg-sunken) 42%, transparent);
 }
 
 .reply-tool-detail {
@@ -368,7 +462,14 @@
   overflow-wrap: anywhere;
   border: 1px solid color-mix(in srgb, var(--fg-faint) 18%, transparent);
   border-radius: var(--r-md);
-  background: color-mix(in srgb, var(--bg-sunken) 70%, transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--bg-sunken) 76%, transparent),
+    color-mix(in srgb, var(--bg-sunken) 58%, transparent)
+  );
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--fg-faint) 12%, transparent),
+    0 8px 24px color-mix(in srgb, var(--bg-sunken) 34%, transparent);
   padding: 0.75rem;
 }
 

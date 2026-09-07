@@ -19,15 +19,30 @@ it("keeps outgoing content until the close animation finishes and cancels interr
     );
   });
   const body = container.querySelector<HTMLDivElement>(".chat-disclosure")!;
-  body.animate = vi.fn(() => {
+  const animate = vi.fn(() => {
     const animation = { cancel: vi.fn(), onfinish: undefined };
     motions.push(animation);
     return animation as unknown as Animation;
   });
+  body.animate = animate;
   screen.getByText("toggle").click();
   expect(screen.getByText("Tool output")).toBeInTheDocument();
+  expect(animate).toHaveBeenLastCalledWith(
+    expect.arrayContaining([
+      expect.objectContaining({ transform: "translateY(-4px) scaleY(0.985)" }),
+      expect.objectContaining({ transform: "translateY(0) scaleY(1)" }),
+    ]),
+    expect.objectContaining({ duration: 240, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }),
+  );
   screen.getByText("toggle").click();
   expect(motions[0].cancel).toHaveBeenCalled();
+  expect(animate).toHaveBeenLastCalledWith(
+    expect.arrayContaining([
+      expect.objectContaining({ transform: "translateY(0) scaleY(1)" }),
+      expect.objectContaining({ transform: "translateY(-3px) scaleY(0.99)" }),
+    ]),
+    expect.objectContaining({ duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)" }),
+  );
   expect(body).toHaveProperty("inert", true);
   expect(body).toHaveAttribute("aria-hidden", "true");
   expect(screen.getByText("Tool output")).toBeInTheDocument();
