@@ -9,11 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- feat(messages): Refine chat disclosure motion with softer height, opacity, and vertical easing so thought and tool details open closer to the reference interaction. (messages)
 - feat(messages): Add restrained live-status highlights and smooth chat disclosures, and collapse tall user messages into expandable previews measured at the current width and scale. (messages)
 
 ### Fixed
 
+- fix(messages): Restore stable height-and-opacity disclosure motion and remove unrelated activity-card restyling that caused manual folding to jitter. (messages)
 - fix(messages): Continue restoring paged history when the initial session page contains only hidden compaction control records, avoiding an empty chat until the next prompt. (messages)
 - fix(messages): Clamp stale virtual-list scroll offsets and scope row measurements per session so switching chats cannot leave a blank transcript viewport. (messages)
 

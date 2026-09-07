@@ -1,11 +1,6 @@
 import { createEffect, createSignal, onCleanup, Show, untrack } from "solid-js";
 import type { JSX } from "solid-js";
 
-const OPEN_MS = 240;
-const CLOSE_MS = 180;
-const OPEN_EASE = "cubic-bezier(0.16, 1, 0.3, 1)";
-const CLOSE_EASE = "cubic-bezier(0.4, 0, 1, 1)";
-
 /** Retain the outgoing body until its height transition completes. */
 export default function AnimatedDisclosure(props: {
   open: boolean;
@@ -35,32 +30,11 @@ export default function AnimatedDisclosure(props: {
         return;
       }
       animation = body.animate(
-        open
-          ? [
-              {
-                height: `${height}px`,
-                opacity: 0.25,
-                transform: "translateY(-4px) scaleY(0.985)",
-              },
-              {
-                height: `${body.scrollHeight}px`,
-                opacity: 1,
-                transform: "translateY(0) scaleY(1)",
-              },
-            ]
-          : [
-              {
-                height: `${height}px`,
-                opacity: 1,
-                transform: "translateY(0) scaleY(1)",
-              },
-              {
-                height: "0px",
-                opacity: 0,
-                transform: "translateY(-3px) scaleY(0.99)",
-              },
-            ],
-        { duration: open ? OPEN_MS : CLOSE_MS, easing: open ? OPEN_EASE : CLOSE_EASE },
+        [
+          { height: `${height}px`, opacity: open ? 0.35 : 1 },
+          { height: `${open ? body.scrollHeight : 0}px`, opacity: open ? 1 : 0 },
+        ],
+        { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
       );
       animation.onfinish = () => {
         setPresent(open);

@@ -7,6 +7,7 @@ afterEach(() => vi.unstubAllGlobals());
 
 it("keeps outgoing content until the close animation finishes and cancels interrupted motion", () => {
   const motions: { cancel: ReturnType<typeof vi.fn>; onfinish?: () => void }[] = [];
+  const animatedFrames: Keyframe[][] = [];
   const { container } = render(() => {
     const [open, setOpen] = createSignal(false);
     return (
@@ -19,7 +20,8 @@ it("keeps outgoing content until the close animation finishes and cancels interr
     );
   });
   const body = container.querySelector<HTMLDivElement>(".chat-disclosure")!;
-  const animate = vi.fn(() => {
+  const animate = vi.fn((frames: Keyframe[] | PropertyIndexedKeyframes) => {
+    animatedFrames.push(frames as Keyframe[]);
     const animation = { cancel: vi.fn(), onfinish: undefined };
     motions.push(animation);
     return animation as unknown as Animation;
@@ -29,19 +31,25 @@ it("keeps outgoing content until the close animation finishes and cancels interr
   expect(screen.getByText("Tool output")).toBeInTheDocument();
   expect(animate).toHaveBeenLastCalledWith(
     expect.arrayContaining([
-      expect.objectContaining({ transform: "translateY(-4px) scaleY(0.985)" }),
-      expect.objectContaining({ transform: "translateY(0) scaleY(1)" }),
+      expect.objectContaining({ opacity: 0.35 }),
+      expect.objectContaining({ opacity: 1 }),
     ]),
-    expect.objectContaining({ duration: 240, easing: "cubic-bezier(0.16, 1, 0.3, 1)" }),
+    expect.objectContaining({ duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }),
+  );
+  expect(animatedFrames[0]).toEqual(
+    expect.not.arrayContaining([expect.objectContaining({ transform: expect.any(String) })]),
   );
   screen.getByText("toggle").click();
   expect(motions[0].cancel).toHaveBeenCalled();
   expect(animate).toHaveBeenLastCalledWith(
     expect.arrayContaining([
-      expect.objectContaining({ transform: "translateY(0) scaleY(1)" }),
-      expect.objectContaining({ transform: "translateY(-3px) scaleY(0.99)" }),
+      expect.objectContaining({ opacity: 1 }),
+      expect.objectContaining({ opacity: 0 }),
     ]),
-    expect.objectContaining({ duration: 180, easing: "cubic-bezier(0.4, 0, 1, 1)" }),
+    expect.objectContaining({ duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }),
+  );
+  expect(animatedFrames[1]).toEqual(
+    expect.not.arrayContaining([expect.objectContaining({ transform: expect.any(String) })]),
   );
   expect(body).toHaveProperty("inert", true);
   expect(body).toHaveAttribute("aria-hidden", "true");
