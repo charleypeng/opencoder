@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - feat(messages): Add restrained live-status highlights and smooth chat disclosures, and collapse tall user messages into expandable previews measured at the current width and scale. (messages)
 
+### Fixed
+
+- fix(messages): Clamp stale virtual-list scroll offsets and scope row measurements per session so switching chats cannot leave a blank transcript viewport. (messages)
+
 ## [1.2.1] - 2026-09-04
 
 ### Fixed

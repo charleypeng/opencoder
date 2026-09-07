@@ -19,7 +19,7 @@
 // scrollTo and follow-at-bottom all go through it), so the visible range
 // always matches where the content actually is.
 
-import { createMemo, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal } from "solid-js";
 
 export interface VirtualListOptions {
   /** Default height of an unmeasured row in px. */
@@ -124,6 +124,18 @@ export function createVirtualList(
     heightVersion();
     if (n === 0) return 0;
     return prefixSums()[n];
+  });
+
+  createEffect(() => {
+    const max = Math.max(0, totalHeight() - viewport());
+    const top = scrollTop();
+    const el = getScrollEl();
+    if (top > max) {
+      if (el !== undefined) el.scrollTop = max;
+      setScrollTop(max);
+      return;
+    }
+    if (el !== undefined && el.scrollTop > max) el.scrollTop = max;
   });
 
   function measure(): void {

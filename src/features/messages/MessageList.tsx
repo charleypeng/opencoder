@@ -78,6 +78,8 @@ const EARLIER_TRIGGER_PX = 40;
 // so For's identity diff keeps the corresponding DOM/bubble instances alive —
 // a regroup or scroll only re-creates the rows that actually changed.
 interface MessageRow extends AgentRow {
+  /** Session-scoped row key for virtualization measurement and DOM reuse. */
+  renderKey: string;
   index: number;
   start: number;
   height: number;
@@ -176,7 +178,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     // rows start at the estimate: the re-anchor delta is exactly the height
     // of the inserted rows (index-keyed measurements would attribute stale
     // heights to the new indices and make the delta hundreds of px off).
-    (index) => groups()[index]?.key ?? `row-${index}`,
+    (index) => `${props.serverId}:${props.sessionId}:${groups()[index]?.key ?? `row-${index}`}`,
     {
       estimate: ROW_ESTIMATE_PX,
     },
@@ -227,10 +229,12 @@ const MessageList: Component<MessageListProps> = (props) => {
     const gs = groups();
     const cursor = cursorMessageId();
     const revert = revertIndex();
+    const namespace = `${props.serverId}:${props.sessionId}:`;
     const out: MessageRow[] = [];
     for (const v of virtual) {
       const group = gs[v.index];
       if (group === undefined) continue;
+      const renderKey = `${namespace}${group.key}`;
       const typing = cursor === group.messageID;
       const reverted = revert >= 0 && v.index > revert;
       const prev = rowCache.get(v.index);
@@ -240,6 +244,7 @@ const MessageList: Component<MessageListProps> = (props) => {
         prev.height === v.height &&
         prev.kind === group.kind &&
         prev.key === group.key &&
+        prev.renderKey === renderKey &&
         prev.messageID === group.messageID &&
         prev.partIds === group.partIds &&
         prev.activityPartIds === group.activityPartIds &&
@@ -256,6 +261,7 @@ const MessageList: Component<MessageListProps> = (props) => {
       }
       const row: MessageRow = {
         ...group,
+        renderKey,
         index: v.index,
         start: v.start,
         height: v.height,
@@ -576,10 +582,10 @@ const MessageList: Component<MessageListProps> = (props) => {
                       loop (the overlap/flicker bug: rows rendered on top of
                       each other while streaming or scrolling). Keeping the
                       DOM alive stops the loop. */}
-                  <Key each={rows()} by={(row) => row.key}>
+                  <Key each={rows()} by={(row) => row.renderKey}>
                     {(row) => (
                       <div
-                        ref={(el) => list.measureRow(row().key, el)}
+                        ref={(el) => list.measureRow(row().renderKey, el)}
                         data-virtual-row={row().index}
                         data-reverted={row().reverted ? "true" : "false"}
                         class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${

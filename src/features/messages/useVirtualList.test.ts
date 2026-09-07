@@ -7,6 +7,7 @@
 // shift down keep their measured heights — the re-anchor delta stays exact.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createRoot, createSignal } from "solid-js";
 import { createVirtualList } from "./useVirtualList";
 
 // jsdom has no ResizeObserver; the hook only uses it when present, so the
@@ -33,10 +34,15 @@ afterEach(() => {
 });
 
 function createList() {
-  return createVirtualList(
-    () => undefined,
-    () => 3,
-    (index) => `row-${index}`,
+  // The hook creates signals and memos, so it must run under an owner like
+  // a real component — otherwise every computation warns it will never be
+  // disposed.
+  return createRoot(() =>
+    createVirtualList(
+      () => undefined,
+      () => 3,
+      (index) => `row-${index}`,
+    ),
   );
 }
 
@@ -104,11 +110,13 @@ describe("createVirtualList prepend re-anchoring (TASK-M3-05)", () => {
   it("keeps per-row heights when rows are prepended, so the re-anchor delta is exact", async () => {
     let count = 3;
     const keys = ["a", "b", "c"];
-    const list = createVirtualList(
-      () => undefined,
-      () => count,
-      (index) => keys[index],
-      { estimate: 96 },
+    const list = createRoot(() =>
+      createVirtualList(
+        () => undefined,
+        () => count,
+        (index) => keys[index],
+        { estimate: 96 },
+      ),
     );
 
     // All rows are measured with distinct real heights (as in a browser).
@@ -131,5 +139,50 @@ describe("createVirtualList prepend re-anchoring (TASK-M3-05)", () => {
     expect(list.totalHeight()).toBe(110 + 130 + 100 + 120 + 140);
     // The re-anchor delta is the sum of the inserted rows only.
     expect(list.totalHeight() - beforeTotal).toBe(110 + 130);
+  });
+});
+
+describe("createVirtualList stale scroll offsets", () => {
+  it("clamps scrollTop when a shorter transcript replaces a taller one", async () => {
+    const scroll = document.createElement("div");
+    document.body.appendChild(scroll);
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 300 });
+    let scrollTop = 0;
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+    scroll.scrollTo = ((options: ScrollToOptions | number) => {
+      scroll.scrollTop = typeof options === "number" ? options : (options.top ?? 0);
+    }) as typeof scroll.scrollTo;
+
+    const dispose = createRoot((dispose) => {
+      const [count, setCount] = createSignal(20);
+      const list = createVirtualList(
+        () => scroll,
+        count,
+        (index) => `row-${index}`,
+        { estimate: 100 },
+      );
+      list.measure();
+      list.scrollTo(1700);
+      expect(list.scrollTop()).toBe(1700);
+
+      setCount(3);
+      return async () => {
+        await Promise.resolve();
+        expect(list.totalHeight()).toBe(300);
+        expect(list.scrollTop()).toBe(0);
+        expect(scroll.scrollTop).toBe(0);
+        expect(list.rows().map((row) => row.index)).toEqual([0, 1, 2]);
+        dispose();
+      };
+    });
+
+    await dispose();
+    scroll.remove();
   });
 });

@@ -11,6 +11,7 @@
 // list -> bubble -> actions chain (row kept, inline error in the dialog).
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createSignal } from "solid-js";
 import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-library";
 import MessageList from "./MessageList";
 import type { SessionMessage } from "../../services/message";
@@ -88,14 +89,14 @@ function mockClient(history: SessionMessage[]) {
 }
 
 /** Builds `count` single-part user/assistant messages for long lists. */
-function syntheticHistory(count: number): SessionMessage[] {
+function syntheticHistoryForSession(sessionID: string, count: number): SessionMessage[] {
   const out: SessionMessage[] = [];
   for (let i = 1; i <= count; i++) {
     const id = `msg_s${i}`;
     out.push({
       info: {
         id,
-        sessionID: SESSION,
+        sessionID,
         role: i % 2 === 1 ? "user" : "assistant",
         time: { created: i * 1000 },
         agent: "build",
@@ -104,7 +105,7 @@ function syntheticHistory(count: number): SessionMessage[] {
       parts: [
         {
           id: `prt_s${i}`,
-          sessionID: SESSION,
+          sessionID,
           messageID: id,
           type: "text",
           text: `Synthetic message ${i}`,
@@ -113,6 +114,10 @@ function syntheticHistory(count: number): SessionMessage[] {
     });
   }
   return out;
+}
+
+function syntheticHistory(count: number): SessionMessage[] {
+  return syntheticHistoryForSession(SESSION, count);
 }
 
 /** A long transcript whose latest page contains OpenCode's compaction marker. */
@@ -429,6 +434,43 @@ describe("MessageList", () => {
 
     await waitFor(() => expect(screen.getByTestId("message-msg_s300")).toBeInTheDocument());
     expect(scrollTop).toBe(300 * 96 - 400);
+  });
+
+  it("does not keep stale blank scroll space when switching to a shorter session", async () => {
+    const longSession = "ses_long";
+    const shortSession = "ses_short";
+    const longHistory = syntheticHistoryForSession(longSession, 80);
+    const shortHistory = syntheticHistoryForSession(shortSession, 3);
+    const client = mockClient([]);
+    (client.get as unknown as ReturnType<typeof vi.fn<GetCall>>).mockImplementation(
+      async (path) => {
+        const id = String(path).match(/\/session\/([^/]+)\/message/)?.[1];
+        return id === shortSession ? shortHistory : longHistory.slice(-HISTORY_PAGE_SIZE);
+      },
+    );
+
+    const [sessionId, setSessionId] = createSignal(longSession);
+    render(() => <MessageList serverId={SERVER} sessionId={sessionId()} />);
+    const scroll = screen.getByTestId("message-list-scroll");
+    let scrollTop = 0;
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 400 });
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+
+    await waitFor(() => expect(screen.getByTestId("message-msg_s80")).toBeInTheDocument());
+    scrollTop = 80 * 96 - 400;
+    fireEvent.scroll(scroll);
+
+    setSessionId(shortSession);
+
+    await waitFor(() => expect(screen.getByTestId("message-msg_s3")).toBeInTheDocument());
+    expect(scrollTop).toBe(0);
+    expect(document.querySelectorAll("[data-virtual-row]").length).toBeGreaterThan(0);
   });
 
   it("keeps the top edge free of a redundant progress bar while the session is busy", async () => {

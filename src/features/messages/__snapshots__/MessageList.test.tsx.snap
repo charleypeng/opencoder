@@ -41,7 +41,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                   class="user-message-content"
                   data-collapsed="false"
                   data-testid="user-message-content"
-                  id="cl-96"
+                  id="cl-107"
                   style="height: auto;"
                 >
                   <div>
@@ -183,7 +183,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           data-testid="tool-part"
                         >
                           <button
-                            aria-controls="cl-98"
+                            aria-controls="cl-109"
                             aria-expanded="true"
                             class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
@@ -252,7 +252,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             <div
                               class="reply-tool-detail mt-1 space-y-2"
                               data-testid="tool-detail"
-                              id="cl-98"
+                              id="cl-109"
                             >
                               <div
                                 class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
@@ -358,7 +358,7 @@ services/
                   class="user-message-content"
                   data-collapsed="false"
                   data-testid="user-message-content"
-                  id="cl-99"
+                  id="cl-110"
                   style="height: auto;"
                 >
                   <div>
