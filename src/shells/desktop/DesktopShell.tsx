@@ -53,7 +53,7 @@ import {
   Suspense,
 } from "solid-js";
 import type { Component } from "solid-js";
-import ContextMenu from "../../components/ContextMenu.js";
+import ContextMenu, { ContextMenuIcon } from "../../components/ContextMenu.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
 import { quoteBlock } from "../../components/ContextMenu.js";
 import { prefillComposer } from "../../stores/composer.js";
@@ -826,11 +826,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       {
         id: "copy",
         label: t("common:copy"),
+        icon: <ContextMenuIcon name="copy" />,
         onSelect: () => void copyToClipboard(selection),
       },
       {
         id: "quote",
         label: t("desktop:quoteInChat"),
+        icon: <ContextMenuIcon name="quote" />,
         onSelect: () => prefillComposer(quoteBlock(selection)),
       },
     ];

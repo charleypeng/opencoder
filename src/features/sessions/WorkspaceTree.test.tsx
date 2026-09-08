@@ -356,6 +356,18 @@ describe("WorkspaceTree", () => {
     expect(screen.getByTestId("workspace-session-select-s1")).toBeChecked();
   });
 
+  it("opens the right-click menu with grouped, icon-labelled session actions", async () => {
+    renderTree();
+    const row = await screen.findByTestId("workspace-session-s1");
+
+    fireEvent.contextMenu(row, { clientX: 120, clientY: 120 });
+
+    expect(await screen.findByTestId("workspace-session-menu-share-icon")).toBeInTheDocument();
+    expect(screen.getByTestId("workspace-session-menu-rename-icon")).toBeInTheDocument();
+    expect(screen.getAllByRole("separator")).toHaveLength(3);
+    expect(screen.getByTestId("workspace-session-menu-delete").className).toContain("text-danger");
+  });
+
   it("deletes selected sessions only after every API request succeeds", async () => {
     const client = mockClient();
     renderTree();

@@ -135,7 +135,15 @@ describe("ContextMenu items", () => {
     expect(screen.getByTestId("cm-a")).toHaveTextContent("Alpha");
     expect(screen.getByTestId("cm-a")).toHaveTextContent("⌘K");
     expect(screen.getByTestId("cm-b")).toHaveTextContent("Beta");
+    expect(screen.getByTestId("cm-b-icon")).toContainElement(screen.getByTestId("hint-icon"));
     expect(screen.getByTestId("cm-b").querySelector('[data-testid="hint-icon"]')).not.toBeNull();
+  });
+
+  it("uses the opaque desktop panel and a visible keyboard focus treatment", () => {
+    renderMenu({ items: [makeItem({ id: "open" })] });
+
+    expect(screen.getByTestId("cm").className).toContain("context-menu-panel");
+    expect(screen.getByTestId("cm-open").className).toContain("focus-visible:ring-2");
   });
 
   it("mounts outside transformed workspace containers so menus are not clipped", () => {

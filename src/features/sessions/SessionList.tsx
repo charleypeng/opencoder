@@ -23,7 +23,7 @@
 
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import type { Component } from "solid-js";
-import ContextMenu from "../../components/ContextMenu.js";
+import ContextMenu, { ContextMenuIcon } from "../../components/ContextMenu.js";
 import { useT } from "../../i18n/index.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
 import ErrorBanner from "../../components/ErrorBanner.js";
@@ -183,7 +183,6 @@ function SessionRow(props: {
       <button
         type="button"
         aria-current={props.active ? "true" : undefined}
-        aria-haspopup="menu"
         class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pr-8 text-left focus:bg-accent-soft"
       >
         <Show when={forked()}>
@@ -219,6 +218,7 @@ function SessionRow(props: {
         type="button"
         data-testid="session-row-menu"
         aria-label={t("sessions:sessionActions")}
+        aria-haspopup="menu"
         class="invisible absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
@@ -451,20 +451,35 @@ const SessionList: Component<SessionListProps> = (props) => {
     return parent === undefined ? undefined : titleOf(parent);
   }
 
-  /** Row ContextMenu items (TASK-M8-03): §3.2 session actions plus the
-   *  M6-03/05/06 items, with the cross-server move as a GRAYED PLACEHOLDER
-   *  submenu (the drag-to-server migration is a ui-design §3.2 backlog
-   *  item). The dialogs stay keyed per target session in this component. */
+  /** Row context actions are grouped by intent, with destructive work last. */
   const rowMenuItems = createMemo<MenuItem[]>(() => {
     const target = rowMenu();
     if (target === null) return [];
     const session = target.session;
     return [
-      { id: "fork", label: t("sessions:fork"), onSelect: () => handleFork(session) },
-      { id: "share", label: t("sessions:share"), onSelect: () => setShareTarget(session) },
+      {
+        id: "share",
+        label: t("sessions:share"),
+        icon: <ContextMenuIcon name="share" />,
+        onSelect: () => setShareTarget(session),
+      },
+      {
+        id: "rename",
+        label: t("sessions:rename"),
+        icon: <ContextMenuIcon name="rename" />,
+        onSelect: () => setRenameTarget(session),
+      },
+      { separator: true },
+      {
+        id: "fork",
+        label: t("sessions:fork"),
+        icon: <ContextMenuIcon name="fork" />,
+        onSelect: () => handleFork(session),
+      },
       {
         id: "move-server",
         label: t("sessions:moveToServer"),
+        icon: <ContextMenuIcon name="move" />,
         submenu: [
           { id: "move-server-unavailable", label: t("sessions:notAvailable"), disabled: true },
         ],
@@ -472,14 +487,20 @@ const SessionList: Component<SessionListProps> = (props) => {
       {
         id: "summarize",
         label: t("sessions:compress"),
+        icon: <ContextMenuIcon name="compress" />,
         onSelect: () => setSummarizeTarget(session),
       },
-      { id: "init", label: t("sessions:generateAgents"), onSelect: () => setInitTarget(session) },
+      {
+        id: "init",
+        label: t("sessions:generateAgents"),
+        icon: <ContextMenuIcon name="generate" />,
+        onSelect: () => setInitTarget(session),
+      },
       { separator: true },
-      { id: "rename", label: t("sessions:rename"), onSelect: () => setRenameTarget(session) },
       {
         id: "delete",
         label: t("common:delete"),
+        icon: <ContextMenuIcon name="delete" />,
         danger: true,
         onSelect: () => setDeleteTarget(session),
       },

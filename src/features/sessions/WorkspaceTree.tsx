@@ -22,7 +22,7 @@ import {
 } from "solid-js";
 import type { Component } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import ContextMenu from "../../components/ContextMenu.js";
+import ContextMenu, { ContextMenuIcon } from "../../components/ContextMenu.js";
 import type { MenuItem } from "../../components/ContextMenu.js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { useT } from "../../i18n/index.js";
@@ -345,7 +345,6 @@ function SessionRow(props: {
       <button
         type="button"
         aria-current={props.active ? "true" : undefined}
-        aria-haspopup="menu"
         class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pr-8 text-left outline-none focus:bg-accent-soft"
       >
         <Show when={kind() !== "none"}>
@@ -386,6 +385,7 @@ function SessionRow(props: {
         type="button"
         data-testid="workspace-session-menu"
         aria-label={t("sessions:sessionActions")}
+        aria-haspopup="menu"
         class="invisible absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
@@ -886,51 +886,51 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     return parent === undefined ? undefined : parent.title || parent.slug;
   }
 
-  /** Row ⋯ menu (WorkBuddy-style): enter selection mode for batch actions,
-   *  open the folder, then the existing session actions. */
+  /** Row ⋯ menu keeps real session actions in stable desktop-oriented groups. */
   const rowMenuItems = createMemo<MenuItem[]>(() => {
     const target = rowMenu();
     if (target === null) return [];
     const session = target.session;
     return [
       {
-        id: "batch",
-        label: t("sessions:batchActions"),
-        onSelect: () => enterSelectionMode(session.id),
+        id: "share",
+        label: t("sessions:share"),
+        icon: <ContextMenuIcon name="share" />,
+        onSelect: () => setShareTarget(session),
       },
+      {
+        id: "rename",
+        label: t("sessions:rename"),
+        icon: <ContextMenuIcon name="rename" />,
+        onSelect: () => setRenameTarget(session),
+      },
+      { separator: true },
       {
         id: "open-folder",
         label: t("sessions:openFolder"),
-        icon: (
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-          >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-          </svg>
-        ),
+        icon: <ContextMenuIcon name="folder" />,
         onSelect: () => props.onViewFolder(session.directory),
       },
       {
         id: "change-directory",
         label: t("sessions:changeWorkingDirectory"),
+        icon: <ContextMenuIcon name="change-directory" />,
         onSelect: () => {
           setPickerDir(session.directory);
           setPickerOpen(true);
         },
       },
       { separator: true },
-      { id: "fork", label: t("sessions:fork"), onSelect: () => void handleFork(session) },
-      { id: "share", label: t("sessions:share"), onSelect: () => setShareTarget(session) },
+      {
+        id: "fork",
+        label: t("sessions:fork"),
+        icon: <ContextMenuIcon name="fork" />,
+        onSelect: () => void handleFork(session),
+      },
       {
         id: "move-server",
         label: t("sessions:moveToServer"),
+        icon: <ContextMenuIcon name="move" />,
         submenu: [
           { id: "move-server-unavailable", label: t("sessions:notAvailable"), disabled: true },
         ],
@@ -938,14 +938,26 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       {
         id: "summarize",
         label: t("sessions:compress"),
+        icon: <ContextMenuIcon name="compress" />,
         onSelect: () => setSummarizeTarget(session),
       },
-      { id: "init", label: t("sessions:generateAgents"), onSelect: () => setInitTarget(session) },
+      {
+        id: "init",
+        label: t("sessions:generateAgents"),
+        icon: <ContextMenuIcon name="generate" />,
+        onSelect: () => setInitTarget(session),
+      },
+      {
+        id: "batch",
+        label: t("sessions:batchActions"),
+        icon: <ContextMenuIcon name="batch" />,
+        onSelect: () => enterSelectionMode(session.id),
+      },
       { separator: true },
-      { id: "rename", label: t("sessions:rename"), onSelect: () => setRenameTarget(session) },
       {
         id: "delete",
         label: t("sessions:delete"),
+        icon: <ContextMenuIcon name="delete" />,
         danger: true,
         onSelect: () => setDeleteTarget(session),
       },
@@ -960,26 +972,14 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
       {
         id: "view-folder",
         label: t("sessions:viewFolder"),
-        icon: (
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.6"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="h-4 w-4"
-          >
-            <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />
-          </svg>
-        ),
+        icon: <ContextMenuIcon name="folder" />,
         onSelect: () => props.onViewFolder(target.directory),
       },
       { separator: true },
       {
         id: "remove-workspace",
         label: t("sessions:removeWorkspace"),
+        icon: <ContextMenuIcon name="delete" />,
         danger: true,
         onSelect: () => removeFolder(target.directory),
       },
