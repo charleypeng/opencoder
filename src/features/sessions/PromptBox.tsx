@@ -110,7 +110,13 @@ import { promptAt } from "./promptHistory.js";
 import { sendPrompt } from "./sendPrompt.js";
 import { runShell, shellCommandOf } from "./sendShell.js";
 import { haptic } from "../../services/haptics.js";
-import { composerPrefill, consumeComposerPrefill } from "../../stores/composer.js";
+import {
+  clearComposerDraft,
+  composerDraft,
+  composerPrefill,
+  consumeComposerPrefill,
+  setComposerDraft,
+} from "../../stores/composer.js";
 import { comboMatchesEvent, formatCombo } from "../settings/shortcuts.js";
 import { effectiveCombo } from "../settings/shortcutStore.js";
 import { isMacPlatform } from "../settings/useShortcuts.js";
@@ -347,6 +353,12 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   // `/` trigger; the in-flight promise collapses concurrent opens.
   let commandCache: Command[] | null = null;
   let commandFetch: Promise<Command[]> | null = null;
+  let loadedDraftKey: string | undefined;
+
+  function updateDraftText(next: string): void {
+    setText(next);
+    setComposerDraft(props.serverId, props.sessionId, next);
+  }
   // Skill catalog cache (TASK-M5-08): fetched once per mount on the first
   // `@` trigger, same pattern as the commands.
   let skillCache: Skill[] | null = null;
@@ -489,6 +501,23 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     onCleanup(() => untrackPendingLocalMessage(props.serverId, sessionId));
   });
 
+  // A single PromptBox instance can remain mounted while the active session
+  // changes. Load that session's own draft once without resetting the caret
+  // after each keystroke that updates the draft store.
+  createEffect(() => {
+    const key = `${props.serverId}\u0000${props.sessionId}`;
+    const draft = composerDraft(props.serverId, props.sessionId);
+    if (loadedDraftKey === key) return;
+    loadedDraftKey = key;
+    setText(draft);
+    const el = textareaRef;
+    if (el !== undefined) {
+      el.value = draft;
+      el.selectionStart = el.selectionEnd = draft.length;
+      applyHeight(el);
+    }
+  });
+
   // TASK-M7-10 (Android share receive): a shared text queued via the
   // composer store (stores/composer.ts) prefills this input exactly once
   // (consume-on-apply). The pending slot survives composer unmounts, so a
@@ -500,7 +529,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     const prefill = composerPrefill();
     if (prefill === null) return;
     consumeComposerPrefill();
-    setText(prefill.text);
+    updateDraftText(prefill.text);
     const el = textareaRef;
     if (el !== undefined) {
       el.value = prefill.text;
@@ -542,7 +571,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
   function recall(): void {
     const next = promptAt(props.serverId, browseIndex());
     if (next === undefined) return;
-    setText(next);
+    updateDraftText(next);
     const el = textareaRef;
     if (el !== undefined) {
       el.value = next;
@@ -565,7 +594,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     setBrowseIndex(nextIndex);
     if (nextIndex < 0) {
       // Past the newest entry: back to an empty input.
-      setText("");
+      updateDraftText("");
       const el = textareaRef;
       if (el !== undefined) {
         el.value = "";
@@ -676,7 +705,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         // caret and keep the rest of the text.
         const next = `${el.value.slice(0, hit.atIndex)}${reference}${el.value.slice(caret)}`;
         el.value = next;
-        setText(next);
+        updateDraftText(next);
         el.selectionStart = el.selectionEnd = next.length;
         applyHeight(el);
       } else {
@@ -685,7 +714,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         // duplicate the text before the old `@`).
         const next = `${el.value.slice(0, caret)}${reference}${el.value.slice(caret)}`;
         el.value = next;
-        setText(next);
+        updateDraftText(next);
         el.selectionStart = el.selectionEnd = next.length;
         applyHeight(el);
       }
@@ -770,7 +799,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     const template = commandTemplate(command);
     if (el !== undefined) {
       el.value = template;
-      setText(template);
+      updateDraftText(template);
       el.selectionStart = el.selectionEnd = template.length;
       applyHeight(el);
     }
@@ -889,7 +918,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
 
   function onInput(event: Event) {
     const el = event.currentTarget as HTMLTextAreaElement;
-    setText(el.value);
+    updateDraftText(el.value);
     if (browseIndex() >= 0) exitBrowse();
     resizeToContent(el);
     refreshAtMenu(el);
@@ -942,7 +971,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
       const el = textareaRef;
       if (el !== undefined) {
         el.value = rawMessage;
-        setText(rawMessage);
+        updateDraftText(rawMessage);
         el.selectionStart = el.selectionEnd = rawMessage.length;
         applyHeight(el);
       }
@@ -957,7 +986,8 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
     closeAtMenu();
     closeSlashMenu();
     // Clear the input immediately; the pipeline handles the store side.
-    setText("");
+    updateDraftText("");
+    clearComposerDraft(props.serverId, props.sessionId);
     const el = textareaRef;
     if (el !== undefined) {
       el.value = "";
@@ -996,7 +1026,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           const el = textareaRef;
           if (el !== undefined) {
             el.value = message;
-            setText(message);
+            updateDraftText(message);
             el.selectionStart = el.selectionEnd = message.length;
             applyHeight(el);
           }
@@ -1038,6 +1068,17 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
           setCommandAttachNote(true);
         } else {
           setAttachments([]);
+        }
+      } else if (message !== "" && text() === "") {
+        // The send pipeline may reject after the composer has been cleared.
+        // Restore the text and its per-session draft so retry never costs a
+        // user their unsent prompt.
+        const el = textareaRef;
+        updateDraftText(message);
+        if (el !== undefined) {
+          el.value = message;
+          el.selectionStart = el.selectionEnd = message.length;
+          applyHeight(el);
         }
       }
       setInlineError(err);

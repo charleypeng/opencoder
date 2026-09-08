@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- feat(sessions): Preserve unsent composer drafts per server and session, restoring failed prompt text for a safe retry after a session switch. (sessions)
 - feat(sessions): Add roving keyboard navigation, F2 rename, Shift+F10 menus, and copy actions for workspace directories and session identifiers in the desktop workspace tree. (sessions)
 - feat(sessions): Redesign desktop session context menus with grouped actions, consistent outline icons, visible keyboard focus, and an opaque elevated surface. (sessions)
 - docs(desktop): Add a prioritized desktop UI plan for mouse and keyboard workflows, stable disclosures, panel recovery, and practical acceptance criteria. (desktop)

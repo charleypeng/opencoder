@@ -27,6 +27,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { createSignal } from "solid-js";
 import PromptBox from "./PromptBox";
 import MessageList from "../messages/MessageList";
 import { clearPrompts } from "./promptHistory";
@@ -39,7 +40,12 @@ import {
   setSessionStatus,
 } from "../../stores/session";
 import { messages, resetServer as resetMessages } from "../../stores/messages";
-import { composerPrefill, consumeComposerPrefill, prefillComposer } from "../../stores/composer";
+import {
+  composerPrefill,
+  consumeComposerPrefill,
+  prefillComposer,
+  resetComposerDrafts,
+} from "../../stores/composer";
 import { agentNameFor, resetServer as resetAgents } from "../../stores/agents";
 import { activeModelFor, resetServer as resetModels } from "../../stores/models";
 import { applyEvent } from "../../stores/events";
@@ -101,6 +107,7 @@ beforeEach(() => {
   resetAgents(SERVER);
   resetModels(SERVER);
   clearPrompts(SERVER);
+  resetComposerDrafts();
   window.localStorage.clear();
   getApiClientMock.mockReset();
   client = mockClient();
@@ -112,6 +119,7 @@ afterEach(() => {
   resetAgents(SERVER);
   resetModels(SERVER);
   clearPrompts(SERVER);
+  resetComposerDrafts();
   window.localStorage.clear();
   resetAllShortcuts();
   consumeComposerPrefill();
@@ -163,6 +171,19 @@ describe("PromptBox", () => {
     render(() => <PromptBox serverId={SERVER} sessionId={SESSION} />);
     expect(input().value).toBe("queued while hidden");
     expect(composerPrefill()).toBeNull();
+  });
+
+  it("keeps unsent drafts isolated while switching sessions", async () => {
+    const [sessionId, setSessionId] = createSignal(SESSION);
+    render(() => <PromptBox serverId={SERVER} sessionId={sessionId()} />);
+
+    fireEvent.input(input(), { target: { value: "draft for the first session" } });
+    setSessionId("ses_other");
+    await waitFor(() => expect(input().value).toBe(""));
+
+    fireEvent.input(input(), { target: { value: "other session draft" } });
+    setSessionId(SESSION);
+    await waitFor(() => expect(input().value).toBe("draft for the first session"));
   });
 
   it("sends on ⌘/Ctrl+Enter: POST with the text part, optimistic store insert, cleared textarea", async () => {
@@ -555,6 +576,7 @@ describe("PromptBox", () => {
 
     await waitFor(() => expect(screen.getByTestId("error-banner")).toBeInTheDocument());
     expect(screen.getByText("notes.txt")).toBeInTheDocument();
+    expect(input().value).toBe("doomed");
   });
 
   it("rejects an oversized file and shows the error near the chips", async () => {
