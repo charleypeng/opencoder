@@ -143,6 +143,8 @@ describe("ContextMenu items", () => {
     renderMenu({ items: [makeItem({ id: "open" })] });
 
     expect(screen.getByTestId("cm").className).toContain("context-menu-panel");
+    expect(screen.getByTestId("cm-open").className).toContain("min-h-8");
+    expect(screen.getByTestId("cm-open").className).toContain("text-xs");
     expect(screen.getByTestId("cm-open").className).toContain("focus-visible:ring-2");
   });
 

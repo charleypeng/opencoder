@@ -725,6 +725,33 @@ describe("MessageList", () => {
     timeSpy.mockRestore();
     nowSpy.mockRestore();
   });
+
+  it("retries bottom follow when layout clamps the first scroll attempt", async () => {
+    mockClient(syntheticHistory(60));
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 400 });
+    let scrollTop = 0;
+    let attempts = 0;
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+    scroll.scrollTo = ((options: ScrollToOptions | number) => {
+      attempts += 1;
+      if (attempts > 1) scrollTop = typeof options === "number" ? options : (options.top ?? 0);
+    }) as typeof scroll.scrollTo;
+
+    await waitFor(() => expect(screen.getByTestId("message-msg_s60")).toBeInTheDocument());
+    const viewportObserver = observers.find((observer) => observer.target === scroll);
+    viewportObserver?.cb();
+
+    await waitFor(() => expect(attempts).toBeGreaterThan(1));
+    expect(scrollTop).toBe(60 * 96 - 400);
+  });
 });
 
 describe("MessageList pagination (TASK-M3-05)", () => {

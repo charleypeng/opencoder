@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(desktop): Compact shared context-menu rows, typography, icons, and separators to match a denser native desktop menu. (desktop)
+- fix(messages): Retry bottom-follow scrolling after a layout clamp so the latest conversation position reaches the actual scrollbar end. (messages)
 - fix(messages): Fall back to progressively larger history windows when OpenCode rejects documented `before` cursors, preserving infinite scroll and compacted session history. (messages)
 - fix(messages): Render the first visible page of compacted history immediately, protect paged-history cursor cycles, and derive chat scrolling from one reconciled virtual height. (messages)
 - fix(desktop): Keep right-panel resizing direct by removing width easing while dragging, saving only the final width, clamping it to the available window, and restoring the default width on double-click. (desktop)

@@ -248,8 +248,8 @@ function MenuRow(props: {
   registerRef: (el: HTMLButtonElement | undefined) => void;
 }) {
   const baseClass =
-    "flex min-h-9 w-full items-center gap-2.5 rounded-[var(--r-sm)] px-2.5 py-1.5 text-left text-sm " +
-    "font-medium leading-5 outline-none transition-[background-color,color] duration-[var(--dur-fast)] " +
+    "flex min-h-8 w-full items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-left text-xs " +
+    "font-medium leading-4 outline-none transition-[background-color,color] duration-[var(--dur-fast)] " +
     "ease-[var(--ease-emphasized)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 " +
     "disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent-soft focus-visible:bg-accent-soft " +
     "focus-visible:ring-2 focus-visible:ring-accent/60";
@@ -260,7 +260,7 @@ function MenuRow(props: {
         <div
           role="separator"
           data-separator="true"
-          class="mx-2 my-1.5 h-px bg-[color-mix(in_srgb,var(--fg-faint)_22%,transparent)]"
+          class="mx-2 my-1 h-px bg-[color-mix(in_srgb,var(--fg-faint)_22%,transparent)]"
         />
       }
     >
@@ -285,14 +285,14 @@ function MenuRow(props: {
         <Show when={props.item.icon !== undefined}>
           <span
             data-testid={props.testId === undefined ? undefined : `${props.testId}-icon`}
-            class="flex h-5 w-5 shrink-0 items-center justify-center"
+            class="flex h-4 w-4 shrink-0 items-center justify-center"
           >
             {props.item.icon}
           </span>
         </Show>
         <span class="min-w-0 flex-1 truncate text-left">{props.item.label}</span>
         <Show when={props.item.hint !== undefined}>
-          <span class="shrink-0 pl-4 font-code text-xs text-fg-faint">{props.item.hint}</span>
+          <span class="shrink-0 pl-3 font-code text-[11px] text-fg-faint">{props.item.hint}</span>
         </Show>
         <Show when={props.item.submenu !== undefined}>
           <svg
@@ -303,7 +303,7 @@ function MenuRow(props: {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="ml-2 h-4 w-4 shrink-0 text-fg-faint"
+            class="ml-1.5 h-3.5 w-3.5 shrink-0 text-fg-faint"
           >
             <path d="m9 18 6-6-6-6" />
           </svg>
@@ -494,7 +494,7 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
               row highlights use a small one; clipping the rows to the panel
               radius keeps the hover highlight from poking out of the rounded
               corners. The shadow lives on the outer glass panel. */}
-          <div class="overflow-hidden rounded-[calc(var(--r-lg)-4px)]">
+          <div class="overflow-hidden rounded-[calc(var(--r-md)-2px)]">
             <For each={props.items}>
               {(item, index) => (
                 <MenuRow
@@ -527,7 +527,7 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
             class="context-menu-panel fixed z-50 min-w-60"
             style={{ left: `${subPos().x}px`, top: `${subPos().y}px` }}
           >
-            <div class="overflow-hidden rounded-[calc(var(--r-lg)-4px)]">
+            <div class="overflow-hidden rounded-[calc(var(--r-md)-2px)]">
               <For each={props.items[sub().index]?.submenu ?? []}>
                 {(item, index) => (
                   <MenuRow

@@ -407,11 +407,15 @@ const MessageList: Component<MessageListProps> = (props) => {
   let followRaf = 0;
   let layoutRaf = 0;
   let lastFollowTarget = -1;
+  let followRetries = 0;
   function followBottom(): void {
     const el = scrollRef;
     if (el === undefined || paused()) return;
     const target = list.maxScrollTop();
-    if (target === lastFollowTarget) return;
+    // A WebView can clamp the first scrollTo while the virtual spacer is
+    // still settling. Re-check the actual position before deduplicating the
+    // same target, otherwise the scrollbar can remain above the newest row.
+    if (target === lastFollowTarget && Math.abs(el.scrollTop - target) <= 1) return;
     lastFollowTarget = target;
     if (followRaf !== 0) return;
     followRaf = requestAnimationFrame(() => {
@@ -423,7 +427,16 @@ const MessageList: Component<MessageListProps> = (props) => {
       // trigger re-runs this. One rAF is enough when the height is final;
       // when it is not, the subsequent trigger re-pins.
       const next = list.maxScrollTop();
-      if (next !== current.scrollTop) list.scrollTo(next, "auto");
+      if (Math.abs(next - current.scrollTop) > 1) {
+        list.scrollTo(next, "auto");
+        if (Math.abs(next - current.scrollTop) > 1 && followRetries < 4) {
+          followRetries += 1;
+          lastFollowTarget = -1;
+          followBottom();
+          return;
+        }
+      }
+      followRetries = 0;
     });
   }
 
@@ -437,6 +450,7 @@ const MessageList: Component<MessageListProps> = (props) => {
       layoutRaf = 0;
       list.measure();
       lastFollowTarget = -1;
+      followRetries = 0;
       followBottom();
     });
   }
@@ -515,6 +529,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     setPaused(false);
     setHasNew(false);
     lastFollowTarget = -1;
+    followRetries = 0;
     // The virtual list exposes scrollTo (pixel offset), not scrollToIndex;
     // the bottom of the transcript is the total content height minus the
     // viewport — the same target the auto-follow uses.
