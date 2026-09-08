@@ -782,6 +782,30 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     expect(storeEntry().infos["msg_s120"]).toBeDefined();
   });
 
+  it("restores compacted history when the server rejects before cursors", async () => {
+    const history = compactedHistory(120);
+    const client = paginatedClientFrom(history);
+    client.get.mockImplementation(async (_path, options) => {
+      const query = (options?.query ?? {}) as { limit?: number; before?: string };
+      if (query.before !== undefined) {
+        throw new ApiError(400, "http", '{"_tag":"BadRequest"}', false);
+      }
+      return history.slice(-(query.limit ?? history.length));
+    });
+    renderList();
+
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(120));
+    expect(client.get.mock.calls.map((call) => call[1]?.query)).toEqual([
+      { limit: HISTORY_PAGE_SIZE },
+      { limit: HISTORY_PAGE_SIZE, before: "msg_s71" },
+      { limit: HISTORY_PAGE_SIZE * 2 },
+      { limit: HISTORY_PAGE_SIZE * 3 },
+    ]);
+    expect(storeEntry().infos["msg_s1"]).toBeDefined();
+    expect(storeEntry().infos["msg_s120"]).toBeDefined();
+    expect(screen.queryByTestId("error-banner")).not.toBeInTheDocument();
+  });
+
   it("continues loading when the initial page only contains hidden compaction controls", async () => {
     const history = hiddenCompactionTailHistory(120);
     const client = paginatedClientFrom(history);
@@ -863,6 +887,41 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     expect(screen.getByTestId("message-msg_l71")).toBeInTheDocument();
     // A prepended page must not flag the "New messages" jump button.
     expect(screen.queryByTestId("message-jump")).not.toBeInTheDocument();
+  });
+
+  it("falls back to growing history windows when the server rejects before cursors", async () => {
+    const history = syntheticHistory(120);
+    const client = paginatedClientFrom(history);
+    client.get.mockImplementation(async (_path, options) => {
+      const query = (options?.query ?? {}) as { limit?: number; before?: string };
+      if (query.before !== undefined) {
+        throw new ApiError(400, "http", '{"_tag":"BadRequest"}', false);
+      }
+      return history.slice(-(query.limit ?? history.length));
+    });
+    renderList();
+    const scroll = screen.getByTestId("message-list-scroll");
+    await waitFor(() => expect(screen.getByTestId("message-msg_s120")).toBeInTheDocument());
+
+    topReach(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(3));
+    expect(client.get.mock.calls[1][1]?.query).toEqual({
+      limit: HISTORY_PAGE_SIZE,
+      before: "msg_s71",
+    });
+    expect(client.get.mock.calls[2][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE * 2 });
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(100));
+    expect(screen.queryByTestId("error-banner")).not.toBeInTheDocument();
+
+    topReach(scroll);
+    await waitFor(() => expect(client.get).toHaveBeenCalledTimes(4));
+    expect(client.get.mock.calls[3][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE * 3 });
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(120));
+    expect(storeEntry().infos["msg_s1"]).toBeDefined();
+
+    topReach(scroll);
+    fireEvent.scroll(scroll);
+    expect(client.get).toHaveBeenCalledTimes(4);
   });
 
   it("shows the loading indicator and never double-requests while a page is in flight", async () => {

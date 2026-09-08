@@ -4,7 +4,7 @@
 
 import { describe, expect, it } from "vitest";
 import type { SessionMessage } from "../../services/message.js";
-import { mergePages } from "./pagination.js";
+import { mergeExpandedWindow, mergePages } from "./pagination.js";
 
 const SESSION = "ses_abc123";
 
@@ -93,5 +93,22 @@ describe("mergePages", () => {
     expect(merge.hasMore).toBe(false);
     expect(merge.nextCursor).toBeUndefined();
     expect(merge.stopReason).toBe("cursor-replay");
+  });
+});
+
+describe("mergeExpandedWindow", () => {
+  it("adds only unseen records from a larger recent-history window", () => {
+    const known = new Set(Array.from({ length: 50 }, (_, i) => `msg_${i + 51}`));
+    const merge = mergeExpandedWindow(known, page(1, 100), 100);
+    expect(merge.added).toEqual(Array.from({ length: 50 }, (_, i) => `msg_${i + 1}`));
+    expect(merge.hasMore).toBe(true);
+  });
+
+  it("stops when a full expanded window contains no unseen records", () => {
+    const known = new Set(Array.from({ length: 100 }, (_, i) => `msg_${i + 1}`));
+    const merge = mergeExpandedWindow(known, page(1, 100), 100);
+    expect(merge.added).toEqual([]);
+    expect(merge.hasMore).toBe(false);
+    expect(merge.stopReason).toBe("duplicate-window");
   });
 });

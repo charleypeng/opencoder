@@ -10,13 +10,14 @@
 import { createEffect, createMemo, createSignal } from "solid-js";
 import { createMessageService, type SessionMessage } from "../../services/message.js";
 import { getApiClient } from "../../services/client.js";
+import { ApiError } from "../../services/errors.js";
 import { projects } from "../../stores/project.js";
 import {
   applyMessageBatch,
   getServerMessages,
   type MessageBatchItem,
 } from "../../stores/messages.js";
-import { mergePages } from "./pagination.js";
+import { mergeExpandedWindow, mergePages, type PageMerge } from "./pagination.js";
 
 /** Messages per page request; a full page is also the hasMore heuristic. */
 export const HISTORY_PAGE_SIZE = 50;
@@ -35,7 +36,7 @@ export interface PageResult {
   inserted: number;
   cursor: string | undefined;
   hasMore: boolean;
-  stopReason?: "exhausted" | "short-page" | "cursor-replay";
+  stopReason?: PageMerge["stopReason"];
   duplicateOnly: boolean;
   containsCompaction: boolean;
 }
@@ -67,6 +68,8 @@ export function usePaginatedMessages(
   // Cursor (oldest server-returned id) and session version live in refs:
   // they are only read inside the async load functions.
   const cursor = { current: undefined as string | undefined };
+  const pagingMode = { current: "cursor" as "cursor" | "expanded-window" };
+  const expandedLimit = { current: HISTORY_PAGE_SIZE };
   const version = { current: 0 };
   const seenCursors = new Set<string>();
 
@@ -76,6 +79,8 @@ export function usePaginatedMessages(
     generation();
     version.current += 1;
     cursor.current = undefined;
+    pagingMode.current = "cursor";
+    expandedLimit.current = HISTORY_PAGE_SIZE;
     seenCursors.clear();
     setHasMore(false);
     setLoadingEarlier(false);
@@ -92,6 +97,15 @@ export function usePaginatedMessages(
       for (const part of item.parts) items.push({ type: "part", part });
     }
     return items;
+  }
+
+  function addedMessages(page: SessionMessage[], added: readonly string[]): SessionMessage[] {
+    const addedIds = new Set(added);
+    return page.filter((message) => addedIds.has(message.info.id));
+  }
+
+  function cursorWasRejected(error: unknown): boolean {
+    return ApiError.fromUnknown(error).status === 400;
   }
 
   function resultFor(page: SessionMessage[], merge: ReturnType<typeof mergePages>): PageResult {
@@ -133,13 +147,20 @@ export function usePaginatedMessages(
     // messages merges instead of duplicating.
     if (merge.added.length > 0) applyMessageBatch(serverId, sessionId, toBatchItems(page));
     cursor.current = merge.nextCursor;
+    expandedLimit.current = HISTORY_PAGE_SIZE;
     setHasMore(merge.hasMore);
     if (cursor.current !== undefined) seenCursors.add(cursor.current);
     return resultFor(page, merge);
   }
 
   async function loadEarlier(): Promise<PageResult | undefined> {
-    if (cursor.current === undefined || !hasMore() || loadingEarlier()) return undefined;
+    if (
+      (pagingMode.current === "cursor" && cursor.current === undefined) ||
+      !hasMore() ||
+      loadingEarlier()
+    ) {
+      return undefined;
+    }
     const current = version.current;
     const serverId = getServerId();
     const sessionId = getSessionId();
@@ -147,25 +168,52 @@ export function usePaginatedMessages(
     const service = createMessageService(getApiClient());
     setLoadingEarlier(true);
     try {
-      const page = await service.list(sessionId, {
-        limit: HISTORY_PAGE_SIZE,
-        before: cursor.current,
-        dir: directory,
-      });
+      let page: SessionMessage[];
+      let merge: PageMerge;
+      if (pagingMode.current === "expanded-window") {
+        const nextLimit = expandedLimit.current + HISTORY_PAGE_SIZE;
+        page = await service.list(sessionId, { limit: nextLimit, dir: directory });
+        if (current !== version.current) return undefined;
+        merge = mergeExpandedWindow(knownIds(serverId, sessionId), page, nextLimit);
+        expandedLimit.current = nextLimit;
+      } else {
+        try {
+          page = await service.list(sessionId, {
+            limit: HISTORY_PAGE_SIZE,
+            before: cursor.current,
+            dir: directory,
+          });
+          if (current !== version.current) return undefined;
+          merge = mergePages(
+            knownIds(serverId, sessionId),
+            page,
+            HISTORY_PAGE_SIZE,
+            cursor.current,
+            seenCursors,
+          );
+        } catch (error) {
+          if (current !== version.current) return undefined;
+          if (!cursorWasRejected(error)) throw error;
+          const nextLimit =
+            Math.max(expandedLimit.current, knownIds(serverId, sessionId).size) + HISTORY_PAGE_SIZE;
+          page = await service.list(sessionId, { limit: nextLimit, dir: directory });
+          if (current !== version.current) return undefined;
+          merge = mergeExpandedWindow(knownIds(serverId, sessionId), page, nextLimit);
+          pagingMode.current = "expanded-window";
+          expandedLimit.current = nextLimit;
+        }
+      }
       if (current !== version.current) return undefined;
-      const merge = mergePages(
-        knownIds(serverId, sessionId),
-        page,
-        HISTORY_PAGE_SIZE,
-        cursor.current,
-        seenCursors,
-      );
       if (merge.added.length > 0) {
-        applyMessageBatch(serverId, sessionId, toBatchItems(page), { prepend: true });
+        applyMessageBatch(serverId, sessionId, toBatchItems(addedMessages(page, merge.added)), {
+          prepend: true,
+        });
       }
       cursor.current = merge.nextCursor;
       setHasMore(merge.hasMore);
-      if (cursor.current !== undefined) seenCursors.add(cursor.current);
+      if (pagingMode.current === "cursor" && cursor.current !== undefined) {
+        seenCursors.add(cursor.current);
+      }
       return resultFor(page, merge);
     } finally {
       if (current === version.current) setLoadingEarlier(false);

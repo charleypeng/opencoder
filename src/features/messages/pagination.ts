@@ -27,9 +27,29 @@ export interface PageMerge {
   /** Whether another earlier page may exist. */
   hasMore: boolean;
   /** Why pagination stopped, when this page terminates the history. */
-  stopReason?: "exhausted" | "short-page" | "cursor-replay";
+  stopReason?: "exhausted" | "short-page" | "cursor-replay" | "duplicate-window";
   /** True when this page moved the cursor but every record was already known. */
   duplicateOnly: boolean;
+}
+
+/**
+ * Merges a progressively larger most-recent window for servers that reject
+ * the documented `before` cursor. A full window with no new records must end
+ * pagination or repeated top-reach events would request the same data forever.
+ */
+export function mergeExpandedWindow(
+  known: ReadonlySet<string>,
+  page: SessionMessage[],
+  windowSize: number,
+): PageMerge {
+  const merge = mergePages(known, page, windowSize);
+  if (!merge.duplicateOnly || !merge.hasMore) return merge;
+  return {
+    ...merge,
+    nextCursor: undefined,
+    hasMore: false,
+    stopReason: "duplicate-window",
+  };
 }
 
 export function mergePages(
