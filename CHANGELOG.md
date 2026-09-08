@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- fix(desktop): Keep right-panel resizing direct by removing width easing while dragging, saving only the final width, clamping it to the available window, and restoring the default width on double-click. (desktop)
 - fix(messages): Restore stable height-and-opacity disclosure motion and remove unrelated activity-card restyling that caused manual folding to jitter. (messages)
 - fix(messages): Continue restoring paged history when the initial session page contains only hidden compaction control records, avoiding an empty chat until the next prompt. (messages)
 - fix(messages): Clamp stale virtual-list scroll offsets and scope row measurements per session so switching chats cannot leave a blank transcript viewport. (messages)

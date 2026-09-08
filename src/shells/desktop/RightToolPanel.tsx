@@ -4,7 +4,7 @@
 // selected tool and standalone splitter persistence; the shell can control
 // the width so a manually hidden panel always has a recovery path.
 
-import { createSignal, onCleanup, Show } from "solid-js";
+import { createSignal, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import FileViewer from "../../features/files/FileViewer";
 import DiffView from "../../features/vcs/DiffView";
@@ -25,6 +25,8 @@ export interface RightToolPanelProps {
   width?: number;
   /** Receives splitter changes when the shell controls the panel width. */
   onWidthChange?: (width: number) => void;
+  /** Receives the final width after a pointer resize or discrete keyboard adjustment. */
+  onWidthCommit?: (width: number) => void;
   /** Opens or collapses the tool panel. */
   onOpenChange: (open: boolean) => void;
   /** Hides the chat pane while the tools occupy the full workspace. */
@@ -48,6 +50,13 @@ export interface RightToolPanelProps {
 
 export const RIGHT_PANEL_DEFAULT_WIDTH = 256;
 const RIGHT_PANEL_WIDTH_KEY = "oc-right-tools-width";
+
+/** Keeps a freely sized panel within the width currently available to it. */
+export function clampRightToolPanelWidth(width: number, availableWidth: number): number {
+  const normalizedWidth = Number.isFinite(width) ? Math.max(0, width) : 0;
+  const normalizedAvailable = Number.isFinite(availableWidth) ? Math.max(0, availableWidth) : 0;
+  return Math.min(normalizedWidth, normalizedAvailable);
+}
 
 export function readRightToolPanelWidth(): number {
   try {
@@ -127,11 +136,21 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   const [internalMaximized, setInternalMaximized] = createSignal(false);
   const [browserUrl, setBrowserUrl] = createSignal("");
   const [browserTarget, setBrowserTarget] = createSignal("");
+  const [availableWidth, setAvailableWidth] = createSignal(window.innerWidth);
+  const [resizing, setResizing] = createSignal(false);
+  let panelRef: HTMLElement | undefined;
   let resizeStartX: number | null = null;
   let resizeStartWidth = RIGHT_PANEL_DEFAULT_WIDTH;
+  let resizeCurrentWidth = RIGHT_PANEL_DEFAULT_WIDTH;
   const maximized = () => props.maximized ?? internalMaximized();
   const view = () => props.view ?? internalView();
   const width = () => props.width ?? internalWidth();
+  const effectiveWidth = () => clampRightToolPanelWidth(width(), availableWidth());
+
+  function measureAvailableWidth(): void {
+    const parentWidth = panelRef?.parentElement?.getBoundingClientRect().width ?? 0;
+    setAvailableWidth(parentWidth > 0 ? Math.floor(parentWidth) : window.innerWidth);
+  }
 
   function selectView(next: RightToolView): void {
     if (props.view === undefined) setInternalView(next);
@@ -139,17 +158,24 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
     props.onViewChange?.(next);
   }
 
-  function updateWidth(next: number): void {
-    const value = Math.max(0, next);
+  function updateWidth(next: number): number {
+    const value = clampRightToolPanelWidth(next, availableWidth());
     if (props.width === undefined) {
       setInternalWidth(value);
-      persistRightToolPanelWidth(value);
     }
     props.onWidthChange?.(value);
+    return value;
+  }
+
+  function commitWidth(value: number): void {
+    if (props.width === undefined) persistRightToolPanelWidth(value);
+    props.onWidthCommit?.(value);
   }
 
   function stopResize(): void {
+    if (resizeStartX !== null) commitWidth(resizeCurrentWidth);
     resizeStartX = null;
+    setResizing(false);
     window.removeEventListener("pointermove", onResizeMove);
     window.removeEventListener("pointerup", stopResize);
     window.removeEventListener("pointercancel", stopResize);
@@ -158,14 +184,17 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   function onResizeMove(event: PointerEvent): void {
     if (resizeStartX === null) return;
     // The splitter is on the panel's left edge, so dragging left widens it.
-    updateWidth(resizeStartWidth - (event.clientX - resizeStartX));
+    resizeCurrentWidth = updateWidth(resizeStartWidth - (event.clientX - resizeStartX));
   }
 
   function onResizeStart(event: PointerEvent): void {
     if (event.button !== 0 || !props.open || maximized()) return;
     event.preventDefault();
+    measureAvailableWidth();
     resizeStartX = event.clientX;
-    resizeStartWidth = width();
+    resizeStartWidth = effectiveWidth();
+    resizeCurrentWidth = resizeStartWidth;
+    setResizing(true);
     window.addEventListener("pointermove", onResizeMove);
     window.addEventListener("pointerup", stopResize);
     window.addEventListener("pointercancel", stopResize);
@@ -173,22 +202,30 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
 
   function onResizeKeyDown(event: KeyboardEvent): void {
     const step = event.shiftKey ? 64 : 16;
+    let next: number | undefined;
     if (event.key === "ArrowLeft") {
-      event.preventDefault();
-      updateWidth(width() + step);
+      next = effectiveWidth() + step;
     } else if (event.key === "ArrowRight") {
-      event.preventDefault();
-      updateWidth(width() - step);
+      next = effectiveWidth() - step;
     } else if (event.key === "Home") {
-      event.preventDefault();
-      updateWidth(0);
+      next = 0;
     } else if (event.key === "End") {
-      event.preventDefault();
-      updateWidth(window.innerWidth);
+      next = availableWidth();
     }
+    if (next === undefined) return;
+    event.preventDefault();
+    commitWidth(updateWidth(next));
   }
 
-  onCleanup(stopResize);
+  onMount(() => {
+    measureAvailableWidth();
+    window.addEventListener("resize", measureAvailableWidth);
+  });
+
+  onCleanup(() => {
+    stopResize();
+    window.removeEventListener("resize", measureAvailableWidth);
+  });
 
   function toggleMaximized(): void {
     const next = !maximized();
@@ -216,14 +253,19 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
   return (
     <Show when={props.open}>
       <section
+        ref={panelRef}
         data-testid="right-tool-panel"
-        data-collapsed={width() === 0 ? "true" : "false"}
+        data-collapsed={effectiveWidth() === 0 ? "true" : "false"}
         data-maximized={maximized() ? "true" : "false"}
-        aria-hidden={width() === 0 ? "true" : undefined}
-        style={{ width: maximized() ? "100%" : `${width()}px` }}
-        class={`relative flex min-h-0 min-w-0 flex-col bg-bg-base transition-[width] duration-(--dur-med) ease-(--ease-emphasized) ${
-          width() === 0 ? "overflow-hidden" : ""
-        } ${maximized() ? "flex-1" : "shrink-0 border-l border-bg-sunken"}`}
+        aria-hidden={effectiveWidth() === 0 ? "true" : undefined}
+        style={{ width: maximized() ? "100%" : `${effectiveWidth()}px` }}
+        class={`relative flex min-h-0 min-w-0 flex-col bg-bg-base ${
+          resizing()
+            ? "transition-none"
+            : "transition-[width] duration-(--dur-med) ease-(--ease-emphasized)"
+        } ${effectiveWidth() === 0 ? "overflow-hidden" : ""} ${
+          maximized() ? "flex-1" : "shrink-0 border-l border-bg-sunken"
+        }`}
       >
         <Show when={!maximized()}>
           <div
@@ -232,10 +274,12 @@ const RightToolPanel: Component<RightToolPanelProps> = (props) => {
             aria-label={t("desktop:resizeTools")}
             aria-orientation="vertical"
             aria-valuemin={0}
-            aria-valuenow={width()}
+            aria-valuemax={availableWidth()}
+            aria-valuenow={effectiveWidth()}
             tabIndex={0}
-            class="group absolute inset-y-0 left-0 z-10 flex w-1 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
+            class="group absolute inset-y-0 left-0 z-10 flex w-2 -translate-x-1/2 cursor-col-resize items-stretch justify-center bg-transparent outline-none hover:bg-accent-soft focus-visible:bg-accent-soft"
             onPointerDown={onResizeStart}
+            onDblClick={() => commitWidth(updateWidth(RIGHT_PANEL_DEFAULT_WIDTH))}
             onKeyDown={onResizeKeyDown}
           >
             <span class="w-px bg-transparent transition-colors group-hover:bg-accent group-focus-visible:bg-accent" />

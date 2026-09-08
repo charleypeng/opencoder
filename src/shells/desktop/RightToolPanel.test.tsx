@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
-import RightToolPanel from "./RightToolPanel";
+import RightToolPanel, { clampRightToolPanelWidth } from "./RightToolPanel";
 
 const { openUrlMock } = vi.hoisted(() => ({
   openUrlMock: vi.fn(async () => {}),
@@ -46,6 +46,12 @@ function renderPanel(overrides: Partial<Parameters<typeof RightToolPanel>[0]> = 
 }
 
 describe("RightToolPanel", () => {
+  it("clamps a free width only to the panel's currently available space", () => {
+    expect(clampRightToolPanelWidth(320, 800)).toBe(320);
+    expect(clampRightToolPanelWidth(1200, 800)).toBe(800);
+    expect(clampRightToolPanelWidth(-20, 800)).toBe(0);
+  });
+
   it("renders review, files, and browser tools with review selected", () => {
     renderPanel();
     const panel = screen.getByTestId("right-tool-panel");
@@ -109,15 +115,24 @@ describe("RightToolPanel", () => {
     expect(onMaximizedChange).toHaveBeenLastCalledWith(false);
   });
 
-  it("resizes with the splitter and keyboard arrows", () => {
-    renderPanel();
+  it("resizes live without a width transition, then persists only on release", () => {
+    const onWidthCommit = vi.fn();
+    renderPanel({ onWidthCommit });
     const handle = screen.getByTestId("right-tools-resize-handle");
+    const panel = screen.getByTestId("right-tool-panel");
     expect(handle).toHaveAttribute("aria-valuenow", "256");
 
     fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
     fireEvent.pointerMove(window, { clientX: 60 });
     expect(handle).toHaveAttribute("aria-valuenow", "296");
+    expect(panel).toHaveClass("transition-none");
+    expect(localStorage.getItem("oc-right-tools-width")).toBeNull();
+    expect(onWidthCommit).not.toHaveBeenCalled();
+
+    fireEvent.pointerUp(window);
     expect(localStorage.getItem("oc-right-tools-width")).toBe("296");
+    expect(onWidthCommit).toHaveBeenCalledWith(296);
+    expect(panel).not.toHaveClass("transition-none");
 
     fireEvent.keyDown(handle, { key: "ArrowRight" });
     expect(handle).toHaveAttribute("aria-valuenow", "280");
@@ -125,10 +140,23 @@ describe("RightToolPanel", () => {
     fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
     fireEvent.pointerMove(window, { clientX: -400 });
     expect(handle).toHaveAttribute("aria-valuenow", "780");
-    expect(handle).not.toHaveAttribute("aria-valuemax");
+    expect(handle).toHaveAttribute("aria-valuemax", String(window.innerWidth));
+    fireEvent.pointerUp(window);
 
     fireEvent.keyDown(handle, { key: "Home" });
     expect(handle).toHaveAttribute("aria-valuenow", "0");
+  });
+
+  it("restores the default width when the splitter is double-clicked", () => {
+    renderPanel();
+    const handle = screen.getByTestId("right-tools-resize-handle");
+
+    fireEvent.keyDown(handle, { key: "ArrowRight" });
+    expect(handle).toHaveAttribute("aria-valuenow", "240");
+    fireEvent.doubleClick(handle);
+
+    expect(handle).toHaveAttribute("aria-valuenow", "256");
+    expect(localStorage.getItem("oc-right-tools-width")).toBe("256");
   });
 
   it("shows a selected run diff in the review tool and clears it on review selection", () => {

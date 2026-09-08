@@ -501,7 +501,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   function toggleRightTools(): void {
     if (rightToolsOpen() && rightToolsWidth() === 0) {
-      updateRightToolsWidth(lastRightToolsWidth());
+      commitRightToolsWidth(lastRightToolsWidth());
       return;
     }
     setRightToolsOpen(!rightToolsOpen());
@@ -511,6 +511,11 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     const next = Math.max(0, width);
     setRightToolsWidth(next);
     if (next > 0) setLastRightToolsWidth(next);
+  }
+
+  function commitRightToolsWidth(width: number): void {
+    updateRightToolsWidth(width);
+    const next = Math.max(0, width);
     persistRightToolPanelWidth(next);
   }
 
@@ -1789,6 +1794,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           open={rightToolsOpen()}
           width={rightToolsWidth()}
           onWidthChange={updateRightToolsWidth}
+          onWidthCommit={commitRightToolsWidth}
           maximized={rightToolsMaximized()}
           view={rightToolsView()}
           onViewChange={(view) => {
