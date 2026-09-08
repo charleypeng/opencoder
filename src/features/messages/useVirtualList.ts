@@ -127,9 +127,17 @@ export function createVirtualList(
   });
 
   createEffect(() => {
-    const max = Math.max(0, totalHeight() - viewport());
+    const virtualMax = Math.max(0, totalHeight() - viewport());
     const top = scrollTop();
     const el = getScrollEl();
+    // A mounted row can be taller than its estimate before its observer
+    // reports the measurement. Prefer the browser's real scroll boundary in
+    // that case; clamping to the estimate would make the scrollbar stop before
+    // the last rendered line. The virtual boundary remains the fallback when
+    // the browser has no layout yet; MessageList resets scroll on session
+    // changes so a previous DOM height cannot preserve a stale position.
+    const domMax = el === undefined ? 0 : Math.max(0, el.scrollHeight - el.clientHeight);
+    const max = Math.max(virtualMax, domMax);
     if (top > max) {
       if (el !== undefined) el.scrollTop = max;
       setScrollTop(max);

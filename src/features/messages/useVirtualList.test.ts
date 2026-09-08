@@ -185,4 +185,42 @@ describe("createVirtualList stale scroll offsets", () => {
     await dispose();
     scroll.remove();
   });
+
+  it("keeps the real bottom reachable when a mounted row exceeds its estimate", async () => {
+    const scroll = document.createElement("div");
+    document.body.appendChild(scroll);
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 300 });
+    Object.defineProperty(scroll, "scrollHeight", { configurable: true, value: 2000 });
+    let scrollTop = 0;
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+    scroll.scrollTo = ((options: ScrollToOptions | number) => {
+      scroll.scrollTop = typeof options === "number" ? options : (options.top ?? 0);
+    }) as typeof scroll.scrollTo;
+
+    const dispose = createRoot((dispose) => {
+      const list = createVirtualList(
+        () => scroll,
+        () => 10,
+        (index) => `row-${index}`,
+        { estimate: 100 },
+      );
+      list.measure();
+      list.scrollTo(1700);
+      return async () => {
+        await Promise.resolve();
+        expect(list.scrollTop()).toBe(1700);
+        expect(scroll.scrollTop).toBe(1700);
+        dispose();
+      };
+    });
+
+    await dispose();
+    scroll.remove();
+  });
 });

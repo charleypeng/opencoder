@@ -303,17 +303,14 @@ const MessageList: Component<MessageListProps> = (props) => {
         const initial = await pagination.loadInitial();
         if (cancelled || version !== fetchVersion) return;
         const initialPageHasNoVisibleRows = groups().length === 0 && pagination.hasMore();
-        if (initialPageHasNoVisibleRows) {
+        const shouldRestoreCompactedHistory =
+          initialPageHasNoVisibleRows || initial.containsCompaction;
+        if (shouldRestoreCompactedHistory) {
           await restoreCompactedHistory(version, () => cancelled);
           if (cancelled || version !== fetchVersion) return;
         }
         setLoading(false);
         scheduleLayoutFollow();
-        if (initial.containsCompaction && !initialPageHasNoVisibleRows) {
-          void restoreCompactedHistory(version, () => cancelled).then(() => {
-            if (!cancelled && version === fetchVersion) scheduleLayoutFollow();
-          });
-        }
       } catch (err) {
         if (cancelled || version !== fetchVersion) return;
         setError(ApiError.fromUnknown(err));
@@ -515,10 +512,11 @@ const MessageList: Component<MessageListProps> = (props) => {
 
   return (
     <div data-testid="message-list" class="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* M3-05: thin spinner above the chat area while an older history
-          page loads. It lives OUTSIDE the scroll container so appearing /
-          disappearing never shifts the transcript. */}
-      <Show when={pagination.loadingEarlier()}>
+      {/* M3-05: show the incremental history spinner only after the initial
+          transcript is ready. Compacted sessions use the stable main loading
+          state while all hidden history pages are restored, so this indicator
+          does not blink once per page during session startup. */}
+      <Show when={!loading() && pagination.loadingEarlier()}>
         <div
           data-testid="message-loading-earlier"
           class="flex h-6 shrink-0 items-center justify-center"

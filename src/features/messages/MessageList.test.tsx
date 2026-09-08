@@ -788,6 +788,7 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     renderList();
 
     expect(screen.getByTestId("message-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
     expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("message-msg_s70")).toBeInTheDocument());
 
@@ -804,6 +805,19 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     expect(storeEntry().infos["msg_s1"]).toBeDefined();
     expect(storeEntry().infos["msg_s120"]).toBeDefined();
     expect(screen.queryByText("Hidden compaction summary 120")).not.toBeInTheDocument();
+  });
+
+  it("keeps compacted-session startup in one stable loading state", async () => {
+    const history = compactedHistory(120);
+    const client = paginatedClientFrom(history);
+    renderList();
+
+    expect(screen.getByTestId("message-loading")).toBeInTheDocument();
+    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
+    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(120));
+    expect(screen.queryByTestId("message-loading")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
+    expect(client.get).toHaveBeenCalledTimes(3);
   });
 
   it("loads older pages on top-reach with scroll preservation and no jump button", async () => {
