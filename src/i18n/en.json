@@ -187,6 +187,8 @@
     "skip": "Skip",
     "addWorkspace": "Add workspace",
     "viewFolder": "View folder",
+    "copyDirectory": "Copy directory",
+    "copySessionId": "Copy session ID",
     "removeWorkspace": "Remove workspace",
     "addSessionHere": "New session here",
     "moreActions": "More actions",

@@ -164,6 +164,41 @@ describe("WorkspaceTree", () => {
     await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
   });
 
+  it("uses one Tab stop and roves through folders and sessions with arrow keys", async () => {
+    renderTree();
+    const folder = await screen.findByTestId("workspace-folder-/dev/opencoder");
+    const firstSession = screen.getByTestId("workspace-session-s1");
+
+    expect(
+      screen.getAllByRole("treeitem", { hidden: true }).filter((item) => item.tabIndex === 0),
+    ).toHaveLength(1);
+
+    folder.focus();
+    fireEvent.keyDown(folder, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(firstSession);
+
+    fireEvent.keyDown(firstSession, { key: "ArrowLeft" });
+    expect(document.activeElement).toBe(folder);
+
+    fireEvent.keyDown(folder, { key: "ArrowLeft" });
+    expect(screen.queryByTestId("workspace-session-s1")).toBeNull();
+    fireEvent.keyDown(folder, { key: "ArrowRight" });
+    await waitFor(() => expect(screen.getByTestId("workspace-session-s1")).toBeInTheDocument());
+  });
+
+  it("opens rename and the session menu from a focused tree row", async () => {
+    renderTree();
+    const row = await screen.findByTestId("workspace-session-s1");
+
+    row.focus();
+    fireEvent.keyDown(row, { key: "F2" });
+    expect(await screen.findByTestId("rename-session-dialog")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("rename-session-cancel"));
+
+    fireEvent.keyDown(row, { key: "F10", shiftKey: true });
+    expect(await screen.findByRole("menu", { name: "Session actions" })).toBeInTheDocument();
+  });
+
   it("persists the collapsed state across renders", async () => {
     const { unmount } = renderTree();
     await waitFor(() =>
@@ -309,6 +344,26 @@ describe("WorkspaceTree", () => {
 
     expect(onViewFolder).toHaveBeenCalledWith("/dev/opencoder");
     expect(screen.queryByTestId("directory-picker-dialog")).toBeNull();
+  });
+
+  it("copies a session identifier from the row menu without closing it", async () => {
+    const writeText = vi.fn(async () => undefined);
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    renderTree();
+    const row = await screen.findByTestId("workspace-session-s1");
+    fireEvent.contextMenu(row, { clientX: 120, clientY: 120 });
+
+    fireEvent.click(await screen.findByTestId("workspace-session-menu-copy-session-id"));
+
+    await waitFor(() => expect(writeText).toHaveBeenCalledWith("s1"));
+    await waitFor(() =>
+      expect(screen.getByTestId("workspace-session-menu-copy-session-id")).toHaveTextContent(
+        "Copied",
+      ),
+    );
   });
 
   it("opens the picker only from the explicit change-working-directory action", async () => {

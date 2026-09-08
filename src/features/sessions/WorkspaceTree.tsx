@@ -91,6 +91,38 @@ function writeStringSet(key: string, set: ReadonlySet<string>): void {
   }
 }
 
+async function copyToClipboard(text: string): Promise<boolean> {
+  if (navigator.clipboard !== undefined) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fall through to the legacy copy path when a WebView blocks Clipboard.
+    }
+  }
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    const copied = document.execCommand("copy");
+    textarea.remove();
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+function folderTreeItemId(directory: string): string {
+  return `folder:${directory || "__uncategorized__"}`;
+}
+
+function sessionTreeItemId(sessionId: string): string {
+  return `session:${sessionId}`;
+}
+
 type StatusKind = "busy" | "idle" | "error" | "none";
 
 /** A folder shows a live status dot only for the ACTIVE directory (its
@@ -140,39 +172,44 @@ function FolderRow(props: {
   onToggle: () => void;
   onAddSession: () => void;
   onMore: (position: { x: number; y: number }) => void;
+  treeItemId: string;
+  tabIndex: number;
+  onFocus: () => void;
+  onKeyDown: (event: KeyboardEvent) => void;
 }) {
   const t = useT();
   return (
     <div
       data-testid={`workspace-folder-${props.folder.directory}`}
+      data-workspace-tree-id={props.treeItemId}
+      data-workspace-tree-kind="folder"
       data-active={props.isCurrent ? "true" : "false"}
       data-default={props.isDefault ? "true" : "false"}
-      class="group relative flex cursor-pointer select-none items-center gap-1.5 py-1.5 pl-3 pr-2 text-sm transition-colors hover:bg-bg-sunken/50"
+      role="treeitem"
+      aria-expanded={props.expanded ? "true" : "false"}
+      aria-level={1}
+      tabIndex={props.tabIndex}
+      class="group relative flex cursor-pointer select-none items-center gap-1.5 py-1.5 pl-3 pr-2 text-sm outline-none transition-colors hover:bg-bg-sunken/50 focus-visible:bg-accent-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60"
       onClick={() => props.onToggle()}
+      onFocus={() => props.onFocus()}
+      onKeyDown={(event) => props.onKeyDown(event)}
     >
-      <button
-        type="button"
+      <span
         data-testid="workspace-folder-toggle"
-        aria-expanded={props.expanded ? "true" : "false"}
-        aria-label={props.expanded ? t("sessions:collapse") : t("sessions:expand")}
-        class={`shrink-0 rounded-sm p-0.5 text-xs leading-none text-fg-faint outline-none hover:text-fg-primary focus:text-fg-primary ${
+        aria-hidden="true"
+        class={`shrink-0 p-0.5 text-xs leading-none text-fg-faint ${
           props.expanded ? "rotate-90" : ""
         }`}
-        onClick={(event) => {
-          // The chevron toggles alone: without stopping propagation the
-          // click would ALSO hit the row's toggle, cancelling itself out.
-          event.stopPropagation();
-          props.onToggle();
-        }}
       >
         ▸
-      </button>
+      </span>
       <Show when={props.selectionMode}>
         <input
           type="checkbox"
           data-testid={`workspace-folder-select-${props.folder.directory || "uncategorized"}`}
           aria-label={t("sessions:selectWorkspace")}
           checked={props.selected ?? false}
+          tabIndex={-1}
           onChange={() => props.onToggleSelect?.()}
           onClick={(event) => event.stopPropagation()}
           class="h-4 w-4 shrink-0 accent-accent"
@@ -239,6 +276,7 @@ function FolderRow(props: {
           data-testid="workspace-folder-add"
           aria-label={t("sessions:addSessionHere")}
           title={t("sessions:addSessionHere")}
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
             props.onAddSession();
@@ -262,6 +300,7 @@ function FolderRow(props: {
           data-testid="workspace-folder-more"
           aria-label={t("sessions:moreActions")}
           title={t("sessions:moreActions")}
+          tabIndex={-1}
           onClick={(event) => {
             event.stopPropagation();
             const rect = event.currentTarget.getBoundingClientRect();
@@ -298,6 +337,11 @@ function SessionRow(props: {
   onToggleSelect?: () => void;
   onSelect: () => void;
   onMenu: (session: Session, position: { x: number; y: number }) => void;
+  treeItemId: string;
+  parentTreeItemId: string;
+  tabIndex: number;
+  onFocus: () => void;
+  onKeyDown: (event: KeyboardEvent) => void;
 }) {
   const t = useT();
   const kind = () => statusKindOf(props.status);
@@ -305,27 +349,26 @@ function SessionRow(props: {
     props.status !== undefined && "message" in props.status ? props.status.message : undefined;
   const title = () => props.session.title || props.session.slug;
   return (
-    /* TASK-M9-08 (ported from SessionList): the row wrapper is
-       NON-interactive (it only forwards clicks/keys) so the row's focusable
-       <button> and the ⋯ actions button stay siblings — an interactive
-       control nested inside the row button violated axe nested-interactive
-       (the workspace tree's SessionRow missed the M9 port). */
+    /* A tree row is the only keyboard stop for a session. The separate menu
+       remains available to the mouse and through Shift+F10/ContextMenu. */
     <div
       data-testid={`workspace-session-${props.session.id}`}
+      data-workspace-tree-id={props.treeItemId}
+      data-workspace-tree-parent={props.parentTreeItemId}
+      data-workspace-tree-kind="session"
       data-active={props.active ? "true" : "false"}
       data-forked={props.forked ? "true" : "false"}
-      class={`group relative flex w-full cursor-pointer items-center gap-2 py-1.5 pr-3 transition-colors ${
+      role="treeitem"
+      aria-level={2}
+      aria-current={props.active ? "true" : undefined}
+      tabIndex={props.tabIndex}
+      class={`group relative flex w-full cursor-pointer items-center gap-2 py-1.5 pr-3 outline-none transition-colors ${
         props.active ? "bg-accent-soft" : "hover:bg-bg-sunken/50"
-      } focus-within:bg-accent-soft`}
+      } focus-within:bg-accent-soft focus-visible:bg-accent-soft focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent/60`}
       style={{ "padding-left": "calc(0.75rem + 28px)" }}
       onClick={() => props.onSelect()}
-      onKeyDown={(event) => {
-        if (event.target !== event.currentTarget) return;
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          props.onSelect();
-        }
-      }}
+      onFocus={() => props.onFocus()}
+      onKeyDown={(event) => props.onKeyDown(event)}
       onContextMenu={(event) => {
         event.preventDefault();
         props.onMenu(props.session, { x: event.clientX, y: event.clientY });
@@ -337,16 +380,13 @@ function SessionRow(props: {
           data-testid={`workspace-session-select-${props.session.id}`}
           aria-label={t("sessions:selectSession", { title: title() })}
           checked={props.selected ?? false}
+          tabIndex={-1}
           onChange={() => props.onToggleSelect?.()}
           onClick={(event) => event.stopPropagation()}
           class="h-4 w-4 shrink-0 accent-accent"
         />
       </Show>
-      <button
-        type="button"
-        aria-current={props.active ? "true" : undefined}
-        class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 pr-8 text-left outline-none focus:bg-accent-soft"
-      >
+      <span class="flex min-w-0 flex-1 items-center gap-2 pr-8 text-left">
         <Show when={kind() !== "none"}>
           <span
             data-testid="workspace-session-status"
@@ -380,12 +420,13 @@ function SessionRow(props: {
         <span class="min-w-0 flex-1">
           <OverflowMarquee text={title()} testId="workspace-session-title" />
         </span>
-      </button>
+      </span>
       <button
         type="button"
         data-testid="workspace-session-menu"
         aria-label={t("sessions:sessionActions")}
         aria-haspopup="menu"
+        tabIndex={-1}
         class="invisible absolute right-1.5 top-1/2 -translate-y-1/2 rounded-md px-1.5 text-sm leading-none text-fg-secondary outline-none transition-opacity group-hover:visible group-hover:opacity-100 focus:visible focus:opacity-100"
         onClick={(event) => {
           event.stopPropagation();
@@ -467,6 +508,49 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   // root), plus the open flag. Only explicit add/change actions open it.
   const [pickerOpen, setPickerOpen] = createSignal(false);
   const [pickerDir, setPickerDir] = createSignal<string | undefined>(undefined);
+  const [focusedTreeItem, setFocusedTreeItem] = createSignal<string | null>(null);
+  const [copiedKind, setCopiedKind] = createSignal<"directory" | "session" | null>(null);
+  let treeListRef: HTMLDivElement | undefined;
+
+  function treeItems(): HTMLElement[] {
+    return Array.from(treeListRef?.querySelectorAll<HTMLElement>("[data-workspace-tree-id]") ?? []);
+  }
+
+  function focusTreeItem(id: string): void {
+    setFocusedTreeItem(id);
+    const item = treeItems().find((candidate) => candidate.dataset.workspaceTreeId === id);
+    item?.focus({ preventScroll: true });
+  }
+
+  function moveTreeFocus(currentId: string, direction: -1 | 1 | "first" | "last"): void {
+    const items = treeItems();
+    if (items.length === 0) return;
+    if (direction === "first") {
+      focusTreeItem(items[0].dataset.workspaceTreeId!);
+      return;
+    }
+    if (direction === "last") {
+      focusTreeItem(items[items.length - 1].dataset.workspaceTreeId!);
+      return;
+    }
+    const index = items.findIndex((item) => item.dataset.workspaceTreeId === currentId);
+    const next = items[index + direction];
+    if (next !== undefined) focusTreeItem(next.dataset.workspaceTreeId!);
+  }
+
+  function isContextMenuKey(event: KeyboardEvent): boolean {
+    return event.key === "ContextMenu" || (event.key === "F10" && event.shiftKey);
+  }
+
+  function openSessionMenu(session: Session, position: { x: number; y: number }): void {
+    setCopiedKind(null);
+    setRowMenu({ session, ...position });
+  }
+
+  function openFolderMenu(directory: string, position: { x: number; y: number }): void {
+    setCopiedKind(null);
+    setFolderMenu({ directory, ...position });
+  }
 
   const sessionState = createMemo(() => getServerSessionState(props.serverId));
   const projectState = createMemo(() => getServerProjectState(props.serverId));
@@ -731,6 +815,22 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
   const otherFolders = createMemo(() =>
     visibleFolders().filter((folder) => folder.directory !== defaultFolder()?.directory),
   );
+  const firstTreeItemId = createMemo(() => {
+    const firstFolder = defaultFolder() ?? otherFolders()[0];
+    if (firstFolder !== undefined) return folderTreeItemId(firstFolder.directory);
+    if (filteredTree().uncategorized.length > 0) return folderTreeItemId("");
+    return null;
+  });
+
+  function treeItemTabIndex(id: string): number {
+    return focusedTreeItem() === null
+      ? id === firstTreeItemId()
+        ? 0
+        : -1
+      : focusedTreeItem() === id
+        ? 0
+        : -1;
+  }
 
   // Enter the most recent directory when no context is seeded yet (first
   // mount / server switch): the per-directory SSE stream and the main pane
@@ -784,6 +884,106 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     }
     setCollapsed(next);
     writeStringSet(COLLAPSED_KEY, next);
+  }
+
+  function focusFirstSessionInFolder(directory: string): void {
+    queueMicrotask(() => {
+      const first = treeItems().find(
+        (item) => item.dataset.workspaceTreeParent === folderTreeItemId(directory),
+      );
+      if (first !== undefined) focusTreeItem(first.dataset.workspaceTreeId!);
+    });
+  }
+
+  function handleFolderKeyDown(
+    folder: WorkspaceFolder,
+    expanded: boolean,
+    event: KeyboardEvent,
+  ): void {
+    const itemId = folderTreeItemId(folder.directory);
+    if (isContextMenuKey(event)) {
+      event.preventDefault();
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      openFolderMenu(folder.directory, { x: rect.left, y: rect.bottom });
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        moveTreeFocus(itemId, 1);
+        return;
+      case "ArrowUp":
+        event.preventDefault();
+        moveTreeFocus(itemId, -1);
+        return;
+      case "Home":
+        event.preventDefault();
+        moveTreeFocus(itemId, "first");
+        return;
+      case "End":
+        event.preventDefault();
+        moveTreeFocus(itemId, "last");
+        return;
+      case "ArrowRight":
+        event.preventDefault();
+        if (!expanded) toggleFolder(folder.directory);
+        else focusFirstSessionInFolder(folder.directory);
+        return;
+      case "ArrowLeft":
+        if (expanded) {
+          event.preventDefault();
+          toggleFolder(folder.directory);
+        }
+        return;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        toggleFolder(folder.directory);
+        return;
+      default:
+    }
+  }
+
+  function handleSessionKeyDown(session: Session, event: KeyboardEvent): void {
+    const itemId = sessionTreeItemId(session.id);
+    if (isContextMenuKey(event)) {
+      event.preventDefault();
+      const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+      openSessionMenu(session, { x: rect.left, y: rect.bottom });
+      return;
+    }
+    switch (event.key) {
+      case "ArrowDown":
+        event.preventDefault();
+        moveTreeFocus(itemId, 1);
+        return;
+      case "ArrowUp":
+        event.preventDefault();
+        moveTreeFocus(itemId, -1);
+        return;
+      case "Home":
+        event.preventDefault();
+        moveTreeFocus(itemId, "first");
+        return;
+      case "End":
+        event.preventDefault();
+        moveTreeFocus(itemId, "last");
+        return;
+      case "ArrowLeft":
+        event.preventDefault();
+        focusTreeItem(folderTreeItemId(session.directory ?? ""));
+        return;
+      case "F2":
+        event.preventDefault();
+        setRenameTarget(session);
+        return;
+      case "Enter":
+      case " ":
+        event.preventDefault();
+        handleSessionClick(session);
+        return;
+      default:
+    }
   }
 
   function removeFolder(directory: string): void {
@@ -886,6 +1086,14 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
     return parent === undefined ? undefined : parent.title || parent.slug;
   }
 
+  async function copySessionId(session: Session): Promise<void> {
+    if (await copyToClipboard(session.id)) setCopiedKind("session");
+  }
+
+  async function copyDirectory(directory: string): Promise<void> {
+    if (await copyToClipboard(directory)) setCopiedKind("directory");
+  }
+
   /** Row ⋯ menu keeps real session actions in stable desktop-oriented groups. */
   const rowMenuItems = createMemo<MenuItem[]>(() => {
     const target = rowMenu();
@@ -902,7 +1110,15 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
         id: "rename",
         label: t("sessions:rename"),
         icon: <ContextMenuIcon name="rename" />,
+        hint: "F2",
         onSelect: () => setRenameTarget(session),
+      },
+      {
+        id: "copy-session-id",
+        label: copiedKind() === "session" ? t("common:copied") : t("sessions:copySessionId"),
+        icon: <ContextMenuIcon name="copy" />,
+        keepOpen: true,
+        onSelect: () => void copySessionId(session),
       },
       { separator: true },
       {
@@ -975,6 +1191,13 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
         icon: <ContextMenuIcon name="folder" />,
         onSelect: () => props.onViewFolder(target.directory),
       },
+      {
+        id: "copy-directory",
+        label: copiedKind() === "directory" ? t("common:copied") : t("sessions:copyDirectory"),
+        icon: <ContextMenuIcon name="copy" />,
+        keepOpen: true,
+        onSelect: () => void copyDirectory(target.directory),
+      },
       { separator: true },
       {
         id: "remove-workspace",
@@ -1042,7 +1265,13 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
           </p>
         </Show>
       </div>
-      <div class="min-h-0 flex-1 overflow-y-auto pb-3">
+      <div
+        ref={treeListRef}
+        data-testid="workspace-tree-list"
+        role="tree"
+        aria-label={t("sessions:workspaces")}
+        class="min-h-0 flex-1 overflow-y-auto pb-3"
+      >
         <Show
           when={visibleFolders().length > 0 || filteredTree().uncategorized.length > 0}
           fallback={
@@ -1088,8 +1317,16 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
               )}
               onToggle={() => toggleFolder(defaultFolder()!.directory)}
               onAddSession={() => void handleCreateIn(defaultFolder()!.directory)}
-              onMore={(position) =>
-                setFolderMenu({ directory: defaultFolder()!.directory, ...position })
+              onMore={(position) => openFolderMenu(defaultFolder()!.directory, position)}
+              treeItemId={folderTreeItemId(defaultFolder()!.directory)}
+              tabIndex={treeItemTabIndex(folderTreeItemId(defaultFolder()!.directory))}
+              onFocus={() => setFocusedTreeItem(folderTreeItemId(defaultFolder()!.directory))}
+              onKeyDown={(event) =>
+                handleFolderKeyDown(
+                  defaultFolder()!,
+                  isExpanded(defaultFolder()!.directory, filteredTree().matched),
+                  event,
+                )
               }
             />
             {/* The default workspace's sessions render under its row exactly
@@ -1110,7 +1347,12 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     selected={selectedIds().has(session.id)}
                     onToggleSelect={() => toggleSelection(session.id)}
                     onSelect={() => handleSessionClick(session)}
-                    onMenu={(target, position) => setRowMenu({ session: target, ...position })}
+                    onMenu={(target, position) => openSessionMenu(target, position)}
+                    treeItemId={sessionTreeItemId(session.id)}
+                    parentTreeItemId={folderTreeItemId(defaultFolder()!.directory)}
+                    tabIndex={treeItemTabIndex(sessionTreeItemId(session.id))}
+                    onFocus={() => setFocusedTreeItem(sessionTreeItemId(session.id))}
+                    onKeyDown={(event) => handleSessionKeyDown(session, event)}
                   />
                 )}
               </For>
@@ -1142,9 +1384,11 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                     statusKind={statusKind()}
                     onToggle={() => toggleFolder(folder.directory)}
                     onAddSession={() => void handleCreateIn(folder.directory)}
-                    onMore={(position) =>
-                      setFolderMenu({ directory: folder.directory, ...position })
-                    }
+                    onMore={(position) => openFolderMenu(folder.directory, position)}
+                    treeItemId={folderTreeItemId(folder.directory)}
+                    tabIndex={treeItemTabIndex(folderTreeItemId(folder.directory))}
+                    onFocus={() => setFocusedTreeItem(folderTreeItemId(folder.directory))}
+                    onKeyDown={(event) => handleFolderKeyDown(folder, expanded(), event)}
                   />
                   <Show when={expanded()}>
                     <For each={folder.sessions}>
@@ -1159,9 +1403,12 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                           selected={selectedIds().has(session.id)}
                           onToggleSelect={() => toggleSelection(session.id)}
                           onSelect={() => handleSessionClick(session)}
-                          onMenu={(target, position) =>
-                            setRowMenu({ session: target, ...position })
-                          }
+                          onMenu={(target, position) => openSessionMenu(target, position)}
+                          treeItemId={sessionTreeItemId(session.id)}
+                          parentTreeItemId={folderTreeItemId(folder.directory)}
+                          tabIndex={treeItemTabIndex(sessionTreeItemId(session.id))}
+                          onFocus={() => setFocusedTreeItem(sessionTreeItemId(session.id))}
+                          onKeyDown={(event) => handleSessionKeyDown(session, event)}
                         />
                       )}
                     </For>
@@ -1201,6 +1448,21 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                 onToggle={() => toggleFolder("__uncategorized__")}
                 onAddSession={() => undefined}
                 onMore={() => undefined}
+                treeItemId={folderTreeItemId("")}
+                tabIndex={treeItemTabIndex(folderTreeItemId(""))}
+                onFocus={() => setFocusedTreeItem(folderTreeItemId(""))}
+                onKeyDown={(event) =>
+                  handleFolderKeyDown(
+                    {
+                      directory: "",
+                      name: t("sessions:uncategorized"),
+                      sessions: filteredTree().uncategorized,
+                      recentMs: 0,
+                    },
+                    !collapsed().has("__uncategorized__"),
+                    event,
+                  )
+                }
               />
               <Show when={!collapsed().has("__uncategorized__")}>
                 <For each={filteredTree().uncategorized}>
@@ -1215,7 +1477,12 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
                       selected={selectedIds().has(session.id)}
                       onToggleSelect={() => toggleSelection(session.id)}
                       onSelect={() => handleSessionClick(session)}
-                      onMenu={(target, position) => setRowMenu({ session: target, ...position })}
+                      onMenu={(target, position) => openSessionMenu(target, position)}
+                      treeItemId={sessionTreeItemId(session.id)}
+                      parentTreeItemId={folderTreeItemId("")}
+                      tabIndex={treeItemTabIndex(sessionTreeItemId(session.id))}
+                      onFocus={() => setFocusedTreeItem(sessionTreeItemId(session.id))}
+                      onKeyDown={(event) => handleSessionKeyDown(session, event)}
                     />
                   )}
                 </For>

@@ -187,6 +187,8 @@
     "skip": "跳过",
     "addWorkspace": "添加工作区",
     "viewFolder": "查看文件夹",
+    "copyDirectory": "复制工作目录",
+    "copySessionId": "复制会话 ID",
     "removeWorkspace": "移除此工作区",
     "addSessionHere": "在此新建会话",
     "moreActions": "更多操作",
