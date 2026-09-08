@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- docs(desktop): Add a prioritized desktop UI plan for mouse and keyboard workflows, stable disclosures, panel recovery, and practical acceptance criteria. (desktop)
 - feat(messages): Add restrained live-status highlights and smooth chat disclosures, and collapse tall user messages into expandable previews measured at the current width and scale. (messages)
 
 ### Fixed
