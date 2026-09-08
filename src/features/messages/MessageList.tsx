@@ -28,6 +28,7 @@
 //   pauses the follow and a "New messages" button jumps back.
 
 import {
+  children,
   createEffect,
   createMemo,
   createSignal,
@@ -36,7 +37,7 @@ import {
   Show,
   untrack,
 } from "solid-js";
-import type { Component } from "solid-js";
+import type { Component, JSX } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import { useT } from "../../i18n/index.js";
@@ -72,6 +73,8 @@ export interface MessageListProps {
   /** Mobile presentation (TASK-M7-06): bubbles gain the long-press action
    *  menu and native text-selection callout is suppressed. */
   mobile?: boolean;
+  /** Desktop composer kept inside the full-height transcript scroller. */
+  footer?: JSX.Element;
 }
 
 /** Default height of a message row before measurement, in px. */
@@ -97,6 +100,7 @@ interface MessageRow extends AgentRow {
 
 const MessageList: Component<MessageListProps> = (props) => {
   const t = useT();
+  const footer = children(() => props.footer);
   const [historyPhase, setHistoryPhase] = createSignal<HistoryPhase>("initial-loading");
   const loading = createMemo(
     () => historyPhase() === "initial-loading" || historyPhase() === "seeking-visible",
@@ -106,6 +110,8 @@ const MessageList: Component<MessageListProps> = (props) => {
   const [paused, setPaused] = createSignal(false);
   const [hasNew, setHasNew] = createSignal(false);
   let scrollRef: HTMLDivElement | undefined;
+  let footerRef: HTMLDivElement | undefined;
+  const [footerHeight, setFooterHeight] = createSignal(0);
   let fetchVersion = 0;
   let displayedGeneration = "";
   let suppressUntil = 0;
@@ -192,6 +198,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     (index) => `${props.serverId}:${props.sessionId}:${groups()[index]?.key ?? `row-${index}`}`,
     {
       estimate: ROW_ESTIMATE_PX,
+      bottomInset: footerHeight,
     },
   );
 
@@ -396,11 +403,8 @@ const MessageList: Component<MessageListProps> = (props) => {
   // grows the transcript but must never flag the jump button (it is a
   // history backfill, not new content).
   //
-  // Scrolling uses the container's REAL scrollHeight (not the virtual
-  // list's estimated total): the browser may not have laid out the latest
-  // rows yet, so the target is re-applied on the next animation frame —
-  // WKWebView settles layout asynchronously and a single scrollTo gets
-  // clamped to the stale scrollHeight, leaving the last line out of view.
+  // The model includes the sticky composer. Apply its target after layout
+  // so the native scrollbar reaches the end of the full-height viewport.
   // Same-frame triggers coalesce into one rAF pass (no scroll storm while
   // tokens stream), and equal targets are skipped (no redundant scrollTo
   // that would flicker the scrollbar / re-render the virtual rows).
@@ -491,6 +495,17 @@ const MessageList: Component<MessageListProps> = (props) => {
       viewportObserver.observe(scrollRef);
     }
     window.addEventListener("resize", onResize);
+  });
+  onMount(() => {
+    if (footerRef === undefined) return;
+    const measureFooter = () => {
+      setFooterHeight(footerRef?.getBoundingClientRect().height ?? 0);
+      scheduleLayoutFollow();
+    };
+    measureFooter();
+    const observer = new ResizeObserver(measureFooter);
+    observer.observe(footerRef);
+    onCleanup(() => observer.disconnect());
   });
   onCleanup(() => {
     window.removeEventListener("resize", onResize);
@@ -601,45 +616,50 @@ const MessageList: Component<MessageListProps> = (props) => {
         aria-live="polite"
         aria-atomic="false"
         class="min-h-0 flex-1 overflow-y-auto"
+        style={{ "overflow-anchor": "none" }}
         onScroll={handleScroll}
       >
-        <Show
-          when={groups().length > 0}
-          fallback={
-            <Show
-              when={!loading()}
-              fallback={
-                <p data-testid="message-loading" class="py-8 text-center text-sm text-fg-secondary">
-                  {t("messages:loadingMessages")}
-                </p>
-              }
-            >
+        <div style={{ "min-height": `${Math.max(0, list.viewport() - footerHeight())}px` }}>
+          <Show
+            when={groups().length > 0}
+            fallback={
               <Show
-                when={error()}
+                when={!loading()}
                 fallback={
-                  <div data-testid="message-empty" class="py-8 text-center">
-                    <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
-                    <p class="mt-1 text-xs text-fg-faint">{t("messages:noMessagesHint")}</p>
-                  </div>
+                  <p
+                    data-testid="message-loading"
+                    class="py-8 text-center text-sm text-fg-secondary"
+                  >
+                    {t("messages:loadingMessages")}
+                  </p>
                 }
               >
-                <div class="flex flex-col gap-4 px-4 py-4">
-                  <ErrorBanner error={error()} onDismiss={() => setError(null)} />
-                  <button
-                    type="button"
-                    data-testid="message-retry"
-                    class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
-                    onClick={() => setLoadKey((key) => key + 1)}
-                  >
-                    {t("common:retry")}
-                  </button>
-                </div>
+                <Show
+                  when={error()}
+                  fallback={
+                    <div data-testid="message-empty" class="py-8 text-center">
+                      <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
+                      <p class="mt-1 text-xs text-fg-faint">{t("messages:noMessagesHint")}</p>
+                    </div>
+                  }
+                >
+                  <div class="flex flex-col gap-4 px-4 py-4">
+                    <ErrorBanner error={error()} onDismiss={() => setError(null)} />
+                    <button
+                      type="button"
+                      data-testid="message-retry"
+                      class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+                      onClick={() => setLoadKey((key) => key + 1)}
+                    >
+                      {t("common:retry")}
+                    </button>
+                  </div>
+                </Show>
               </Show>
-            </Show>
-          }
-        >
-          <div class="relative" style={{ height: `${list.totalHeight()}px` }}>
-            {/* Keyed by message id (solid-primitives Key): a row's
+            }
+          >
+            <div class="relative overflow-clip" style={{ height: `${list.totalHeight()}px` }}>
+              {/* Keyed by message id (solid-primitives Key): a row's
                       measured height change re-positions it (style.top)
                       WITHOUT rebuilding the row subtree. An unkeyed For
                       re-creates the row's MarkdownText on every measurement,
@@ -649,62 +669,75 @@ const MessageList: Component<MessageListProps> = (props) => {
                       loop (the overlap/flicker bug: rows rendered on top of
                       each other while streaming or scrolling). Keeping the
                       DOM alive stops the loop. */}
-            <Key each={rows()} by={(row) => row.renderKey}>
-              {(row) => (
-                <div
-                  ref={(el) => list.measureRow(row().renderKey, el)}
-                  data-virtual-row={row().index}
-                  data-reverted={row().reverted ? "true" : "false"}
-                  class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
-                    row().reverted ? " opacity-45 saturate-50" : ""
-                  }`}
-                  style={{ top: `${row().start}px` }}
-                >
-                  <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
-                    <Show
-                      when={row().kind !== "working"}
-                      fallback={
-                        <div data-testid="agent-working" class="w-full">
-                          <ProcessFold
-                            parts={[]}
-                            runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
-                            active
-                            startedAt={row().startedAt}
-                          />
-                        </div>
-                      }
+              <Key each={rows()} by={(row) => row.renderKey}>
+                {(row) => {
+                  const key = row().renderKey;
+                  onCleanup(() => list.measureRow(key, undefined));
+                  return (
+                    <div
+                      ref={(el) => list.measureRow(row().renderKey, el)}
+                      data-virtual-row={row().index}
+                      data-reverted={row().reverted ? "true" : "false"}
+                      class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
+                        row().reverted ? " opacity-45 saturate-50" : ""
+                      }`}
+                      style={{ top: `${row().start}px` }}
                     >
-                      <MessageBubble
-                        serverId={props.serverId}
-                        sessionId={props.sessionId}
-                        messageID={row().messageID}
-                        partIds={row().partIds}
-                        activityPartIds={row().activityPartIds}
-                        runPartIds={row().allPartIds}
-                        runKey={row().key}
-                        runActive={row().active}
-                        runStartedAt={row().startedAt}
-                        runCompletedAt={row().completedAt}
-                        runParentMessageID={row().parentMessageID}
-                        runDiffs={runDiffs(row())}
-                        typing={row().typing}
-                        mobile={props.mobile}
-                        onViewDiff={props.onViewDiff}
-                        onViewDiffInTools={props.onViewDiffInTools}
-                        onFork={props.onFork}
-                        onRevert={props.onRevert}
-                        onOpenChild={props.onOpenChild}
-                      />
-                    </Show>
-                  </div>
-                </div>
-              )}
-            </Key>
+                      <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
+                        <Show
+                          when={row().kind !== "working"}
+                          fallback={
+                            <div data-testid="agent-working" class="w-full">
+                              <ProcessFold
+                                parts={[]}
+                                runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
+                                active
+                                startedAt={row().startedAt}
+                              />
+                            </div>
+                          }
+                        >
+                          <MessageBubble
+                            serverId={props.serverId}
+                            sessionId={props.sessionId}
+                            messageID={row().messageID}
+                            partIds={row().partIds}
+                            activityPartIds={row().activityPartIds}
+                            runPartIds={row().allPartIds}
+                            runKey={row().key}
+                            runActive={row().active}
+                            runStartedAt={row().startedAt}
+                            runCompletedAt={row().completedAt}
+                            runParentMessageID={row().parentMessageID}
+                            runDiffs={runDiffs(row())}
+                            typing={row().typing}
+                            mobile={props.mobile}
+                            onViewDiff={props.onViewDiff}
+                            onViewDiffInTools={props.onViewDiffInTools}
+                            onFork={props.onFork}
+                            onRevert={props.onRevert}
+                            onOpenChild={props.onOpenChild}
+                          />
+                        </Show>
+                      </div>
+                    </div>
+                  );
+                }}
+              </Key>
+            </div>
+          </Show>
+        </div>
+        <Show when={footer()}>
+          <div ref={footerRef} class="sticky bottom-0 z-10 flow-root bg-bg-base">
+            {footer()}
           </div>
         </Show>
       </div>
       <Show when={hasNew() && !loading()}>
-        <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+        <div
+          class="pointer-events-none absolute inset-x-0 z-20 flex justify-center"
+          style={{ bottom: `calc(${footerHeight()}px + 0.75rem)` }}
+        >
           <button
             type="button"
             data-testid="message-jump"

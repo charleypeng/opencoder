@@ -45,3 +45,11 @@ function installStorageShim(): void {
   });
 }
 installStorageShim();
+
+// jsdom implements neither window.scrollTo nor a 2D canvas context; every
+// call only emits a "Not implemented" line to stderr without any effect
+// (scrollTo no-ops, getContext returns null — the sprite renderer and
+// marquee already treat a null context as "do not draw"). Shim both so
+// test output stays readable; suites can still spy on the replacements.
+window.scrollTo = () => {};
+HTMLCanvasElement.prototype.getContext = () => null;

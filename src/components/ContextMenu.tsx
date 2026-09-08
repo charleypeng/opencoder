@@ -232,9 +232,8 @@ export function quoteBlock(text: string): string {
     .join("\n");
 }
 
-/** The min-width token of the panels (min-w-44 = 176px), used as the
- *  pre-measure size for the submenu flip decision. */
-const PANEL_MIN_WIDTH = 176;
+/** Pre-measure fallback matching the compact panel's minimum width. */
+const PANEL_MIN_WIDTH = 208;
 
 /** One menu row: a divider (separator) or a button with the optional
  *  icon / hint / submenu chevron, danger and disabled states. */
@@ -248,8 +247,8 @@ function MenuRow(props: {
   registerRef: (el: HTMLButtonElement | undefined) => void;
 }) {
   const baseClass =
-    "flex min-h-8 w-full items-center gap-2 rounded-[var(--r-sm)] px-2 py-1 text-left text-xs " +
-    "font-medium leading-4 outline-none transition-[background-color,color] duration-[var(--dur-fast)] " +
+    "flex min-h-[26px] w-full items-center gap-[7px] rounded-[5px] px-[7px] py-[3px] text-left text-[13px] " +
+    "font-normal leading-[20px] outline-none transition-[background-color,color] duration-[var(--dur-fast)] " +
     "ease-[var(--ease-emphasized)] data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50 " +
     "disabled:cursor-not-allowed disabled:opacity-50 hover:bg-accent-soft focus-visible:bg-accent-soft " +
     "focus-visible:ring-2 focus-visible:ring-accent/60";
@@ -260,7 +259,7 @@ function MenuRow(props: {
         <div
           role="separator"
           data-separator="true"
-          class="mx-2 my-1 h-px bg-[color-mix(in_srgb,var(--fg-faint)_22%,transparent)]"
+          class="mx-[7px] my-[4px] h-px bg-[color-mix(in_srgb,var(--fg-faint)_22%,transparent)]"
         />
       }
     >
@@ -285,14 +284,14 @@ function MenuRow(props: {
         <Show when={props.item.icon !== undefined}>
           <span
             data-testid={props.testId === undefined ? undefined : `${props.testId}-icon`}
-            class="flex h-4 w-4 shrink-0 items-center justify-center"
+            class="flex h-[16px] w-[16px] shrink-0 items-center justify-center [&>svg]:h-full [&>svg]:w-full"
           >
             {props.item.icon}
           </span>
         </Show>
         <span class="min-w-0 flex-1 truncate text-left">{props.item.label}</span>
         <Show when={props.item.hint !== undefined}>
-          <span class="shrink-0 pl-3 font-code text-[11px] text-fg-faint">{props.item.hint}</span>
+          <span class="shrink-0 pl-[12px] text-[12px] text-fg-faint">{props.item.hint}</span>
         </Show>
         <Show when={props.item.submenu !== undefined}>
           <svg
@@ -303,7 +302,7 @@ function MenuRow(props: {
             stroke-width="2"
             stroke-linecap="round"
             stroke-linejoin="round"
-            class="ml-1.5 h-3.5 w-3.5 shrink-0 text-fg-faint"
+            class="ml-[6px] h-[13px] w-[13px] shrink-0 text-fg-faint"
           >
             <path d="m9 18 6-6-6-6" />
           </svg>
@@ -487,13 +486,10 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
           role="menu"
           aria-label={props.label ?? t("common:contextMenu")}
           tabIndex={-1}
-          class="context-menu-panel fixed z-50 min-w-60 outline-none"
+          class="context-menu-panel fixed z-50 min-w-[208px] outline-none"
           style={{ left: `${position().x}px`, top: `${position().y}px` }}
         >
-          {/* Inner clip: the panel has a large radius (--r-lg), while
-              row highlights use a small one; clipping the rows to the panel
-              radius keeps the hover highlight from poking out of the rounded
-              corners. The shadow lives on the outer glass panel. */}
+          {/* Keep row highlights inside the rounded panel surface. */}
           <div class="overflow-hidden rounded-[calc(var(--r-md)-2px)]">
             <For each={props.items}>
               {(item, index) => (
@@ -524,7 +520,7 @@ const ContextMenu: Component<ContextMenuProps> = (props) => {
             ref={submenuRef}
             data-testid={`${testId()}-submenu`}
             role="menu"
-            class="context-menu-panel fixed z-50 min-w-60"
+            class="context-menu-panel fixed z-50 min-w-[208px]"
             style={{ left: `${subPos().x}px`, top: `${subPos().y}px` }}
           >
             <div class="overflow-hidden rounded-[calc(var(--r-md)-2px)]">

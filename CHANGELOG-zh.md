@@ -5,7 +5,7 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.2.4] - 2026-09-09
 
 ### 变更
 
@@ -17,8 +17,8 @@
 
 ### 修复
 
-- fix(desktop)：压缩通用右键菜单的行高、字级、图标和分隔线间距，使其符合更紧凑的桌面原生菜单比例。(desktop)
-- fix(messages)：布局导致首次滚动到底部被夹紧时自动重试，确保最新对话位置能到达实际滚动条末端。(messages)
+- fix(desktop)：右键菜单采用 208px 最小宽度、13px 字号、26px 行高，并缩小图标和圆角，使其符合桌面原生菜单比例。(desktop)
+- fix(messages)：聊天滚动区延伸至吸底输入框旁，将输入区实测高度纳入滚动范围，并裁剪虚拟内容溢出，让最新消息和滚动条同时到达各自底部。(messages)
 - fix(messages)：当 OpenCode 拒绝文档声明的 `before` 游标时，自动切换为逐步扩大的历史窗口，保留无限滚动和压缩会话历史。(messages)
 - fix(messages)：压缩会话首个可见页面立即渲染，分页历史防护游标循环，并以统一的虚拟高度计算聊天滚动范围。(messages)
 - fix(desktop): 右栏拖动时取消宽度缓动、仅在结束时保存宽度，并按窗口可用范围夹紧；双击分隔线可恢复默认宽度。 (desktop)

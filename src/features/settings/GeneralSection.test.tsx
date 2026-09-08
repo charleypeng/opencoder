@@ -105,7 +105,15 @@ describe("GeneralSection", () => {
     expect(localStorage.getItem("oc-foo")).toBe("1");
     expect(localStorage.getItem("oc-lang")).toBe("en");
 
+    // jsdom's Location is [LegacyUnforgeable] — reload cannot be spied or
+    // replaced — so stub the whole object to observe the reload and keep
+    // the unimplemented-navigation noise out of the run.
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
     fireEvent.click(reset);
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+
     expect(localStorage.getItem("oc-foo")).toBeNull();
     expect(localStorage.getItem("oc-lang")).toBeNull();
     expect(localStorage.getItem("other-key")).toBe("2");

@@ -8,8 +8,12 @@ import { fireEvent, render, screen, waitFor, within } from "@solidjs/testing-lib
 import ServersSection from "./ServersSection";
 import { applyServerHealth } from "../../stores/connection";
 
-const { invokeMock } = vi.hoisted(() => ({ invokeMock: vi.fn() }));
+const { invokeMock, getApiClientMock } = vi.hoisted(() => ({
+  invokeMock: vi.fn(),
+  getApiClientMock: vi.fn(),
+}));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: invokeMock }));
+vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
 
 const SERVERS = [
   { id: "srv-a", name: "Alpha", url: "http://localhost:14096", createdAt: 1 },
@@ -103,9 +107,6 @@ describe("ServersSection", () => {
 });
 
 describe("ServersSection default workspace (feat(default-workspace))", () => {
-  const { getApiClientMock } = vi.hoisted(() => ({ getApiClientMock: vi.fn() }));
-  vi.mock("../../services/client.js", () => ({ getApiClient: getApiClientMock }));
-
   function entry(dir: string, name: string) {
     return {
       name,

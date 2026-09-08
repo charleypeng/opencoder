@@ -1617,46 +1617,55 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       onRevert={requestRevert}
                       onUnrevert={() => void handleUnrevert()}
                       onOpenChild={openChildSession}
-                    />
-                    <SessionErrorBanner
-                      serverId={activeServerId()}
-                      sessionId={activeSessionId() as string}
-                    />
-                    <div class="px-4 pb-2">
-                      <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
-                    </div>
-                    <div class="px-4 pb-2">
-                      <ErrorBanner error={revertError()} onDismiss={() => setRevertError(null)} />
-                    </div>
-                    {/* The composer focus wrapper drives the registry's
+                      footer={
+                        <>
+                          <SessionErrorBanner
+                            serverId={activeServerId()}
+                            sessionId={activeSessionId() as string}
+                          />
+                          <div class="px-4 pb-2">
+                            <ErrorBanner error={forkError()} onDismiss={() => setForkError(null)} />
+                          </div>
+                          <div class="px-4 pb-2">
+                            <ErrorBanner
+                              error={revertError()}
+                              onDismiss={() => setRevertError(null)}
+                            />
+                          </div>
+                          {/* The composer focus wrapper drives the registry's
                       "chat" scope (TASK-M8-01): while the input (or one of
                       its toolbar controls) is focused, chat-scoped
                       shortcuts dispatch; leaving the composer restores the
                       global scope. */}
-                    <div
-                      onFocusIn={() => setActiveScope("chat")}
-                      onFocusOut={(event) => {
-                        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
-                          setActiveScope("global");
-                        }
-                      }}
-                    >
-                      <div class="mx-auto w-full max-w-[58rem]">
-                        <TaskPanel
-                          serverId={activeServerId()}
-                          sessionId={activeSessionId() as string}
-                          onSelectSession={(sessionId) =>
-                            setActiveSession(activeServerId(), sessionId)
-                          }
-                          onBackToParent={backToParentSession}
-                          expandToken={taskExpandToken()}
-                        />
-                        <PromptBox
-                          serverId={activeServerId()}
-                          sessionId={activeSessionId() as string}
-                        />
-                      </div>
-                    </div>
+                          <div
+                            onFocusIn={() => setActiveScope("chat")}
+                            onFocusOut={(event) => {
+                              if (
+                                !event.currentTarget.contains(event.relatedTarget as Node | null)
+                              ) {
+                                setActiveScope("global");
+                              }
+                            }}
+                          >
+                            <div class="mx-auto w-full max-w-[58rem]">
+                              <TaskPanel
+                                serverId={activeServerId()}
+                                sessionId={activeSessionId() as string}
+                                onSelectSession={(sessionId) =>
+                                  setActiveSession(activeServerId(), sessionId)
+                                }
+                                onBackToParent={backToParentSession}
+                                expandToken={taskExpandToken()}
+                              />
+                              <PromptBox
+                                serverId={activeServerId()}
+                                sessionId={activeSessionId() as string}
+                              />
+                            </div>
+                          </div>
+                        </>
+                      }
+                    />
                   </Show>
                 </Show>
                 <Show when={terminalDocked()}>

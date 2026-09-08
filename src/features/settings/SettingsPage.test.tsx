@@ -223,7 +223,16 @@ describe("SettingsPage", () => {
     const reset = screen.getByTestId("general-reset");
     fireEvent.click(reset);
     expect(localStorage.getItem("oc-foo")).toBe("1");
+
+    // jsdom's Location is [LegacyUnforgeable] — reload cannot be spied or
+    // replaced — so stub the whole object to observe the reload and keep
+    // the unimplemented-navigation noise out of the run.
+    const reload = vi.fn();
+    vi.stubGlobal("location", { reload });
     fireEvent.click(reset);
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+
     expect(localStorage.getItem("oc-foo")).toBeNull();
   });
 

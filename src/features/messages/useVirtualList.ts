@@ -19,13 +19,15 @@
 // scrollTo and follow-at-bottom all go through it), so the visible range
 // always matches where the content actually is.
 
-import { createEffect, createMemo, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 
 export interface VirtualListOptions {
   /** Default height of an unmeasured row in px. */
   estimate?: number;
   /** Extra rows mounted above and below the visible range. */
   overscan?: number;
+  /** Sticky composer height included in the native scroll range. */
+  bottomInset?: () => number;
 }
 
 export interface VirtualRow {
@@ -96,6 +98,7 @@ export function createVirtualList(
   const observers = new Map<string, ResizeObserver>();
   const pendingMeasurements = new Map<string, number>();
   let measurementRaf = 0;
+  let generation = 0;
 
   function rowHeight(index: number): number {
     return measured.get(getRowKey(index)) ?? estimate;
@@ -116,8 +119,11 @@ export function createVirtualList(
     if (n === 0) return [];
     const sums = prefixSums();
     const total = sums[n];
-    const top = Math.min(Math.max(scrollTop(), 0), Math.max(0, total - viewport()));
-    const bottom = top + viewport();
+    const top = Math.min(
+      Math.max(scrollTop(), 0),
+      Math.max(0, total + (options.bottomInset?.() ?? 0) - viewport()),
+    );
+    const bottom = top + Math.max(0, viewport() - (options.bottomInset?.() ?? 0));
     // Binary search: first row whose bottom edge is past the viewport top.
     let lo = 0;
     let hi = n - 1;
@@ -144,7 +150,9 @@ export function createVirtualList(
     return prefixSums()[n];
   });
 
-  const maxScrollTop = createMemo(() => Math.max(0, totalHeight() - viewport()));
+  const maxScrollTop = createMemo(() =>
+    Math.max(0, totalHeight() + (options.bottomInset?.() ?? 0) - viewport()),
+  );
 
   createEffect(() => {
     const max = maxScrollTop();
@@ -178,17 +186,21 @@ export function createVirtualList(
       // disconnected observer and a detached DOM element per row identity.
       observers.get(key)?.disconnect();
       observers.delete(key);
+      pendingMeasurements.delete(key);
       return;
     }
     const rowEl = el;
+    const rowGeneration = generation;
     // Streaming rows grow while mounted (their height is unknown until the
     // next ResizeObserver pass); without one (jsdom, old WebViews) the
     // estimate stands and the overscan hides the difference.
     observers.get(key)?.disconnect();
     observers.delete(key);
     function queueMeasurement(): void {
-      if (!rowEl.isConnected) return;
-      const h = rowEl.offsetHeight;
+      if (rowGeneration !== generation || !rowEl.isConnected) return;
+      // Preserve subpixel heights: rounding every row accumulates a false
+      // scroll range across long transcripts at non-default UI scales.
+      const h = rowEl.getBoundingClientRect().height || rowEl.offsetHeight;
       if (h <= 0 || measured.get(key) === h) return;
       pendingMeasurements.set(key, h);
       if (measurementRaf !== 0) return;
@@ -266,6 +278,7 @@ export function createVirtualList(
   }
 
   function reset(): void {
+    generation += 1;
     for (const observer of observers.values()) observer.disconnect();
     observers.clear();
     measured.clear();
@@ -278,6 +291,12 @@ export function createVirtualList(
     setViewport(el?.clientHeight ?? 0);
     setHeightVersion((v) => v + 1);
   }
+
+  onCleanup(() => {
+    generation += 1;
+    for (const observer of observers.values()) observer.disconnect();
+    if (measurementRaf !== 0) cancelAnimationFrame(measurementRaf);
+  });
 
   return {
     rows,

@@ -9,7 +9,7 @@
 
 import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Component, JSX } from "solid-js";
-import { SECTIONS, SECTION_GROUPS } from "./sections.js";
+import { SECTIONS, SECTION_GROUPS, Icon } from "./sections.js";
 import type { SectionId } from "./sections.js";
 import { useT } from "../../i18n/index.js";
 
@@ -77,7 +77,9 @@ const SettingsPage: Component<SettingsPageProps> = (props) => {
         }`}
         onClick={() => setSection(def.id)}
       >
-        <span class="shrink-0">{def.icon}</span>
+        <span class="shrink-0">
+          <Icon path={def.iconPath} />
+        </span>
         {t(def.titleKey)}
       </button>
     );
