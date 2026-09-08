@@ -37,6 +37,12 @@ export interface VirtualRow {
   height: number;
 }
 
+export interface VirtualAnchor {
+  key: string;
+  offset: number;
+  fallbackTop: number;
+}
+
 export interface VirtualList {
   /** Mounted rows, sorted by index. */
   rows: () => VirtualRow[];
@@ -46,6 +52,10 @@ export interface VirtualList {
   viewport: () => number;
   /** Current scroll offset in px. */
   scrollTop: () => number;
+  /** The sole modeled scroll boundary for this transcript. */
+  maxScrollTop: () => number;
+  /** Whether the current position follows the modeled transcript bottom. */
+  isNearBottom: (threshold?: number) => boolean;
   /** Feed scroll events from the scroll container here. */
   onScroll: (el: HTMLDivElement) => void;
   /** Re-read viewport/scrollTop from the container (mount, resize). */
@@ -54,6 +64,12 @@ export interface VirtualList {
    * key is the row's identity (from getRowKey), so heights survive the
    * caller prepending rows that shift every index. */
   measureRow: (key: string, el: HTMLElement | undefined) => void;
+  /** Captures the first visible row so a prepend can preserve the reader. */
+  captureAnchor: () => VirtualAnchor | undefined;
+  /** Restores a captured row anchor after a prepend or height change. */
+  restoreAnchor: (anchor: VirtualAnchor | undefined) => void;
+  /** Discards measurements, observers, and scroll state from another session. */
+  reset: () => void;
   /** Programmatic scroll (keeps the internal position in sync). */
   scrollTo: (top: number, behavior?: ScrollBehavior) => void;
 }
@@ -78,6 +94,8 @@ export function createVirtualList(
   // Row observers keyed by row identity; replaced when a row is re-created,
   // so the set stays bounded by the number of distinct rows ever mounted.
   const observers = new Map<string, ResizeObserver>();
+  const pendingMeasurements = new Map<string, number>();
+  let measurementRaf = 0;
 
   function rowHeight(index: number): number {
     return measured.get(getRowKey(index)) ?? estimate;
@@ -126,18 +144,12 @@ export function createVirtualList(
     return prefixSums()[n];
   });
 
+  const maxScrollTop = createMemo(() => Math.max(0, totalHeight() - viewport()));
+
   createEffect(() => {
-    const virtualMax = Math.max(0, totalHeight() - viewport());
+    const max = maxScrollTop();
     const top = scrollTop();
     const el = getScrollEl();
-    // A mounted row can be taller than its estimate before its observer
-    // reports the measurement. Prefer the browser's real scroll boundary in
-    // that case; clamping to the estimate would make the scrollbar stop before
-    // the last rendered line. The virtual boundary remains the fallback when
-    // the browser has no layout yet; MessageList resets scroll on session
-    // changes so a previous DOM height cannot preserve a stale position.
-    const domMax = el === undefined ? 0 : Math.max(0, el.scrollHeight - el.clientHeight);
-    const max = Math.max(virtualMax, domMax);
     if (top > max) {
       if (el !== undefined) el.scrollTop = max;
       setScrollTop(max);
@@ -174,17 +186,30 @@ export function createVirtualList(
     // estimate stands and the overscan hides the difference.
     observers.get(key)?.disconnect();
     observers.delete(key);
-    function apply(): void {
+    function queueMeasurement(): void {
       if (!rowEl.isConnected) return;
       const h = rowEl.offsetHeight;
-      if (h > 0 && measured.get(key) !== h) {
-        measured.set(key, h);
+      if (h <= 0 || measured.get(key) === h) return;
+      pendingMeasurements.set(key, h);
+      if (measurementRaf !== 0) return;
+      measurementRaf = requestAnimationFrame(() => {
+        measurementRaf = 0;
+        const anchor = captureAnchor();
+        const wasBottom = isNearBottom(2);
+        for (const [pendingKey, pendingHeight] of pendingMeasurements) {
+          measured.set(pendingKey, pendingHeight);
+        }
+        pendingMeasurements.clear();
         setHeightVersion((v) => v + 1);
-      }
+        // Solid applies the derived spacer before this frame completes. Both
+        // paths use the virtual model, never a stale DOM scrollHeight.
+        if (wasBottom) scrollTo(maxScrollTop());
+        else restoreAnchor(anchor);
+      });
     }
-    queueMicrotask(apply);
+    queueMicrotask(queueMeasurement);
     if (typeof ResizeObserver !== "undefined") {
-      const observer = new ResizeObserver(apply);
+      const observer = new ResizeObserver(queueMeasurement);
       observers.set(key, observer);
       observer.observe(rowEl);
     }
@@ -192,7 +217,7 @@ export function createVirtualList(
 
   function scrollTo(top: number, behavior: ScrollBehavior = "auto"): void {
     const el = getScrollEl();
-    const clamped = Math.max(0, top);
+    const clamped = Math.min(Math.max(0, top), maxScrollTop());
     if (el === undefined) {
       setScrollTop(clamped);
       return;
@@ -210,14 +235,63 @@ export function createVirtualList(
     if (behavior !== "smooth") setScrollTop(el.scrollTop);
   }
 
+  function isNearBottom(threshold = 2): boolean {
+    return maxScrollTop() - scrollTop() <= threshold;
+  }
+
+  function captureAnchor(): VirtualAnchor | undefined {
+    const n = count();
+    if (n === 0) return undefined;
+    const sums = prefixSums();
+    const top = Math.min(scrollTop(), maxScrollTop());
+    for (let index = 0; index < n; index++) {
+      if (sums[index + 1] > top) {
+        return { key: getRowKey(index), offset: top - sums[index], fallbackTop: top };
+      }
+    }
+    return undefined;
+  }
+
+  function restoreAnchor(anchor: VirtualAnchor | undefined): void {
+    if (anchor === undefined) return;
+    const n = count();
+    const sums = prefixSums();
+    for (let index = 0; index < n; index++) {
+      if (getRowKey(index) === anchor.key) {
+        scrollTo(sums[index] + anchor.offset);
+        return;
+      }
+    }
+    scrollTo(anchor.fallbackTop);
+  }
+
+  function reset(): void {
+    for (const observer of observers.values()) observer.disconnect();
+    observers.clear();
+    measured.clear();
+    pendingMeasurements.clear();
+    if (measurementRaf !== 0) cancelAnimationFrame(measurementRaf);
+    measurementRaf = 0;
+    const el = getScrollEl();
+    if (el !== undefined) el.scrollTop = 0;
+    setScrollTop(0);
+    setViewport(el?.clientHeight ?? 0);
+    setHeightVersion((v) => v + 1);
+  }
+
   return {
     rows,
     totalHeight,
     viewport,
     scrollTop,
+    maxScrollTop,
+    isNearBottom,
     onScroll,
     measure,
     measureRow,
+    captureAnchor,
+    restoreAnchor,
+    reset,
     scrollTo,
   };
 }

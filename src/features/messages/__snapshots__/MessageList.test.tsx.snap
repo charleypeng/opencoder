@@ -3,7 +3,8 @@
 exports[`MessageList > matches the fixture history snapshot 1`] = `
 <div>
   <div
-    class="flex min-h-0 min-w-0 flex-1 flex-col"
+    class="relative flex min-h-0 min-w-0 flex-1 flex-col"
+    data-history-phase="ready"
     data-testid="message-list"
   >
     <div
@@ -41,7 +42,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                   class="user-message-content"
                   data-collapsed="false"
                   data-testid="user-message-content"
-                  id="cl-107"
+                  id="cl-109"
                   style="height: auto;"
                 >
                   <div>
@@ -183,7 +184,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                           data-testid="tool-part"
                         >
                           <button
-                            aria-controls="cl-109"
+                            aria-controls="cl-111"
                             aria-expanded="true"
                             class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
                             data-testid="tool-toggle"
@@ -252,7 +253,7 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
                             <div
                               class="reply-tool-detail mt-1 space-y-2"
                               data-testid="tool-detail"
-                              id="cl-109"
+                              id="cl-111"
                             >
                               <div
                                 class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
@@ -358,7 +359,7 @@ services/
                   class="user-message-content"
                   data-collapsed="false"
                   data-testid="user-message-content"
-                  id="cl-110"
+                  id="cl-112"
                   style="height: auto;"
                 >
                   <div>

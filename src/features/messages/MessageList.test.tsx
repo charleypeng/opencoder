@@ -792,32 +792,50 @@ describe("MessageList pagination (TASK-M3-05)", () => {
     expect(screen.queryByTestId("message-empty")).not.toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("message-msg_s70")).toBeInTheDocument());
 
-    expect(client.get).toHaveBeenCalledTimes(3);
+    // Seeking stops as soon as the first visible page arrives. It does not
+    // make hidden control records a reason to keep the chat behind a loader.
+    expect(client.get).toHaveBeenCalledTimes(2);
     expect(client.get.mock.calls[0][1]?.query).toEqual({ limit: HISTORY_PAGE_SIZE });
     expect(client.get.mock.calls[1][1]?.query).toEqual({
       limit: HISTORY_PAGE_SIZE,
       before: "msg_s71",
     });
-    expect(client.get.mock.calls[2][1]?.query).toEqual({
-      limit: HISTORY_PAGE_SIZE,
-      before: "msg_s21",
-    });
-    expect(storeEntry().infos["msg_s1"]).toBeDefined();
+    expect(storeEntry().infos["msg_s1"]).toBeUndefined();
     expect(storeEntry().infos["msg_s120"]).toBeDefined();
     expect(screen.queryByText("Hidden compaction summary 120")).not.toBeInTheDocument();
   });
 
-  it("keeps compacted-session startup in one stable loading state", async () => {
+  it("renders a compacted tail while older pages backfill in the background", async () => {
     const history = compactedHistory(120);
-    const client = paginatedClientFrom(history);
+    let releaseEarlier: ((page: SessionMessage[]) => void) | undefined;
+    const client = {
+      get: vi.fn<GetCall>(() => Promise.resolve([])),
+      post: vi.fn(async () => undefined),
+      patch: vi.fn(async () => undefined),
+      put: vi.fn(async () => undefined),
+      delete: vi.fn(async () => undefined),
+    };
+    getApiClientMock.mockReturnValue(client);
+    client.get.mockImplementation(async (_path, options) => {
+      const before = (options?.query ?? {}).before;
+      if (before === undefined) return history.slice(-HISTORY_PAGE_SIZE);
+      return new Promise<SessionMessage[]>((resolve) => {
+        releaseEarlier = resolve;
+      });
+    });
     renderList();
 
-    expect(screen.getByTestId("message-loading")).toBeInTheDocument();
-    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
-    await waitFor(() => expect(Object.keys(storeEntry().infos)).toHaveLength(120));
+    await waitFor(() => expect(screen.getByTestId("message-msg_s120")).toBeInTheDocument());
     expect(screen.queryByTestId("message-loading")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("message-loading-earlier")).not.toBeInTheDocument();
-    expect(client.get).toHaveBeenCalledTimes(3);
+    expect(screen.getByTestId("message-loading-earlier")).toBeInTheDocument();
+    expect(screen.getByTestId("message-list")).toHaveAttribute("data-history-phase", "backfilling");
+    expect(client.get).toHaveBeenCalledTimes(2);
+
+    releaseEarlier?.(history.slice(20, 70));
+    await waitFor(() => expect(storeEntry().infos["msg_s21"]).toBeDefined());
+    // The first visible page remains in the normalized transcript while the
+    // virtual window re-anchors around the reader's current row.
+    expect(storeEntry().infos["msg_s120"]).toBeDefined();
   });
 
   it("loads older pages on top-reach with scroll preservation and no jump button", async () => {

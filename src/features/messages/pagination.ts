@@ -26,6 +26,10 @@ export interface PageMerge {
   nextCursor: string | undefined;
   /** Whether another earlier page may exist. */
   hasMore: boolean;
+  /** Why pagination stopped, when this page terminates the history. */
+  stopReason?: "exhausted" | "short-page" | "cursor-replay";
+  /** True when this page moved the cursor but every record was already known. */
+  duplicateOnly: boolean;
 }
 
 export function mergePages(
@@ -33,13 +37,26 @@ export function mergePages(
   page: SessionMessage[],
   pageSize: number,
   cursor?: string,
+  seenCursors: ReadonlySet<string> = new Set(),
 ): PageMerge {
   const oldestId = page[0]?.info.id;
   const added = page.map((item) => item.info.id).filter((id) => !known.has(id));
-  const advanced = cursor === undefined || (oldestId !== undefined && oldestId !== cursor);
+  const advanced =
+    cursor === undefined ||
+    (oldestId !== undefined && oldestId !== cursor && !seenCursors.has(oldestId));
+  const stopReason =
+    page.length === 0
+      ? "exhausted"
+      : !advanced
+        ? "cursor-replay"
+        : page.length < pageSize
+          ? "short-page"
+          : undefined;
   return {
     added,
-    nextCursor: advanced ? oldestId : undefined,
-    hasMore: page.length === pageSize && advanced,
+    nextCursor: page.length === 0 || !advanced ? undefined : oldestId,
+    hasMore: stopReason === undefined,
+    stopReason,
+    duplicateOnly: added.length === 0 && advanced,
   };
 }

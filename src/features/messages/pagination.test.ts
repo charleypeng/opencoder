@@ -50,6 +50,7 @@ describe("mergePages", () => {
     expect(merge.added).toHaveLength(20);
     expect(merge.nextCursor).toBe("msg_1");
     expect(merge.hasMore).toBe(false);
+    expect(merge.stopReason).toBe("short-page");
   });
 
   it("treats an empty page as the end of history", () => {
@@ -84,5 +85,13 @@ describe("mergePages", () => {
     expect(merge.added).toEqual([]);
     expect(merge.nextCursor).toBe("msg_1");
     expect(merge.hasMore).toBe(true);
+    expect(merge.duplicateOnly).toBe(true);
+  });
+
+  it("stops when a full page cycles to any previously seen cursor", () => {
+    const merge = mergePages(new Set(), page(51, 100), 50, "msg_1", new Set(["msg_51"]));
+    expect(merge.hasMore).toBe(false);
+    expect(merge.nextCursor).toBeUndefined();
+    expect(merge.stopReason).toBe("cursor-replay");
   });
 });

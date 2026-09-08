@@ -7,10 +7,10 @@
 // guarded, so a session switch while a page is in flight drops the stale
 // response instead of applying it to the wrong session.
 
-import { createEffect, createSignal } from "solid-js";
+import { createEffect, createMemo, createSignal } from "solid-js";
 import { createMessageService, type SessionMessage } from "../../services/message.js";
 import { getApiClient } from "../../services/client.js";
-import { getActiveDirectory } from "../../stores/project.js";
+import { projects } from "../../stores/project.js";
 import {
   applyMessageBatch,
   getServerMessages,
@@ -21,15 +21,36 @@ import { mergePages } from "./pagination.js";
 /** Messages per page request; a full page is also the hasMore heuristic. */
 export const HISTORY_PAGE_SIZE = 50;
 
+export type HistoryPhase =
+  | "initial-loading"
+  | "seeking-visible"
+  | "ready"
+  | "backfilling"
+  | "exhausted"
+  | "initial-error"
+  | "backfill-error";
+
+export interface PageResult {
+  received: number;
+  inserted: number;
+  cursor: string | undefined;
+  hasMore: boolean;
+  stopReason?: "exhausted" | "short-page" | "cursor-replay";
+  duplicateOnly: boolean;
+  containsCompaction: boolean;
+}
+
 export interface PaginatedMessages {
   /** True while a strictly older page may exist (last page came back full). */
   hasMore: () => boolean;
   /** True while an earlier page is being fetched. */
   loadingEarlier: () => boolean;
-  /** Fetches the most recent page and reports whether it contains compaction. */
-  loadInitial: () => Promise<{ containsCompaction: boolean }>;
-  /** Fetches the next older page; resolves with the number of new messages. */
-  loadEarlier: () => Promise<number>;
+  /** A request generation covering server, directory, and session. */
+  generation: () => string;
+  /** Fetches the most recent page. */
+  loadInitial: () => Promise<PageResult>;
+  /** Fetches the next older page. */
+  loadEarlier: () => Promise<PageResult | undefined>;
 }
 
 export function usePaginatedMessages(
@@ -38,18 +59,24 @@ export function usePaginatedMessages(
 ): PaginatedMessages {
   const [hasMore, setHasMore] = createSignal(false);
   const [loadingEarlier, setLoadingEarlier] = createSignal(false);
+  const generation = createMemo(() => {
+    const serverId = getServerId();
+    const directory = projects[serverId]?.current ?? "";
+    return `${serverId}\u0000${directory}\u0000${getSessionId()}`;
+  });
   // Cursor (oldest server-returned id) and session version live in refs:
   // they are only read inside the async load functions.
   const cursor = { current: undefined as string | undefined };
   const version = { current: 0 };
+  const seenCursors = new Set<string>();
 
   // Any session/server change resets pagination state; the MessageList
   // mount effect re-runs loadInitial for the new key.
   createEffect(() => {
-    getServerId();
-    getSessionId();
+    generation();
     version.current += 1;
     cursor.current = undefined;
+    seenCursors.clear();
     setHasMore(false);
     setLoadingEarlier(false);
   });
@@ -67,59 +94,83 @@ export function usePaginatedMessages(
     return items;
   }
 
-  async function loadInitial(): Promise<{ containsCompaction: boolean }> {
-    const current = version.current;
-    const serverId = getServerId();
-    const sessionId = getSessionId();
-    const service = createMessageService(getApiClient());
-    const page = await service.list(sessionId, {
-      limit: HISTORY_PAGE_SIZE,
-      dir: getActiveDirectory(),
-    });
-    if (current !== version.current) return { containsCompaction: false };
-    const merge = mergePages(knownIds(serverId, sessionId), page, HISTORY_PAGE_SIZE);
-    // The batch only upserts, so a page that overlaps live-streamed
-    // messages merges instead of duplicating.
-    if (merge.added.length > 0) applyMessageBatch(serverId, sessionId, toBatchItems(page));
-    cursor.current = merge.nextCursor;
-    setHasMore(merge.hasMore);
+  function resultFor(page: SessionMessage[], merge: ReturnType<typeof mergePages>): PageResult {
     return {
+      received: page.length,
+      inserted: merge.added.length,
+      cursor: merge.nextCursor,
+      hasMore: merge.hasMore,
+      stopReason: merge.stopReason,
+      duplicateOnly: merge.duplicateOnly,
       containsCompaction: page.some((message) =>
         message.parts.some((part) => part.type === "compaction"),
       ),
     };
   }
 
-  async function loadEarlier(): Promise<number> {
-    if (cursor.current === undefined || !hasMore() || loadingEarlier()) return 0;
+  async function loadInitial(): Promise<PageResult> {
     const current = version.current;
     const serverId = getServerId();
     const sessionId = getSessionId();
+    const directory = projects[serverId]?.current ?? undefined;
+    const service = createMessageService(getApiClient());
+    const page = await service.list(sessionId, {
+      limit: HISTORY_PAGE_SIZE,
+      dir: directory,
+    });
+    if (current !== version.current) {
+      return {
+        received: 0,
+        inserted: 0,
+        cursor: undefined,
+        hasMore: false,
+        duplicateOnly: false,
+        containsCompaction: false,
+      };
+    }
+    const merge = mergePages(knownIds(serverId, sessionId), page, HISTORY_PAGE_SIZE);
+    // The batch only upserts, so a page that overlaps live-streamed
+    // messages merges instead of duplicating.
+    if (merge.added.length > 0) applyMessageBatch(serverId, sessionId, toBatchItems(page));
+    cursor.current = merge.nextCursor;
+    setHasMore(merge.hasMore);
+    if (cursor.current !== undefined) seenCursors.add(cursor.current);
+    return resultFor(page, merge);
+  }
+
+  async function loadEarlier(): Promise<PageResult | undefined> {
+    if (cursor.current === undefined || !hasMore() || loadingEarlier()) return undefined;
+    const current = version.current;
+    const serverId = getServerId();
+    const sessionId = getSessionId();
+    const directory = projects[serverId]?.current ?? undefined;
     const service = createMessageService(getApiClient());
     setLoadingEarlier(true);
     try {
       const page = await service.list(sessionId, {
         limit: HISTORY_PAGE_SIZE,
         before: cursor.current,
-        dir: getActiveDirectory(),
+        dir: directory,
       });
-      if (current !== version.current) return 0;
+      if (current !== version.current) return undefined;
       const merge = mergePages(
         knownIds(serverId, sessionId),
         page,
         HISTORY_PAGE_SIZE,
         cursor.current,
+        seenCursors,
       );
       if (merge.added.length > 0) {
         applyMessageBatch(serverId, sessionId, toBatchItems(page), { prepend: true });
       }
       cursor.current = merge.nextCursor;
       setHasMore(merge.hasMore);
-      return merge.added.length;
+      if (cursor.current !== undefined) seenCursors.add(cursor.current);
+      return resultFor(page, merge);
     } finally {
-      setLoadingEarlier(false);
+      if (current === version.current) setLoadingEarlier(false);
     }
   }
 
-  return { hasMore, loadingEarlier, loadInitial, loadEarlier };
+  return { hasMore, loadingEarlier, generation, loadInitial, loadEarlier };
 }

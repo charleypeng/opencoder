@@ -8,9 +8,8 @@
 // Pagination (TASK-M3-05): scrolling to the top of the list triggers a load
 // of the next older page (limit + before cursor); the page is PREPENDED to
 // the store so render order stays chronological, deduplicated by message id,
-// and the scroll position is re-anchored to the previously visible content
-// (the viewport's scrollTop grows by exactly the height of the inserted
-// rows), so the list never jumps. A thin spinner sits above the chat area
+// and the scroll position is re-anchored to the previously visible row
+// identity, so the list never jumps as estimates settle. A thin spinner sits above the chat area
 // while an earlier page is in flight; when the last page comes back short,
 // hasMore flips false and no further requests are made.
 //
@@ -28,7 +27,15 @@
 // - auto-scroll pins the bottom while the user is near it; scrolling up
 //   pauses the follow and a "New messages" button jumps back.
 
-import { createEffect, createMemo, createSignal, onCleanup, onMount, Show } from "solid-js";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  onCleanup,
+  onMount,
+  Show,
+  untrack,
+} from "solid-js";
 import type { Component } from "solid-js";
 import { Key } from "@solid-primitives/keyed";
 import ErrorBanner from "../../components/ErrorBanner.js";
@@ -40,7 +47,7 @@ import MessageBubble from "./MessageBubble.js";
 import ProcessFold from "./parts/ProcessFold.js";
 import { deriveAgentRows, type AgentRow, type MessagePartGroup } from "./activity/agentRun.js";
 import { createVirtualList } from "./useVirtualList.js";
-import { usePaginatedMessages } from "./usePaginatedMessages.js";
+import { type HistoryPhase, usePaginatedMessages } from "./usePaginatedMessages.js";
 import { useStreamingIndicator } from "./useStreamingIndicator.js";
 
 export interface MessageListProps {
@@ -90,13 +97,17 @@ interface MessageRow extends AgentRow {
 
 const MessageList: Component<MessageListProps> = (props) => {
   const t = useT();
-  const [loading, setLoading] = createSignal(true);
+  const [historyPhase, setHistoryPhase] = createSignal<HistoryPhase>("initial-loading");
+  const loading = createMemo(
+    () => historyPhase() === "initial-loading" || historyPhase() === "seeking-visible",
+  );
   const [error, setError] = createSignal<ApiError | null>(null);
   const [loadKey, setLoadKey] = createSignal(0);
   const [paused, setPaused] = createSignal(false);
   const [hasNew, setHasNew] = createSignal(false);
   let scrollRef: HTMLDivElement | undefined;
   let fetchVersion = 0;
+  let displayedGeneration = "";
   let suppressUntil = 0;
   let lastGroupCount = 0;
   let lastDeltaStamp = 0;
@@ -274,26 +285,25 @@ const MessageList: Component<MessageListProps> = (props) => {
     return out;
   });
 
-  // History fetch: re-runs on session/server change and on retry. A version
-  // counter rejects stale responses so fast session switches can't apply
-  // the wrong history. Most sessions fetch the most recent page and load
-  // older pages on top-reach; a compaction marker additionally restores all
-  // older pages so a restart never makes pre-compaction conversation appear
-  // to have disappeared.
+  // History fetches are keyed by server, directory, and session. Cached rows
+  // remain mounted while their newest page refreshes; only a new generation
+  // resets the virtualizer and its scroll/measurement ownership.
   createEffect(() => {
-    // Reactive keys: the reads re-run this effect on session/server change.
-    void props.serverId;
-    void props.sessionId;
+    const generation = pagination.generation();
     loadKey(); // tracked so retry re-runs the fetch
     const version = ++fetchVersion;
-    setLoading(true);
+    const changedSession = generation !== displayedGeneration;
+    if (changedSession) {
+      displayedGeneration = generation;
+      list.reset();
+      setPaused(false);
+      setHasNew(false);
+      lastGroupCount = 0;
+      lastDeltaStamp = 0;
+      lastFollowTarget = -1;
+    }
+    setHistoryPhase(untrack(() => (groups().length > 0 ? "ready" : "initial-loading")));
     setError(null);
-    setPaused(false);
-    setHasNew(false);
-    lastGroupCount = 0;
-    lastDeltaStamp = 0;
-    lastFollowTarget = -1;
-    list.scrollTo(0);
     let cancelled = false;
     onCleanup(() => {
       cancelled = true;
@@ -302,76 +312,81 @@ const MessageList: Component<MessageListProps> = (props) => {
       try {
         const initial = await pagination.loadInitial();
         if (cancelled || version !== fetchVersion) return;
-        const initialPageHasNoVisibleRows = groups().length === 0 && pagination.hasMore();
-        const shouldRestoreCompactedHistory =
-          initialPageHasNoVisibleRows || initial.containsCompaction;
-        if (shouldRestoreCompactedHistory) {
-          await restoreCompactedHistory(version, () => cancelled);
+        if (groups().length === 0 && pagination.hasMore()) {
+          setHistoryPhase("seeking-visible");
+          await loadUntilVisible(version, () => cancelled);
           if (cancelled || version !== fetchVersion) return;
         }
-        setLoading(false);
+        if (groups().length === 0) {
+          setHistoryPhase("exhausted");
+          return;
+        }
+        setHistoryPhase(
+          initial.containsCompaction && pagination.hasMore() ? "backfilling" : "ready",
+        );
         scheduleLayoutFollow();
+        if (initial.containsCompaction && pagination.hasMore()) {
+          void backfillHistory(version, () => cancelled);
+        }
       } catch (err) {
         if (cancelled || version !== fetchVersion) return;
         setError(ApiError.fromUnknown(err));
-        setLoading(false);
+        setHistoryPhase(groups().length > 0 ? "backfill-error" : "initial-error");
       }
     })();
   });
 
   // Loads the next older page and re-anchors the viewport on the previously
-  // visible content: rows are PREPENDED, so the content below the insertion
-  // point shifts down by exactly the inserted height — restoring the saved
-  // scrollTop plus that height keeps the transcript visually still. The
-  // height delta comes from the virtualizer's (measured) total height, and
-  // because measurements are keyed by message id the delta is exactly the
-  // inserted rows' heights (real ones once they mount and measure, the
-  // estimate otherwise) — never stale heights of the shifted rows.
-  // Earlier-load failures stay silent: the next top-reach simply retries.
-  async function loadEarlier(): Promise<number> {
-    if (pagination.loadingEarlier() || !pagination.hasMore()) return 0;
+  // visible content: rows are PREPENDED, so restore the first visible row's
+  // identity and pixel offset rather than relying on a total-height delta.
+  async function loadEarlier() {
+    if (pagination.loadingEarlier() || !pagination.hasMore()) return undefined;
     const el = scrollRef;
     const anchorTop = el?.scrollTop ?? list.scrollTop();
-    const beforeTotal = contentHeight();
+    const anchor = list.captureAnchor();
     prepending = true;
     try {
-      const inserted = await pagination.loadEarlier();
-      if (inserted === 0) return 0;
-      // Solid flushes effects on a microtask; wait one macrotask so the new
-      // rows are mounted (and measured) before the height is read.
+      const result = await pagination.loadEarlier();
+      if (result === undefined || result.inserted === 0) return result;
+      // Wait for the prepended row identities to enter the virtual model.
       await new Promise((resolve) => setTimeout(resolve, 0));
-      // Skip the correction if the user scrolled while the page was in
-      // flight: the saved anchor no longer matches the viewport, so applying
-      // the delta would yank the list against the user's scroll (flicker).
-      if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return inserted;
+      // User input wins over automatic backfill. Otherwise restore by row
+      // identity, which remains correct when the new estimates later settle.
+      if (scrollRef === undefined || scrollRef.scrollTop !== anchorTop) return result;
       list.measure();
-      const delta = contentHeight() - beforeTotal;
-      if (delta > 0) list.scrollTo(anchorTop + delta);
-      return inserted;
-    } catch {
-      // Handled by the caller's retry on the next scroll.
-      return 0;
+      list.restoreAnchor(anchor);
+      return result;
     } finally {
       prepending = false;
     }
   }
 
-  async function restoreCompactedHistory(version: number, isCancelled: () => boolean) {
-    // Restoration is deliberately interruptible: once the user scrolls away
-    // from the live end, preserve that reading position instead of continuing
-    // to prepend pages beneath them.
+  async function loadUntilVisible(version: number, isCancelled: () => boolean) {
     while (!isCancelled() && version === fetchVersion && !paused() && pagination.hasMore()) {
-      if ((await loadEarlier()) === 0) return;
+      const result = await loadEarlier();
+      if (result === undefined || result.stopReason !== undefined || groups().length > 0) return;
     }
   }
 
-  // Real content height when the browser has laid out rows; falls back to
-  // the virtual list's measured total when layout is unavailable (jsdom
-  // tests report scrollHeight 0) so the follow logic stays testable.
-  function contentHeight(): number {
-    const el = scrollRef;
-    if (el !== undefined && el.scrollHeight > 0) return el.scrollHeight;
-    return list.totalHeight();
+  async function backfillHistory(version: number, isCancelled: () => boolean) {
+    try {
+      while (!isCancelled() && version === fetchVersion && !paused() && pagination.hasMore()) {
+        const result = await loadEarlier();
+        if (result === undefined || result.stopReason !== undefined) break;
+        // Yield to rendering and cancellation between pages so background
+        // restoration never monopolizes the transcript update loop.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      }
+      if (!isCancelled() && version === fetchVersion) {
+        setHistoryPhase(pagination.hasMore() ? "ready" : "exhausted");
+        scheduleLayoutFollow();
+      }
+    } catch (err) {
+      if (!isCancelled() && version === fetchVersion) {
+        setError(ApiError.fromUnknown(err));
+        setHistoryPhase("backfill-error");
+      }
+    }
   }
 
   // Auto-scroll: while the user is not paused, pin the bottom whenever the
@@ -395,7 +410,7 @@ const MessageList: Component<MessageListProps> = (props) => {
   function followBottom(): void {
     const el = scrollRef;
     if (el === undefined || paused()) return;
-    const target = Math.max(0, contentHeight() - el.clientHeight);
+    const target = list.maxScrollTop();
     if (target === lastFollowTarget) return;
     lastFollowTarget = target;
     if (followRaf !== 0) return;
@@ -407,7 +422,7 @@ const MessageList: Component<MessageListProps> = (props) => {
       // pass in the same frame is unnecessary, but the NEXT group/delta
       // trigger re-runs this. One rAF is enough when the height is final;
       // when it is not, the subsequent trigger re-pins.
-      const next = Math.max(0, contentHeight() - current.clientHeight);
+      const next = list.maxScrollTop();
       if (next !== current.scrollTop) list.scrollTo(next, "auto");
     });
   }
@@ -476,9 +491,13 @@ const MessageList: Component<MessageListProps> = (props) => {
     // TASK-M3-05: reaching the top of the list loads the next older page
     // (scroll position is restored by loadEarlier's re-anchor).
     if (list.scrollTop() <= EARLIER_TRIGGER_PX) {
-      void loadEarlier();
+      const hasVisibleRows = groups().length > 0;
+      void loadEarlier().catch((err) => {
+        setError(ApiError.fromUnknown(err));
+        setHistoryPhase(hasVisibleRows ? "backfill-error" : "initial-error");
+      });
     }
-    const nearBottom = list.totalHeight() - list.scrollTop() - list.viewport() <= 80;
+    const nearBottom = list.isNearBottom(80);
     if (nearBottom) {
       if (hasNew()) setHasNew(false);
       setPaused(false);
@@ -499,7 +518,7 @@ const MessageList: Component<MessageListProps> = (props) => {
     // The virtual list exposes scrollTo (pixel offset), not scrollToIndex;
     // the bottom of the transcript is the total content height minus the
     // viewport — the same target the auto-follow uses.
-    const target = Math.max(0, contentHeight() - el.clientHeight);
+    const target = list.maxScrollTop();
     list.scrollTo(target, "smooth");
   }
 
@@ -511,12 +530,14 @@ const MessageList: Component<MessageListProps> = (props) => {
   }
 
   return (
-    <div data-testid="message-list" class="flex min-h-0 min-w-0 flex-1 flex-col">
-      {/* M3-05: show the incremental history spinner only after the initial
-          transcript is ready. Compacted sessions use the stable main loading
-          state while all hidden history pages are restored, so this indicator
-          does not blink once per page during session startup. */}
-      <Show when={!loading() && pagination.loadingEarlier()}>
+    <div
+      data-testid="message-list"
+      data-history-phase={historyPhase()}
+      class="relative flex min-h-0 min-w-0 flex-1 flex-col"
+    >
+      {/* The fixed-height slot is visible only after a transcript is ready,
+          so background backfill never replaces visible conversation rows. */}
+      <Show when={!loading() && (pagination.loadingEarlier() || historyPhase() === "backfilling")}>
         <div
           data-testid="message-loading-earlier"
           class="flex h-6 shrink-0 items-center justify-center"
@@ -545,6 +566,19 @@ const MessageList: Component<MessageListProps> = (props) => {
           </button>
         </div>
       </Show>
+      <Show when={error() && groups().length > 0}>
+        <div class="shrink-0 px-4 py-2">
+          <ErrorBanner error={error()} onDismiss={() => setError(null)} />
+          <button
+            type="button"
+            data-testid="message-retry"
+            class="mt-2 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+            onClick={() => setLoadKey((key) => key + 1)}
+          >
+            {t("common:retry")}
+          </button>
+        </div>
+      </Show>
       <div
         ref={scrollRef}
         data-testid="message-list-scroll"
@@ -555,18 +589,18 @@ const MessageList: Component<MessageListProps> = (props) => {
         onScroll={handleScroll}
       >
         <Show
-          when={!loading()}
+          when={groups().length > 0}
           fallback={
-            <p data-testid="message-loading" class="py-8 text-center text-sm text-fg-secondary">
-              {t("messages:loadingMessages")}
-            </p>
-          }
-        >
-          <Show
-            when={error()}
-            fallback={
+            <Show
+              when={!loading()}
+              fallback={
+                <p data-testid="message-loading" class="py-8 text-center text-sm text-fg-secondary">
+                  {t("messages:loadingMessages")}
+                </p>
+              }
+            >
               <Show
-                when={groups().length > 0}
+                when={error()}
                 fallback={
                   <div data-testid="message-empty" class="py-8 text-center">
                     <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
@@ -574,8 +608,23 @@ const MessageList: Component<MessageListProps> = (props) => {
                   </div>
                 }
               >
-                <div class="relative" style={{ height: `${list.totalHeight()}px` }}>
-                  {/* Keyed by message id (solid-primitives Key): a row's
+                <div class="flex flex-col gap-4 px-4 py-4">
+                  <ErrorBanner error={error()} onDismiss={() => setError(null)} />
+                  <button
+                    type="button"
+                    data-testid="message-retry"
+                    class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+                    onClick={() => setLoadKey((key) => key + 1)}
+                  >
+                    {t("common:retry")}
+                  </button>
+                </div>
+              </Show>
+            </Show>
+          }
+        >
+          <div class="relative" style={{ height: `${list.totalHeight()}px` }}>
+            {/* Keyed by message id (solid-primitives Key): a row's
                       measured height change re-positions it (style.top)
                       WITHOUT rebuilding the row subtree. An unkeyed For
                       re-creates the row's MarkdownText on every measurement,
@@ -585,89 +634,72 @@ const MessageList: Component<MessageListProps> = (props) => {
                       loop (the overlap/flicker bug: rows rendered on top of
                       each other while streaming or scrolling). Keeping the
                       DOM alive stops the loop. */}
-                  <Key each={rows()} by={(row) => row.renderKey}>
-                    {(row) => (
-                      <div
-                        ref={(el) => list.measureRow(row().renderKey, el)}
-                        data-virtual-row={row().index}
-                        data-reverted={row().reverted ? "true" : "false"}
-                        class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
-                          row().reverted ? " opacity-45 saturate-50" : ""
-                        }`}
-                        style={{ top: `${row().start}px` }}
-                      >
-                        <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
-                          <Show
-                            when={row().kind !== "working"}
-                            fallback={
-                              <div data-testid="agent-working" class="w-full">
-                                <ProcessFold
-                                  parts={[]}
-                                  runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
-                                  active
-                                  startedAt={row().startedAt}
-                                />
-                              </div>
-                            }
-                          >
-                            <MessageBubble
-                              serverId={props.serverId}
-                              sessionId={props.sessionId}
-                              messageID={row().messageID}
-                              partIds={row().partIds}
-                              activityPartIds={row().activityPartIds}
-                              runPartIds={row().allPartIds}
-                              runKey={row().key}
-                              runActive={row().active}
-                              runStartedAt={row().startedAt}
-                              runCompletedAt={row().completedAt}
-                              runParentMessageID={row().parentMessageID}
-                              runDiffs={runDiffs(row())}
-                              typing={row().typing}
-                              mobile={props.mobile}
-                              onViewDiff={props.onViewDiff}
-                              onViewDiffInTools={props.onViewDiffInTools}
-                              onFork={props.onFork}
-                              onRevert={props.onRevert}
-                              onOpenChild={props.onOpenChild}
-                            />
-                          </Show>
+            <Key each={rows()} by={(row) => row.renderKey}>
+              {(row) => (
+                <div
+                  ref={(el) => list.measureRow(row().renderKey, el)}
+                  data-virtual-row={row().index}
+                  data-reverted={row().reverted ? "true" : "false"}
+                  class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
+                    row().reverted ? " opacity-45 saturate-50" : ""
+                  }`}
+                  style={{ top: `${row().start}px` }}
+                >
+                  <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
+                    <Show
+                      when={row().kind !== "working"}
+                      fallback={
+                        <div data-testid="agent-working" class="w-full">
+                          <ProcessFold
+                            parts={[]}
+                            runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
+                            active
+                            startedAt={row().startedAt}
+                          />
                         </div>
-                      </div>
-                    )}
-                  </Key>
+                      }
+                    >
+                      <MessageBubble
+                        serverId={props.serverId}
+                        sessionId={props.sessionId}
+                        messageID={row().messageID}
+                        partIds={row().partIds}
+                        activityPartIds={row().activityPartIds}
+                        runPartIds={row().allPartIds}
+                        runKey={row().key}
+                        runActive={row().active}
+                        runStartedAt={row().startedAt}
+                        runCompletedAt={row().completedAt}
+                        runParentMessageID={row().parentMessageID}
+                        runDiffs={runDiffs(row())}
+                        typing={row().typing}
+                        mobile={props.mobile}
+                        onViewDiff={props.onViewDiff}
+                        onViewDiffInTools={props.onViewDiffInTools}
+                        onFork={props.onFork}
+                        onRevert={props.onRevert}
+                        onOpenChild={props.onOpenChild}
+                      />
+                    </Show>
+                  </div>
                 </div>
-              </Show>
-            }
-          >
-            <div class="flex flex-col gap-4 px-4 py-4">
-              <ErrorBanner error={error()} onDismiss={() => setError(null)} />
-              <button
-                type="button"
-                data-testid="message-retry"
-                class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
-                onClick={() => {
-                  setLoadKey((key) => key + 1);
-                }}
-              >
-                {t("common:retry")}
-              </button>
-            </div>
-          </Show>
-        </Show>
-        <Show when={hasNew() && !loading()}>
-          <div class="sticky bottom-3 flex justify-center">
-            <button
-              type="button"
-              data-testid="message-jump"
-              class="rounded-full border border-bg-sunken bg-bg-elevated px-3 py-1.5 text-xs text-fg-secondary shadow outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
-              onClick={jumpToBottom}
-            >
-              {t("messages:newMessagesJump")}
-            </button>
+              )}
+            </Key>
           </div>
         </Show>
       </div>
+      <Show when={hasNew() && !loading()}>
+        <div class="pointer-events-none absolute inset-x-0 bottom-3 flex justify-center">
+          <button
+            type="button"
+            data-testid="message-jump"
+            class="pointer-events-auto rounded-full border border-bg-sunken bg-bg-elevated px-3 py-1.5 text-xs text-fg-secondary shadow outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+            onClick={jumpToBottom}
+          >
+            {t("messages:newMessagesJump")}
+          </button>
+        </div>
+      </Show>
       {/* IA-01: hidden live region for debounced streaming announcements
           (screen readers read this instead of every delta in the log) */}
       <div aria-live="polite" aria-atomic="true" class="sr-only">

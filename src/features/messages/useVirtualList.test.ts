@@ -27,6 +27,11 @@ const { instances } = FakeResizeObserver;
 beforeEach(() => {
   instances.length = 0;
   vi.stubGlobal("ResizeObserver", FakeResizeObserver);
+  vi.stubGlobal("requestAnimationFrame", (callback: FrameRequestCallback) => {
+    queueMicrotask(() => callback(0));
+    return 1;
+  });
+  vi.stubGlobal("cancelAnimationFrame", vi.fn());
 });
 
 afterEach(() => {
@@ -123,7 +128,8 @@ describe("createVirtualList prepend re-anchoring (TASK-M3-05)", () => {
     measure(list, "a", 100);
     measure(list, "b", 120);
     measure(list, "c", 140);
-    await Promise.resolve(); // flush the microtask that applies measurements
+    await Promise.resolve();
+    await Promise.resolve(); // flush the frame-batched measurement
     expect(list.totalHeight()).toBe(360);
 
     // Pagination PREPENDS x, y: every old row shifts down by two indices.
@@ -134,6 +140,7 @@ describe("createVirtualList prepend re-anchoring (TASK-M3-05)", () => {
     // rows are NOT re-mounted, so their heights must survive the index shift.
     measure(list, "x", 110);
     measure(list, "y", 130);
+    await Promise.resolve();
     await Promise.resolve();
 
     expect(list.totalHeight()).toBe(110 + 130 + 100 + 120 + 140);
@@ -186,7 +193,7 @@ describe("createVirtualList stale scroll offsets", () => {
     scroll.remove();
   });
 
-  it("keeps the real bottom reachable when a mounted row exceeds its estimate", async () => {
+  it("ignores a stale DOM scroll boundary when the modeled transcript is shorter", async () => {
     const scroll = document.createElement("div");
     document.body.appendChild(scroll);
     Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 300 });
@@ -214,13 +221,57 @@ describe("createVirtualList stale scroll offsets", () => {
       list.scrollTo(1700);
       return async () => {
         await Promise.resolve();
-        expect(list.scrollTop()).toBe(1700);
-        expect(scroll.scrollTop).toBe(1700);
+        expect(list.maxScrollTop()).toBe(700);
+        expect(list.scrollTop()).toBe(700);
+        expect(scroll.scrollTop).toBe(700);
         dispose();
       };
     });
 
     await dispose();
+    scroll.remove();
+  });
+
+  it("resets old measurements, observers, and scroll state for a new session", async () => {
+    const scroll = document.createElement("div");
+    document.body.appendChild(scroll);
+    Object.defineProperty(scroll, "clientHeight", { configurable: true, value: 100 });
+    let scrollTop = 0;
+    Object.defineProperty(scroll, "scrollTop", {
+      configurable: true,
+      get: () => scrollTop,
+      set: (value) => {
+        scrollTop = Number(value);
+      },
+    });
+    scroll.scrollTo = ((options: ScrollToOptions | number) => {
+      scroll.scrollTop = typeof options === "number" ? options : (options.top ?? 0);
+    }) as typeof scroll.scrollTo;
+
+    const list = createRoot(() =>
+      createVirtualList(
+        () => scroll,
+        () => 3,
+        (index) => `row-${index}`,
+        { estimate: 96 },
+      ),
+    );
+    list.measure();
+    const row = document.createElement("div");
+    document.body.appendChild(row);
+    Object.defineProperty(row, "offsetHeight", { configurable: true, value: 240 });
+    list.measureRow("row-0", row);
+    await Promise.resolve();
+    await Promise.resolve();
+    list.scrollTo(list.maxScrollTop());
+
+    list.reset();
+
+    expect(list.totalHeight()).toBe(3 * 96);
+    expect(list.scrollTop()).toBe(0);
+    expect(scroll.scrollTop).toBe(0);
+    expect(instances[instances.length - 1]?.disconnect).toHaveBeenCalledTimes(1);
+    row.remove();
     scroll.remove();
   });
 });
