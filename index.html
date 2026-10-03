@@ -16,36 +16,52 @@
     <title>opencoder</title>
     <script>
       // TASK-M9-03 no-flicker theme pre-read: resolve the persisted theme
-      // (oc-theme, system preference when absent) and accent (oc-accent)
+      // (oc-theme, gray on desktop / system on mobile when absent) and accent (oc-accent)
       // BEFORE the app bundle runs, so the first paint is already themed.
       // Mirrors src/stores/theme.ts; the OLED true-black gate mirrors the
       // platform detect fallback (src/platform/index.ts): a mobile UA OR
       // the webkit + touch + phone-ish viewport branch (iPadOS desktop-UA
       // mode), so the pre-read never flashes dark→oled one frame later.
       (function () {
+        var doc = document.documentElement;
+        var ua = navigator.userAgent;
+        var isMobile =
+          /iPhone|iPad|iPod|Android/i.test(ua) ||
+          ("webkit" in window &&
+            "ontouchstart" in window &&
+            window.innerWidth > 0 &&
+            window.innerWidth <= 1024) ||
+          (!/Mac OS X|Macintosh|Windows|Linux/i.test(ua) &&
+            "ontouchstart" in window &&
+            window.innerWidth > 0 &&
+            window.innerWidth <= 768);
+        // Storage failures still need the same platform defaults as the store.
+        function read(key) {
+          try {
+            return localStorage.getItem(key);
+          } catch (e) {
+            return null;
+          }
+        }
         try {
-          var doc = document.documentElement;
-          var mode = localStorage.getItem("oc-theme");
+          var mode = read("oc-theme");
+          if (["gray", "dark", "light", "system"].indexOf(mode) === -1) {
+            mode = isMobile ? "system" : "gray";
+          }
           var isDark =
             mode === "dark" ||
-            (mode !== "light" &&
-              !!(window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches));
-          var theme = isDark ? "dark" : "light";
-          if (
-            isDark &&
-            localStorage.getItem("oc-oled") === "1" &&
-            (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
-              (!!window.webkit &&
-                "ontouchstart" in window &&
-                window.innerWidth > 0 &&
-                window.innerWidth <= 1024) ||
-              ("ontouchstart" in window && window.innerWidth > 0 && window.innerWidth <= 768))
-          ) {
+            (mode === "system" &&
+              !!(
+                typeof window.matchMedia === "function" &&
+                window.matchMedia("(prefers-color-scheme: dark)").matches
+              ));
+          var theme = mode === "gray" ? "gray" : isDark ? "dark" : "light";
+          if (isDark && read("oc-oled") === "1" && isMobile) {
             theme = "oled";
           }
           doc.dataset.theme = theme;
-          var accent = localStorage.getItem("oc-accent");
-          if (accent) {
+          var accent = read("oc-accent");
+          {
             var PRESETS = {
               indigo: "#7c8cff",
               emerald: "#34d399",
@@ -53,9 +69,14 @@
               coral: "#f87171",
               cyan: "#22d3ee",
               purple: "#c084fc",
+              neutral: isDark ? "#c3c6cc" : "#50545b",
             };
-            var color = PRESETS[accent] || (/^#[0-9a-f]{3,8}$/i.test(accent) ? accent : null);
-            if (color) doc.style.setProperty("--accent", color);
+            var color =
+              PRESETS[accent] ||
+              (/^#[0-9a-f]{3,8}$/i.test(accent)
+                ? accent
+                : PRESETS[isMobile ? "indigo" : "neutral"]);
+            doc.style.setProperty("--accent", color);
           }
           // UI-scale pre-read: mirrors src/stores/uiScale.ts. Desktop
           // maps the persisted relative factor (default 1.0, clamped to
@@ -63,24 +84,21 @@
           // mobile stays 1 so the native Liquid Glass tab bar
           // coordination (safe-area reserves) never scales with the web
           // content. Set before first paint so the app never size-jumps.
-          var isMobile =
-            /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) ||
-            (!!window.webkit &&
-              "ontouchstart" in window &&
-              window.innerWidth > 0 &&
-              window.innerWidth <= 1024) ||
-            ("ontouchstart" in window && window.innerWidth > 0 && window.innerWidth <= 768);
-          var scale = parseFloat(localStorage.getItem("oc-ui-scale") || "");
+          var scale = parseFloat(read("oc-ui-scale") || "");
           var UI_SCALE_BASE = 1.2;
           var UI_SCALE_VERSION = "2";
           if (!isFinite(scale)) {
             scale = 1;
           } else {
             scale = Math.min(1.6, Math.max(0.9, Math.round(scale * 100) / 100));
-            if (localStorage.getItem("oc-ui-scale-version") !== UI_SCALE_VERSION) {
+            if (read("oc-ui-scale-version") !== UI_SCALE_VERSION) {
               scale = Math.min(1.6, Math.max(0.9, Math.round((scale / UI_SCALE_BASE) * 100) / 100));
-              localStorage.setItem("oc-ui-scale", String(scale));
-              localStorage.setItem("oc-ui-scale-version", UI_SCALE_VERSION);
+              try {
+                localStorage.setItem("oc-ui-scale", String(scale));
+                localStorage.setItem("oc-ui-scale-version", UI_SCALE_VERSION);
+              } catch (e) {
+                // The resolved scale can still apply when writes are blocked.
+              }
             }
           }
           doc.style.setProperty(

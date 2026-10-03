@@ -8,7 +8,7 @@
 // reasons documented there.
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
+import { cleanup, fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import axe, { type AxeResults, type Result } from "axe-core";
 import DesktopShell from "../shells/desktop/DesktopShell";
 import SettingsPage from "../features/settings/SettingsPage";
@@ -149,6 +149,14 @@ function expectNoSerious(violations: Result[], screenName: string): void {
 }
 
 beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   invokeMock.mockReset();
   listenMock.mockReset();
   sseSubscribeMock.mockReset();
@@ -159,6 +167,8 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
   delete window.__TAURI_INTERNALS__;
   resetSessions(SERVER);
   resetMessages(SERVER);

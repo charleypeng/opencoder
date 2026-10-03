@@ -1,13 +1,11 @@
-// E05 — Permission request appears → allow (remember) → no further prompts
-// (testing.md §3 L4: the permission-flow scenario asks for a bash
+// E05 — Permission request appears → allow (remember) → request drains
+// (testing.md §3 L4: the permission-interactive scenario asks for a bash
 // permission; "Allow always" (the remember variant) replies, the sheet
 // drains and the session continues to idle.)
 //
-// Mock semantics: the scenario auto-replies server-side at 900ms, so the
-// journey must click within the asked(400ms)→replied(900ms) window; the
-// the "no further prompts" claim is the mock's single-ask-per-scenario
-// behavior, covered
-// by the drain assertion + the session continuing without further prompts.
+// The interactive scenario preserves permission-flow's session and idle
+// timeline but omits the scheduled reply, allowing the real UI's reply POST
+// to drain the request.
 
 import {
   addServer,
@@ -20,7 +18,7 @@ import {
 } from "./fixtures";
 
 test("E05 permission request: allow always (remember), flow continues", async ({ page }) => {
-  await useScenario(page, "permission-flow");
+  await useScenario(page, "permission-interactive");
   await gotoHome(page);
   await addServer(page);
   await enterWorkspace(page);
@@ -43,7 +41,7 @@ test("E05 permission request: allow always (remember), flow continues", async ({
   const reply = await replyPromise;
   expect(JSON.stringify(reply.body)).toContain('"always"');
 
-  // The permission.replied event drains the queue: the sheet disappears.
+  // The successful reply POST drains the queue: the sheet disappears.
   await expect(page.getByTestId("permission-sheet")).toHaveCount(0, { timeout: 10_000 });
 
   // No further prompt: the session proceeds to idle on its own.

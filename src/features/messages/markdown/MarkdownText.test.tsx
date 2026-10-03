@@ -150,8 +150,8 @@ describe("MarkdownText", () => {
     );
   });
 
-  it("picks the light Shiki theme in light mode", async () => {
-    document.documentElement.dataset.theme = "light";
+  it.each(["light", "gray"])("picks the light Shiki theme in %s mode", async (theme) => {
+    document.documentElement.dataset.theme = theme;
     try {
       await mount("```ts\nconst y = 2;\n```");
       await hydratedFence();
@@ -159,6 +159,54 @@ describe("MarkdownText", () => {
         "const y = 2;\n",
         expect.objectContaining({ theme: "github-light" }),
       );
+    } finally {
+      delete document.documentElement.dataset.theme;
+    }
+  });
+
+  it("retains readable code during asynchronous theme highlighting and ignores stale results", async () => {
+    document.documentElement.dataset.theme = "dark";
+    try {
+      await mount("```ts\nconst x = 1;\n```");
+      const el = await hydratedFence();
+      const previousCode = el.querySelector(".shiki");
+      const previousCopy = el.querySelector<HTMLButtonElement>("[data-copy-code]")!;
+      let finishLight!: (html: string) => void;
+      let finishDark!: (html: string) => void;
+      codeToHtmlMock.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            finishLight = resolve;
+          }),
+      );
+      document.documentElement.dataset.theme = "gray";
+      await waitFor(() => expect(finishLight).toBeDefined());
+      expect(codeToHtmlMock).toHaveBeenLastCalledWith(
+        "const x = 1;\n",
+        expect.objectContaining({ theme: "github-light" }),
+      );
+      expect(el.querySelector(".shiki")).toBe(previousCode);
+      expect(el.textContent).toContain("const x = 1;");
+      fireEvent.click(previousCopy);
+      await waitFor(() => expect(writeTextMock).toHaveBeenCalledWith("const x = 1;\n"));
+
+      codeToHtmlMock.mockImplementationOnce(
+        () =>
+          new Promise<string>((resolve) => {
+            finishDark = resolve;
+          }),
+      );
+      document.documentElement.dataset.theme = "dark";
+      await waitFor(() => expect(finishDark).toBeDefined());
+      finishDark('<pre class="shiki" data-highlight-theme="dark"><code>const x = 1;</code></pre>');
+      await waitFor(() => expect(el.querySelector('[data-highlight-theme="dark"]')).not.toBeNull());
+      finishLight(
+        '<pre class="shiki" data-highlight-theme="light"><code>const x = 1;</code></pre>',
+      );
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(el.querySelector('[data-highlight-theme="dark"]')).not.toBeNull();
+      expect(el.querySelector('[data-highlight-theme="light"]')).toBeNull();
     } finally {
       delete document.documentElement.dataset.theme;
     }

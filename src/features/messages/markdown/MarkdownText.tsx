@@ -24,6 +24,7 @@ const HIGHLIGHT_DEBOUNCE_MS = 250;
 /** Code payload per copy button; a WeakMap keeps large snippets out of the
  *  DOM attributes. */
 const copyCodeByButton = new WeakMap<HTMLElement, string>();
+const fenceHydration = new WeakMap<HTMLElement, object>();
 
 const COPY_FEEDBACK_MS = 1500;
 
@@ -60,6 +61,8 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 async function hydrateFence(el: HTMLElement, t: (key: string) => string): Promise<void> {
+  const request = {};
+  fenceHydration.set(el, request);
   const lang = el.dataset.fenceLang ?? "";
   const code = decodeFenceCode(el.dataset.fenceCode ?? "");
   let body: string;
@@ -72,7 +75,7 @@ async function hydrateFence(el: HTMLElement, t: (key: string) => string): Promis
   }
   // The placeholder may have been replaced by a streamed update while the
   // language was loading; only hydrate nodes still attached to this render.
-  if (!el.isConnected || el.dataset.fenceState === "hydrated") return;
+  if (!el.isConnected || fenceHydration.get(el) !== request) return;
   el.innerHTML = fenceHtml(lang, body, t("common:copy"), t("messages:copyCode"));
   const button = el.querySelector<HTMLElement>("[data-copy-code]");
   if (button !== null) copyCodeByButton.set(button, code);
@@ -129,9 +132,7 @@ const MarkdownText: Component<MarkdownTextProps> = (props) => {
       const container = containerRef;
       if (container === undefined) return;
       for (const el of Array.from(container.querySelectorAll<HTMLElement>(CODE_FENCE_SELECTOR))) {
-        // Re-hydration must rebuild the fence (header + highlighted body)
-        // with the new theme; clear the hydrated payload and state.
-        el.innerHTML = "";
+        // Keep the readable fence and its height until the new colors are ready.
         delete el.dataset.fenceState;
       }
       hydrateFences(container, t);

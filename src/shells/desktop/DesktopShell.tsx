@@ -478,9 +478,10 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [internalRightToolsMaximized, setInternalRightToolsMaximized] = createSignal(false);
   const rightToolsMaximized = () => props.rightToolsMaximized ?? internalRightToolsMaximized();
   const [rightToolsView, setRightToolsView] = createSignal<RightToolView>("review");
+  const [rightToolsRequest, setRightToolsRequest] = createSignal(0);
   const [rightReviewDiff, setRightReviewDiff] = createSignal<{
     sessionId: string;
-    messageId: string;
+    messageId?: string;
   }>();
 
   function setRightToolsOpen(open: boolean): void {
@@ -532,6 +533,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
    *  available to keyboard-driven search actions, but its viewer is never
    *  mounted alongside the right-side viewer. */
   function focusRightFiles(): void {
+    setRightToolsRequest((version) => version + 1);
     setRightToolsView("files");
     setRightToolsOpen(true);
     setMainView("chat");
@@ -541,6 +543,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     const sessionId = activeSessionId();
     if (sessionId === null) return;
     setRightReviewDiff({ sessionId, messageId });
+    setRightToolsRequest((version) => version + 1);
     setRightToolsMaximized(false);
     setRightToolsView("review");
     setRightToolsOpen(true);
@@ -581,18 +584,29 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   const [sidebarWidth, setSidebarWidth] = createSignal(readSidebarWidth());
   let resizeStartX: number | null = null;
   let resizeStartWidth = SIDEBAR_DEFAULT_WIDTH;
+  let sidebarResizeFrame: number | undefined;
+  let pendingSidebarWidth = SIDEBAR_DEFAULT_WIDTH;
 
   function updateSidebarWidth(next: number): void {
     const width = Math.min(SIDEBAR_MAX_WIDTH, Math.max(SIDEBAR_MIN_WIDTH, next));
     setSidebarWidth(width);
+  }
+
+  function persistSidebarWidth(): void {
     try {
-      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(width));
+      localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(sidebarWidth()));
     } catch {
       // Keep the live resize working when persistence is unavailable.
     }
   }
 
   function stopSidebarResize(): void {
+    if (sidebarResizeFrame !== undefined) cancelAnimationFrame(sidebarResizeFrame);
+    sidebarResizeFrame = undefined;
+    if (resizeStartX !== null) {
+      updateSidebarWidth(pendingSidebarWidth);
+      persistSidebarWidth();
+    }
     resizeStartX = null;
     window.removeEventListener("pointermove", onSidebarResizeMove);
     window.removeEventListener("pointerup", stopSidebarResize);
@@ -601,7 +615,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   function onSidebarResizeMove(event: PointerEvent): void {
     if (resizeStartX === null) return;
-    updateSidebarWidth(resizeStartWidth + event.clientX - resizeStartX);
+    pendingSidebarWidth = resizeStartWidth + event.clientX - resizeStartX;
+    if (sidebarResizeFrame === undefined) {
+      sidebarResizeFrame = requestAnimationFrame(() => {
+        sidebarResizeFrame = undefined;
+        updateSidebarWidth(pendingSidebarWidth);
+      });
+    }
   }
 
   function onSidebarResizeStart(event: PointerEvent): void {
@@ -609,6 +629,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
     event.preventDefault();
     resizeStartX = event.clientX;
     resizeStartWidth = sidebarWidth();
+    pendingSidebarWidth = resizeStartWidth;
     window.addEventListener("pointermove", onSidebarResizeMove);
     window.addEventListener("pointerup", stopSidebarResize);
     window.addEventListener("pointercancel", stopSidebarResize);
@@ -629,6 +650,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
       event.preventDefault();
       updateSidebarWidth(SIDEBAR_MAX_WIDTH);
     }
+    if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) persistSidebarWidth();
   }
 
   onCleanup(stopSidebarResize);
@@ -658,8 +680,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
 
   /** Opens the diff view, optionally filtered to one message. */
   function openDiff(messageId?: string) {
-    setDiffMessageId(messageId);
-    setMainView("diff");
+    const sessionId = activeSessionId();
+    if (!sessionId) return;
+    setRightReviewDiff({ sessionId, messageId });
+    setRightToolsView("review");
+    setRightToolsRequest((version) => version + 1);
+    setRightToolsOpen(true);
+    setMainView("chat");
   }
 
   /** Creates a session (⌘/Ctrl+N registry action); the new session opens
@@ -1235,7 +1262,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           aria-hidden={sidebarCollapsed() ? "true" : "false"}
           inert={sidebarCollapsed()}
           style={{ width: sidebarCollapsed() ? "0px" : `${sidebarWidth()}px` }}
-          class={`relative z-20 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[width,opacity,transform] duration-(--dur-med) ease-(--ease-emphasized) ${
+          class={`relative z-20 flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden bg-bg-elevated transition-[opacity] duration-(--dur-med) ease-(--ease-emphasized) ${
             sidebarCollapsed()
               ? "pointer-events-none -translate-x-1 opacity-0"
               : "translate-x-0 opacity-100"
@@ -1427,7 +1454,13 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           aria-label={t("desktop:openVcs")}
                           title={t("desktop:vcsHint")}
                           class="shrink-0 rounded-md p-1 text-fg-secondary outline-none transition-colors hover:text-fg-primary"
-                          onClick={() => setMainView("changes")}
+                          onClick={() => {
+                            setRightReviewDiff(undefined);
+                            setRightToolsView("review");
+                            setRightToolsRequest((version) => version + 1);
+                            setRightToolsOpen(true);
+                            setMainView("chat");
+                          }}
                         >
                           <svg
                             viewBox="0 0 24 24"
@@ -1498,39 +1531,36 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                     </div>
                   </div>
                 </Show>
-                <Show
-                  when={mainView() === "chat"}
-                  fallback={
-                    <div data-testid="main-files-pane" class="flex h-full min-h-0 flex-col">
-                      <div
-                        data-testid="files-viewer-pane"
-                        data-visible={filesMode() === "viewer" ? "true" : "false"}
-                        class={
-                          filesMode() === "viewer" && !rightToolsOpen()
-                            ? "min-h-0 flex-1"
-                            : "hidden"
-                        }
-                      >
-                        <Show when={!rightToolsOpen()}>
-                          <FileViewer serverId={activeServerId()} visible />
-                        </Show>
-                      </div>
-                      <div
-                        data-testid="files-search-pane"
-                        data-visible={filesMode() === "search" ? "true" : "false"}
-                        class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
-                      >
-                        <SearchPanel
-                          serverId={activeServerId()}
-                          onOpenHit={() => {
-                            setFilesMode("viewer");
-                            focusRightFiles();
-                          }}
-                        />
-                      </div>
-                    </div>
-                  }
+                <div
+                  data-testid="main-files-pane"
+                  class={mainView() === "files" ? "flex h-full min-h-0 flex-col" : "hidden"}
                 >
+                  <div
+                    data-testid="files-viewer-pane"
+                    data-visible={filesMode() === "viewer" ? "true" : "false"}
+                    class={
+                      filesMode() === "viewer" && !rightToolsOpen() ? "min-h-0 flex-1" : "hidden"
+                    }
+                  >
+                    <Show when={!rightToolsOpen()}>
+                      <FileViewer serverId={activeServerId()} visible />
+                    </Show>
+                  </div>
+                  <div
+                    data-testid="files-search-pane"
+                    data-visible={filesMode() === "search" ? "true" : "false"}
+                    class={filesMode() === "search" ? "min-h-0 flex-1" : "hidden"}
+                  >
+                    <SearchPanel
+                      serverId={activeServerId()}
+                      onOpenHit={() => {
+                        setFilesMode("viewer");
+                        focusRightFiles();
+                      }}
+                    />
+                  </div>
+                </div>
+                <div class={mainView() === "chat" ? "flex min-h-0 flex-1 flex-col" : "hidden"}>
                   <Show
                     when={activeSessionId()}
                     fallback={
@@ -1667,7 +1697,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                       }
                     />
                   </Show>
-                </Show>
+                </div>
                 <Show when={terminalDocked()}>
                   <section
                     data-testid="terminal-dock"
@@ -1806,9 +1836,9 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
           onWidthCommit={commitRightToolsWidth}
           maximized={rightToolsMaximized()}
           view={rightToolsView()}
+          requestVersion={rightToolsRequest()}
           onViewChange={(view) => {
             setRightToolsView(view);
-            if (view === "review") setRightReviewDiff(undefined);
           }}
           showHeaderControls={false}
           onOpenChange={setRightToolsOpen}

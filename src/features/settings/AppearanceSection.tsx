@@ -1,5 +1,5 @@
-// Appearance settings section (TASK-M9-03): the theme mode (dark / light /
-// system), the accent color (six presets + a custom hex picker) and, on
+// Appearance settings section (TASK-M9-03): the theme mode (gray / dark /
+// light / system), the accent presets + custom hex picker and, on
 // mobile, the true-black OLED background. The top controls edit the GLOBAL
 // memory; the Server override sub-section pins this server's own mode
 // (resolution: server override ?? global, re-applied by App when entering
@@ -101,7 +101,7 @@ const AppearanceSection: Component<AppearanceSectionProps> = (props) => {
       <div class="min-h-0 flex-1 overflow-y-auto p-4">
         <div class="border-b border-bg-sunken py-3">
           <p class="text-xs font-medium">{t("settings:theme")}</p>
-          <div class="mt-2 flex gap-2">
+          <div class="mt-2 flex flex-wrap gap-2">
             <For each={THEME_MODES}>
               {(mode) => (
                 <button

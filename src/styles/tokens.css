@@ -126,6 +126,24 @@
   --glass-blur: 24px;
 }
 
+[data-theme="gray"] {
+  /* Quiet chrome surrounds a white canvas without tinting code or chat. */
+  --bg-base: #ffffff;
+  --bg-elevated: #f5f5f5;
+  --bg-sunken: #e9e9eb;
+  --fg-primary: #242528;
+  --fg-secondary: #55585e;
+  --fg-faint: #666970;
+  --accent: #50545b;
+  --accent-soft: color-mix(in srgb, var(--accent) 10%, transparent);
+  --success: #066849;
+  --warning: #96440b;
+  --danger: #c62828;
+  --glass-bg: rgba(245, 245, 245, 0.94);
+  --glass-border: rgba(36, 37, 40, 0.12);
+  --glass-blur: 24px;
+}
+
 /* OLED true-black (TASK-M9-03): the mobile-only "oled" theme value — the
    backgrounds collapse to pure black so OLED pixels stay off, everything
    else inherits the dark defaults (a dark theme with black surfaces). */

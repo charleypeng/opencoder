@@ -5,6 +5,16 @@
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [Semantic Versioning](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### 新增
+
+- feat(desktop): 添加中性灰桌面默认主题与三栏工作台，文件、差异和网页标签页可独立关闭，切换时保留内容和阅读位置。 (desktop)
+
+### 变更
+
+- feat(desktop): 添加支持减少动态效果的克制标签过渡，在工具与主题切换时保留聊天和代码内容，并按帧合并分栏拖动更新、松手后保存尺寸，减少空白闪烁与缩放抖动。 (desktop)
+
 ## [1.2.4] - 2026-09-09
 
 ### 变更

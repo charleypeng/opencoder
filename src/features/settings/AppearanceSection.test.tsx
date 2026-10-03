@@ -67,6 +67,7 @@ describe("AppearanceSection theme controls", () => {
     expect(screen.getByTestId("theme-dark")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("theme-light")).toHaveAttribute("aria-pressed", "false");
     expect(screen.getByTestId("theme-system")).toBeInTheDocument();
+    expect(screen.getByTestId("theme-gray")).toBeInTheDocument();
     expect(screen.getByTestId("theme-server-override")).toBeInTheDocument();
     expect(screen.getByTestId("theme-server-follow")).toHaveAttribute("aria-pressed", "true");
   });
@@ -83,6 +84,9 @@ describe("AppearanceSection theme controls", () => {
     fireEvent.click(screen.getByTestId("theme-dark"));
     expect(document.documentElement.dataset.theme).toBe("dark");
     expect(localStorage.getItem("oc-theme")).toBe("dark");
+    fireEvent.click(screen.getByTestId("theme-gray"));
+    expect(document.documentElement.dataset.theme).toBe("gray");
+    expect(localStorage.getItem("oc-theme")).toBe("gray");
   });
 });
 

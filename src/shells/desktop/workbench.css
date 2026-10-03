@@ -1,0 +1,32 @@
+.workbench-tab {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--color-fg-secondary);
+  transition:
+    background-color 120ms ease,
+    color 120ms ease;
+}
+.workbench-tab[data-active="true"] {
+  background: var(--color-bg-base);
+  border-color: var(--color-bg-sunken);
+  color: var(--color-fg-primary);
+}
+.workbench-tab-content[data-active="true"] {
+  animation: workbench-reveal 120ms ease-out;
+}
+@keyframes workbench-reveal {
+  from {
+    opacity: 0.75;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workbench-tab {
+    transition: none;
+  }
+  .workbench-tab-content[data-active="true"] {
+    animation: none;
+  }
+}

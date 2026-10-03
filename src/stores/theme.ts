@@ -1,11 +1,11 @@
 // Theme store (TASK-M9-03): the two-level theme memory and the accent
-// color. The global mode is "dark" | "light" | "system" (localStorage
-// `oc-theme`, default "system"), the accent is one of the six preset ids
+// color. The global mode includes gray (localStorage `oc-theme`, default
+// gray on desktop and system on mobile), the accent is a preset id
 // or a custom hex (`oc-accent`), OLED true-black is a mobile-only boolean
 // (`oc-oled`), and per-server overrides live in a serverId -> mode map
 // (`oc-theme-server`). applyTheme() resolves the effective mode (server
 // override ?? global, "system" through matchMedia) and writes
-// documentElement dataset.theme (dark / light / the mobile-only "oled")
+// documentElement dataset.theme (gray / dark / light / mobile-only "oled")
 // plus the --accent CSS variable — --accent-soft derives from --accent via
 // color-mix in tokens.css, so presets and custom colors share one path.
 // index.html carries a no-flicker pre-read that mirrors this resolution
@@ -15,7 +15,7 @@
 import { createSignal } from "solid-js";
 import { platform } from "../platform/index.js";
 
-export type ThemeMode = "dark" | "light" | "system";
+export type ThemeMode = "dark" | "light" | "gray" | "system";
 
 export interface AccentPreset {
   /** Stable id persisted to localStorage. */
@@ -24,7 +24,7 @@ export interface AccentPreset {
   color: string;
 }
 
-/** The six accent presets; the first is the default. */
+/** Mobile keeps indigo by default; desktop defaults to adaptive neutral. */
 export const ACCENT_PRESETS: readonly AccentPreset[] = [
   { id: "indigo", color: "#7c8cff" },
   { id: "emerald", color: "#34d399" },
@@ -32,9 +32,10 @@ export const ACCENT_PRESETS: readonly AccentPreset[] = [
   { id: "coral", color: "#f87171" },
   { id: "cyan", color: "#22d3ee" },
   { id: "purple", color: "#c084fc" },
+  { id: "neutral", color: "#50545b" },
 ];
 
-export const THEME_MODES: readonly ThemeMode[] = ["dark", "light", "system"];
+export const THEME_MODES: readonly ThemeMode[] = ["gray", "dark", "light", "system"];
 
 const MODE_KEY = "oc-theme";
 const ACCENT_KEY = "oc-accent";
@@ -51,11 +52,12 @@ const HEX_RE = /^#[0-9a-f]{3,8}$/i;
 export const DEFAULT_ACCENT = ACCENT_PRESETS[0].color;
 
 function readMode(): ThemeMode {
+  const fallback = platform.kind === "desktop" ? "gray" : "system";
   try {
     const stored = localStorage.getItem(MODE_KEY);
-    return stored === "dark" || stored === "light" || stored === "system" ? stored : "system";
+    return THEME_MODES.includes(stored as ThemeMode) ? (stored as ThemeMode) : fallback;
   } catch {
-    return "system";
+    return fallback;
   }
 }
 
@@ -66,7 +68,7 @@ function readAccent(): string {
   } catch {
     // Fall through to the default.
   }
-  return ACCENT_PRESETS[0].id;
+  return platform.kind === "desktop" ? "neutral" : ACCENT_PRESETS[0].id;
 }
 
 function readOled(): boolean {
@@ -85,8 +87,8 @@ function readServerOverrides(): Record<string, ThemeMode> {
     if (parsed === null || typeof parsed !== "object") return {};
     const overrides: Record<string, ThemeMode> = {};
     for (const [serverId, value] of Object.entries(parsed)) {
-      if (value === "dark" || value === "light" || value === "system") {
-        overrides[serverId] = value;
+      if (THEME_MODES.includes(value as ThemeMode)) {
+        overrides[serverId] = value as ThemeMode;
       }
     }
     return overrides;
@@ -110,6 +112,10 @@ export { themeMode, accent, oled, themeServerOverrides };
 /** Resolves an accent value (preset id or hex) to a CSS color; anything
  *  unknown falls back to the default preset. */
 export function accentColor(value: string): string {
+  // Neutral follows the effective surface so links stay readable in dark overrides.
+  if (value === "neutral") {
+    return resolveMode(effectiveMode(activeServerId)) === "dark" ? "#c3c6cc" : "#50545b";
+  }
   const preset = PRESET_BY_ID.get(value);
   if (preset !== undefined) return preset;
   return HEX_RE.test(value) ? value : DEFAULT_ACCENT;
@@ -120,7 +126,7 @@ export function accentColor(value: string): string {
  *  resolves statically on every call — there is no live matchMedia
  *  listener; a preference change applies on the next resolution (a mode
  *  switch, entering a server, or an explicit applyTheme call). */
-export function resolveMode(mode: ThemeMode): "dark" | "light" {
+export function resolveMode(mode: ThemeMode): "dark" | "light" | "gray" {
   if (mode !== "system") return mode;
   return typeof window.matchMedia === "function" &&
     window.matchMedia("(prefers-color-scheme: dark)").matches

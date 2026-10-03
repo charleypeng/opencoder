@@ -2,7 +2,7 @@
 // preloaded with a small common language set; other bundled languages load
 // on demand via loadLanguage (dynamic imports keep the packs out of the
 // initial bundle). The theme follows the app theme: "github-dark" in dark /
-// oled mode, "github-light" in light mode (TASK-M2-07 deferred this; the
+// oled mode, "github-light" in light / gray mode (TASK-M2-07 deferred this; the
 // code fence stayed dark in light mode until the theme-aware follow-up).
 //
 // Any failure (unsupported language, load error) rejects and callers fall
@@ -38,7 +38,8 @@ let instance: Promise<Highlighter> | undefined;
 
 /** The Shiki theme for the app's current theme (dark / oled -> dark). */
 export function currentTheme(): string {
-  return document.documentElement.dataset.theme === "light" ? LIGHT_THEME : DARK_THEME;
+  const theme = document.documentElement.dataset.theme;
+  return theme === "light" || theme === "gray" ? LIGHT_THEME : DARK_THEME;
 }
 
 /** Shared highlighter instance; retries on failure so a transient error

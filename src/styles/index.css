@@ -170,7 +170,8 @@
     text-rendering: optimizeLegibility;
   }
 
-  [data-theme="light"] {
+  [data-theme="light"],
+  [data-theme="gray"] {
     color-scheme: light;
   }
 
@@ -772,6 +773,30 @@
     linear-gradient(var(--accent), var(--accent)) right bottom / 11px 1.5px no-repeat,
     linear-gradient(var(--accent), var(--accent)) right bottom / 1.5px 11px no-repeat;
   opacity: 0.5;
+}
+
+/* Neutral desktop chrome uses a quiet border instead of the accent glow. */
+[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech {
+  background: var(--bg-base);
+  box-shadow:
+    0 0 0 1px var(--bg-sunken),
+    0 2px 8px color-mix(in srgb, var(--fg-primary) 5%, transparent);
+}
+
+[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech:focus-within {
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--bg-sunken)),
+    0 2px 8px color-mix(in srgb, var(--fg-primary) 7%, transparent);
+}
+
+[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech::before,
+[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech::after {
+  display: none;
+}
+
+[data-testid="viewer-scroll"] {
+  scrollbar-gutter: stable;
+  overscroll-behavior: contain;
 }
 
 /* Long session names keep the sidebar compact, but hover or keyboard focus

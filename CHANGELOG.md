@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- feat(desktop): Add a neutral-gray desktop default and a three-column workbench with independently closable file, diff, and browser tabs, preserving content and reading positions across navigation. (desktop)
+
+### Changed
+
+- feat(desktop): Add restrained, reduced-motion-aware tab transitions, retain chat and code during tool/theme switches, and batch splitter updates per frame with persistence on release to reduce blank flashes and resize jitter. (desktop)
+
 ## [1.2.4] - 2026-09-09
 
 ### Changed

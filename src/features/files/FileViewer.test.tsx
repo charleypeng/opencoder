@@ -14,7 +14,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@solidjs/testing-library";
 import { createSignal } from "solid-js";
 import { ApiClient, type Transport } from "../../services/client";
-import { resetServer, openTab, setActive, setActiveLine, viewer } from "../../stores/viewer";
+import {
+  resetServer,
+  openTab,
+  closeTab,
+  setActive,
+  setActiveLine,
+  viewer,
+} from "../../stores/viewer";
 import { setCurrent, resetServer as resetProjects } from "../../stores/project";
 import { setActiveServer } from "../../stores/registry";
 import FileViewer, { type FileViewerProps } from "./FileViewer";
@@ -674,5 +681,125 @@ describe("FileViewer mobile zoom (TASK-M7-09)", () => {
     expect(screen.queryByTestId("viewer-tab-close-src/b.ts")).not.toBeInTheDocument();
     // The zoom chip still mirrors the state.
     expect(screen.getByTestId("viewer-zoom-toggle")).toBeInTheDocument();
+  });
+});
+
+describe("FileViewer workspace integration", () => {
+  it("keeps existing code readable while a theme change re-highlights it", async () => {
+    const serverId = freshServer();
+    document.documentElement.dataset.theme = "gray";
+    let finishHighlight!: (html: string) => void;
+    mountViewer(serverId, { "theme.ts": textContent("theme-aware code") });
+    openTab(serverId, "theme.ts");
+    await waitFor(() => expect(screen.getByTestId("hl")).toHaveTextContent("theme-aware code"));
+    const oldCode = screen.getByTestId("hl");
+    highlightMock.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finishHighlight = resolve;
+        }),
+    );
+    try {
+      document.documentElement.dataset.theme = "dark";
+      await waitFor(() => expect(highlightMock).toHaveBeenCalledTimes(2));
+      expect(screen.getByTestId("hl")).toBe(oldCode);
+      const themedCode = "darkHighlight";
+      finishHighlight(`<pre data-testid="hl">${themedCode}</pre>`);
+      await waitFor(() => expect(screen.getByTestId("hl")).toHaveTextContent(themedCode));
+    } finally {
+      delete document.documentElement.dataset.theme;
+    }
+  });
+  it("shows the file landing state without fetching an empty path", () => {
+    const serverId = freshServer();
+    openTab(serverId, "existing.ts");
+    const request = mountViewer(serverId, {}, { hideTabs: true, activePath: "" });
+    expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
+    expect(contentCalls(request, "")).toBe(0);
+  });
+  it("keeps an externally managed file fixed when another file becomes active", async () => {
+    const serverId = freshServer();
+    openTab(serverId, "src/a.ts");
+    mountViewer(
+      serverId,
+      {
+        "src/a.ts": textContent("alpha"),
+        "src/b.ts": textContent("beta"),
+      },
+      { hideTabs: true, activePath: "src/a.ts" },
+    );
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
+    const code = screen.getByTestId("viewer-code");
+    const scroller = code.closest('[data-testid="viewer-scroll"]') as HTMLElement;
+    scroller.scrollTop = 180;
+    openTab(serverId, "src/b.ts");
+    expect(screen.getByTestId("viewer-code")).toBe(code);
+    expect(code).toHaveTextContent("alpha");
+    expect(scroller.scrollTop).toBe(180);
+    expect(screen.queryByRole("tablist")).not.toBeInTheDocument();
+  });
+
+  it("keeps Markdown preview/source controls available without an inner tab strip", async () => {
+    const serverId = freshServer();
+    openTab(serverId, "preview.md");
+    mountViewer(
+      serverId,
+      { "preview.md": textContent("# Workspace", "text/markdown") },
+      {
+        hideTabs: true,
+        activePath: "preview.md",
+      },
+    );
+    await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
+    fireEvent.click(screen.getByTestId("viewer-source-toggle"));
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("# Workspace"));
+    fireEvent.click(screen.getByTestId("viewer-source-toggle"));
+    expect(screen.getByTestId("viewer-markdown")).toHaveTextContent("Workspace");
+  });
+
+  it("ignores an old failure after returning to a cached file", async () => {
+    const serverId = freshServer();
+    let rejectSlow!: (reason: Error) => void;
+    const request = vi.fn((input: { query?: Record<string, string> }) => {
+      if (input.query?.path === "slow.ts") {
+        return new Promise<never>((_, reject) => {
+          rejectSlow = reject;
+        });
+      }
+      return Promise.resolve(httpResponse(textContent("cached")));
+    });
+    getApiClientMock.mockReturnValue(new ApiClient({ request: request as Transport["request"] }));
+    render(() => <FileViewer serverId={serverId} />);
+    openTab(serverId, "cached.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("cached"));
+    openTab(serverId, "slow.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-loading")).toBeInTheDocument());
+    setActive(serverId, "cached.ts");
+    rejectSlow(new Error("stale failure"));
+    await Promise.resolve();
+    setActive(serverId, "slow.ts");
+    expect(screen.queryByText("stale failure")).not.toBeInTheDocument();
+    expect(screen.getByTestId("viewer-loading")).toBeInTheDocument();
+    closeTab(serverId, "slow.ts");
+  });
+
+  it("renders code immediately and discards highlighting after the file changes", async () => {
+    const serverId = freshServer();
+    let highlightAlpha!: (html: string) => void;
+    highlightMock.mockImplementation((code: string) =>
+      code === "alpha"
+        ? new Promise<string>((resolve) => {
+            highlightAlpha = resolve;
+          })
+        : Promise.resolve(`<pre>${code}</pre>`),
+    );
+    mountViewer(serverId, { "a.ts": textContent("alpha"), "b.ts": textContent("beta") });
+    openTab(serverId, "a.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("alpha"));
+    openTab(serverId, "b.ts");
+    await waitFor(() => expect(screen.getByTestId("viewer-code")).toHaveTextContent("beta"));
+    highlightAlpha("<pre>old highlight</pre>");
+    await Promise.resolve();
+    expect(screen.getByTestId("viewer-code")).toHaveTextContent("beta");
   });
 });

@@ -44,6 +44,14 @@ import { resetServer as resetLsp } from "../../stores/lsp";
 import type { PermissionRequest } from "../../services/permission";
 import { resetServerUpdate } from "../../stores/serverUpdate";
 
+function selectedFileTab(): HTMLElement {
+  return screen
+    .getByTestId("right-tool-panel")
+    .querySelector(
+      '[role="tab"][data-workbench-kind="files"][aria-selected="true"]',
+    ) as HTMLElement;
+}
+
 type ListenHandler = (event: { payload: unknown }) => void;
 type Listen = (event: string, handler: ListenHandler) => Promise<() => void>;
 
@@ -556,6 +564,14 @@ function lastSseCall(): [string, string | undefined, unknown] {
 }
 
 beforeEach(() => {
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    },
+  );
   window.__TAURI_INTERNALS__ = {};
   invokeMock.mockClear();
   // Default: an empty registry; REST calls resolve to empty payloads so the
@@ -646,9 +662,9 @@ describe("DesktopShell workspace", () => {
 
     fireEvent.click(toggle);
     expect(panel).toHaveAttribute("data-collapsed", "false");
-    expect(panel).toHaveStyle({ width: "256px" });
+    expect(panel).toHaveStyle({ width: "464px" });
     expect(toggle).toHaveAttribute("aria-pressed", "true");
-    expect(localStorage.getItem("oc-right-tools-width")).toBe("256");
+    expect(localStorage.getItem("oc-right-tools-width")).toBe("464");
   });
 
   it("mounts the shell, activates the server context and shows placeholders", () => {
@@ -1086,7 +1102,7 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
 
     fireEvent.click(screen.getByTestId("main-tab-files"));
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
     expect(screen.getByTestId("file-viewer")).toBeInTheDocument();
     expect(screen.getByTestId("viewer-empty")).toBeInTheDocument();
     expect(screen.getByText("Select a session")).toBeInTheDocument();
@@ -1131,8 +1147,8 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
 
     // Chat remains central while the right-side Files tool owns the content.
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
+    expect(selectedFileTab()).toHaveAttribute("title", "README.md");
     expect(screen.getAllByTestId("file-viewer")).toHaveLength(1);
     await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4view"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
@@ -1174,7 +1190,7 @@ describe("DesktopShell main view actions (TASK-M4-03)", () => {
       expect(getServerProjectState("srv-viewfolder").current).toBe("/mock/projects/opencode-labs"),
     );
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
     await waitFor(() =>
       expect(screen.getByTestId("sidebar-view-files")).toHaveAttribute("aria-selected", "true"),
     );
@@ -1484,8 +1500,8 @@ describe("DesktopShell quick open (TASK-M4-04)", () => {
     fireEvent.click(screen.getByTestId("quick-open-item-README.md"));
     expect(screen.queryByTestId("quick-open-dialog")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
-    expect(screen.getByTestId("viewer-tab-README.md")).toBeInTheDocument();
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
+    expect(selectedFileTab()).toHaveAttribute("title", "README.md");
     await waitFor(() => expect(screen.getByTestId("viewer-markdown")).toBeInTheDocument());
     expect(viewer["srv-m4quick"]?.tabs.map((tab) => tab.path)).toEqual(["README.md"]);
     expect(readRecentFiles("srv-m4quick")).toEqual(["README.md"]);
@@ -1545,11 +1561,9 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     expect(viewer["srv-m4search"]?.activePath).toBe("src/app.ts");
     expect(viewer["srv-m4search"]?.activeLine).toEqual({ path: "src/app.ts", line: 3 });
     // The hit returns to the right-side viewer while Chat remains central.
-    await waitFor(() =>
-      expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true"),
-    );
+    await waitFor(() => expect(selectedFileTab()).toHaveAttribute("aria-selected", "true"));
     await waitFor(() => expect(screen.getByTestId("viewer-code")).toBeInTheDocument());
-    expect(screen.queryByTestId("search-input")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-files-pane")).toHaveClass("hidden");
   });
 
   it("repeated ⌘⇧F cycles between the search panel and the viewer", async () => {
@@ -1563,8 +1577,8 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
 
     fireEvent.keyDown(window, { key: "f", shiftKey: true, ctrlKey: true });
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
-    expect(screen.queryByTestId("files-search-pane")).not.toBeInTheDocument();
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-files-pane")).toHaveClass("hidden");
   });
 
   it("the search toggle button in the Files tab switches modes and shows its state", async () => {
@@ -1577,7 +1591,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
     // tool is selected directly and full-text search is opened by shortcut.
     expect(screen.queryByTestId("files-search-toggle")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTestId("main-tab-files"));
-    expect(screen.getByTestId("right-tools-files")).toHaveAttribute("aria-selected", "true");
+    expect(selectedFileTab()).toHaveAttribute("aria-selected", "true");
     fireEvent.keyDown(window, { key: "f", shiftKey: true, ctrlKey: true });
     expect(screen.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
   });
@@ -1602,7 +1616,7 @@ describe("DesktopShell full-text search (TASK-M4-05)", () => {
 });
 
 describe("DesktopShell session diff view (TASK-M4-07)", () => {
-  it("⌘D opens the diff view for the active session and Back returns to chat", async () => {
+  it("⌘D opens a session diff tab while preserving chat and composer", async () => {
     const alpha = server({ id: "srv-m4diff", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1610,11 +1624,12 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     applySessionList("srv-m4diff", [session("sess_diff_01", DEMO_DIR)]);
     fireEvent.click(await screen.findByTestId("workspace-session-sess_diff_01"));
 
-    // ⌘D opens the diff view with its own header (no Chat|Files tab bar).
+    const composer = screen.getByTestId("prompt-input");
     fireEvent.keyDown(window, { key: "d", metaKey: true });
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
     expect(screen.getByText("Session diff")).toBeInTheDocument();
-    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
+    expect(screen.getByTestId("prompt-input")).toBe(composer);
     await waitFor(() =>
       expect(screen.getAllByTestId("diff-file-header").length).toBeGreaterThan(0),
     );
@@ -1622,13 +1637,14 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     // No message filter chip for a whole-session diff.
     expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
 
-    // Back returns to the chat view.
-    fireEvent.click(screen.getByTestId("diff-back"));
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Session diff", hidden: true }), {
+      key: "Delete",
+    });
     expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
   });
 
-  it("⌘D opens from the prompt input and toggles back to chat", async () => {
+  it("⌘D opens from the prompt and refocuses the same diff tab", async () => {
     const alpha = server({ id: "srv-m4diff", name: "Alpha" });
     invokeMock.mockResolvedValueOnce([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1641,13 +1657,13 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     fireEvent.keyDown(screen.getByTestId("prompt-input"), { key: "d", metaKey: true });
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
 
-    // A second ⌘D toggles back to chat.
+    const diff = screen.getByTestId("session-diff-view");
     fireEvent.keyDown(window, { key: "D", ctrlKey: true });
-    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("session-diff-view")).toBe(diff);
     expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
   });
 
-  it("message View diff opens the filtered diff and the chip clears it", async () => {
+  it("message View diff opens an independently closable filtered diff tab", async () => {
     const alpha = server({ id: "srv-m4diff", name: "Alpha" });
     mockHttpRoutes([alpha]);
     render(() => <DesktopShell server={alpha} onExit={vi.fn()} />);
@@ -1670,8 +1686,11 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     fireEvent.click(item);
 
     expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId("diff-message-filter")).toBeInTheDocument());
-    expect(screen.getByTestId("diff-message-filter")).toHaveTextContent("Message msg_02");
+    expect(screen.getByRole("tab", { name: "Session diff · msg_02" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(screen.getByTestId("prompt-input")).toBeInTheDocument();
     await waitFor(() =>
       expect(screen.getAllByTestId("diff-file-header").length).toBeGreaterThan(0),
     );
@@ -1681,10 +1700,11 @@ describe("DesktopShell session diff view (TASK-M4-07)", () => {
     );
     expect(diffCalls[0][1].request.query.messageID).toBe("msg_02");
 
-    // The chip's × clears the filter (whole-session diff, chip gone).
-    fireEvent.click(screen.getByTestId("diff-filter-clear"));
-    expect(screen.queryByTestId("diff-message-filter")).not.toBeInTheDocument();
-    expect(screen.getByTestId("session-diff-view")).toBeInTheDocument();
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Session diff · msg_02" }), {
+      key: "Delete",
+    });
+    expect(screen.queryByTestId("session-diff-view")).not.toBeInTheDocument();
+    expect(screen.getByTestId("prompt-input")).toBeInTheDocument();
   });
 
   it("message Fork from here forks the session and opens the child", async () => {
@@ -1891,17 +1911,16 @@ describe("DesktopShell VCS panel and status bar (TASK-M4-08)", () => {
 
     // The Changes view replaces the tab bar with its own header + panel.
     expect(screen.getAllByTestId("vcs-panel").length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByText("Changes")).toBeInTheDocument();
-    expect(screen.queryByTestId("main-tab-chat")).not.toBeInTheDocument();
+    expect(screen.getByTestId("right-tools-review")).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByTestId("main-tab-chat")).toBeInTheDocument();
     await waitFor(() => expect(screen.getAllByTestId("vcs-branch")[0]).toHaveTextContent("main"));
     await waitFor(() =>
       expect(screen.getAllByTestId("vcs-change")[0]).toHaveTextContent("src/features/a.ts"),
     );
 
-    // Back returns to Chat while the right-side Review tool stays mounted.
-    fireEvent.click(screen.getByTestId("changes-back"));
-    // The right-side tools keep their Review tab mounted after the main
-    // Changes view closes; only the main Changes header should disappear.
+    // Closing the workspace tab leaves the central chat available.
+    fireEvent.keyDown(screen.getByTestId("right-tools-review"), { key: "Delete" });
+    expect(screen.queryByTestId("vcs-panel")).not.toBeInTheDocument();
     expect(screen.queryByTestId("changes-back")).not.toBeInTheDocument();
     expect(screen.getByTestId("main-tab-chat")).toHaveAttribute("aria-current", "true");
   });
@@ -2149,6 +2168,8 @@ describe("DesktopShell shortcut registry (TASK-M8-01)", () => {
 
     fireEvent.pointerDown(handle, { button: 0, clientX: 100 });
     fireEvent.pointerMove(window, { clientX: 140 });
+    expect(localStorage.getItem("oc-sidebar-width")).toBeNull();
+    fireEvent.pointerUp(window);
     expect(handle).toHaveAttribute("aria-valuenow", "296");
     expect(sidebar).toHaveStyle({ width: "296px" });
     expect(localStorage.getItem("oc-sidebar-width")).toBe("296");

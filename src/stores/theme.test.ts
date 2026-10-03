@@ -6,6 +6,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { refreshPlatform } from "../platform/index.js";
+import { readFileSync } from "node:fs";
 import {
   ACCENT_PRESETS,
   applyTheme,
@@ -93,6 +94,7 @@ describe("resolveMode", () => {
   it("maps explicit modes directly", () => {
     expect(resolveMode("dark")).toBe("dark");
     expect(resolveMode("light")).toBe("light");
+    expect(resolveMode("gray")).toBe("gray");
   });
 
   it("follows the system preference for the system mode", () => {
@@ -181,6 +183,18 @@ describe("applyTheme", () => {
 });
 
 describe("per-server override", () => {
+  it("applies gray server overrides and adapts the neutral accent to dark surfaces", () => {
+    setThemeMode("dark");
+    setAccent("neutral");
+    expect(accentVar()).toBe("#c3c6cc");
+    setServerThemeOverride("srv-a", "gray");
+    setThemeServer("srv-a");
+    expect(themeAttr()).toBe("gray");
+    expect(accentVar()).toBe("#50545b");
+    setThemeServer(undefined);
+    expect(themeAttr()).toBe("dark");
+    expect(accentVar()).toBe("#c3c6cc");
+  });
   it("resolves the server override over the global mode", () => {
     setThemeMode("light");
     setServerThemeOverride("srv-a", "dark");
@@ -220,6 +234,96 @@ describe("per-server override", () => {
     clearServerThemeOverride("srv-a");
     expect(themeAttr()).toBe("dark");
     expect(serverThemeOverride("srv-a")).toBeUndefined();
+  });
+});
+
+describe("startup theme and first-paint parity", () => {
+  const preRead = readFileSync("index.html", "utf8").match(/<script>([\s\S]*?)<\/script>/)?.[1];
+
+  it.each([
+    [false, null, null, "gray", "neutral"],
+    [false, "invalid", "invalid", "gray", "neutral"],
+    [false, "gray", "#123abc", "gray", "#123abc"],
+    [false, "dark", null, "dark", "neutral"],
+    [false, "light", "indigo", "light", "indigo"],
+    [false, "system", null, "dark", "neutral"],
+    [true, null, null, "dark", "indigo"],
+    [true, "gray", null, "gray", "indigo"],
+  ])(
+    "resolves mobile=%s mode=%s accent=%s consistently",
+    async (mobile, mode, color, theme, preset) => {
+      localStorage.clear();
+      if (mobile) toMobile();
+      mockMatchMedia(true);
+      if (mode) localStorage.setItem("oc-theme", mode);
+      if (color) localStorage.setItem("oc-accent", color);
+      vi.resetModules();
+      const startup = await import("./theme.js");
+      startup.applyTheme();
+      expect(themeAttr()).toBe(theme);
+      expect(startup.accent()).toBe(preset);
+      const expectedAccent = accentVar();
+      document.documentElement.removeAttribute("data-theme");
+      document.documentElement.style.removeProperty("--accent");
+      new Function(preRead ?? "")();
+      expect(themeAttr()).toBe(theme);
+      expect(accentVar()).toBe(expectedAccent);
+    },
+  );
+
+  it.each([false, true])(
+    "keeps mobile=%s defaults consistent when storage access is blocked",
+    async (mobile) => {
+      if (mobile) toMobile();
+      mockMatchMedia(true);
+      vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+        throw new Error("blocked storage");
+      });
+      try {
+        vi.resetModules();
+        const startup = await import("./theme.js");
+        startup.applyTheme();
+        const theme = mobile ? "dark" : "gray";
+        expect(themeAttr()).toBe(theme);
+        const expectedAccent = accentVar();
+        document.documentElement.removeAttribute("data-theme");
+        new Function(preRead ?? "")();
+        expect(themeAttr()).toBe(theme);
+        expect(accentVar()).toBe(expectedAccent);
+      } finally {
+        vi.restoreAllMocks();
+      }
+    },
+  );
+
+  it("keeps a narrow desktop touch window on desktop defaults", async () => {
+    localStorage.clear();
+    const previousWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { value: 640, configurable: true });
+    try {
+      vi.resetModules();
+      const startup = await import("./theme.js");
+      startup.applyTheme();
+      expect(themeAttr()).toBe("gray");
+      document.documentElement.removeAttribute("data-theme");
+      new Function(preRead ?? "")();
+      expect(themeAttr()).toBe("gray");
+      expect(accentVar()).toBe("#50545b");
+    } finally {
+      Object.defineProperty(window, "innerWidth", { value: previousWidth, configurable: true });
+    }
+  });
+
+  it("restores persisted gray server overrides", async () => {
+    localStorage.setItem(
+      "oc-theme-server",
+      JSON.stringify({ "srv-a": "gray", "srv-b": "invalid" }),
+    );
+    vi.resetModules();
+    const startup = await import("./theme.js");
+    startup.setThemeServer("srv-a");
+    expect(themeAttr()).toBe("gray");
+    expect(startup.serverThemeOverride("srv-b")).toBeUndefined();
   });
 });
 

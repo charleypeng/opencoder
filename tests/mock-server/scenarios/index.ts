@@ -307,3 +307,12 @@ export const scenarios: ScenarioMap = {
     { at: 2000, event: globalEvent("models-dev.refreshed", {}) },
   ],
 };
+
+// Interactive journeys drain the request through the real reply POST, not a timer.
+scenarios["permission-interactive"] = scenarios["permission-flow"]!.filter(
+  ({ event }) =>
+    !event ||
+    typeof event !== "object" ||
+    !("type" in event) ||
+    event.type !== "permission.replied",
+);

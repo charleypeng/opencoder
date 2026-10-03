@@ -26,9 +26,9 @@ test("E11 terminal create, type a command, echo round trip", async ({ page }) =>
   await addServer(page);
   await enterWorkspace(page);
 
-  // Open the terminal view. "+" spawns the server's default shell
-  // instantly (docs/ui-audit-2026-08 §3 — no picker detour).
-  await page.getByTestId("terminal-toggle").click();
+  // The workbench opens the docked terminal from its registered shortcut.
+  await page.keyboard.press("Control+J");
+  await expect(page.getByTestId("terminal-dock")).toBeVisible();
   await expect(page.getByTestId("terminal-panel")).toBeVisible();
   const createPromise = waitForMockRequest(page, "POST", "/pty");
   await page.getByTestId("terminal-new").click();

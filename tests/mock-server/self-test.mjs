@@ -2433,6 +2433,16 @@ try {
       );
     });
 
+    await test("sse: interactive permission stays pending for the reply POST", async () => {
+      const events = await expectScenarioSequence(baseUrl, "permission-interactive", [
+        "permission.asked",
+      ]);
+      expect(
+        !events.some((e) => e.type === "permission.replied"),
+        "interactive permission must not be answered automatically",
+      );
+    });
+
     await test("sse: question-flow asks then replies", async () => {
       const events = await expectScenarioSequence(baseUrl, "question-flow", [
         "question.asked",

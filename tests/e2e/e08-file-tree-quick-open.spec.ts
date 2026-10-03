@@ -19,11 +19,12 @@ test("E08 file tree opens a file; quick open jumps to it", async ({ page }) => {
   await page.getByTestId("file-row-src/features/sessions").click();
   await page.getByTestId("file-row-src/features/sessions/PromptBox.tsx").click();
 
-  // The main pane switches to Files and renders the fixture content
-  // (shiki-highlighted code arrives asynchronously).
-  await expect(page.getByTestId("main-tab-files")).toHaveAttribute("aria-current", "true");
-  await expect(page.getByTestId("file-viewer")).toBeVisible();
-  await expect(page.getByTestId("viewer-code")).not.toBeEmpty({ timeout: 15_000 });
+  // Opening a file focuses its right-side workbench tab. Highlighted code
+  // arrives asynchronously after the file content request resolves.
+  const filesPane = page.locator('[data-testid="right-tools-files-pane"]:visible');
+  await expect(page.getByTestId("right-tool-panel")).toBeVisible();
+  await expect(filesPane.getByTestId("file-viewer")).toBeVisible();
+  await expect(filesPane.getByTestId("viewer-code")).not.toBeEmpty({ timeout: 15_000 });
 
   // ⌘/Ctrl+P quick open: type a query and pick the README file.
   await page.keyboard.press("Control+P");
@@ -31,5 +32,7 @@ test("E08 file tree opens a file; quick open jumps to it", async ({ page }) => {
   await page.getByTestId("quick-open-input").fill("README");
   await expect(page.getByTestId("quick-open-item-README.md")).toBeVisible({ timeout: 10_000 });
   await page.getByTestId("quick-open-item-README.md").click();
-  await expect(page.getByTestId("viewer-tab-README.md")).toBeVisible();
+  await expect(filesPane).toBeVisible();
+  await expect(filesPane.getByTestId("viewer-markdown")).toBeVisible();
+  await expect(page.getByRole("tab", { name: "README.md", exact: true })).toBeVisible();
 });

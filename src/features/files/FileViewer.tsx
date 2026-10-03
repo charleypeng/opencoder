@@ -14,7 +14,7 @@
 // "Binary file" note for other binary payloads. The `fullscreen` prop
 // reserves the M7 mobile fullscreen page and is a no-op on desktop.
 
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import type { Component } from "solid-js";
 import ErrorBanner from "../../components/ErrorBanner.js";
 import ContextMenu, { type MenuItem } from "../../components/ContextMenu.js";
@@ -40,6 +40,10 @@ export interface FileViewerProps {
    *  a pending hit-line target (TASK-M4-05) is only consumed while
    *  visible, so opening a hit while searching keeps its highlight. */
   visible?: boolean;
+  /** A workspace tab owns this path independently of the store's active file. */
+  activePath?: string;
+  /** The desktop workspace supplies the outer tab strip. */
+  hideTabs?: boolean;
 }
 
 /** How long the search-hit line flash stays before fading (TASK-M4-05). */
@@ -111,6 +115,16 @@ function ViewerCode(props: {
   onRendered?: (el: HTMLDivElement) => void;
 }) {
   let ref: HTMLDivElement | undefined;
+  const [theme, setTheme] = createSignal(document.documentElement.dataset.theme);
+  let previousCode: string | undefined;
+  onMount(() => {
+    const observer = new MutationObserver(() => setTheme(document.documentElement.dataset.theme));
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    onCleanup(() => observer.disconnect());
+  });
   // Highlight async and inject the Shiki HTML; failures render the code
   // as a plain escaped block (mirrors the markdown fence hydration).
   createEffect(() => {
@@ -118,24 +132,32 @@ function ViewerCode(props: {
     const code = props.code;
     const lang = props.lang;
     const onRendered = props.onRendered;
+    theme();
     if (el === undefined) return;
+    let current = true;
+    onCleanup(() => {
+      current = false;
+    });
+    // Show readable code while highlighting loads, without collapsing its height.
+    if (previousCode !== code) {
+      el.innerHTML = `<pre><code>${escapeHtml(code)
+        .split("\n")
+        .map((line) => `<span class="line">${line}</span>`)
+        .join("\n")}</code></pre>`;
+      tagLineSpans(el);
+      previousCode = code;
+    }
     void highlightCode(code, lang)
       .then((html) => {
-        if (ref === el) {
+        if (current) {
           el.innerHTML = html;
           tagLineSpans(el);
           onRendered?.(el);
         }
       })
       .catch(() => {
-        if (ref === el) {
-          el.innerHTML = `<pre><code>${escapeHtml(code)
-            .split("\n")
-            .map((line) => `<span class="line">${line}</span>`)
-            .join("\n")}</code></pre>`;
-          tagLineSpans(el);
-          onRendered?.(el);
-        }
+        // The readable fallback is already present.
+        if (current) onRendered?.(el);
       });
   });
   return <div ref={ref} data-testid="viewer-code" class="min-h-full p-3 text-sm" />;
@@ -299,7 +321,7 @@ function ContentView(props: {
                         data-testid="viewer-empty-file"
                         class="px-4 py-4 text-sm text-fg-secondary"
                       >
-                        Empty file
+                        {t("files:emptyFile")}
                       </p>
                     }
                   >
@@ -338,7 +360,9 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   const t = useT();
   const state = createMemo(() => viewer[props.serverId]);
   const tabs = createMemo(() => state()?.tabs ?? []);
-  const activePath = createMemo(() => state()?.activePath ?? null);
+  const activePath = createMemo(() =>
+    props.activePath !== undefined ? props.activePath || null : (state()?.activePath ?? null),
+  );
   // eslint-disable-next-line solid/reactivity -- one-time capture, mobile form factor is fixed per mount
   const fullscreen = props.fullscreen;
   const [loadingPath, setLoadingPath] = createSignal<string | null>(null);
@@ -401,9 +425,17 @@ const FileViewer: Component<FileViewerProps> = (props) => {
     const serverId = props.serverId;
     const directory = getActiveDirectory();
     const path = activePath();
+    const managed = props.hideTabs && props.activePath !== undefined;
+    const seq = ++fetchSeq;
+    setLoadError(null);
+    setLoadingPath(null);
+    setCodeEl(undefined);
+    onCleanup(() => {
+      fetchSeq += 1;
+      if (managed && path !== null) contentCache.delete(cacheKey(serverId, directory, path));
+    });
     if (path === null) return;
     if (contentCache.has(cacheKey(serverId, directory, path))) return;
-    const seq = ++fetchSeq;
     setLoadingPath(path);
     void loadContent(serverId, directory, path, seq);
   });
@@ -477,7 +509,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
   return (
     <div data-testid="file-viewer" class="flex h-full min-h-0 flex-col">
       <Show
-        when={tabs().length > 0}
+        when={activePath() !== null}
         fallback={
           <div
             data-testid="viewer-empty"
@@ -488,94 +520,124 @@ const FileViewer: Component<FileViewerProps> = (props) => {
           </div>
         }
       >
-        <div
-          role="tablist"
-          aria-label={t("files:openFiles")}
-          class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
-        >
-          <Show when={!fullscreen}>
-            <For each={tabs()}>
-              {(tab) => {
-                const active = () => activePath() === tab.path;
-                return (
-                  <div
-                    class={`flex shrink-0 items-center rounded-md border ${
-                      active()
-                        ? "border-accent bg-accent-soft"
-                        : "border-transparent text-fg-secondary hover:text-fg-primary"
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      role="tab"
-                      data-testid={`viewer-tab-${tab.path}`}
-                      aria-selected={active() ? "true" : "false"}
-                      title={tab.path}
-                      class={`max-w-48 truncate px-2.5 py-1 text-xs outline-none ${
-                        isMarkdownPath(tab.path) ? "font-medium" : ""
+        <Show when={!props.hideTabs}>
+          <div
+            role="tablist"
+            aria-label={t("files:openFiles")}
+            class="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-bg-sunken px-2 py-1.5"
+          >
+            <Show when={!fullscreen}>
+              <For each={tabs()}>
+                {(tab) => {
+                  const active = () => activePath() === tab.path;
+                  return (
+                    <div
+                      class={`flex shrink-0 items-center rounded-md border ${
+                        active()
+                          ? "border-accent bg-accent-soft"
+                          : "border-transparent text-fg-secondary hover:text-fg-primary"
                       }`}
-                      onClick={() => setActive(props.serverId, tab.path)}
-                      onContextMenu={(event) => {
-                        if (!isMarkdownPath(tab.path)) return;
-                        event.preventDefault();
-                        setTabContextMenu({ path: tab.path, x: event.clientX, y: event.clientY });
-                      }}
                     >
-                      {tab.name}
-                    </button>
-                    <button
-                      type="button"
-                      data-testid={`viewer-tab-close-${tab.path}`}
-                      aria-label={t("files:closeTab", { name: tab.name })}
-                      class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
-                      onClick={() => handleCloseTab(props.serverId, tab.path)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                );
-              }}
-            </For>
-          </Show>
-          {/* Fullscreen (the mobile file page, TASK-M7-09): the bar shows
+                      <button
+                        type="button"
+                        role="tab"
+                        data-testid={`viewer-tab-${tab.path}`}
+                        aria-selected={active() ? "true" : "false"}
+                        title={tab.path}
+                        class={`max-w-48 truncate px-2.5 py-1 text-xs outline-none ${
+                          isMarkdownPath(tab.path) ? "font-medium" : ""
+                        }`}
+                        onClick={() => setActive(props.serverId, tab.path)}
+                        onContextMenu={(event) => {
+                          if (!isMarkdownPath(tab.path)) return;
+                          event.preventDefault();
+                          setTabContextMenu({ path: tab.path, x: event.clientX, y: event.clientY });
+                        }}
+                      >
+                        {tab.name}
+                      </button>
+                      <button
+                        type="button"
+                        data-testid={`viewer-tab-close-${tab.path}`}
+                        aria-label={t("files:closeTab", { name: tab.name })}
+                        class="mr-1 flex h-4 w-4 shrink-0 items-center justify-center rounded text-xs text-fg-faint hover:bg-bg-sunken hover:text-fg-primary"
+                        onClick={() => handleCloseTab(props.serverId, tab.path)}
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                }}
+              </For>
+            </Show>
+            {/* Fullscreen (the mobile file page, TASK-M7-09): the bar shows
               only the pushed file — the multi-tab bar would drift the
               viewer's active tab from the pushed path and show another
               file under the page title. No switching or closing, so the
               content can never leave the pushed path. */}
-          <Show when={fullscreen && activePath() !== null}>
-            <div class="flex shrink-0 items-center rounded-md border border-accent bg-accent-soft">
-              <span
-                role="tab"
-                data-testid={`viewer-tab-${activePath()}`}
-                aria-selected="true"
-                title={activePath() as string}
-                class="max-w-48 truncate px-2.5 py-1 text-xs"
-              >
-                {tabs().find((tab) => tab.path === activePath())?.name}
-              </span>
-            </div>
-          </Show>
-          {/* Mobile zoom toggle (TASK-M7-09): doubles as the visible state
+            <Show when={fullscreen && activePath() !== null}>
+              <div class="flex shrink-0 items-center rounded-md border border-accent bg-accent-soft">
+                <span
+                  role="tab"
+                  data-testid={`viewer-tab-${activePath()}`}
+                  aria-selected="true"
+                  title={activePath() as string}
+                  class="max-w-48 truncate px-2.5 py-1 text-xs"
+                >
+                  {tabs().find((tab) => tab.path === activePath())?.name}
+                </span>
+              </div>
+            </Show>
+            {/* Mobile zoom toggle (TASK-M7-09): doubles as the visible state
               chip; double-tapping the code area toggles the same state. */}
-          <Show when={fullscreen}>
-            <button
-              type="button"
-              data-testid="viewer-zoom-toggle"
-              aria-label={t("files:toggleCodeZoom")}
-              class="ml-auto shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none active:bg-accent-soft"
-              onClick={() => setZoomed((value) => !value)}
+            <Show when={fullscreen}>
+              <button
+                type="button"
+                data-testid="viewer-zoom-toggle"
+                aria-label={t("files:toggleCodeZoom")}
+                class="ml-auto shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2 py-1 text-xs text-fg-secondary outline-none active:bg-accent-soft"
+                onClick={() => setZoomed((value) => !value)}
+              >
+                {zoomed() ? "150%" : "100%"}
+              </button>
+            </Show>
+          </div>
+        </Show>
+        <Show when={props.hideTabs && activePath() !== null}>
+          <div class="flex h-9 shrink-0 items-center gap-2 border-b border-bg-sunken px-3">
+            <span
+              class="min-w-0 flex-1 truncate font-code text-xs text-fg-secondary"
+              title={activePath() ?? undefined}
             >
-              {zoomed() ? "150%" : "100%"}
-            </button>
-          </Show>
-        </div>
+              {activePath()}
+            </span>
+            <Show when={isMarkdownPath(activePath() ?? "")}>
+              <button
+                type="button"
+                data-testid="viewer-source-toggle"
+                class="shrink-0 rounded-md px-2 py-1 text-xs text-fg-secondary outline-none transition-colors hover:bg-bg-elevated hover:text-fg-primary focus-visible:ring-2 focus-visible:ring-accent"
+                onClick={() => {
+                  const path = activePath();
+                  if (path === null) return;
+                  toggleSourceMode(path);
+                  setSourceVersion((version) => version + 1);
+                }}
+              >
+                {sourceVersion() >= 0 && isSourceMode(activePath() ?? "")
+                  ? t("files:viewRendered")
+                  : t("files:viewSource")}
+              </button>
+            </Show>
+          </div>
+        </Show>
         <div
+          data-testid="viewer-scroll"
           class="min-h-0 flex-1 overflow-auto"
           style={fullscreen ? { "touch-action": "pan-x pan-y" } : undefined}
         >
           <Show when={viewState()?.kind === "loading"}>
             <p data-testid="viewer-loading" class="px-4 py-4 text-sm text-fg-secondary">
-              Loading file…
+              {t("files:loadingFile")}
             </p>
           </Show>
           <Show when={viewError() !== null}>
@@ -587,7 +649,7 @@ const FileViewer: Component<FileViewerProps> = (props) => {
                 class="rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
                 onClick={retry}
               >
-                Retry
+                {t("common:retry")}
               </button>
             </div>
           </Show>

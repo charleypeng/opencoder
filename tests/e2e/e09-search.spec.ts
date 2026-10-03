@@ -9,10 +9,8 @@ test("E09 full-text search jumps to the matching line", async ({ page }) => {
   await addServer(page);
   await enterWorkspace(page);
 
-  // Files tab → search panel.
-  await page.getByTestId("main-tab-files").click();
-  await expect(page.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
-  await page.getByTestId("files-search-toggle").click();
+  // Open the full-text search from its global shortcut.
+  await page.keyboard.press("Control+Shift+F");
   await expect(page.getByTestId("files-search-pane")).toHaveAttribute("data-visible", "true");
 
   // The mock /find fixture matches "createSignal" in FileTree.tsx line 12.
@@ -21,10 +19,12 @@ test("E09 full-text search jumps to the matching line", async ({ page }) => {
     timeout: 10_000,
   });
 
-  // Clicking the hit opens the file (viewer tab) and flips back to the
-  // viewer pane with the active line set.
+  // Clicking the hit opens the file in the right-side workbench and returns
+  // to its viewer pane with the active line set.
+  const filesPane = page.locator('[data-testid="right-tools-files-pane"]:visible');
   await page.getByTestId("search-hit-src/features/files/FileTree.tsx-12").click();
-  await expect(page.getByTestId("files-viewer-pane")).toHaveAttribute("data-visible", "true");
-  await expect(page.getByTestId("viewer-tab-src/features/files/FileTree.tsx")).toBeVisible();
-  await expect(page.getByTestId("viewer-code")).not.toBeEmpty({ timeout: 15_000 });
+  await expect(page.getByTestId("right-tool-panel")).toBeVisible();
+  await expect(filesPane.getByTestId("file-viewer")).toBeVisible();
+  await expect(filesPane.getByTestId("viewer-code")).not.toBeEmpty({ timeout: 15_000 });
+  await expect(page.getByRole("tab", { name: "FileTree.tsx", exact: true })).toBeVisible();
 });
