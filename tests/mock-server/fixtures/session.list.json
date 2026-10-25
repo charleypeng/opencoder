@@ -74,5 +74,22 @@
       "created": 1750000000000,
       "updated": 1750000500000
     }
+  },
+  {
+    "id": "ses_long_mobile",
+    "slug": "mobile-long-transcript",
+    "projectID": "project-mock-1",
+    "directory": "/mock/projects/opencode-demo",
+    "title": "Mobile long transcript",
+    "agent": "build",
+    "model": {
+      "id": "gpt-5",
+      "providerID": "openai"
+    },
+    "version": "1.18.11",
+    "time": {
+      "created": 1750000000000,
+      "updated": 1750000600000
+    }
   }
 ]

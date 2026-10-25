@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - fix(desktop): Start the tool workbench closed so the chat keeps the full column, restore the last panel width when reopened, and align the composer, task panel, and transcript to one reading measure. (desktop)
 - fix(desktop): Restyle the chat Todos action as a ghost control, give the no-session state a quiet icon and hint, and wrap the VCS header actions so narrow panels never clip controls. (desktop)
 - fix(servers): Add a quiet empty-state glyph and raise the empty-state headline to primary contrast. (servers)
+- fix(mobile): Constrain the chat transcript to the mobile shell so long conversations scroll inside the list and focusing the composer no longer shifts the whole app. (mobile)
 
 ## [1.2.4] - 2026-09-09
 

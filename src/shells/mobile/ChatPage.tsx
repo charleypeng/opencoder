@@ -64,9 +64,11 @@ export const ChatPage: Component<MobilePageProps> = (props) => {
           </p>
         }
       >
-        {/* Message list fills remaining space; min-h-0 lets it shrink
-            inside the flex column so the composer can claim its height. */}
-        <div class="min-h-0 flex-1">
+        {/* MessageList's root is flex-1, so this wrapper must itself be a
+            flex column: a plain block child would let the virtual list grow
+            to its full total height, which escapes the shell and lets focus
+            or scrollIntoView shift the whole app. */}
+        <div class="flex min-h-0 flex-1 flex-col">
           <MessageList
             serverId={props.serverId}
             sessionId={sessionId() as string}
