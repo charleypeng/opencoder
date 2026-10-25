@@ -78,6 +78,10 @@ test("E15 independent browser tabs retain frames and support reduced motion", as
   await addServer(page);
   await enterWorkspace(page);
   const tools = page.getByTestId("right-tool-panel");
+  // The workbench starts closed to keep the chat full-width on entry; open
+  // it from the title bar before adding the first browser tab.
+  await page.getByTestId("titlebar-right-tools-toggle").click();
+  await expect(tools).toBeVisible();
   const browserTabs = tools.locator('[role="tab"][data-workbench-kind="browser"]');
   async function addBrowser() {
     await tools.getByTestId("right-tools-add-tab").click();

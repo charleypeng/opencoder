@@ -37,7 +37,9 @@ function App() {
   const [selected, setSelected] = createSignal<ServerEntry | null>(null);
   const [petWindow, setPetWindow] = createSignal(false);
   const [sidebarCollapsed, setSidebarCollapsed] = createSignal(false);
-  const [rightToolsOpen, setRightToolsOpen] = createSignal(true);
+  // The workbench starts closed so the chat canvas keeps the full column on
+  // first entry; every explicit tool action (file, diff, search hit) opens it.
+  const [rightToolsOpen, setRightToolsOpen] = createSignal(false);
   const [rightToolsMaximized, setRightToolsMaximized] = createSignal(false);
 
   function toggleSidebar(): void {
@@ -60,7 +62,7 @@ function App() {
   function exitWorkspace(): void {
     setSelected(null);
     setSidebarCollapsed(false);
-    setRightToolsOpen(true);
+    setRightToolsOpen(false);
     setRightToolsMaximized(false);
   }
 

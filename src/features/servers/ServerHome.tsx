@@ -144,7 +144,27 @@ function EmptyState(props: { onStart: () => void }) {
       data-testid="empty-state"
       class="mx-auto flex max-w-md flex-col items-center py-20 text-center"
     >
-      <p class="text-sm font-medium text-fg-secondary">{t("servers:noServers")}</p>
+      {/* The same quiet circled glyph used by the workspace's no-session
+          state keeps the two landing surfaces visually related. */}
+      <span
+        class="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-bg-sunken text-fg-faint"
+        aria-hidden="true"
+      >
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          class="h-5 w-5"
+        >
+          <rect x="3.5" y="4.5" width="17" height="6" rx="1.5" />
+          <rect x="3.5" y="13.5" width="17" height="6" rx="1.5" />
+          <path d="M7 7.5h.01M7 16.5h.01" />
+        </svg>
+      </span>
+      <p class="text-sm font-medium text-fg-primary">{t("servers:noServers")}</p>
       <p class="mt-1 text-sm text-fg-faint">{t("servers:noServersHint")}</p>
       <button
         type="button"

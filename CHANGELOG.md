@@ -15,6 +15,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - feat(desktop): Add restrained, reduced-motion-aware tab transitions, retain chat and code during tool/theme switches, and batch splitter updates per frame with persistence on release to reduce blank flashes and resize jitter. (desktop)
 
+### Fixed
+
+- fix(messages): Quiet the transcript chrome by removing per-message timestamps, using a neutral user pill, widening line and paragraph rhythm, capping the reading measure, and softening the scrolled top edge. (messages)
+- fix(sessions): Keep the composer as one block by moving the agent/model chips below the input with an inline send hint, and compact the workspace actions into a single row with an icon-only add control and an inline search glyph. (sessions)
+- fix(desktop): Start the tool workbench closed so the chat keeps the full column, restore the last panel width when reopened, and align the composer, task panel, and transcript to one reading measure. (desktop)
+- fix(desktop): Restyle the chat Todos action as a ghost control, give the no-session state a quiet icon and hint, and wrap the VCS header actions so narrow panels never clip controls. (desktop)
+- fix(servers): Add a quiet empty-state glyph and raise the empty-state headline to primary contrast. (servers)
+
 ## [1.2.4] - 2026-09-09
 
 ### Changed

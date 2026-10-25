@@ -713,85 +713,29 @@
   }
 }
 
-/* UI fix — composer (message box) tech-feel border:
- *   - transparent fill (no white block) so it blends with the elevated panel
- *   - gradient accent ring via mask-composite (crisp at any DPR, no shift)
- *   - soft accent glow that intensifies on focus-within
- *   - HUD-style corner ticks
- * Colors are semantic tokens, so it reads in light / dark / oled themes. */
+/* Composer surface: a quiet hairline that only takes the accent colour on
+ * focus. Neutral chrome lets the transcript keep the visual weight. */
 .composer-tech {
   position: relative;
-  background: transparent;
+  background: var(--bg-elevated);
   border-radius: var(--r-lg);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 12%, transparent),
-    0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--fg-faint) 20%, transparent);
   transition: box-shadow var(--dur-fast) var(--ease-emphasized);
 }
 
 .composer-tech:focus-within {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent),
-    0 0 26px color-mix(in srgb, var(--accent) 22%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
-/* Gradient border ring (mask trick keeps the inner radius clean). */
-.composer-tech::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    115deg,
-    color-mix(in srgb, var(--accent) 70%, transparent),
-    color-mix(in srgb, var(--accent) 16%, transparent) 45%,
-    color-mix(in srgb, var(--accent) 70%, transparent)
-  );
-  -webkit-mask:
-    linear-gradient(#000 0 0) content-box,
-    linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  pointer-events: none;
-}
-
-/* Corner ticks for the terminal / HUD aesthetic. */
-.composer-tech::after {
-  content: "";
-  position: absolute;
-  inset: 5px;
-  border-radius: calc(var(--r-lg) - 5px);
-  pointer-events: none;
-  background:
-    linear-gradient(var(--accent), var(--accent)) left top / 11px 1.5px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) left top / 1.5px 11px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) right top / 11px 1.5px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) right top / 1.5px 11px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) left bottom / 11px 1.5px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) left bottom / 1.5px 11px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) right bottom / 11px 1.5px no-repeat,
-    linear-gradient(var(--accent), var(--accent)) right bottom / 1.5px 11px no-repeat;
-  opacity: 0.5;
-}
-
-/* Neutral desktop chrome uses a quiet border instead of the accent glow. */
+/* Gray chrome is white-canvas first: the composer sits on the canvas with a
+ * sunken hairline rather than an elevated fill. */
 [data-theme="gray"] [data-testid="desktop-shell"] .composer-tech {
   background: var(--bg-base);
-  box-shadow:
-    0 0 0 1px var(--bg-sunken),
-    0 2px 8px color-mix(in srgb, var(--fg-primary) 5%, transparent);
+  box-shadow: 0 0 0 1px var(--bg-sunken);
 }
 
 [data-theme="gray"] [data-testid="desktop-shell"] .composer-tech:focus-within {
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--bg-sunken)),
-    0 2px 8px color-mix(in srgb, var(--fg-primary) 7%, transparent);
-}
-
-[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech::before,
-[data-theme="gray"] [data-testid="desktop-shell"] .composer-tech::after {
-  display: none;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 45%, var(--bg-sunken));
 }
 
 [data-testid="viewer-scroll"] {

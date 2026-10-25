@@ -464,11 +464,12 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   // as a modal instead of replacing it — the gear button, the command
   // palette's settings action and the ⌘, shortcut open this dialog.
   const [settingsOpen, setSettingsOpen] = createSignal(false);
-  // Right-side tools (review / files / browser): visible beside the chat to
-  // establish the desktop three-column layout. The panel owns its selected
-  // tool, while this shell coordinates visibility, width recovery and
-  // maximize with the chat.
-  const [internalRightToolsOpen, setInternalRightToolsOpen] = createSignal(true);
+  // Right-side tools (review / files / browser): the desktop third column is
+  // available on demand. It starts closed so an empty review surface never
+  // narrows the chat on first entry; opening a file, diff or browser tab
+  // brings it back. The panel owns its selected tool, while this shell
+  // coordinates visibility, width recovery and maximize with the chat.
+  const [internalRightToolsOpen, setInternalRightToolsOpen] = createSignal(false);
   const rightToolsOpen = () => props.rightToolsOpen ?? internalRightToolsOpen();
   const initialRightToolsWidth = readRightToolPanelWidth();
   const [rightToolsWidth, setRightToolsWidth] = createSignal(initialRightToolsWidth);
@@ -501,11 +502,19 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
   }
 
   function toggleRightTools(): void {
-    if (rightToolsOpen() && rightToolsWidth() === 0) {
-      commitRightToolsWidth(lastRightToolsWidth());
+    if (rightToolsOpen()) {
+      // A zeroed width is a collapsed panel that still holds open state;
+      // restore the last usable width instead of toggling into an invisible
+      // third column.
+      if (rightToolsWidth() === 0) {
+        commitRightToolsWidth(lastRightToolsWidth());
+        return;
+      }
+      setRightToolsOpen(false);
       return;
     }
-    setRightToolsOpen(!rightToolsOpen());
+    if (rightToolsWidth() === 0) commitRightToolsWidth(lastRightToolsWidth());
+    setRightToolsOpen(true);
   }
 
   function updateRightToolsWidth(width: number): void {
@@ -1275,7 +1284,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
             <button
               type="button"
               data-testid="back-to-servers"
-              class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary hover:text-fg-primary"
+              class="shrink-0 rounded-md px-1.5 py-0.5 text-xs text-fg-faint outline-none transition-colors hover:text-fg-primary focus-visible:text-fg-primary"
               onClick={() => props.onExit()}
             >
               {t("servers:backToServers")}
@@ -1564,15 +1573,42 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                   <Show
                     when={activeSessionId()}
                     fallback={
-                      <div class="flex flex-1 items-center justify-center p-4">
-                        <p class="text-sm text-fg-secondary">{t("desktop:noSession")}</p>
+                      <div class="flex flex-1 items-center justify-center p-6">
+                        <div
+                          data-testid="no-session-state"
+                          class="flex max-w-[22rem] flex-col items-center text-center"
+                        >
+                          <span
+                            class="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-bg-sunken text-fg-faint"
+                            aria-hidden="true"
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              stroke-width="1.5"
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              class="h-5 w-5"
+                            >
+                              <path d="M20 15.5a2 2 0 0 1-2 2H8l-4 3V6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2z" />
+                              <path d="M8.5 9h7M8.5 12.5h4.5" />
+                            </svg>
+                          </span>
+                          <p class="text-sm font-medium text-fg-primary">
+                            {t("desktop:noSession")}
+                          </p>
+                          <p class="mt-1 text-xs leading-relaxed text-fg-faint">
+                            {t("desktop:noSessionHint")}
+                          </p>
+                        </div>
                       </div>
                     }
                   >
                     <header class="flex shrink-0 items-center justify-between gap-2 border-b border-bg-sunken px-4 py-1.5">
                       <h2
                         data-testid="chat-session-title"
-                        class="min-w-0 truncate text-xs font-medium text-fg-secondary"
+                        class="min-w-0 truncate text-sm font-medium text-fg-primary"
                       >
                         {titleOf(activeServerId(), activeSessionId() as string)}
                       </h2>
@@ -1628,7 +1664,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                           data-testid="todo-toggle"
                           aria-label={t("desktop:toggleTodo")}
                           title={t("desktop:toggleTodo")}
-                          class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary transition-colors hover:text-fg-primary"
+                          class="shrink-0 rounded-md px-2 py-1 text-xs text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary focus-visible:bg-bg-sunken"
                           onClick={() => setTaskExpandToken((token) => token + 1)}
                         >
                           {t("desktop:todos")}
@@ -1677,7 +1713,7 @@ const DesktopShell: Component<DesktopShellProps> = (props) => {
                               }
                             }}
                           >
-                            <div class="mx-auto w-full max-w-[58rem]">
+                            <div class="mx-auto w-full max-w-[36rem]">
                               <TaskPanel
                                 serverId={activeServerId()}
                                 sessionId={activeSessionId() as string}

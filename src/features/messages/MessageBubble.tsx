@@ -126,11 +126,6 @@ function isProcessPart(part: Part | undefined): part is ProcessPart {
   );
 }
 
-/** Local hh:mm timestamp for a message's created time. */
-function formatMessageTime(timestampMs: number): string {
-  return new Date(timestampMs).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-}
-
 function PartView(props: {
   part: Part | undefined;
   /** Breathing-caret streaming flag for the last text part. */
@@ -188,7 +183,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
   const info = () => messages[props.serverId]?.[props.sessionId]?.infos[props.messageID];
   const role = () => info()?.role ?? "assistant";
   const user = () => role() === "user";
-  const created = () => info()?.time.created;
   const compactionMarker = createMemo(() =>
     isCompactionMarkerMessage(
       info(),
@@ -277,7 +271,7 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
             <div
               class={
                 user()
-                  ? "max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+                  ? "max-w-[78%] rounded-2xl rounded-br-md bg-bg-elevated px-3.5 py-2"
                   : "w-full max-w-none"
               }
             >
@@ -320,11 +314,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
                 />
               </Show>
             </div>
-            <Show when={created() !== undefined}>
-              <span data-testid="message-time" class="px-1 text-xs text-fg-faint">
-                {formatMessageTime(created() as number)}
-              </span>
-            </Show>
           </MessageActions>
         }
       >
@@ -339,11 +328,6 @@ const MessageBubble: Component<MessageBubbleProps> = (props) => {
             <Show when={part().auto}>
               <span data-testid="compaction-continued" class="text-fg-faint">
                 {t("messages:compactionContinued")}
-              </span>
-            </Show>
-            <Show when={created() !== undefined}>
-              <span data-testid="message-time" class="text-fg-faint">
-                {formatMessageTime(created() as number)}
               </span>
             </Show>
           </div>

@@ -208,7 +208,7 @@ async function renderHistory() {
 }
 
 describe("MessageList", () => {
-  it("renders user and assistant bubbles with timestamps", async () => {
+  it("renders user and assistant bubbles without per-message timestamps", async () => {
     await renderHistory();
 
     const user = screen.getByTestId("message-msg_m1");
@@ -217,7 +217,7 @@ describe("MessageList", () => {
     expect(assistant).toHaveAttribute("data-role", "assistant");
     expect(user).toHaveTextContent("Add a login flow with password-based auth.");
     expect(assistant).toHaveTextContent("Let me check the existing project structure first.");
-    expect(screen.getAllByTestId("message-time")).toHaveLength(4);
+    expect(screen.queryAllByTestId("message-time")).toHaveLength(0);
   });
 
   it("keeps the process fold collapsed and expands it on click", async () => {
@@ -226,7 +226,7 @@ describe("MessageList", () => {
     const columns = screen.getAllByTestId("chat-reading-column");
     expect(columns).not.toHaveLength(0);
     for (const column of columns) {
-      expect(column).toHaveClass("max-w-[58rem]");
+      expect(column).toHaveClass("max-w-[36rem]");
     }
 
     const assistant = screen.getByTestId("message-msg_m2");
@@ -347,7 +347,7 @@ describe("MessageList", () => {
       "Add a login flow with password-based auth.",
     );
     expect(screen.getByTestId("delete-message-dialog")).toBeInTheDocument();
-    expect(screen.getAllByTestId("message-time")).toHaveLength(4);
+    expect(screen.queryAllByTestId("message-time")).toHaveLength(0);
   });
 
   it("renders streamed parts without message info as an assistant fallback", async () => {
@@ -692,7 +692,6 @@ describe("MessageList", () => {
   });
 
   it("matches the fixture history snapshot", async () => {
-    const timeSpy = vi.spyOn(Date.prototype, "toLocaleTimeString").mockReturnValue("10:26");
     // The running tool card ticks its elapsed time from Date.now(); pin the
     // clock so the snapshot stays deterministic (start 1750000014000 -> 500ms).
     const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1750000014500);
@@ -722,7 +721,6 @@ describe("MessageList", () => {
     }
     whitespaceNodes.forEach((node) => node.remove());
     expect(container).toMatchSnapshot();
-    timeSpy.mockRestore();
     nowSpy.mockRestore();
   });
 

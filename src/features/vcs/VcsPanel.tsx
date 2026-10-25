@@ -210,7 +210,7 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
         when={subView() === "diff" || subView() === "file-diff"}
         fallback={
           <>
-            <header class="flex shrink-0 items-center gap-2 border-b border-bg-sunken px-3 py-2">
+            <header class="flex shrink-0 flex-wrap items-center gap-x-2 gap-y-1 border-b border-bg-sunken px-3 py-2">
               <Show when={isGit()}>
                 <span
                   data-testid="vcs-branch"
@@ -227,30 +227,48 @@ const VcsPanel: Component<VcsPanelProps> = (props) => {
               </Show>
               <div class="min-w-0 flex-1" />
               <Show when={isGit()}>
-                <button
-                  type="button"
-                  data-testid="vcs-apply-open"
-                  class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                  onClick={() => setApplyOpen(true)}
-                >
-                  {t("vcs:applyPatch")}
-                </button>
-                <button
-                  type="button"
-                  data-testid="vcs-diff-button"
-                  class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                  onClick={() => setSubView("diff")}
-                >
-                  {t("vcs:workspaceDiff")}
-                </button>
-                <button
-                  type="button"
-                  data-testid="vcs-refresh"
-                  class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
-                  onClick={onRefresh}
-                >
-                  {t("common:refresh")}
-                </button>
+                {/* Actions wrap as one group so the last control is never
+                    clipped when the workspace panel is narrow. */}
+                <div class="flex min-w-0 flex-wrap items-center justify-end gap-1.5">
+                  <button
+                    type="button"
+                    data-testid="vcs-apply-open"
+                    class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                    onClick={() => setApplyOpen(true)}
+                  >
+                    {t("vcs:applyPatch")}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="vcs-diff-button"
+                    class="shrink-0 rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary"
+                    onClick={() => setSubView("diff")}
+                  >
+                    {t("vcs:workspaceDiff")}
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="vcs-refresh"
+                    aria-label={t("common:refresh")}
+                    title={t("common:refresh")}
+                    class="flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-fg-faint outline-none hover:bg-bg-sunken hover:text-fg-primary"
+                    onClick={onRefresh}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="1.7"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      class="h-3.5 w-3.5"
+                      aria-hidden="true"
+                    >
+                      <path d="M20 11a8 8 0 1 0-2.4 5.7" />
+                      <path d="M20 5v6h-6" />
+                    </svg>
+                  </button>
+                </div>
               </Show>
             </header>
 

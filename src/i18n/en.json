@@ -853,6 +853,7 @@
     "chatHeaderActions": "Chat actions",
     "statusBar": "Status bar",
     "noSession": "Select a session",
+    "noSessionHint": "Choose a conversation in the sidebar to start reading.",
     "chatTab": "Chat",
     "filesTab": "Files",
     "treeTab": "Tree",

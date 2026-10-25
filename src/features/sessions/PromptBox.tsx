@@ -1154,11 +1154,13 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
         <div class="min-w-0 flex-1">
           <ErrorBanner error={inlineError()} onDismiss={() => setInlineError(null)} />
           <div class="composer-tech relative flex flex-col gap-1.5 rounded-lg px-2 py-1.5">
-            {/* Agent selector (TASK-M5-04): the toolbar row above the input
+            {/* Agent selector (TASK-M5-04): the toolbar row below the input
               holds the agent chip; the menu lists the visible agents and
               records the per-session choice in the store. The model chip
-              (TASK-M5-05) sits next to it and opens the ModelPicker. */}
-            <div class="flex flex-wrap items-center gap-1.5" data-testid="prompt-toolbar">
+              (TASK-M5-05) sits next to it and opens the ModelPicker. Order
+              places the toolbar visually below the input (the DOM keeps the
+              menu markup ahead of the composer body). */}
+            <div class="order-2 flex flex-wrap items-center gap-1.5" data-testid="prompt-toolbar">
               <div class="relative">
                 <button
                   type="button"
@@ -1175,7 +1177,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                       setAgentMenuOpen(false);
                     }
                   }}
-                  class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
+                  class="flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs text-fg-secondary transition-colors hover:bg-bg-base hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <span
                     data-testid="agent-chip-dot"
@@ -1251,9 +1253,9 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 aria-label={t("models:modelChipLabel", { name: modelChipName() })}
                 disabled={disabled()}
                 onClick={() => setModelPickerOpen(true)}
-                class="flex items-center gap-1.5 rounded-full border border-bg-sunken bg-bg-base py-0.5 pl-2 pr-1.5 text-xs text-fg-default transition-colors hover:border-fg-faint hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
+                class="flex items-center gap-1.5 rounded-full px-1.5 py-0.5 text-xs text-fg-secondary transition-colors hover:bg-bg-base hover:text-fg-primary disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <span data-testid="model-chip-name" class="max-w-28 truncate font-mono">
+                <span data-testid="model-chip-name" class="max-w-28 truncate">
                   {modelChipName()}
                 </span>
                 <Show when={currentProvider() !== undefined}>
@@ -1263,6 +1265,25 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 </Show>
                 <ChevronDownIcon />
               </button>
+              {/* The send hint moves into the toolbar so the composer keeps a
+                  single visual block instead of a detached caption below it. */}
+              <span class="ml-auto shrink-0 pl-2 text-xs text-fg-faint">
+                {busy() ? (
+                  <span
+                    data-testid="wait-indicator"
+                    role="status"
+                    aria-live="polite"
+                    class="inline-flex items-center gap-1.5"
+                  >
+                    {busyElapsed() < 3 && (
+                      <span class="inline-block h-3 w-3 animate-spin rounded-full border border-accent border-t-transparent" />
+                    )}
+                    {waitText()}
+                  </span>
+                ) : (
+                  t("messages:sendHint", { combo: sendHintCombo() })
+                )}
+              </span>
             </div>
             <Show when={menu()} fallback={null}>
               {(m) => (
@@ -1389,7 +1410,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               )}
             </Show>
             <Show when={atts().length > 0 || attachError() !== null}>
-              <div class="flex flex-wrap gap-1.5 pb-1.5" data-testid="attachment-chips">
+              <div class="order-1 flex flex-wrap gap-1.5 pb-1.5" data-testid="attachment-chips">
                 <For each={atts()}>
                   {(attachment) => (
                     <span
@@ -1433,7 +1454,7 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
                 </Show>
               </div>
             </Show>
-            <div class="flex items-end gap-1">
+            <div class="order-1 flex items-end gap-1">
               <div class="flex items-center gap-1">
                 <button
                   type="button"
@@ -1506,23 +1527,6 @@ const PromptBox: Component<PromptBoxProps> = (props) => {
               )}
             </div>
           </div>
-          <p class="mt-1 px-1 text-xs text-fg-faint">
-            {busy() ? (
-              <span
-                data-testid="wait-indicator"
-                role="status"
-                aria-live="polite"
-                class="inline-flex items-center gap-1.5"
-              >
-                {busyElapsed() < 3 && (
-                  <span class="inline-block h-3 w-3 animate-spin rounded-full border border-accent border-t-transparent" />
-                )}
-                {waitText()}
-              </span>
-            ) : (
-              t("messages:sendHint", { combo: sendHintCombo() })
-            )}
-          </p>
         </div>
       </div>
       <ModelPicker

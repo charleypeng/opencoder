@@ -609,57 +609,58 @@ const MessageList: Component<MessageListProps> = (props) => {
           </button>
         </div>
       </Show>
-      <div
-        ref={scrollRef}
-        data-testid="message-list-scroll"
-        role="log"
-        aria-live="polite"
-        aria-atomic="false"
-        class="min-h-0 flex-1 overflow-y-auto"
-        style={{ "overflow-anchor": "none" }}
-        onScroll={handleScroll}
-      >
-        <div style={{ "min-height": `${Math.max(0, list.viewport() - footerHeight())}px` }}>
-          <Show
-            when={groups().length > 0}
-            fallback={
-              <Show
-                when={!loading()}
-                fallback={
-                  <p
-                    data-testid="message-loading"
-                    class="py-8 text-center text-sm text-fg-secondary"
-                  >
-                    {t("messages:loadingMessages")}
-                  </p>
-                }
-              >
+      <div class="relative flex min-h-0 flex-1 flex-col">
+        <div
+          ref={scrollRef}
+          data-testid="message-list-scroll"
+          role="log"
+          aria-live="polite"
+          aria-atomic="false"
+          class="min-h-0 flex-1 overflow-y-auto"
+          style={{ "overflow-anchor": "none" }}
+          onScroll={handleScroll}
+        >
+          <div style={{ "min-height": `${Math.max(0, list.viewport() - footerHeight())}px` }}>
+            <Show
+              when={groups().length > 0}
+              fallback={
                 <Show
-                  when={error()}
+                  when={!loading()}
                   fallback={
-                    <div data-testid="message-empty" class="py-8 text-center">
-                      <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
-                      <p class="mt-1 text-xs text-fg-faint">{t("messages:noMessagesHint")}</p>
-                    </div>
+                    <p
+                      data-testid="message-loading"
+                      class="py-8 text-center text-sm text-fg-secondary"
+                    >
+                      {t("messages:loadingMessages")}
+                    </p>
                   }
                 >
-                  <div class="flex flex-col gap-4 px-4 py-4">
-                    <ErrorBanner error={error()} onDismiss={() => setError(null)} />
-                    <button
-                      type="button"
-                      data-testid="message-retry"
-                      class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
-                      onClick={() => setLoadKey((key) => key + 1)}
-                    >
-                      {t("common:retry")}
-                    </button>
-                  </div>
+                  <Show
+                    when={error()}
+                    fallback={
+                      <div data-testid="message-empty" class="py-8 text-center">
+                        <p class="text-sm text-fg-secondary">{t("messages:noMessages")}</p>
+                        <p class="mt-1 text-xs text-fg-faint">{t("messages:noMessagesHint")}</p>
+                      </div>
+                    }
+                  >
+                    <div class="flex flex-col gap-4 px-4 py-4">
+                      <ErrorBanner error={error()} onDismiss={() => setError(null)} />
+                      <button
+                        type="button"
+                        data-testid="message-retry"
+                        class="self-center rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1.5 text-sm text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
+                        onClick={() => setLoadKey((key) => key + 1)}
+                      >
+                        {t("common:retry")}
+                      </button>
+                    </div>
+                  </Show>
                 </Show>
-              </Show>
-            }
-          >
-            <div class="relative overflow-clip" style={{ height: `${list.totalHeight()}px` }}>
-              {/* Keyed by message id (solid-primitives Key): a row's
+              }
+            >
+              <div class="relative overflow-clip" style={{ height: `${list.totalHeight()}px` }}>
+                {/* Keyed by message id (solid-primitives Key): a row's
                       measured height change re-positions it (style.top)
                       WITHOUT rebuilding the row subtree. An unkeyed For
                       re-creates the row's MarkdownText on every measurement,
@@ -669,68 +670,82 @@ const MessageList: Component<MessageListProps> = (props) => {
                       loop (the overlap/flicker bug: rows rendered on top of
                       each other while streaming or scrolling). Keeping the
                       DOM alive stops the loop. */}
-              <Key each={rows()} by={(row) => row.renderKey}>
-                {(row) => {
-                  const key = row().renderKey;
-                  onCleanup(() => list.measureRow(key, undefined));
-                  return (
-                    <div
-                      ref={(el) => list.measureRow(row().renderKey, el)}
-                      data-virtual-row={row().index}
-                      data-reverted={row().reverted ? "true" : "false"}
-                      class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
-                        row().reverted ? " opacity-45 saturate-50" : ""
-                      }`}
-                      style={{ top: `${row().start}px` }}
-                    >
-                      <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[58rem]">
-                        <Show
-                          when={row().kind !== "working"}
-                          fallback={
-                            <div data-testid="agent-working" class="w-full">
-                              <ProcessFold
-                                parts={[]}
-                                runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
-                                active
-                                startedAt={row().startedAt}
-                              />
-                            </div>
-                          }
-                        >
-                          <MessageBubble
-                            serverId={props.serverId}
-                            sessionId={props.sessionId}
-                            messageID={row().messageID}
-                            partIds={row().partIds}
-                            activityPartIds={row().activityPartIds}
-                            runPartIds={row().allPartIds}
-                            runKey={row().key}
-                            runActive={row().active}
-                            runStartedAt={row().startedAt}
-                            runCompletedAt={row().completedAt}
-                            runParentMessageID={row().parentMessageID}
-                            runDiffs={runDiffs(row())}
-                            typing={row().typing}
-                            mobile={props.mobile}
-                            onViewDiff={props.onViewDiff}
-                            onViewDiffInTools={props.onViewDiffInTools}
-                            onFork={props.onFork}
-                            onRevert={props.onRevert}
-                            onOpenChild={props.onOpenChild}
-                          />
-                        </Show>
+                <Key each={rows()} by={(row) => row.renderKey}>
+                  {(row) => {
+                    const key = row().renderKey;
+                    onCleanup(() => list.measureRow(key, undefined));
+                    return (
+                      <div
+                        ref={(el) => list.measureRow(row().renderKey, el)}
+                        data-virtual-row={row().index}
+                        data-reverted={row().reverted ? "true" : "false"}
+                        class={`absolute left-0 right-0 px-4 pb-4${row().index === 0 ? " pt-4" : ""}${
+                          row().reverted ? " opacity-45 saturate-50" : ""
+                        }`}
+                        style={{ top: `${row().start}px` }}
+                      >
+                        {/* 36rem keeps the prose near a 90-character measure
+                            when the workbench is closed; it still fills the
+                            column whenever the tool panel narrows the chat. */}
+                        <div data-testid="chat-reading-column" class="mx-auto w-full max-w-[36rem]">
+                          <Show
+                            when={row().kind !== "working"}
+                            fallback={
+                              <div data-testid="agent-working" class="w-full">
+                                <ProcessFold
+                                  parts={[]}
+                                  runKey={`${props.serverId}:${props.sessionId}:${row().key}`}
+                                  active
+                                  startedAt={row().startedAt}
+                                />
+                              </div>
+                            }
+                          >
+                            <MessageBubble
+                              serverId={props.serverId}
+                              sessionId={props.sessionId}
+                              messageID={row().messageID}
+                              partIds={row().partIds}
+                              activityPartIds={row().activityPartIds}
+                              runPartIds={row().allPartIds}
+                              runKey={row().key}
+                              runActive={row().active}
+                              runStartedAt={row().startedAt}
+                              runCompletedAt={row().completedAt}
+                              runParentMessageID={row().parentMessageID}
+                              runDiffs={runDiffs(row())}
+                              typing={row().typing}
+                              mobile={props.mobile}
+                              onViewDiff={props.onViewDiff}
+                              onViewDiffInTools={props.onViewDiffInTools}
+                              onFork={props.onFork}
+                              onRevert={props.onRevert}
+                              onOpenChild={props.onOpenChild}
+                            />
+                          </Show>
+                        </div>
                       </div>
-                    </div>
-                  );
-                }}
-              </Key>
+                    );
+                  }}
+                </Key>
+              </div>
+            </Show>
+          </div>
+          <Show when={footer()}>
+            <div ref={footerRef} class="sticky bottom-0 z-10 flow-root bg-bg-base">
+              {footer()}
             </div>
           </Show>
         </div>
-        <Show when={footer()}>
-          <div ref={footerRef} class="sticky bottom-0 z-10 flow-root bg-bg-base">
-            {footer()}
-          </div>
+        {/* Softens the transcript edge where scrolled rows meet the chat
+            header, so a partially visible row never reads as a clipped bug.
+            Hidden at the very top where there is nothing to soften. */}
+        <Show when={list.scrollTop() > 4}>
+          <div
+            aria-hidden="true"
+            class="pointer-events-none absolute inset-x-0 top-0 h-6"
+            style={{ background: "linear-gradient(to bottom, var(--bg-base), transparent)" }}
+          />
         </Show>
       </div>
       <Show when={hasNew() && !loading()}>

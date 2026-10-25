@@ -1215,35 +1215,76 @@ const WorkspaceTree: Component<WorkspaceTreeProps> = (props) => {
         <div class="pt-1.5">
           <ErrorBanner error={createError()} onDismiss={() => setCreateError(null)} />
         </div>
-        <button
-          type="button"
-          data-testid="workspace-new-session"
-          class="mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint disabled:cursor-not-allowed disabled:opacity-50"
-          disabled={creating()}
-          onClick={() => void handleCreate()}
-        >
-          + {t("sessions:newSession")}
-        </button>
-        <button
-          type="button"
-          data-testid="workspace-add-workspace"
-          class="mb-1.5 flex w-full items-center justify-center gap-1 rounded-md border border-bg-sunken bg-bg-sunken px-3 py-1 text-xs text-fg-secondary outline-none hover:border-fg-faint hover:text-fg-primary focus:border-fg-faint"
-          onClick={() => {
-            setPickerDir(undefined);
-            setPickerOpen(true);
-          }}
-        >
-          + {t("sessions:addWorkspace")}
-        </button>
-        <input
-          type="search"
-          data-testid="workspace-search"
-          aria-label={t("sessions:search")}
-          placeholder={t("sessions:search")}
-          value={query()}
-          onInput={(event) => setQuery(event.currentTarget.value)}
-          class="w-full rounded-md border border-bg-sunken bg-bg-sunken px-2.5 py-1 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
-        />
+        <div class="mb-1.5 flex items-center gap-1">
+          <button
+            type="button"
+            data-testid="workspace-new-session"
+            class="flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs text-fg-secondary outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary focus-visible:bg-bg-sunken disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={creating()}
+            onClick={() => void handleCreate()}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.8"
+              stroke-linecap="round"
+              class="h-3.5 w-3.5 shrink-0"
+              aria-hidden="true"
+            >
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+            <span class="truncate">{t("sessions:newSession")}</span>
+          </button>
+          <button
+            type="button"
+            data-testid="workspace-add-workspace"
+            aria-label={t("sessions:addWorkspace")}
+            title={t("sessions:addWorkspace")}
+            class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-fg-faint outline-none transition-colors hover:bg-bg-sunken hover:text-fg-primary focus-visible:bg-bg-sunken"
+            onClick={() => {
+              setPickerDir(undefined);
+              setPickerOpen(true);
+            }}
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.6"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              class="h-4 w-4"
+              aria-hidden="true"
+            >
+              <path d="M3.5 7.5A1.5 1.5 0 0 1 5 6h4l1.6 2H19a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 19 19H5a1.5 1.5 0 0 1-1.5-1.5z" />
+              <path d="M12 11.5v5M9.5 14h5" />
+            </svg>
+          </button>
+        </div>
+        <div class="relative mb-0.5">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.8"
+            stroke-linecap="round"
+            class="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-fg-faint"
+            aria-hidden="true"
+          >
+            <circle cx="11" cy="11" r="6.5" />
+            <path d="m16 16 4 4" />
+          </svg>
+          <input
+            type="search"
+            data-testid="workspace-search"
+            aria-label={t("sessions:search")}
+            placeholder={t("sessions:search")}
+            value={query()}
+            onInput={(event) => setQuery(event.currentTarget.value)}
+            class="w-full rounded-md border border-transparent bg-bg-base px-2 py-1 pl-7 text-xs outline-none placeholder:text-fg-faint focus:border-fg-faint"
+          />
+        </div>
         <Show when={selectionMode()}>
           <div class="mt-1.5 flex items-center justify-between gap-2 text-xs text-fg-secondary">
             <span data-testid="workspace-selection-count">

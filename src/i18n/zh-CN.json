@@ -853,6 +853,7 @@
     "chatHeaderActions": "对话操作",
     "statusBar": "状态栏",
     "noSession": "选择一个会话",
+    "noSessionHint": "在侧边栏选择一个会话开始阅读。",
     "chatTab": "聊天",
     "filesTab": "文件",
     "treeTab": "文件树",

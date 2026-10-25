@@ -8,298 +8,296 @@ exports[`MessageList > matches the fixture history snapshot 1`] = `
     data-testid="message-list"
   >
     <div
-      aria-atomic="false"
-      aria-live="polite"
-      class="min-h-0 flex-1 overflow-y-auto"
-      data-testid="message-list-scroll"
-      role="log"
-      style="overflow-anchor:none"
+      class="relative flex min-h-0 flex-1 flex-col"
     >
       <div
-        style="min-height: 0px;"
+        aria-atomic="false"
+        aria-live="polite"
+        class="min-h-0 flex-1 overflow-y-auto"
+        data-testid="message-list-scroll"
+        role="log"
+        style="overflow-anchor:none"
       >
         <div
-          class="relative overflow-clip"
-          style="height: 384px;"
+          style="min-height: 0px;"
         >
           <div
-            class="absolute left-0 right-0 px-4 pb-4 pt-4"
-            data-reverted="false"
-            data-virtual-row="0"
-            style="top: 0px;"
+            class="relative overflow-clip"
+            style="height: 384px;"
           >
             <div
-              class="mx-auto w-full max-w-[58rem]"
-              data-testid="chat-reading-column"
+              class="absolute left-0 right-0 px-4 pb-4 pt-4"
+              data-reverted="false"
+              data-virtual-row="0"
+              style="top: 0px;"
             >
               <div
-                aria-haspopup="menu"
-                class="group relative flex flex-col gap-1 outline-none items-end"
-                data-role="user"
-                data-testid="message-msg_m1"
-                tabindex="0"
+                class="mx-auto w-full max-w-[36rem]"
+                data-testid="chat-reading-column"
               >
                 <div
-                  class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+                  aria-haspopup="menu"
+                  class="group relative flex flex-col gap-1 outline-none items-end"
+                  data-role="user"
+                  data-testid="message-msg_m1"
+                  tabindex="0"
                 >
                   <div
-                    class="user-message-content"
-                    data-collapsed="false"
-                    data-testid="user-message-content"
-                    id="cl-109"
-                    style="height: auto;"
+                    class="max-w-[78%] rounded-2xl rounded-br-md bg-bg-elevated px-3.5 py-2"
                   >
-                    <div>
-                      <div
-                        data-testid="text-part"
-                      >
+                    <div
+                      class="user-message-content"
+                      data-collapsed="false"
+                      data-testid="user-message-content"
+                      id="cl-109"
+                      style="height: auto;"
+                    >
+                      <div>
                         <div
-                          class="markdown-body text-sm leading-relaxed"
-                          data-testid="markdown-text"
+                          data-testid="text-part"
                         >
-                          <p>
-                            Add a login flow with password-based auth.
-                          </p>
+                          <div
+                            class="markdown-body text-sm leading-relaxed"
+                            data-testid="markdown-text"
+                          >
+                            <p>
+                              Add a login flow with password-based auth.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+                  <button
+                    aria-label="Message actions"
+                    class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                    data-testid="message-actions"
+                    type="button"
+                  >
+                    ⋯
+                  </button>
                 </div>
-                <span
-                  class="px-1 text-xs text-fg-faint"
-                  data-testid="message-time"
-                >
-                  10:26
-                </span>
-                <button
-                  aria-label="Message actions"
-                  class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                  data-testid="message-actions"
-                  type="button"
-                >
-                  ⋯
-                </button>
               </div>
             </div>
-          </div>
-          <div
-            class="absolute left-0 right-0 px-4 pb-4"
-            data-reverted="false"
-            data-virtual-row="1"
-            style="top: 96px;"
-          >
             <div
-              class="mx-auto w-full max-w-[58rem]"
-              data-testid="chat-reading-column"
+              class="absolute left-0 right-0 px-4 pb-4"
+              data-reverted="false"
+              data-virtual-row="1"
+              style="top: 96px;"
             >
               <div
-                aria-haspopup="menu"
-                class="group relative flex flex-col gap-1 outline-none items-start"
-                data-role="assistant"
-                data-testid="message-msg_m2"
-                tabindex="0"
+                class="mx-auto w-full max-w-[36rem]"
+                data-testid="chat-reading-column"
               >
                 <div
-                  class="w-full max-w-none"
+                  aria-haspopup="menu"
+                  class="group relative flex flex-col gap-1 outline-none items-start"
+                  data-role="assistant"
+                  data-testid="message-msg_m2"
+                  tabindex="0"
                 >
                   <div
-                    class="reply-activity my-3"
-                    data-active="false"
-                    data-status="complete"
-                    data-testid="process-fold"
+                    class="w-full max-w-none"
                   >
-                    <button
-                      aria-expanded="true"
-                      class="reply-activity-header flex min-h-8 w-full items-center gap-1.5 border-b border-bg-sunken py-1 text-left text-sm outline-none focus:bg-accent-soft disabled:cursor-default"
-                      data-testid="process-fold-toggle"
-                      type="button"
+                    <div
+                      class="reply-activity my-3"
+                      data-active="false"
+                      data-status="complete"
+                      data-testid="process-fold"
                     >
-                      <span
-                        aria-hidden="true"
-                        class="inline-block w-3 shrink-0 text-fg-faint"
+                      <button
+                        aria-expanded="true"
+                        class="reply-activity-header flex min-h-8 w-full items-center gap-1.5 border-b border-bg-sunken py-1 text-left text-sm outline-none focus:bg-accent-soft disabled:cursor-default"
+                        data-testid="process-fold-toggle"
+                        type="button"
                       >
                         <span
-                          class="inline-block transition-transform rotate-90"
+                          aria-hidden="true"
+                          class="inline-block w-3 shrink-0 text-fg-faint"
                         >
-                          ▸
-                        </span>
-                      </span>
-                      <span
-                        class="min-w-0 truncate text-fg-secondary"
-                        data-testid="process-fold-status"
-                      >
-                        Took 15s
-                      </span>
-                    </button>
-                    <div
-                      aria-hidden="false"
-                      class="reply-activity-body"
-                      data-expanded="true"
-                      data-testid="process-fold-body"
-                    >
-                      <div
-                        class="reply-activity-items space-y-3 pt-3"
-                      >
-                        <div
-                          class="reply-activity-entry min-w-0 "
-                          data-kind="summary"
-                          data-phase="decide"
-                          data-status="complete"
-                          data-testid="activity-entry"
-                        >
-                          <button
-                            aria-expanded="false"
-                            class="reply-activity-thought flex w-full min-w-0 items-center gap-1.5 text-left text-sm text-fg-secondary outline-none focus:bg-accent-soft"
-                            data-testid="activity-entry-toggle"
-                            type="button"
+                          <span
+                            class="inline-block transition-transform rotate-90"
                           >
-                            <span
-                              aria-hidden="true"
-                              class="inline-block shrink-0 text-fg-faint transition-transform "
-                            >
-                              ▸
-                            </span>
-                            <span
-                              class="max-w-[35%] truncate font-medium text-fg-secondary"
-                            >
-                              Thinking
-                            </span>
-                            <span
-                              class="min-w-0 flex-1 truncate text-fg-faint"
-                            >
-                              The client needs a login form, a session store, and an auth API call.
-                            </span>
-                          </button>
-                          <div
-                            aria-hidden="true"
-                            class="chat-disclosure"
-                          />
-                        </div>
+                            ▸
+                          </span>
+                        </span>
+                        <span
+                          class="min-w-0 truncate text-fg-secondary"
+                          data-testid="process-fold-status"
+                        >
+                          Took 15s
+                        </span>
+                      </button>
+                      <div
+                        aria-hidden="false"
+                        class="reply-activity-body"
+                        data-expanded="true"
+                        data-testid="process-fold-body"
+                      >
                         <div
-                          class="reply-activity-entry min-w-0 "
-                          data-kind="command"
-                          data-phase="verify"
-                          data-status="complete"
-                          data-testid="activity-entry"
+                          class="reply-activity-items space-y-3 pt-3"
                         >
                           <div
-                            class="reply-tool my-1 min-w-0"
-                            data-status="completed"
-                            data-testid="tool-part"
+                            class="reply-activity-entry min-w-0 "
+                            data-kind="summary"
+                            data-phase="decide"
+                            data-status="complete"
+                            data-testid="activity-entry"
                           >
                             <button
-                              aria-controls="cl-111"
-                              aria-expanded="true"
-                              class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
-                              data-testid="tool-toggle"
+                              aria-expanded="false"
+                              class="reply-activity-thought flex w-full min-w-0 items-center gap-1.5 text-left text-sm text-fg-secondary outline-none focus:bg-accent-soft"
+                              data-testid="activity-entry-toggle"
                               type="button"
                             >
                               <span
-                                aria-hidden=""
-                                class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+                                aria-hidden="true"
+                                class="inline-block shrink-0 text-fg-faint transition-transform "
                               >
                                 ▸
                               </span>
-                              <svg
-                                aria-hidden=""
-                                class="h-3.5 w-3.5 shrink-0 text-success"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="2"
-                                viewBox="0 0 16 16"
-                              >
-                                <path
-                                  d="M3 8.5l3.5 3.5L13 5"
-                                />
-                              </svg>
-                              <svg
-                                aria-hidden=""
-                                class="h-3.5 w-3.5 shrink-0 text-fg-faint"
-                                fill="none"
-                                stroke="currentColor"
-                                stroke-linecap="round"
-                                stroke-linejoin="round"
-                                stroke-width="1.5"
-                                viewBox="0 0 16 16"
-                              >
-                                <path
-                                  d="M2.5 3.5 6.5 8l-4 4.5"
-                                />
-                                <path
-                                  d="M8 12.5h5.5"
-                                />
-                              </svg>
                               <span
-                                class="min-w-0 flex-1 font-code text-fg-secondary whitespace-pre-wrap break-words"
-                                data-testid="tool-summary"
+                                class="max-w-[35%] truncate font-medium text-fg-secondary"
                               >
-                                Ran command
+                                Thinking
                               </span>
                               <span
-                                class="shrink-0 font-code text-xs text-fg-faint"
-                                data-testid="tool-duration"
+                                class="min-w-0 flex-1 truncate text-fg-faint"
                               >
-                                3s
-                              </span>
-                              <span
-                                class="sr-only"
-                                data-testid="tool-status-label"
-                              >
-                                bash completed
+                                The client needs a login form, a session store, and an auth API call.
                               </span>
                             </button>
                             <div
-                              aria-hidden="false"
+                              aria-hidden="true"
                               class="chat-disclosure"
+                            />
+                          </div>
+                          <div
+                            class="reply-activity-entry min-w-0 "
+                            data-kind="command"
+                            data-phase="verify"
+                            data-status="complete"
+                            data-testid="activity-entry"
+                          >
+                            <div
+                              class="reply-tool my-1 min-w-0"
+                              data-status="completed"
+                              data-testid="tool-part"
                             >
+                              <button
+                                aria-controls="cl-111"
+                                aria-expanded="true"
+                                class="flex min-w-0 w-full items-center gap-1.5 rounded-sm py-1 text-left text-sm outline-none hover:bg-bg-sunken/50 focus:bg-accent-soft"
+                                data-testid="tool-toggle"
+                                type="button"
+                              >
+                                <span
+                                  aria-hidden=""
+                                  class="mt-px inline-block shrink-0 text-fg-faint transition-transform rotate-90"
+                                >
+                                  ▸
+                                </span>
+                                <svg
+                                  aria-hidden=""
+                                  class="h-3.5 w-3.5 shrink-0 text-success"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="2"
+                                  viewBox="0 0 16 16"
+                                >
+                                  <path
+                                    d="M3 8.5l3.5 3.5L13 5"
+                                  />
+                                </svg>
+                                <svg
+                                  aria-hidden=""
+                                  class="h-3.5 w-3.5 shrink-0 text-fg-faint"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  stroke-linecap="round"
+                                  stroke-linejoin="round"
+                                  stroke-width="1.5"
+                                  viewBox="0 0 16 16"
+                                >
+                                  <path
+                                    d="M2.5 3.5 6.5 8l-4 4.5"
+                                  />
+                                  <path
+                                    d="M8 12.5h5.5"
+                                  />
+                                </svg>
+                                <span
+                                  class="min-w-0 flex-1 font-code text-fg-secondary whitespace-pre-wrap break-words"
+                                  data-testid="tool-summary"
+                                >
+                                  Ran command
+                                </span>
+                                <span
+                                  class="shrink-0 font-code text-xs text-fg-faint"
+                                  data-testid="tool-duration"
+                                >
+                                  3s
+                                </span>
+                                <span
+                                  class="sr-only"
+                                  data-testid="tool-status-label"
+                                >
+                                  bash completed
+                                </span>
+                              </button>
                               <div
-                                class="reply-tool-detail mt-1 space-y-2"
-                                data-testid="tool-detail"
-                                id="cl-111"
+                                aria-hidden="false"
+                                class="chat-disclosure"
                               >
                                 <div
-                                  class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
-                                  data-testid="tool-terminal"
+                                  class="reply-tool-detail mt-1 space-y-2"
+                                  data-testid="tool-detail"
+                                  id="cl-111"
                                 >
                                   <div
-                                    class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
-                                  >
-                                    <span
-                                      class="truncate text-fg-faint"
-                                    >
-                                      Terminal
-                                    </span>
-                                    <button
-                                      class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                                      data-testid="tool-copy"
-                                      type="button"
-                                    >
-                                      Copy
-                                    </button>
-                                  </div>
-                                  <div
-                                    class="space-y-1 px-2 py-1.5"
+                                    class="overflow-hidden rounded-sm bg-bg-sunken font-code text-xs"
+                                    data-testid="tool-terminal"
                                   >
                                     <div
-                                      class="text-fg-primary"
+                                      class="flex items-center justify-between gap-2 border-b border-bg-base/40 px-2 py-1"
                                     >
                                       <span
-                                        class="select-none text-success"
+                                        class="truncate text-fg-faint"
                                       >
-                                        $ 
+                                        Terminal
                                       </span>
-                                      ls src
+                                      <button
+                                        class="shrink-0 rounded-sm px-1.5 py-0.5 text-[10px] text-fg-faint outline-none hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                                        data-testid="tool-copy"
+                                        type="button"
+                                      >
+                                        Copy
+                                      </button>
                                     </div>
-                                    <pre
-                                      class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                    <div
+                                      class="space-y-1 px-2 py-1.5"
                                     >
-                                      auth/
+                                      <div
+                                        class="text-fg-primary"
+                                      >
+                                        <span
+                                          class="select-none text-success"
+                                        >
+                                          $ 
+                                        </span>
+                                        ls src
+                                      </div>
+                                      <pre
+                                        class="max-h-80 overflow-y-auto whitespace-pre-wrap break-words text-fg-secondary"
+                                      >
+                                        auth/
 components/
 services/
 
-                                    </pre>
+                                      </pre>
+                                    </div>
                                   </div>
                                 </div>
                               </div>
@@ -308,144 +306,126 @@ services/
                         </div>
                       </div>
                     </div>
-                  </div>
-                  <div
-                    data-testid="text-part"
-                  >
                     <div
-                      class="markdown-body text-sm leading-relaxed"
-                      data-testid="markdown-text"
+                      data-testid="text-part"
                     >
-                      <p>
-                        Let me check the existing project structure first.
-                      </p>
+                      <div
+                        class="markdown-body text-sm leading-relaxed"
+                        data-testid="markdown-text"
+                      >
+                        <p>
+                          Let me check the existing project structure first.
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    aria-label="Message actions"
+                    class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                    data-testid="message-actions"
+                    type="button"
+                  >
+                    ⋯
+                  </button>
                 </div>
-                <span
-                  class="px-1 text-xs text-fg-faint"
-                  data-testid="message-time"
-                >
-                  10:26
-                </span>
-                <button
-                  aria-label="Message actions"
-                  class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                  data-testid="message-actions"
-                  type="button"
-                >
-                  ⋯
-                </button>
               </div>
             </div>
-          </div>
-          <div
-            class="absolute left-0 right-0 px-4 pb-4"
-            data-reverted="false"
-            data-virtual-row="2"
-            style="top: 192px;"
-          >
             <div
-              class="mx-auto w-full max-w-[58rem]"
-              data-testid="chat-reading-column"
+              class="absolute left-0 right-0 px-4 pb-4"
+              data-reverted="false"
+              data-virtual-row="2"
+              style="top: 192px;"
             >
               <div
-                aria-haspopup="menu"
-                class="group relative flex flex-col gap-1 outline-none items-end"
-                data-role="user"
-                data-testid="message-msg_m3"
-                tabindex="0"
+                class="mx-auto w-full max-w-[36rem]"
+                data-testid="chat-reading-column"
               >
                 <div
-                  class="max-w-[78%] rounded-2xl rounded-br-md bg-accent-soft px-3.5 py-2"
+                  aria-haspopup="menu"
+                  class="group relative flex flex-col gap-1 outline-none items-end"
+                  data-role="user"
+                  data-testid="message-msg_m3"
+                  tabindex="0"
                 >
                   <div
-                    class="user-message-content"
-                    data-collapsed="false"
-                    data-testid="user-message-content"
-                    id="cl-112"
-                    style="height: auto;"
+                    class="max-w-[78%] rounded-2xl rounded-br-md bg-bg-elevated px-3.5 py-2"
                   >
-                    <div>
-                      <div
-                        data-testid="text-part"
-                      >
+                    <div
+                      class="user-message-content"
+                      data-collapsed="false"
+                      data-testid="user-message-content"
+                      id="cl-112"
+                      style="height: auto;"
+                    >
+                      <div>
                         <div
-                          class="markdown-body text-sm leading-relaxed"
-                          data-testid="markdown-text"
+                          data-testid="text-part"
                         >
-                          <p>
-                            Also add a logout button to the sidebar.
-                          </p>
+                          <div
+                            class="markdown-body text-sm leading-relaxed"
+                            data-testid="markdown-text"
+                          >
+                            <p>
+                              Also add a logout button to the sidebar.
+                            </p>
+                          </div>
                         </div>
                       </div>
                     </div>
                   </div>
+                  <button
+                    aria-label="Message actions"
+                    class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                    data-testid="message-actions"
+                    type="button"
+                  >
+                    ⋯
+                  </button>
                 </div>
-                <span
-                  class="px-1 text-xs text-fg-faint"
-                  data-testid="message-time"
-                >
-                  10:26
-                </span>
-                <button
-                  aria-label="Message actions"
-                  class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                  data-testid="message-actions"
-                  type="button"
-                >
-                  ⋯
-                </button>
               </div>
             </div>
-          </div>
-          <div
-            class="absolute left-0 right-0 px-4 pb-4"
-            data-reverted="false"
-            data-virtual-row="3"
-            style="top: 288px;"
-          >
             <div
-              class="mx-auto w-full max-w-[58rem]"
-              data-testid="chat-reading-column"
+              class="absolute left-0 right-0 px-4 pb-4"
+              data-reverted="false"
+              data-virtual-row="3"
+              style="top: 288px;"
             >
               <div
-                aria-haspopup="menu"
-                class="group relative flex flex-col gap-1 outline-none items-start"
-                data-role="assistant"
-                data-testid="message-msg_m4"
-                tabindex="0"
+                class="mx-auto w-full max-w-[36rem]"
+                data-testid="chat-reading-column"
               >
                 <div
-                  class="w-full max-w-none"
+                  aria-haspopup="menu"
+                  class="group relative flex flex-col gap-1 outline-none items-start"
+                  data-role="assistant"
+                  data-testid="message-msg_m4"
+                  tabindex="0"
                 >
                   <div
-                    data-testid="text-part"
+                    class="w-full max-w-none"
                   >
                     <div
-                      class="markdown-body text-sm leading-relaxed"
-                      data-testid="markdown-text"
+                      data-testid="text-part"
                     >
-                      <p>
-                        Done. The sidebar now shows a logout button in the account section.
-                      </p>
+                      <div
+                        class="markdown-body text-sm leading-relaxed"
+                        data-testid="markdown-text"
+                      >
+                        <p>
+                          Done. The sidebar now shows a logout button in the account section.
+                        </p>
+                      </div>
                     </div>
                   </div>
+                  <button
+                    aria-label="Message actions"
+                    class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
+                    data-testid="message-actions"
+                    type="button"
+                  >
+                    ⋯
+                  </button>
                 </div>
-                <span
-                  class="px-1 text-xs text-fg-faint"
-                  data-testid="message-time"
-                >
-                  10:26
-                </span>
-                <button
-                  aria-label="Message actions"
-                  class="invisible absolute right-1 top-1 z-10 rounded-md px-1.5 text-sm leading-none text-fg-secondary opacity-0 transition-opacity outline-none group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100 hover:bg-accent-soft hover:text-fg-primary focus:bg-accent-soft"
-                  data-testid="message-actions"
-                  type="button"
-                >
-                  ⋯
-                </button>
               </div>
             </div>
           </div>
